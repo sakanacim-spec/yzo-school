@@ -120,7 +120,10 @@ async function createSchool(req, res) {
     }
 
     try {
-        const cleanSlug = validatedData.slug;
+        const cleanSlug = validatedData.slug
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/(^_|_$)+/g, '');
 
         // Vérifier si le slug est déjà utilisé
         const { data: existing } = await supabase

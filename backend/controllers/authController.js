@@ -139,8 +139,8 @@ async function registerSchool(req, res) {
         // Generate a clean slug from the school name
         const cleanSlug = validatedData.school_name
             .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/(^-|-$)+/g, '');
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/(^_|_$)+/g, '');
 
         // Vérifier si le slug est déjà utilisé
         const { data: existing } = await supabase
