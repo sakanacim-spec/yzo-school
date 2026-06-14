@@ -160,8 +160,7 @@ async function registerSchool(req, res) {
             name: validatedData.school_name.trim(),
             slug: cleanSlug,
             status: 'trial',
-            trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // +2 mois
-            signup_ip_hash: ipHash
+            trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +2 mois
         };
 
         const { data: school, error: schoolErr } = await supabase
