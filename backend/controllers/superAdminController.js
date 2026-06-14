@@ -242,7 +242,7 @@ async function updateSchoolStatus(req, res) {
 // Modifier les informations d'une école
 async function updateSchool(req, res) {
     const { id } = req.params;
-    const { name, address, phone, email, logo_url, trial_ends_at } = req.body;
+    const { name, address, phone, email, trial_ends_at } = req.body;
 
     try {
         const updates = {};
@@ -250,7 +250,7 @@ async function updateSchool(req, res) {
         if (address !== undefined) updates.address = address;
         if (phone !== undefined) updates.phone = phone;
         if (email !== undefined) updates.email = email;
-        if (logo_url !== undefined) updates.logo_url = logo_url;
+        // if (logo_url !== undefined) updates.logo_url = logo_url;
         if (trial_ends_at !== undefined) updates.trial_ends_at = trial_ends_at;
 
         const { data: school, error } = await supabase
@@ -404,7 +404,7 @@ async function impersonateSchool(req, res) {
                 role: 'admin',
                 school_name: school.name,
                 school_slug: school.slug,
-                school_logo: school.logo_url
+                school_logo: null
             }
         });
     } catch (err) {

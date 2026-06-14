@@ -128,7 +128,7 @@ async function login(req, res) {
         const { data: superadmin } = await supabase
             .from('superadmins')
             .select('*')
-            .eq('telephone', telephone.trim())
+            .eq('username', telephone.trim())
             .single();
 
         if (superadmin) {
@@ -158,7 +158,7 @@ async function login(req, res) {
         // Vérification accès école
         const { data: school, error: schoolErr } = await supabase
             .from('schools')
-            .select('id, name, slug, status, trial_ends_at, logo_url')
+            .select('id, name, slug, status, trial_ends_at')
             .eq('slug', schoolSlug)
             .single();
 
@@ -210,7 +210,7 @@ async function login(req, res) {
                 role: user.role,
                 school_name: school.name,
                 school_slug: school.slug,
-                school_logo: school.logo_url
+                school_logo: null
             },
         });
     } catch (err) {

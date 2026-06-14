@@ -317,7 +317,7 @@ export const Login: React.FC = () => {
               <div className="social-container text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-2">Accès {appName}</div>
               
               <select className="auth-input mb-4 font-bold text-slate-600 border border-slate-200" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}>
-                  <option value="">Accès SuperAdmin Global</option>
+                  <option value="">Accès Global (SuperAdmin)</option>
                   <option disabled>────── Établissements ──────</option>
                   {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
               </select>
@@ -391,7 +391,7 @@ export const Login: React.FC = () => {
                     <div className="relative mb-2">
                         <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
                         <select className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 appearance-none" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} required={view === 'register'}>
-                            {view !== 'register' && <option value="">Accès SuperAdmin Global</option>}
+                            {view !== 'register' && <option value="">Accès Global (SuperAdmin)</option>}
                             {view !== 'register' && <option disabled>────── Établissements ──────</option>}
                             {view === 'register' && <option value="" disabled>-- Sélectionnez votre école --</option>}
                             {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}

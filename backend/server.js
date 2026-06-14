@@ -20,7 +20,7 @@ const app = express();
 
 // Middleware globaux
 app.use(cors({
-    origin: '*', // Plus flexible pour le dév, à restreindre en prod
+    origin: true, // Accepte dynamiquement toutes les origines locales
     credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -49,7 +49,7 @@ app.get('/api/schools', async (req, res) => {
     try {
         const { data: schools, error } = await supabase
             .from('schools')
-            .select('slug, name, logo_url')
+            .select('slug, name')
             .in('status', ['active', 'trial'])
             .order('name');
         if (error) throw error;
