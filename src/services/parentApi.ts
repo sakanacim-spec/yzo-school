@@ -20,6 +20,18 @@ export const parentApi = {
         return result;
     },
 
+    registerSchool: async (data: any) => {
+        const res = await fetch(`${API_URL}/auth/register-school`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await parseResponse(res);
+        if (!res.ok) throw result;
+        if (result.token) localStorage.setItem('parent_token', result.token); // using the same token storage for all roles
+        return result;
+    },
+
     login: async (data: any) => {
         const res = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',

@@ -30,6 +30,26 @@ const parentRegisterSchema = Joi.object({
     parent_photo_authorization: Joi.boolean().default(false)
 });
 
+// Joi validation schema for SaaS School registration
+const schoolRegisterSchema = Joi.object({
+    school_name: Joi.string().trim().required().messages({
+        'any.required': 'Le nom de l\'établissement est requis.'
+    }),
+    school_type: Joi.string().trim().required().messages({
+        'any.required': 'Le type d\'établissement est requis.'
+    }),
+    admin_nom: Joi.string().trim().required().messages({
+        'any.required': 'Le nom du directeur est requis.'
+    }),
+    admin_telephone: Joi.string().trim().required().messages({
+        'any.required': 'Le numéro de téléphone du directeur est requis.'
+    }),
+    admin_password: Joi.string().min(6).required().messages({
+        'string.min': 'Le mot de passe doit contenir au moins 6 caractères.',
+        'any.required': 'Le mot de passe est requis.'
+    })
+});
+
 function getIpHash(req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
     const clientIp = typeof ip === 'string' ? ip.split(',')[0].trim() : String(ip);
@@ -104,6 +124,94 @@ async function register(req, res) {
     } catch (err) {
         console.error('Register Error:', err.message);
         return res.status(500).json({ error: 'Erreur lors de la création du compte : ' + err.message });
+    }
+}
+
+// ── Register School (SaaS Onboarding) ────────────────────────
+async function registerSchool(req, res) {
+    const { value: validatedData, error: validationError } = schoolRegisterSchema.validate(req.body, { abortEarly: false });
+    
+    if (validationError) {
+        return res.status(400).json({ error: validationError.details.map(d => d.message).join(', ') });
+    }
+
+    try {
+        // Generate a clean slug from the school name
+        const cleanSlug = validatedData.school_name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)+/g, '');
+
+        // Vérifier si le slug est déjà utilisé
+        const { data: existing } = await supabase
+            .from('schools')
+            .select('id')
+            .eq('slug', cleanSlug)
+            .single();
+
+        if (existing) {
+            return res.status(409).json({ error: `Le nom "${validatedData.school_name}" génère un identifiant déjà utilisé. Veuillez choisir un nom légèrement différent.` });
+        }
+
+        const ipHash = getIpHash(req);
+
+        // 1. Créer l'école
+        const schoolPayload = {
+            name: validatedData.school_name.trim(),
+            slug: cleanSlug,
+            status: 'trial',
+            trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // +2 mois
+            signup_ip_hash: ipHash
+        };
+
+        const { data: school, error: schoolErr } = await supabase
+            .from('schools')
+            .insert(schoolPayload)
+            .select()
+            .single();
+
+        if (schoolErr) throw schoolErr;
+
+        // 2. Créer le jeu de tables avec l'appel RPC
+        const { error: rpcErr } = await supabase.rpc('create_school_tables', { school_slug: cleanSlug });
+        if (rpcErr) throw rpcErr;
+
+        // Attendre que la base recharge son schéma
+        await new Promise(r => setTimeout(r, 1000));
+
+        // 3. Créer le compte SchoolAdmin (directeur)
+        const hashed = await bcrypt.hash(validatedData.admin_password, 10);
+
+        const adminPayload = {
+            nom: validatedData.admin_nom.trim(),
+            telephone: validatedData.admin_telephone.trim(),
+            password: hashed,
+            role: 'directeur'
+        };
+
+        const { data: adminUser, error: adminErr } = await supabase
+            .from(`profiles_${cleanSlug}`)
+            .insert(adminPayload)
+            .select()
+            .single();
+
+        if (adminErr) throw adminErr;
+
+        // Automatically log them in
+        const token = jwt.sign(
+            { id: adminUser.id, nom: adminUser.nom, role: adminUser.role, schoolSlug: cleanSlug },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES }
+        );
+
+        return res.status(201).json({
+            message: 'Établissement et compte Directeur créés avec succès.',
+            token,
+            user: { id: adminUser.id, nom: adminUser.nom, telephone: adminUser.telephone, role: adminUser.role, schoolSlug: cleanSlug }
+        });
+    } catch (err) {
+        console.error('Register School Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la création de l\'établissement : ' + err.message });
     }
 }
 
@@ -258,4 +366,10 @@ async function updatePushToken(req, res) {
     }
 }
 
-module.exports = { register, login, deleteSelfAccount, updatePushToken };
+module.exports = {
+    register,
+    registerSchool,
+    login,
+    deleteSelfAccount,
+    updatePushToken
+};

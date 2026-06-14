@@ -67,6 +67,8 @@ export const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [nom, setNom] = useState('');
+  const [schoolName, setSchoolName] = useState('');
+  const [schoolType, setSchoolType] = useState('');
   const [error, setError] = useState('');
   const [trialExpiredSchool, setTrialExpiredSchool] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -107,24 +109,28 @@ export const Login: React.FC = () => {
             const ok = await login(username, password, selectedSchool);
             if (!ok) setError('Identifiants incorrects.');
         } else {
+            if (!schoolType) {
+                setError("Veuillez sélectionner un type d'établissement.");
+                setLoading(false);
+                return;
+            }
             if (!acceptedTerms || !acceptedPrivacy) {
                 setError("Vous devez accepter les conditions d'utilisation et la politique de confidentialité.");
                 setLoading(false);
                 return;
             }
             setLoading(true);
-            await parentApi.register({
-                nom,
-                telephone: username,
-                password,
-                school_slug: selectedSchool,
-                accepted_terms: acceptedTerms,
-                accepted_privacy_policy: acceptedPrivacy,
-                parent_photo_authorization: parentPhotoAuth,
-                marketing_consent: marketingConsent
+            const result = await parentApi.registerSchool({
+                school_name: schoolName,
+                school_type: schoolType,
+                admin_nom: nom,
+                admin_telephone: username,
+                admin_password: password
             });
-            // On reste en local pour l'étape de liaison avant de déclencher l'auth globale
-            setView('link');
+            // Automatically log in using the token from the response
+            if (result.token) {
+                 window.location.reload();
+            }
         }
     } catch (err: any) {
         const msg: string = err?.message || err?.error || "Une erreur est survenue.";
@@ -262,49 +268,41 @@ export const Login: React.FC = () => {
           <div className="form-container sign-up-container">
             <form className="auth-form" onSubmit={(e) => handleAuth(e, 'register')}>
               <SchoolLogo />
-              <h1 className="text-2xl font-black text-slate-900 tracking-tighter">Créer un compte</h1>
-              <div className="social-container text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-2">Inscription Parent</div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tighter">Créer mon école</h1>
+              <div className="social-container text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-2">Inscription SaaS</div>
               
-              <select className="auth-input mb-4 font-bold text-slate-600 border border-slate-200" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} required>
-                  <option value="" disabled>-- Sélectionnez votre établissement --</option>
-                  {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
+              <input type="text" placeholder="Nom de l'établissement" className="auth-input" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} required />
+              
+              <select className="auth-input mb-4 font-bold text-slate-600 border border-slate-200" value={schoolType} onChange={(e) => setSchoolType(e.target.value)} required>
+                  <option value="" disabled>-- Type d'établissement --</option>
+                  <option value="Primaire">École Primaire</option>
+                  <option value="Collège">Collège</option>
+                  <option value="Lycée">Lycée</option>
+                  <option value="Complexe">Complexe Scolaire</option>
               </select>
 
-              <input type="text" placeholder="Nom complet" className="auth-input" value={nom} onChange={(e) => setNom(e.target.value)} required />
-              <input type="tel" placeholder="Téléphone" className="auth-input" value={username} onChange={(e) => setUsername(e.target.value)} required />
+              <input type="text" placeholder="Nom complet du Directeur" className="auth-input" value={nom} onChange={(e) => setNom(e.target.value)} required />
+              <input type="tel" placeholder="Téléphone du Directeur" className="auth-input" value={username} onChange={(e) => setUsername(e.target.value)} required />
               <input type="password" placeholder="Mot de passe" className="auth-input" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              
               <div className="text-left w-full mt-2 space-y-1.5 max-w-[280px]">
-                <p className="text-[10px] font-bold text-slate-700">Confidentialité & Données (IPDCP)</p>
+                <p className="text-[10px] font-bold text-slate-700">Abonnement & Données (IPDCP)</p>
                 
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" required />
                   <span className="text-[9px] text-slate-500 leading-tight">
-                    J'accepte les <span className="font-bold text-slate-700">CGU</span> de l'application de mon établissement. <span className="text-rose-500">*</span>
+                    J'accepte les <span className="font-bold text-slate-700">CGU</span> de la plateforme YZO. <span className="text-rose-500">*</span>
                   </span>
                 </label>
 
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input type="checkbox" checked={acceptedPrivacy} onChange={(e) => setAcceptedPrivacy(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" required />
                   <span className="text-[9px] text-slate-500 leading-tight">
-                    J'autorise le traitement des <span className="font-bold text-slate-700">données de scolarité/présences</span> de mon enfant. <span className="text-rose-500">*</span>
-                  </span>
-                </label>
-
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input type="checkbox" checked={parentPhotoAuth} onChange={(e) => setParentPhotoAuth(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" />
-                  <span className="text-[9px] text-slate-500 leading-tight">
-                    <span className="font-bold text-slate-700">Droit à l'image</span> : J'autorise l'affichage de la photo de mon enfant. <span className="text-slate-400">(Optionnel)</span>
-                  </span>
-                </label>
-
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input type="checkbox" checked={marketingConsent} onChange={(e) => setMarketingConsent(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" />
-                  <span className="text-[9px] text-slate-500 leading-tight">
-                    J'accepte de recevoir des actus et conseils d'YZO. <span className="text-slate-400">(Optionnel)</span>
+                    J'autorise le traitement des <span className="font-bold text-slate-700">données de mon établissement</span>. <span className="text-rose-500">*</span>
                   </span>
                 </label>
               </div>
-              {error && <div className="text-rose-500 text-xs mt-2 font-bold">{error}</div>}
+              {error && <div className="text-rose-500 text-xs mt-2 font-bold text-center w-full max-w-[280px]">{error}</div>}
               <button className="auth-button" type="submit" disabled={loading}>{loading ? 'Chargement...' : "S'inscrire"}</button>
             </form>
           </div>
@@ -389,25 +387,42 @@ export const Login: React.FC = () => {
                 </div>
 
                 <form onSubmit={(e) => handleAuth(e, view === 'login' ? 'login' : 'register')} className="space-y-4">
-                    <div className="relative mb-2">
-                        <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                        <select className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 appearance-none" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} required={view === 'register'}>
-                            <option value="" disabled>-- Sélectionnez votre école --</option>
-                            {view !== 'register' && <option value="global">Accès Global (SuperAdmin)</option>}
-                            {view !== 'register' && <option disabled>────── Établissements ──────</option>}
-                            {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
-                        </select>
-                    </div>
+                    {view === 'login' && (
+                        <div className="relative mb-2">
+                            <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
+                            <select className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 appearance-none" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} required>
+                                <option value="" disabled>-- Sélectionnez votre école --</option>
+                                <option value="global">Accès Global (SuperAdmin)</option>
+                                <option disabled>────── Établissements ──────</option>
+                                {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
+                            </select>
+                        </div>
+                    )}
 
                     {view === 'register' && (
-                        <div className="relative">
-                            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                            <input type="text" placeholder="Nom complet" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={nom} onChange={(e) => setNom(e.target.value)} required />
-                        </div>
+                        <>
+                            <div className="relative">
+                                <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
+                                <input type="text" placeholder="Nom de l'établissement" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} required />
+                            </div>
+                            <div className="relative mb-2">
+                                <select className="w-full pl-4 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 appearance-none" value={schoolType} onChange={(e) => setSchoolType(e.target.value)} required>
+                                    <option value="" disabled>-- Type d'établissement --</option>
+                                    <option value="Primaire">École Primaire</option>
+                                    <option value="Collège">Collège</option>
+                                    <option value="Lycée">Lycée</option>
+                                    <option value="Complexe">Complexe Scolaire</option>
+                                </select>
+                            </div>
+                            <div className="relative mt-4">
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
+                                <input type="text" placeholder="Nom complet du Directeur" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={nom} onChange={(e) => setNom(e.target.value)} required />
+                            </div>
+                        </>
                     )}
                     <div className="relative">
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                        <input type="tel" placeholder="Téléphone" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={username} onChange={(e) => setUsername(e.target.value)} required />
+                        <input type="tel" placeholder={view === 'register' ? "Téléphone du Directeur" : "Téléphone"} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={username} onChange={(e) => setUsername(e.target.value)} required />
                     </div>
                     <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
@@ -427,33 +442,19 @@ export const Login: React.FC = () => {
                       </div>
                     ) : (
                       <div className="text-left w-full mt-2 space-y-1.5 px-1 border-t border-slate-100 pt-2">
-                        <p className="text-[10px] font-bold text-slate-700">Confidentialité & Données (loi togolaise / IPDCP)</p>
+                        <p className="text-[10px] font-bold text-slate-700">Abonnement & Données (IPDCP)</p>
                         
                         <label className="flex items-start gap-2 cursor-pointer">
                           <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" required />
                           <span className="text-[9px] text-slate-500 leading-tight">
-                            J'accepte les <span className="font-bold text-slate-700">CGU</span> de l'application de mon établissement. <span className="text-rose-500">*</span>
+                            J'accepte les <span className="font-bold text-slate-700">CGU</span> de la plateforme YZO. <span className="text-rose-500">*</span>
                           </span>
                         </label>
 
                         <label className="flex items-start gap-2 cursor-pointer">
                           <input type="checkbox" checked={acceptedPrivacy} onChange={(e) => setAcceptedPrivacy(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" required />
                           <span className="text-[9px] text-slate-500 leading-tight">
-                            J'autorise le traitement des <span className="font-bold text-slate-700">données de scolarité/présences</span> de mon enfant. <span className="text-rose-500">*</span>
-                          </span>
-                        </label>
-
-                        <label className="flex items-start gap-2 cursor-pointer">
-                          <input type="checkbox" checked={parentPhotoAuth} onChange={(e) => setParentPhotoAuth(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" />
-                          <span className="text-[9px] text-slate-500 leading-tight">
-                            <span className="font-bold text-slate-700">Droit à l'image</span> : J'autorise l'affichage de la photo de mon enfant. <span className="text-slate-400">(Optionnel)</span>
-                          </span>
-                        </label>
-
-                        <label className="flex items-start gap-2 cursor-pointer">
-                          <input type="checkbox" checked={marketingConsent} onChange={(e) => setMarketingConsent(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" />
-                          <span className="text-[9px] text-slate-500 leading-tight">
-                            J'accepte de recevoir des actualités et conseils d'YZO. <span className="text-slate-400">(Optionnel)</span>
+                            J'autorise le traitement des <span className="font-bold text-slate-700">données de mon établissement</span>. <span className="text-rose-500">*</span>
                           </span>
                         </label>
                       </div>
