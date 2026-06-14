@@ -145,10 +145,6 @@ async function createSchool(req, res) {
             email: validatedData.email || null,
             status: 'trial',
             trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // +2 mois
-            accepted_terms: validatedData.accepted_terms,
-            accepted_privacy_policy: validatedData.accepted_privacy_policy,
-            marketing_consent: validatedData.marketing_consent,
-            consented_at: consentedAt,
             signup_ip_hash: ipHash
         };
 
@@ -176,12 +172,7 @@ async function createSchool(req, res) {
             nom: validatedData.admin_nom.trim(),
             telephone: validatedData.admin_telephone.trim(),
             password: hashed,
-            role: 'directeur',
-            accepted_terms: validatedData.accepted_terms,
-            accepted_privacy_policy: validatedData.accepted_privacy_policy,
-            marketing_consent: validatedData.marketing_consent,
-            consented_at: consentedAt,
-            signup_ip_hash: ipHash
+            role: 'directeur'
         };
 
         const { data: adminUser, error: adminErr } = await supabase

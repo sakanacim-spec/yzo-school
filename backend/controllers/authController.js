@@ -79,13 +79,7 @@ async function register(req, res) {
             nom: nom.trim(),
             telephone: telephone.trim(),
             password: hashed,
-            role: 'parent',
-            accepted_terms,
-            accepted_privacy_policy,
-            marketing_consent,
-            consented_at: new Date().toISOString(),
-            signup_ip_hash: ipHash,
-            parent_photo_authorization
+            role: 'parent'
         };
 
         const { data: parent, error } = await supabase
