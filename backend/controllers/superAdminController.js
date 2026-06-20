@@ -143,9 +143,6 @@ async function createSchool(req, res) {
         const schoolPayload = {
             name: validatedData.name.trim(),
             slug: cleanSlug,
-            address: validatedData.address || null,
-            phone: validatedData.phone || null,
-            email: validatedData.email || null,
             status: 'trial',
             trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +2 mois
         };
@@ -240,10 +237,6 @@ async function updateSchool(req, res) {
     try {
         const updates = {};
         if (name !== undefined) updates.name = name;
-        if (address !== undefined) updates.address = address;
-        if (phone !== undefined) updates.phone = phone;
-        if (email !== undefined) updates.email = email;
-        // if (logo_url !== undefined) updates.logo_url = logo_url;
         if (trial_ends_at !== undefined) updates.trial_ends_at = trial_ends_at;
 
         const { data: school, error } = await supabase
