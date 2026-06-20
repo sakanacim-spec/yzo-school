@@ -7,7 +7,7 @@ import { uploadStudentPhoto, deleteStudentPhoto } from '../services/photoService
 import { COUNTRIES } from '../data/countries';
 import {
   Search, Plus, Trash2, Edit2, FileText,
-  MessageCircle, ChevronUp, ChevronDown, X, Check,
+  MessageCircle, ChevronUp, ChevronDown, ChevronRight, X, Check,
   Download, Filter, Camera, User, Users, GraduationCap, Building2, Smartphone
 } from 'lucide-react';
 import { StudentDetail } from '../components/StudentDetail';
@@ -36,167 +36,193 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
   const addStudent = useStore((s) => s.addStudent);
   const updateStudent = useStore((s) => s.updateStudent);
   const currency = useStore((s) => s.currency);
+  const addPayment = useStore((s) => s.addPayment);
+  const currency = useStore((s) => s.currency);
+  const [modalStep, setModalStep] = useState<1 | 2>(1);
 
   const [form, setForm] = useState({
-    nom: student?.nom ?? '',
-    prenom: student?.prenom ?? '',
-    classe: student?.classe ?? CLASS_CONFIG[0].name,
-    telephone: student?.telephone ?? '',
-    sexe: (student?.sexe ?? 'M') as 'M' | 'F',
-    redoublant: student?.redoublant ?? false,
-    ecoleProvenance: student?.ecoleProvenance ?? '',
-    dejaPaye: student?.dejaPaye ?? 0,
-    recu: student?.recu ?? '',
+    nom: editingStudent?.nom ?? '',
+    prenom: editingStudent?.prenom ?? '',
+    classe: editingStudent?.classe ?? CLASS_CONFIG[0].name,
+    telephone: editingStudent?.telephone ?? '',
+    sexe: (editingStudent?.sexe ?? 'M') as 'M' | 'F',
+    estRedoublant: editingStudent?.redoublant ?? false,
+    ecoleProvenance: editingStudent?.ecoleProvenance ?? '',
+    montantPaye: 0,
+    recuAssociatif: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (student) {
-      updateStudent(student.id, form);
-    } else {
-      addStudent(form);
+    if (modalStep === 1) {
+      setModalStep(2);
+      return;
     }
-    onClose();
+    
+    const baseStudent = {
+      nom: form.nom.trim(),
+      prenom: form.prenom.trim(),
+      classe: form.classe,
+      sexe: form.sexe as 'M' | 'F',
+      telephone: form.telephone || '',
+      ecoleProvenance: form.ecoleProvenance || '',
+      redoublant: form.estRedoublant
+    };
+    
+    if (editingStudent) {
+      updateStudent(editingStudent.id, baseStudent);
+      if (form.montantPaye > 0) {
+        addPayment(editingStudent.id, form.montantPaye, form.recuAssociatif);
+      }
+    } else {
+      const studentId = addStudent(baseStudent);
+      if (form.montantPaye > 0 && studentId) {
+        addPayment(studentId, form.montantPaye, form.recuAssociatif);
+      }
+    }
+    
+    setIsModalOpen(false);
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800 animate-slideUp custom-scrollbar">
-        
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 sticky top-0 z-10 backdrop-blur-xl">
-          <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-            <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
-              <Users className="w-5 h-5" />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
+            
+            <div className="px-8 py-6 border-b border-slate-100 bg-white relative z-10 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-colors duration-500 ${modalStep === 1 ? 'bg-amber-500 shadow-amber-500/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
+                  {modalStep === 1 ? <User className="w-6 h-6 text-white" /> : <GraduationCap className="w-6 h-6 text-white" />}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-800 tracking-tight">
+                    {editingStudent ? 'Modifier l\'élève' : 'Nouvelle Inscription'}
+                  </h3>
+                  <p className="text-sm font-bold text-slate-400 mt-1">
+                    Étape {modalStep} sur 2 : {modalStep === 1 ? 'Identité' : 'Scolarité & Finance'}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            {student ? "Modifier le dossier" : 'Nouvelle inscription'}
-          </h2>
-          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+
+            <div className="w-full bg-slate-100 h-1">
+              <div className={`h-full transition-all duration-500 ease-out ${modalStep === 1 ? 'w-1/2 bg-amber-500' : 'w-full bg-blue-600'}`}></div>
+            </div>
+
+            <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
+              <form id="student-form" onSubmit={handleSubmit} className="space-y-6">
+                
+                <div className={`space-y-6 transition-all duration-500 ${modalStep === 1 ? 'opacity-100 translate-x-0 block' : 'opacity-0 -translate-x-10 hidden'}`}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <User className="w-3 h-3" /> Nom de l'élève *
+                      </label>
+                      <input required type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: DOSSOU" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <User className="w-3 h-3" /> Prénoms *
+                      </label>
+                      <input required type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: Jean Paul" value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <User className="w-3 h-3" /> Sexe
+                      </label>
+                      <div className="relative">
+                        <select className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all appearance-none cursor-pointer" value={form.sexe} onChange={(e) => setForm({ ...form, sexe: e.target.value as 'M' | 'F' })}>
+                          <option value="M">Masculin</option>
+                          <option value="F">Féminin</option>
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Phone className="w-3 h-3" /> Téléphone Parent
+                      </label>
+                      <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: +33 6 00 00 00 00" value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`space-y-6 transition-all duration-500 ${modalStep === 2 ? 'opacity-100 translate-x-0 block' : 'opacity-0 translate-x-10 hidden'}`}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <GraduationCap className="w-3 h-3" /> Classe *
+                      </label>
+                      <div className="relative">
+                        <select className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer" value={form.classe} onChange={(e) => setForm({ ...form, classe: e.target.value })}>
+                          {CLASS_CONFIG.map((c) => <option key={c.name} value={c.name}>{c.name} - {c.cycle} ({formatMontant(c.ecolage, currency)})</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <School className="w-3 h-3" /> École de provenance
+                      </label>
+                      <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: EPL Les Génies" value={form.ecoleProvenance} onChange={(e) => setForm({ ...form, ecoleProvenance: e.target.value })} />
+                    </div>
+                  </div>
+
+                  {!editingStudent && (
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 p-6 rounded-2xl relative overflow-hidden">
+                      <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl pointer-events-none"></div>
+                      <h4 className="text-[12px] font-black text-emerald-800 uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10">
+                        <Wallet className="w-4 h-4" /> Informations Financières (1er Versement)
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-emerald-700/70 uppercase tracking-widest">Montant payé ({currency})</label>
+                          <input type="number" min="0" className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-3 text-[15px] font-bold text-emerald-900 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all" value={form.montantPaye} onChange={(e) => setForm({ ...form, montantPaye: Number(e.target.value) })} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-emerald-700/70 uppercase tracking-widest">N° Reçu associé</label>
+                          <input type="text" className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-3 text-[15px] font-bold text-emerald-900 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-emerald-300" placeholder="EX: R-001" value={form.recuAssociatif} onChange={(e) => setForm({ ...form, recuAssociatif: e.target.value })} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <label className="flex items-center gap-4 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors group">
+                    <div className="relative flex items-center justify-center">
+                      <input type="checkbox" className="sr-only" checked={form.estRedoublant} onChange={(e) => setForm({ ...form, estRedoublant: e.target.checked })} />
+                      <div className={`w-6 h-6 rounded-lg border-2 transition-all flex items-center justify-center ${form.estRedoublant ? 'bg-amber-500 border-amber-500' : 'bg-white border-slate-300 group-hover:border-amber-400'}`}>
+                        {form.estRedoublant && <Check className="w-4 h-4 text-white" />}
+                      </div>
+                    </div>
+                    <span className="text-[13px] font-bold text-slate-700 uppercase tracking-wide">Élève redoublant</span>
+                  </label>
+                </div>
+              </form>
+            </div>
+
+            <div className="px-8 py-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+              {modalStep === 2 ? (
+                <button type="button" onClick={() => setModalStep(1)} className="px-6 py-3 text-[13px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-colors">
+                  Retour
+                </button>
+              ) : <div></div>}
+              
+              <button type="submit" form="student-form" className={`px-8 py-3.5 rounded-2xl text-[13px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-2 ${modalStep === 1 ? 'bg-slate-800 shadow-slate-800/20 hover:bg-slate-900' : 'bg-blue-600 shadow-blue-600/30 hover:bg-blue-700'}`}>
+                {modalStep === 1 ? (
+                  <>Continuer <ChevronRight className="w-4 h-4" /></>
+                ) : (
+                  <>{editingStudent ? 'Mettre à jour' : 'Inscrire l\'élève'} <Check className="w-4 h-4" /></>
+                )}
+              </button>
+            </div>
+
+          </div>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Nom de l'élève *</label>
-              <input 
-                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-white uppercase placeholder:normal-case" 
-                required 
-                placeholder="Ex: DOSSOU"
-                value={form.nom} 
-                onChange={(e) => setForm({ ...form, nom: e.target.value })} 
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Prénoms *</label>
-              <input 
-                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-white capitalize placeholder:normal-case" 
-                required 
-                placeholder="Ex: Jean Paul"
-                value={form.prenom} 
-                onChange={(e) => setForm({ ...form, prenom: e.target.value })} 
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <GraduationCap className="w-3 h-3" /> Classe *
-              </label>
-              <select 
-                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-white cursor-pointer" 
-                value={form.classe} 
-                onChange={(e) => setForm({ ...form, classe: e.target.value })}
-              >
-                {CLASS_CONFIG.map((c) => <option key={c.name} value={c.name}>{c.name} — {c.cycle} ({formatMontant(c.ecolage, currency)})</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <User className="w-3 h-3" /> Sexe
-              </label>
-              <select 
-                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-white cursor-pointer" 
-                value={form.sexe} 
-                onChange={(e) => setForm({ ...form, sexe: e.target.value as 'M' | 'F' })}
-              >
-                <option value="M">Masculin</option>
-                <option value="F">Féminin</option>
-              </select>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <Smartphone className="w-3 h-3" /> Téléphone parent
-              </label>
-              <input 
-                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-white" 
-                value={form.telephone} 
-                onChange={(e) => setForm({ ...form, telephone: e.target.value })} 
-                placeholder="Ex: +33 6 00 00 00 00" 
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <Building2 className="w-3 h-3" /> École de provenance
-              </label>
-              <input 
-                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-white" 
-                value={form.ecoleProvenance} 
-                onChange={(e) => setForm({ ...form, ecoleProvenance: e.target.value })} 
-                placeholder="Ex: EPL Les Génies"
-              />
-            </div>
-          </div>
-
-          <div className="p-5 bg-gradient-to-br from-slate-50 to-emerald-50 dark:from-slate-800/50 dark:to-emerald-900/10 rounded-2xl border border-slate-200 dark:border-emerald-500/20">
-            <h3 className="text-xs font-black text-slate-800 dark:text-emerald-400 uppercase tracking-widest mb-4">Informations financières (1er versement)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Montant payé ({currency})</label>
-                <input 
-                  type="number" min={0} 
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all dark:text-white" 
-                  value={form.dejaPaye} 
-                  onChange={(e) => setForm({ ...form, dejaPaye: Number(e.target.value) })} 
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">N° Reçu associé</label>
-                <input 
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all dark:text-white uppercase" 
-                  value={form.recu} 
-                  onChange={(e) => setForm({ ...form, recu: e.target.value })} 
-                  placeholder="Ex: R-001"
-                />
-              </div>
-            </div>
-          </div>
-
-          <label className="flex items-center gap-3 p-4 border border-slate-200 dark:border-slate-700 rounded-2xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-            <input 
-              type="checkbox" 
-              checked={form.redoublant} 
-              onChange={(e) => setForm({ ...form, redoublant: e.target.checked })} 
-              className="w-5 h-5 rounded border-slate-300 text-amber-500 focus:ring-amber-500 dark:bg-slate-800 dark:border-slate-600" 
-            />
-            <span className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Élève Redoublant</span>
-          </label>
-
-          <div className="flex gap-3 pt-4">
-            <button type="button" onClick={onClose} className="flex-1 py-4 border border-slate-200 dark:border-slate-700 rounded-2xl text-[13px] font-black text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors uppercase tracking-widest">
-              Annuler
-            </button>
-            <button type="submit" className="flex-1 py-4 bg-amber-500 text-white rounded-2xl text-[13px] font-black hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_25px_rgba(245,158,11,0.5)]">
-              {student ? 'Enregistrer les modifications' : 'Valider l\'inscription'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   );
 };
 
