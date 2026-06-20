@@ -78,14 +78,17 @@ const schoolCreateSchema = Joi.object({
     name: Joi.string().trim().required().messages({
         'any.required': 'Le nom de l\'établissement est requis.'
     }),
-    slug: Joi.string().trim().lowercase().required().messages({
-        'any.required': 'Le slug de l\'établissement est requis.'
+    slug: Joi.string().trim().lowercase().allow('', null),  // auto-généré si absent
+    country: Joi.string().trim().length(2).uppercase().required().messages({
+        'any.required': 'Le pays est requis.'
     }),
-    address: Joi.string().allow('', null),
-    phone: Joi.string().allow('', null),
+    city: Joi.string().trim().allow('', null),
+    address: Joi.string().trim().allow('', null),
+    phone: Joi.string().trim().allow('', null),
     email: Joi.string().email().allow('', null).messages({
         'string.email': 'L\'adresse email est invalide.'
     }),
+    preferred_language: Joi.string().valid('fr', 'en').default('fr'),
     admin_nom: Joi.string().trim().required().messages({
         'any.required': 'Le nom du directeur est requis.'
     }),
@@ -120,10 +123,14 @@ async function createSchool(req, res) {
     }
 
     try {
-        const cleanSlug = validatedData.slug
+        // Générer automatiquement un slug à partir du nom si non fourni
+        const rawSlug = validatedData.slug || validatedData.name;
+        const cleanSlug = rawSlug
             .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // retirer accents
             .replace(/[^a-z0-9]+/g, '_')
-            .replace(/(^_|_$)+/g, '');
+            .replace(/(^_|_$)+/g, '')
+            .substring(0, 40); // max 40 caractères
 
         // Vérifier si le slug est déjà utilisé
         const { data: existing } = await supabase
@@ -139,10 +146,16 @@ async function createSchool(req, res) {
         const ipHash = getIpHash(req);
         const consentedAt = new Date().toISOString();
 
-        // 1. Créer l'école (Mass assignment protection)
+        // 1. Créer l'école avec tous les champs
         const schoolPayload = {
             name: validatedData.name.trim(),
             slug: cleanSlug,
+            country: validatedData.country || null,
+            city: validatedData.city || null,
+            address: validatedData.address || null,
+            phone: validatedData.phone || null,
+            email: validatedData.email || null,
+            preferred_language: validatedData.preferred_language || 'fr',
             status: 'trial',
             trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +2 mois
         };

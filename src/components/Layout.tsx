@@ -9,7 +9,7 @@ import {
   Bell, ChevronRight, ChevronLeft, Target, Award, MessageSquare,
   ScanLine, IdCard, ShieldCheck, Activity, Database, Megaphone,
   BookOpen, Edit3, FileSpreadsheet, Sun, Moon, Clock,
-  PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield
+  PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield, Languages
 } from 'lucide-react';
 
 import { SupportModal } from './SupportModal';
@@ -310,6 +310,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const fetchUnreadMessages = useStore((s) => s.fetchUnreadMessages);
   const theme = useStore((s) => s.theme);
   const toggleTheme = useStore((s) => s.toggleTheme);
+  const language = useStore((s) => s.language);
+  const setLanguage = useStore((s) => s.setLanguage);
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -490,6 +492,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <span className="text-[13px] font-black">{nonSoldes}</span>
                 </button>
               )}
+
+              {/* Language Toggle */}
+              <button
+                onClick={() => setLanguage(language === 'fr' ? 'en' : 'fr')}
+                className="w-10 h-10 rounded-[16px] bg-white dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-blue-500 transition-all duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.04)] active:scale-[0.95] font-black text-xs"
+                title={language === 'fr' ? 'Switch to English' : 'Passer en Français'}
+              >
+                {language === 'fr' ? '🇬🇧' : '🇫🇷'}
+              </button>
 
               <button
                 onClick={toggleTheme}

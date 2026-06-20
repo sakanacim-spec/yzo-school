@@ -157,6 +157,10 @@ export interface AppState {
   setLastReportMonth: (month: string) => void;
   privacyMode: boolean;
   setPrivacyMode: (v: boolean) => void;
+
+  // Langue (i18n)
+  language: 'fr' | 'en';
+  setLanguage: (lang: 'fr' | 'en') => void;
 }
 
 // Authentification gérée par Supabase
@@ -275,6 +279,13 @@ export const useStore = create<AppState>()(
       setLastReportMonth: (lastReportMonth) => set({ lastReportMonth }),
       privacyMode: false,
       setPrivacyMode: (privacyMode) => set({ privacyMode }),
+
+      // ── Langue (i18n) ──────────────────────────────────
+      language: (typeof localStorage !== 'undefined' ? (localStorage.getItem('app_language') as 'fr' | 'en') : null) || 'fr',
+      setLanguage: (lang) => {
+        set({ language: lang });
+        try { localStorage.setItem('app_language', lang); } catch {}
+      },
 
       // ── Auth ──────────────────────────────────────────────
       user: null,

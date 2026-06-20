@@ -47,7 +47,17 @@ const schoolRegisterSchema = Joi.object({
     admin_password: Joi.string().min(6).required().messages({
         'string.min': 'Le mot de passe doit contenir au moins 6 caractères.',
         'any.required': 'Le mot de passe est requis.'
-    })
+    }),
+    // Champs internationaux
+    country: Joi.string().trim().allow('', null),
+    city: Joi.string().trim().allow('', null),
+    address: Joi.string().trim().allow('', null),
+    phone: Joi.string().trim().allow('', null),
+    email: Joi.string().email().allow('', null),
+    preferred_language: Joi.string().valid('fr', 'en').default('fr'),
+    accepted_terms: Joi.boolean().allow(null),
+    accepted_privacy_policy: Joi.boolean().allow(null),
+    marketing_consent: Joi.boolean().allow(null)
 });
 
 function getIpHash(req) {
@@ -136,11 +146,13 @@ async function registerSchool(req, res) {
     }
 
     try {
-        // Generate a clean slug from the school name
+        // Générer un slug propre depuis le nom de l'école
         const cleanSlug = validatedData.school_name
             .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // retirer accents
             .replace(/[^a-z0-9]+/g, '_')
-            .replace(/(^_|_$)+/g, '');
+            .replace(/(^_|_$)+/g, '')
+            .substring(0, 40);
 
         // Vérifier si le slug est déjà utilisé
         const { data: existing } = await supabase
@@ -155,10 +167,16 @@ async function registerSchool(req, res) {
 
         const ipHash = getIpHash(req);
 
-        // 1. Créer l'école
+        // 1. Créer l'école avec tous les champs internationaux
         const schoolPayload = {
             name: validatedData.school_name.trim(),
             slug: cleanSlug,
+            country: validatedData.country || null,
+            city: validatedData.city || null,
+            address: validatedData.address || null,
+            phone: validatedData.phone || null,
+            email: validatedData.email || null,
+            preferred_language: validatedData.preferred_language || 'fr',
             status: 'trial',
             trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +2 mois
         };
