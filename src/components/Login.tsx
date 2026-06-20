@@ -14,6 +14,8 @@ import bgImage2 from '../assets/login-bg2.jpg';
 import bgImage3 from '../assets/login-bg3.jpg';
 import bgImage4 from '../assets/login-bg4.jpg';
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
+import { Register } from './Register';
+import { getTranslations } from '../i18n';
 
 const BG_IMAGES = [bgImage1, bgImage2, bgImage3, bgImage4];
 const SLIDE_DURATION = 5000;
@@ -57,28 +59,21 @@ const BackgroundSlideshow: React.FC = () => {
 
 export const Login: React.FC = () => {
   const login = useStore((s) => s.login);
+  const language = useStore((s) => s.language);
+  const T = getTranslations(language);
   const appName = "GestioSchool";
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [view, setView] = useState<'login' | 'register' | 'link'>('login');
-  const [isRightPanelActive, setIsRightPanelActive] = useState(false);
+
   
   // Auth Form States
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [nom, setNom] = useState('');
-  const [schoolName, setSchoolName] = useState('');
-  const [schoolType, setSchoolType] = useState('');
-  const [error, setError] = useState('');
   const [trialExpiredSchool, setTrialExpiredSchool] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
-  
-  // Consent States
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
-  const [parentPhotoAuth, setParentPhotoAuth] = useState(false);
-  const [marketingConsent, setMarketingConsent] = useState(false);
+
   
   // NOUVEAU : Sélection Établissement
   const [schools, setSchools] = useState<{slug: string, name: string, logo_url: string}[]>([]);
@@ -98,40 +93,16 @@ export const Login: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleAuth = async (e: React.FormEvent, type: 'login' | 'register') => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setTrialExpiredSchool(null);
     setLoading(true);
 
     try {
-        if (type === 'login') {
-            const ok = await login(username, password, selectedSchool);
-            if (!ok) setError('Identifiants incorrects.');
-        } else {
-            if (!schoolType) {
-                setError("Veuillez sélectionner un type d'établissement.");
-                setLoading(false);
-                return;
-            }
-            if (!acceptedTerms || !acceptedPrivacy) {
-                setError("Vous devez accepter les conditions d'utilisation et la politique de confidentialité.");
-                setLoading(false);
-                return;
-            }
-            setLoading(true);
-            const result = await parentApi.registerSchool({
-                school_name: schoolName,
-                school_type: schoolType,
-                admin_nom: nom,
-                admin_telephone: username,
-                admin_password: password
-            });
-            // Automatically log in using the token from the response
-            if (result.token) {
-                 window.location.reload();
-            }
-        }
+        const ok = await login(username, password, selectedSchool);
+        if (!ok) setError(T.errors.loginFailed || 'Identifiants incorrects.');
+
     } catch (err: any) {
         const msg: string = err?.message || err?.error || "Une erreur est survenue.";
         // Essai expiré
@@ -161,6 +132,22 @@ export const Login: React.FC = () => {
                 >
                   Passer cette étape pour le moment
                 </button>
+            </div>
+        </div>
+    );
+  }
+
+  if (view === 'register') {
+    return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
+                <Register 
+                  onBack={() => setView('login')} 
+                  onSuccess={(admin) => {
+                    // Auto-login après inscription réussie
+                    window.location.reload();
+                  }} 
+                />
             </div>
         </div>
     );
@@ -262,57 +249,15 @@ export const Login: React.FC = () => {
 
       {/* --- DESKTOP VIEW --- */}
       {!isMobile && (
-        <div className={`auth-container ${isRightPanelActive ? 'right-panel-active' : ''}`}>
-          
-          {/* Register Panel */}
-          <div className="form-container sign-up-container">
-            <form className="auth-form" onSubmit={(e) => handleAuth(e, 'register')}>
-              <SchoolLogo />
-              <h1 className="text-2xl font-black text-slate-900 tracking-tighter">Créer mon école</h1>
-              <div className="social-container text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-2">Inscription SaaS</div>
-              
-              <input type="text" placeholder="Nom de l'établissement" className="auth-input" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} required />
-              
-              <select className="auth-input mb-4 font-bold text-slate-600 border border-slate-200" value={schoolType} onChange={(e) => setSchoolType(e.target.value)} required>
-                  <option value="" disabled>-- Type d'établissement --</option>
-                  <option value="Primaire">École Primaire</option>
-                  <option value="Collège">Collège</option>
-                  <option value="Lycée">Lycée</option>
-                  <option value="Complexe">Complexe Scolaire</option>
-              </select>
+        <div className="auth-container">
 
-              <input type="text" placeholder="Nom complet du Directeur" className="auth-input" value={nom} onChange={(e) => setNom(e.target.value)} required />
-              <input type="tel" placeholder="Téléphone du Directeur" className="auth-input" value={username} onChange={(e) => setUsername(e.target.value)} required />
-              <input type="password" placeholder="Mot de passe" className="auth-input" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              
-              <div className="text-left w-full mt-2 space-y-1.5 max-w-[280px]">
-                <p className="text-[10px] font-bold text-slate-700">Abonnement & Données (IPDCP)</p>
-                
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" required />
-                  <span className="text-[9px] text-slate-500 leading-tight">
-                    J'accepte les <span className="font-bold text-slate-700">CGU</span> de la plateforme YZO. <span className="text-rose-500">*</span>
-                  </span>
-                </label>
-
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input type="checkbox" checked={acceptedPrivacy} onChange={(e) => setAcceptedPrivacy(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" required />
-                  <span className="text-[9px] text-slate-500 leading-tight">
-                    J'autorise le traitement des <span className="font-bold text-slate-700">données de mon établissement</span>. <span className="text-rose-500">*</span>
-                  </span>
-                </label>
-              </div>
-              {error && <div className="text-rose-500 text-xs mt-2 font-bold text-center w-full max-w-[280px]">{error}</div>}
-              <button className="auth-button" type="submit" disabled={loading}>{loading ? 'Chargement...' : "S'inscrire"}</button>
-            </form>
-          </div>
 
           {/* Login Panel */}
-          <div className="form-container sign-in-container">
-            <form className="auth-form" onSubmit={(e) => handleAuth(e, 'login')}>
+          <div className="form-container sign-in-container" style={{ width: '100%', zIndex: 5 }}>
+            <form className="auth-form" onSubmit={handleAuth}>
               <SchoolLogo />
-              <h1 className="text-2xl font-black text-slate-900 tracking-tighter">Se connecter</h1>
-              <div className="social-container text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-2">Accès {appName}</div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tighter">{T.login.title}</h1>
+              <div className="social-container text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-2">{T.login.subtitle}</div>
               
               <select className="auth-input mb-4 font-bold text-slate-600 border border-slate-200" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}>
                   <option value="" disabled>-- Sélectionnez votre école --</option>
@@ -321,10 +266,11 @@ export const Login: React.FC = () => {
                   {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
               </select>
 
-              <input type="text" placeholder="Utilisateur / Téléphone" className="auth-input" value={username} onChange={(e) => setUsername(e.target.value)} required />
-              <input type="password" placeholder="Mot de passe" className="auth-input" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              <div className="flex items-center justify-between w-full mt-2 text-xs px-1">
-                <a href="#" className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</a>
+              <input type="text" placeholder={T.login.phonePlaceholder} className="auth-input max-w-sm mx-auto" value={username} onChange={(e) => setUsername(e.target.value)} required />
+              <input type="password" placeholder={T.login.passwordPlaceholder} className="auth-input max-w-sm mx-auto" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <div className="flex items-center justify-between w-full max-w-sm mx-auto mt-2 text-xs px-1">
+                <a href="#" className="text-slate-400 hover:text-amber-600">{T.login.forgotPassword}</a>
+
                 <button 
                   type="button" 
                   onClick={() => setIsPrivacyOpen(true)}
@@ -339,36 +285,17 @@ export const Login: React.FC = () => {
                   <p className="text-amber-700 text-xs mt-1">"{trialExpiredSchool}" doit régler son abonnement. Contactez l'administrateur de la plateforme.</p>
                 </div>
               )}
-              {error && <div className="text-rose-500 text-xs mt-2 font-bold">{error}</div>}
-              <button className="auth-button" type="submit" disabled={loading}>{loading ? 'Connexion...' : 'Se connecter'}</button>
+              {error && <div className="text-rose-500 text-xs mt-2 font-bold max-w-sm mx-auto">{error}</div>}
+              <div className="max-w-sm mx-auto w-full flex flex-col items-center">
+                <button className="auth-button w-full mb-3" type="submit" disabled={loading}>{loading ? T.login.loggingIn : T.login.loginButton}</button>
+                <div className="text-xs text-slate-500 font-medium">
+                  {T.login.noAccount} <button type="button" className="text-amber-600 font-bold hover:underline" onClick={() => setView('register')}>{T.login.registerSchool}</button>
+                </div>
+              </div>
             </form>
           </div>
-
-          <div className="overlay-container">
-            <div className="overlay">
-              <div className="overlay-panel overlay-left">
-                <h1 className="text-4xl font-black tracking-tighter mb-4 animate-in slide-in-from-left duration-700">Content de vous revoir ! 👋</h1>
-                <p className="text-sm opacity-90 leading-relaxed mb-6 max-w-[300px]">Retrouvez tout l'univers scolaire de vos enfants en un clic. Votre tableau de bord personnalisé vous attend.</p>
-                <div className="flex flex-col gap-2 mb-8 text-left w-full max-w-[280px]">
-                  <div className="flex items-center gap-2 text-xs font-bold"><div className="w-1.5 h-1.5 bg-amber-200 rounded-full"/> Accès tableau de bord</div>
-                  <div className="flex items-center gap-2 text-xs font-bold"><div className="w-1.5 h-1.5 bg-amber-200 rounded-full"/> Consultation des bulletins</div>
-                  <div className="flex items-center gap-2 text-xs font-bold"><div className="w-1.5 h-1.5 bg-amber-200 rounded-full"/> Alertes et annonces</div>
-                </div>
-                <button className="auth-button ghost hover:bg-white/10" onClick={() => setIsRightPanelActive(false)}>Se connecter</button>
-              </div>
-              <div className="overlay-panel overlay-right">
-                <h1 className="text-4xl font-black tracking-tighter mb-4 animate-in slide-in-from-right duration-700">Bonjour, Parent ! 🌟</h1>
-                <p className="text-sm opacity-90 leading-relaxed mb-6 max-w-[300px]">Plongez au cœur de l'éducation de votre enfant. Suivez chaque instant de sa réussite avec nous.</p>
-                <div className="flex flex-col gap-2 mb-8 text-left w-full max-w-[280px]">
-                  <div className="flex items-center gap-2 text-xs font-bold"><div className="w-1.5 h-1.5 bg-white rounded-full"/> Suivi des notes en temps réel</div>
-                  <div className="flex items-center gap-2 text-xs font-bold"><div className="w-1.5 h-1.5 bg-white rounded-full"/> Notifications de présence</div>
-                  <div className="flex items-center gap-2 text-xs font-bold"><div className="w-1.5 h-1.5 bg-white rounded-full"/> Communication école-famille</div>
-                </div>
-                <button className="auth-button ghost hover:bg-white/10" onClick={() => setIsRightPanelActive(true)}>Créer un compte</button>
-              </div>
-            </div>
-          </div>
         </div>
+
       )}
 
       {/* --- MOBILE VIEW --- */}
@@ -386,9 +313,9 @@ export const Login: React.FC = () => {
                     </p>
                 </div>
 
-                <form onSubmit={(e) => handleAuth(e, view === 'login' ? 'login' : 'register')} className="space-y-4">
-                    {view === 'login' && (
+                <form onSubmit={handleAuth} className="space-y-4">
                         <div className="relative mb-2">
+
                             <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
                             <select className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 appearance-none" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} required>
                                 <option value="" disabled>-- Sélectionnez votre école --</option>
@@ -396,41 +323,10 @@ export const Login: React.FC = () => {
                                 <option disabled>────── Établissements ──────</option>
                                 {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
                             </select>
-                        </div>
-                    )}
-
-                    {view === 'register' && (
-                        <>
-                            <div className="relative">
-                                <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                                <input type="text" placeholder="Nom de l'établissement" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} required />
-                            </div>
-                            <div className="relative mb-2">
-                                <select className="w-full pl-4 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 appearance-none" value={schoolType} onChange={(e) => setSchoolType(e.target.value)} required>
-                                    <option value="" disabled>-- Type d'établissement --</option>
-                                    <option value="Primaire">École Primaire</option>
-                                    <option value="Collège">Collège</option>
-                                    <option value="Lycée">Lycée</option>
-                                    <option value="Complexe">Complexe Scolaire</option>
-                                </select>
-                            </div>
-                            <div className="relative mt-4">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                                <input type="text" placeholder="Nom complet du Directeur" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={nom} onChange={(e) => setNom(e.target.value)} required />
-                            </div>
-                        </>
-                    )}
-                    <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                        <input type="tel" placeholder={view === 'register' ? "Téléphone du Directeur" : "Téléphone"} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={username} onChange={(e) => setUsername(e.target.value)} required />
-                    </div>
-                    <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                        <input type="password" placeholder="Mot de passe" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={password} onChange={(e) => setPassword(e.target.value)} required />
                     </div>
 
-                    {view === 'login' ? (
                       <div className="flex justify-between items-center px-1 text-[11px] mt-1">
+
                         <a href="#" className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</a>
                         <button 
                           type="button" 
@@ -440,25 +336,6 @@ export const Login: React.FC = () => {
                           Confidentialité & Sécurité
                         </button>
                       </div>
-                    ) : (
-                      <div className="text-left w-full mt-2 space-y-1.5 px-1 border-t border-slate-100 pt-2">
-                        <p className="text-[10px] font-bold text-slate-700">Abonnement & Données (IPDCP)</p>
-                        
-                        <label className="flex items-start gap-2 cursor-pointer">
-                          <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" required />
-                          <span className="text-[9px] text-slate-500 leading-tight">
-                            J'accepte les <span className="font-bold text-slate-700">CGU</span> de la plateforme YZO. <span className="text-rose-500">*</span>
-                          </span>
-                        </label>
-
-                        <label className="flex items-start gap-2 cursor-pointer">
-                          <input type="checkbox" checked={acceptedPrivacy} onChange={(e) => setAcceptedPrivacy(e.target.checked)} className="mt-0.5 accent-amber-500 rounded scale-90" required />
-                          <span className="text-[9px] text-slate-500 leading-tight">
-                            J'autorise le traitement des <span className="font-bold text-slate-700">données de mon établissement</span>. <span className="text-rose-500">*</span>
-                          </span>
-                        </label>
-                      </div>
-                    )}
 
                     {trialExpiredSchool && (
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-left">
@@ -469,13 +346,14 @@ export const Login: React.FC = () => {
                     {error && <div className="text-rose-500 text-xs italic text-center font-bold px-4">{error}</div>}
 
                     <button type="submit" disabled={loading} className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-500/30 active:scale-95 transition-transform flex items-center justify-center gap-2 mt-4">
-                        {loading ? 'Traitement...' : (view === 'login' ? 'Décollage' : 'Inscrire')}
+                        {loading ? T.login.loggingIn : T.login.loginButton}
                     </button>
                     
-                    <button type="button" onClick={() => setView(view === 'login' ? 'register' : 'login')} className="w-full py-2 text-amber-600 text-[10px] font-black uppercase tracking-widest mt-2">
-                        {view === 'login' ? "Nouveau ? Créer un compte" : "Déjà un compte ? Se connecter"}
+                    <button type="button" onClick={() => setView('register')} className="w-full py-2 text-amber-600 text-[10px] font-black uppercase tracking-widest mt-2">
+                        {T.login.noAccount} {T.login.registerSchool}
                     </button>
                 </form>
+
             </div>
         </>
       )}
