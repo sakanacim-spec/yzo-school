@@ -355,7 +355,7 @@ export const ParentDashboard: React.FC = () => {
                             <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest group-hover:text-blue-400 transition-colors">Total Scolarité</span>
                         </div>
                         <div>
-                            <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{totalEcolage.toLocaleString()} FCFA</p>
+                            <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{totalEcolage.toLocaleString()} {useStore.getState().currency}</p>
                             <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide">Pour {children.length} enfant{children.length > 1 ? 's' : ''}</p>
                         </div>
                     </div>
@@ -368,7 +368,7 @@ export const ParentDashboard: React.FC = () => {
                             <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest group-hover:text-emerald-400 transition-colors">Déjà Payé</span>
                         </div>
                         <div>
-                            <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{totalDejaPaye.toLocaleString()} FCFA</p>
+                            <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{totalDejaPaye.toLocaleString()} {useStore.getState().currency}</p>
                             <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide">{totalEcolage > 0 ? Math.round((totalDejaPaye / totalEcolage) * 100) : 0}% du total</p>
                         </div>
                     </div>
@@ -381,7 +381,7 @@ export const ParentDashboard: React.FC = () => {
                             <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest group-hover:text-rose-400 transition-colors">Reste à Payer</span>
                         </div>
                         <div>
-                            <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">{totalRestant.toLocaleString()} FCFA</p>
+                            <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">{totalRestant.toLocaleString()} {useStore.getState().currency}</p>
                             <p className="text-xs text-rose-400 dark:text-rose-500 font-bold uppercase tracking-wide">Délai Règlement à respecter</p>
                         </div>
                     </div>

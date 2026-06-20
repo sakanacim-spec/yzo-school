@@ -11,7 +11,7 @@ import {
   TrendingUp, FileText, Camera, Loader2
 } from 'lucide-react';
 
-const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' FCFA';
+import { formatMontant } from '../utils/helpers';
 const fmtDate  = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
 interface Props { student: Student; onClose: () => void }
@@ -35,7 +35,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
   const phone  = (student.telephone || '').replace(/\D/g, '');
   const waMsg  = isSolde
     ? `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). ${messageRemerciement} — ${schoolName}`
-    : `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Restant : ${fmtMoney(student.restant)}. ${messageRappel} — ${schoolName}`;
+    : `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Restant : ${formatMontant(student.restant, useStore.getState().currency)}. ${messageRappel} — ${schoolName}`;
 
   const handleCameraClick = () => {
     fileInputRef.current?.click();
@@ -243,12 +243,12 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
                   <div className="bg-gray-50 rounded-xl p-3 text-center">
                     <p className="text-xs text-gray-400 mb-1">Écolage</p>
                     <p className="text-sm font-bold text-gray-900">{new Intl.NumberFormat('fr-FR').format(student.ecolage)}</p>
-                    <p className="text-xs text-gray-400">FCFA</p>
+                    <p className="text-xs text-gray-400">{useStore.getState().currency}</p>
                   </div>
                   <div className="bg-emerald-50 rounded-xl p-3 text-center">
                     <p className="text-xs text-emerald-600 mb-1">Payé</p>
                     <p className="text-sm font-bold text-emerald-700">{new Intl.NumberFormat('fr-FR').format(student.dejaPaye)}</p>
-                    <p className="text-xs text-emerald-500">FCFA</p>
+                    <p className="text-xs text-emerald-500">{useStore.getState().currency}</p>
                   </div>
                   <div className={`rounded-xl p-3 text-center ${isSolde ? 'bg-emerald-50' : 'bg-red-50'}`}>
                     <p className={`text-xs mb-1 ${isSolde ? 'text-emerald-600' : 'text-red-500'}`}>Restant</p>
@@ -257,7 +257,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
                     ) : (
                       <>
                         <p className="text-sm font-bold text-red-700">{new Intl.NumberFormat('fr-FR').format(student.restant)}</p>
-                        <p className="text-xs text-red-400">FCFA</p>
+                        <p className="text-xs text-red-400">{useStore.getState().currency}</p>
                       </>
                     )}
                   </div>
@@ -270,7 +270,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
                     <span className="font-semibold">Taux de paiement : {taux}%</span>
                     {!isSolde && (
                       <span className="ml-2 text-amber-500">
-                        · Manque {fmtMoney(student.restant)} pour solder
+                        · Manque {formatMontant(student.restant, useStore.getState().currency)} pour solder
                       </span>
                     )}
                   </div>
@@ -297,7 +297,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-semibold text-emerald-700">
-                            +{new Intl.NumberFormat('fr-FR').format(p.montant)} FCFA
+                            +{formatMontant(p.montant, useStore.getState().currency)}
                           </span>
                           {p.recu && (
                             <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -318,7 +318,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
                   <div className="border-t border-gray-200 pt-3 mt-3 flex justify-between text-sm">
                     <span className="text-gray-500 font-medium">Total des paiements manuels</span>
                     <span className="font-bold text-emerald-700">
-                      {fmtMoney(student.historiquesPaiements.reduce((a, p) => a + p.montant, 0))}
+                      {formatMontant(student.historiquesPaiements.reduce((a, p) => a + p.montant, 0), useStore.getState().currency)}
                     </span>
                   </div>
                 </div>

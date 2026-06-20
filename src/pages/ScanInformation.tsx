@@ -102,7 +102,7 @@ const InfoStudentScanned: React.FC<{
                                     <Wallet className="w-3 h-3" /> Solde
                                 </span>
                                 <div className={`text-lg sm:text-xl font-black tracking-tight ${solde > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                    {solde.toLocaleString()} <span className="text-xs sm:text-sm font-bold opacity-60">FCFA</span>
+                                    {solde.toLocaleString()} <span className="text-xs sm:text-sm font-bold opacity-60">{useStore.getState().currency}</span>
                                 </div>
                             </div>
                         </div>

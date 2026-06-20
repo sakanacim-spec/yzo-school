@@ -158,7 +158,7 @@ export const VerificationRecu: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-xs text-gray-500 uppercase font-semibold">Montant payé</p>
-                                <p className="text-sm font-bold text-emerald-600">{foundPayment.montant.toLocaleString('fr-FR')} FCFA</p>
+                                <p className="text-sm font-bold text-emerald-600">{foundPayment.montant.toLocaleString('fr-FR')} {useStore.getState().currency}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-gray-500 uppercase font-semibold">Date</p>

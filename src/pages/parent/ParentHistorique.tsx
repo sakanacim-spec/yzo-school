@@ -4,6 +4,8 @@ import { Clock, Download, Loader2, AlertCircle, CreditCard, UserCheck, Calendar 
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { formatMontant } from '../../utils/helpers';
+import { useStore } from '../../store/useStore';
 
 export const ParentHistorique: React.FC = () => {
     const [payments, setPayments] = useState<any[]>([]);
@@ -63,7 +65,7 @@ export const ParentHistorique: React.FC = () => {
         doc.text(`Élève: ${payment.studentName}`, 20, 40);
         doc.text(`Classe: ${payment.classe}`, 20, 50);
         doc.text(`Date: ${format(new Date(payment.date), 'dd/MM/yyyy')}`, 20, 60);
-        doc.text(`Montant payé: ${payment.montant.toLocaleString()} FCFA`, 20, 70);
+        doc.text(`Montant payé: ${formatMontant(payment.montant, useStore.getState().currency)}`, 20, 70);
         doc.text(`N° de reçu: ${payment.recu}`, 20, 80);
         if (payment.note) doc.text(`Note: ${payment.note}`, 20, 90);
         doc.save(`Recu_${payment.recu}.pdf`);
@@ -136,7 +138,7 @@ export const ParentHistorique: React.FC = () => {
                                                 <div className="text-xs text-slate-500">{p.classe}</div>
                                             </td>
                                             <td className="px-6 py-4 font-black text-emerald-600">
-                                                {p.montant.toLocaleString()} FCFA
+                                                {formatMontant(p.montant, useStore.getState().currency)}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <button onClick={() => downloadReceipt(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl">

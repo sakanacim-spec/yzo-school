@@ -4,6 +4,7 @@ import { Student } from '../types';
 import { CLASS_CONFIG } from '../data/classConfig';
 import { generateRecuPDF } from '../utils/pdfGenerator';
 import { uploadStudentPhoto, deleteStudentPhoto } from '../services/photoService';
+import { COUNTRIES } from '../data/countries';
 import {
   Search, Plus, Trash2, Edit2, FileText,
   MessageCircle, ChevronUp, ChevronDown, X, Check,
@@ -40,7 +41,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
     nom: student?.nom ?? '',
     prenom: student?.prenom ?? '',
     classe: student?.classe ?? CLASS_CONFIG[0].name,
-    telephone: student?.telephone ?? '+228',
+    telephone: student?.telephone ?? '',
     sexe: (student?.sexe ?? 'M') as 'M' | 'F',
     redoublant: student?.redoublant ?? false,
     ecoleProvenance: student?.ecoleProvenance ?? '',
@@ -135,7 +136,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                 className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-white" 
                 value={form.telephone} 
                 onChange={(e) => setForm({ ...form, telephone: e.target.value })} 
-                placeholder="+228" 
+                placeholder="Ex: +33 6 00 00 00 00" 
               />
             </div>
             <div>
