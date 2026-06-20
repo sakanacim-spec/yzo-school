@@ -139,6 +139,7 @@ export const Dashboard: React.FC = () => {
   }, [students, classComp]);
 
   const stats = useMemo(() => {
+    const maternelle = students.filter((s) => s.cycle === 'Maternelle');
     const primaire = students.filter((s) => s.cycle === 'Primaire');
     const college = students.filter((s) => s.cycle === 'Collège');
     const lycee = students.filter((s) => s.cycle === 'Lycée');
@@ -162,8 +163,9 @@ export const Dashboard: React.FC = () => {
     const nonSoldes = students.filter((s) => s.status !== 'Soldé').length;
 
     return {
-      primaire: primaire.length, college: college.length, lycee: lycee.length,
+      maternelle: maternelle.length, primaire: primaire.length, college: college.length, lycee: lycee.length,
       cycleStats: {
+        Maternelle: cycleStat(maternelle),
         Primaire: cycleStat(primaire),
         Collège: cycleStat(college),
         Lycée: cycleStat(lycee),
@@ -185,6 +187,7 @@ export const Dashboard: React.FC = () => {
   }, [students]);
 
   const cycleData = [
+    { name: 'Maternelle', value: stats.maternelle },
     { name: 'Primaire', value: stats.primaire },
     { name: 'Collège', value: stats.college },
     { name: 'Lycée', value: stats.lycee },
@@ -357,10 +360,16 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* ── CYCLE ANALYSIS ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {([
-          {
-            label: 'Primaire', sub: 'CI au CM2',
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {([
+            {
+              label: 'Maternelle', sub: 'Maternelle 1 à Grande Section',
+              icon: <School className="w-6 h-6 text-emerald-600" />,
+              colors: { border: 'border-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-600', fill: 'bg-emerald-500' },
+              key: 'Maternelle' as const,
+            },
+            {
+              label: 'Primaire', sub: 'CI au CM2',
             icon: <School className="w-6 h-6 text-amber-600" />,
             colors: { border: 'border-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-600', fill: 'bg-amber-500' },
             key: 'Primaire' as const,

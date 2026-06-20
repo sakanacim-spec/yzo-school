@@ -121,7 +121,7 @@ export const Documents: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [generating, setGenerating]     = useState(false);
 
-  const cycleOrder = { 'Primaire': 1, 'Collège': 2, 'Lycée': 3 };
+  const cycleOrder = { 'Maternelle': 1, 'Primaire': 2, 'Collège': 3, 'Lycée': 4 };
   const classes = [...new Set(students.map((s) => s.classe))]
     .sort((a, b) => {
       const sA = students.find((s) => s.classe === a);

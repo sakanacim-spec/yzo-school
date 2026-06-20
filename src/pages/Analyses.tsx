@@ -283,8 +283,10 @@ export const Analyses: React.FC = () => {
                   <td className="px-4 py-3 font-black text-slate-800 dark:text-white whitespace-nowrap">{c.classe}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`text-[10px] px-2.5 py-1 rounded-lg font-black uppercase tracking-widest ${
+                      c.cycle === 'Maternelle' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
                       c.cycle === 'Primaire' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' :
-                      c.cycle === 'Collège'  ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400'
+                      c.cycle === 'Collège'  ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' : 
+                      'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400'
                     }`}>{c.cycle}</span>
                   </td>
                   <td className="px-4 py-3 font-bold text-slate-500">{maskValue(c.effectif)}</td>

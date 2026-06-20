@@ -34,7 +34,7 @@ export const Recouvrement: React.FC = () => {
     }, [basePriorityList, searchTerm, filterClass, filterCycle]);
 
     const classesConfig = useStore((s) => s.classes) || [];
-    const cycles = ['Primaire', 'Collège', 'Lycée'];
+    const cycles = ['Maternelle', 'Primaire', 'Collège', 'Lycée'];
 
     // --- Actions Export ---
 

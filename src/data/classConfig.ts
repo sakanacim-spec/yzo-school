@@ -68,9 +68,10 @@ export const getCycle = (className: string): Cycle => {
   return config ? config.cycle : 'Primaire';
 };
 
-export const CYCLES: Cycle[] = ['Primaire', 'Collège', 'Lycée'];
+export const CYCLES: Cycle[] = ['Maternelle', 'Primaire', 'Collège', 'Lycée'];
 
 export const CLASSES_BY_CYCLE: Record<Cycle, string[]> = {
+  Maternelle: CLASS_CONFIG.filter((c) => c.cycle === 'Maternelle').map((c) => c.name),
   Primaire: CLASS_CONFIG.filter((c) => c.cycle === 'Primaire').map((c) => c.name),
   Collège:  CLASS_CONFIG.filter((c) => c.cycle === 'Collège').map((c) => c.name),
   Lycée:    CLASS_CONFIG.filter((c) => c.cycle === 'Lycée').map((c) => c.name),

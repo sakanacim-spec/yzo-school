@@ -1,4 +1,4 @@
-import { Student, StatusPaiement, DashboardStats, ClassStats } from '../types';
+import { Student, Cycle, StatusPaiement, DashboardStats, ClassStats } from '../types';
 import { useStore } from '../store/useStore';
 import { COUNTRIES } from '../data/countries';
 
@@ -11,7 +11,7 @@ export const generateId = (): string => {
   });
 };
 
-export const getCycleFromClasse = (classe: string): 'Primaire' | 'Collège' | 'Lycée' => {
+export const getCycleFromClasse = (classe: string): Cycle => {
   return useStore.getState().getCycle(classe);
 };
 
@@ -75,6 +75,7 @@ export const formatPhoneNumber = (phone: string, countryCode: string | null = nu
 export const calculateDashboardStats = (students: Student[]): DashboardStats => {
   const stats: DashboardStats = {
     totalEleves: students.length,
+    totalMaternelle: students.filter(s => s.cycle === 'Maternelle').length,
     totalPrimaire: students.filter(s => s.cycle === 'Primaire').length,
     totalCollege: students.filter(s => s.cycle === 'Collège').length,
     totalLycee: students.filter(s => s.cycle === 'Lycée').length,
