@@ -10,6 +10,7 @@ import {
 import { School } from '../../types';
 import { API_BASE_URL } from '../../config';
 import { useStore } from '../../store/useStore';
+import { countries } from '../../data/countries';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ interface CreateSchoolModalProps {
 
 const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreated }) => {
   const [form, setForm] = useState({
-    name: '', slug: '', address: '', phone: '', email: '',
+    name: '', slug: '', country: '', city: '', address: '', phone: '', email: '',
     admin_nom: '', admin_telephone: '', admin_password: '',
     accepted_terms: false,
     accepted_privacy_policy: false,
@@ -139,6 +140,29 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
                     placeholder="lycee-excellence-lome" required />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Pays *</label>
+                <select 
+                  value={form.country} 
+                  onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="" disabled>Sélectionner un pays</option>
+                  {countries.map(c => (
+                    <option key={c.code} value={c.code}>{c.flag} {c.name_fr}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Ville</label>
+                <input type="text" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ex: Lomé" />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Adresse</label>
                 <input type="text" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
