@@ -170,7 +170,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                             const classDef = classes.find(c => c.name === newClasse);
                             setForm({ ...form, classe: newClasse, ecolage: classDef ? classDef.ecolage : form.ecolage });
                           }}>
-                          {classes.map((c) => <option key={c.name} value={c.name}>{c.name} - {c.cycle} ({formatMontant(c.ecolage, currency)})</option>)}
+                          {classes.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
                         </select>
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                       </div>
