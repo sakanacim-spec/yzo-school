@@ -72,6 +72,7 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [trialExpiredSchool, setTrialExpiredSchool] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
 
   
