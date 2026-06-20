@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, School, MessageSquare, Shield, Info,
@@ -16,12 +16,20 @@ export const Parametres: React.FC = () => {
   const schoolStamp = useStore((s) => s.schoolStamp);
   const user = useStore((s) => s.user);
 
-  const [localSchool, setLocalSchool] = useState(schoolName);
-  const [localYear, setLocalYear] = useState(schoolYear);
-  const [localRem, setLocalRem] = useState(messageRemerciement);
-  const [localRap, setLocalRap] = useState(messageRappel);
-  const [localAppName, setLocalAppName] = useState(appName);
+  const [localSchool, setLocalSchool] = useState(schoolName || '');
+  const [localYear, setLocalYear] = useState(schoolYear || '');
+  const [localRem, setLocalRem] = useState(messageRemerciement || '');
+  const [localRap, setLocalRap] = useState(messageRappel || '');
+  const [localAppName, setLocalAppName] = useState(appName || '');
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setLocalSchool(schoolName || '');
+    setLocalYear(schoolYear || '');
+    setLocalRem(messageRemerciement || '');
+    setLocalRap(messageRappel || '');
+    setLocalAppName(appName || '');
+  }, [schoolName, schoolYear, messageRemerciement, messageRappel, appName]);
   
   const [logoPreview, setLogoPreview] = useState<string | null>(schoolLogo);
   const [logoError, setLogoError] = useState('');
@@ -31,20 +39,32 @@ export const Parametres: React.FC = () => {
   const [stampError, setStampError] = useState('');
   const stampFileRef = useRef<HTMLInputElement>(null);
 
-  const cycleSchedules = useStore((s) => s.cycleSchedules);
+  const cycleSchedules = useStore((s) => s.cycleSchedules) || [];
   const setCycleSchedules = useStore((s) => s.setCycleSchedules);
   const [localSchedules, setLocalSchedules] = useState(cycleSchedules);
   const [scheduleSaved, setScheduleSaved] = useState(false);
 
-  const tranches = useStore((s) => s.tranches);
+  useEffect(() => {
+    setLocalSchedules(cycleSchedules);
+  }, [cycleSchedules]);
+
+  const tranches = useStore((s) => s.tranches) || [];
   const setTranches = useStore((s) => s.setTranches);
-  const [localTranches, setLocalTranches] = useState(tranches || []);
+  const [localTranches, setLocalTranches] = useState(tranches);
   const [tranchesSaved, setTranchesSaved] = useState(false);
 
-  const classes = useStore((s) => s.classes);
+  useEffect(() => {
+    setLocalTranches(tranches);
+  }, [tranches]);
+
+  const classes = useStore((s) => s.classes) || [];
   const setClasses = useStore((s) => s.setClasses);
-  const [localClasses, setLocalClasses] = useState(classes || []);
+  const [localClasses, setLocalClasses] = useState(classes);
   const [classesSaved, setClassesSaved] = useState(false);
+
+  useEffect(() => {
+    setLocalClasses(classes);
+  }, [classes]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLogoError('');
