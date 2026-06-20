@@ -1,3 +1,4 @@
+import React from 'react';
 import { BulletinEleveResultat } from '../../utils/bulletinCalculations';
 import { useStore } from '../../store/useStore';
 
