@@ -10,7 +10,7 @@ import {
 import { School } from '../../types';
 import { API_BASE_URL } from '../../config';
 import { useStore } from '../../store/useStore';
-import { countries } from '../../data/countries';
+import { COUNTRIES } from '../../data/countries';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -150,7 +150,7 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
                   required
                 >
                   <option value="" disabled>Sélectionner un pays</option>
-                  {countries.map(c => (
+                  {COUNTRIES.map(c => (
                     <option key={c.code} value={c.code}>{c.flag} {c.name_fr}</option>
                   ))}
                 </select>
