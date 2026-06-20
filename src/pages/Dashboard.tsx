@@ -19,7 +19,8 @@ import {
 import { generateRapportMensuelPDF } from '@/utils/reportGenerator';
 import { DashboardSkeleton } from '../components/SkeletonLoaders';
 
-const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
+import { formatMontant } from '../utils/helpers';
+
 const PIE_COLORS = ['#f59e0b', '#10b981', '#f43f5e'];
 const BAR_COLORS = { paye: '#10b981', restant: '#f43f5e' };
 
@@ -59,6 +60,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, sub, icon, color, tre
 
 const CustomTooltip: React.FC<{ active?: boolean; payload?: { name: string; value: number }[]; label?: string }> = ({ active, payload, label }) => {
   const privacyMode = useStore(s => s.privacyMode);
+  const currency = useStore(s => s.currency);
   if (active && payload && payload.length) {
     return (
       <div className="bg-white/90 dark:bg-slate-900/90 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[20px] border border-slate-200/50 dark:border-slate-700/50 p-4 text-xs backdrop-blur-xl">
@@ -71,7 +73,7 @@ const CustomTooltip: React.FC<{ active?: boolean; payload?: { name: string; valu
                 <span className="font-bold text-slate-600 dark:text-slate-300">{p.name}</span>
               </div>
               <span className="font-black text-slate-900 dark:text-white">
-                {privacyMode ? '••••••' : fmtMoney(p.value)} FCFA
+                {privacyMode ? '••••••' : formatMontant(p.value, currency)}
               </span>
             </div>
           ))}
@@ -89,6 +91,7 @@ export const Dashboard: React.FC = () => {
   const isSyncing = useStore((s) => s.isSyncing);
   const privacyMode = useStore((s) => s.privacyMode);
   const setPrivacyMode = useStore((s) => s.setPrivacyMode);
+  const currency = useStore((s) => s.currency);
 
   const maskValue = (val: string | number) => privacyMode ? '••••••' : val;
 
@@ -295,7 +298,7 @@ export const Dashboard: React.FC = () => {
         <StatCard
           delay={200}
           title="Écolage Attendu"
-          value={maskValue(`${fmtMoney(stats.totalEcolage)} F`)}
+          value={maskValue(formatMontant(stats.totalEcolage, currency))}
           sub="Total annuel"
           icon={<Wallet className="w-6 h-6 text-indigo-600" />}
           color="bg-indigo-50/80 dark:bg-indigo-900/20 border-indigo-500/20"
@@ -303,7 +306,7 @@ export const Dashboard: React.FC = () => {
         <StatCard
           delay={300}
           title="Déjà Perçu"
-          value={maskValue(`${fmtMoney(stats.totalPaye)} F`)}
+          value={maskValue(formatMontant(stats.totalPaye, currency))}
           sub="Paiements reçus"
           icon={<CheckCircle className="w-6 h-6 text-emerald-600" />}
           color="bg-emerald-50/80 dark:bg-emerald-900/20 border-emerald-500/20"
@@ -312,7 +315,7 @@ export const Dashboard: React.FC = () => {
         <StatCard
           delay={400}
           title="Solde Restant"
-          value={maskValue(`${fmtMoney(stats.totalRestant)} F`)}
+          value={maskValue(formatMontant(stats.totalRestant, currency))}
           sub="À recouvrer"
           icon={<AlertCircle className="w-6 h-6 text-rose-600" />}
           color="bg-rose-50/80 dark:bg-rose-900/20 border-rose-500/20"
@@ -393,15 +396,15 @@ export const Dashboard: React.FC = () => {
               <div className="space-y-4 mb-8">
                 <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Attendu</span>
-                  <span className="font-black text-slate-900 dark:text-white">{maskValue(fmtMoney(cs.ecolage))} F</span>
+                  <span className="font-black text-slate-900 dark:text-white">{maskValue(formatMontant(cs.ecolage, currency))}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
                   <span className="text-xs font-bold text-emerald-600 uppercase tracking-wide">Perçu</span>
-                  <span className="font-black text-emerald-600">{maskValue(fmtMoney(cs.paye))} F</span>
+                  <span className="font-black text-emerald-600">{maskValue(formatMontant(cs.paye, currency))}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-xl bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30">
                   <span className="text-xs font-bold text-rose-600 uppercase tracking-wide">Reste</span>
-                  <span className="font-black text-rose-600">{maskValue(fmtMoney(cs.restant))} F</span>
+                  <span className="font-black text-rose-600">{maskValue(formatMontant(cs.restant, currency))}</span>
                 </div>
               </div>
 
@@ -430,7 +433,7 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">Paiements par classe</h3>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Distribution des montants (FCFA)</p>
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Distribution des montants ({currency})</p>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-[16px]">
               <BarChart2 className="w-5 h-5 text-slate-400" />

@@ -10,8 +10,7 @@ import {
   Download, Filter, Camera, User, Users, GraduationCap, Building2, Smartphone
 } from 'lucide-react';
 import { StudentDetail } from '../components/StudentDetail';
-
-const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F';
+import { formatMontant } from '../utils/helpers';
 
 // ── Badge statut ─────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: Student['status'] }> = ({ status }) => {
@@ -35,6 +34,7 @@ interface ModalProps { student?: Student | null; onClose: () => void }
 const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
   const addStudent = useStore((s) => s.addStudent);
   const updateStudent = useStore((s) => s.updateStudent);
+  const currency = useStore((s) => s.currency);
 
   const [form, setForm] = useState({
     nom: student?.nom ?? '',
@@ -108,7 +108,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                 value={form.classe} 
                 onChange={(e) => setForm({ ...form, classe: e.target.value })}
               >
-                {CLASS_CONFIG.map((c) => <option key={c.name} value={c.name}>{c.name} — {c.cycle} ({new Intl.NumberFormat('fr-FR').format(c.ecolage)} F)</option>)}
+                {CLASS_CONFIG.map((c) => <option key={c.name} value={c.name}>{c.name} — {c.cycle} ({formatMontant(c.ecolage, currency)})</option>)}
               </select>
             </div>
             <div>
@@ -155,7 +155,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
             <h3 className="text-xs font-black text-slate-800 dark:text-emerald-400 uppercase tracking-widest mb-4">Informations financières (1er versement)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Montant payé (FCFA)</label>
+                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Montant payé ({currency})</label>
                 <input 
                   type="number" min={0} 
                   className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all dark:text-white" 
@@ -201,10 +201,11 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
 
 // ── Bouton WhatsApp ──────────────────────────────────────────
 const WhatsAppBtn: React.FC<{ student: Student; schoolName: string }> = ({ student, schoolName }) => {
+  const currency = useStore(s => s.currency);
   const taux = Math.round((student.dejaPaye / student.ecolage) * 100);
   const msg = student.restant <= 0
-    ? `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Nous vous felicitons d'avoir solde la scolarite (${new Intl.NumberFormat('fr-FR').format(student.ecolage)} FCFA). Merci ! — ${schoolName}`
-    : `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Solde restant : ${new Intl.NumberFormat('fr-FR').format(student.restant)} FCFA (paye : ${taux}%). Merci de regulariser. — ${schoolName}`;
+    ? `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Nous vous felicitons d'avoir solde la scolarite (${formatMontant(student.ecolage, currency)}). Merci ! — ${schoolName}`
+    : `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Solde restant : ${formatMontant(student.restant, currency)} (paye : ${taux}%). Merci de regulariser. — ${schoolName}`;
 
   const phone = (student.telephone || '').replace(/\D/g, '');
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
@@ -321,6 +322,7 @@ export const Eleves: React.FC = () => {
   const messageRemerciement = useStore((s) => s.messageRemerciement);
   const messageRappel = useStore((s) => s.messageRappel);
   const user = useStore((s) => s.user);
+  const currency = useStore((s) => s.currency);
 
   const [modal, setModal] = useState<{ open: boolean; student?: Student | null }>({ open: false });
   const [photoModal, setPhotoModal] = useState<{ open: boolean; student: Student | null }>({ open: false, student: null });
@@ -461,7 +463,7 @@ export const Eleves: React.FC = () => {
         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{filtered.length} dossier{filtered.length > 1 ? 's' : ''} sur {students.length}</p>
         {filtered.length > 0 && (
           <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
-            Perçu : <strong className="text-emerald-500">{new Intl.NumberFormat('fr-FR').format(filtered.reduce((a, s) => a + s.dejaPaye, 0))} FCFA</strong>
+            Perçu : <strong className="text-emerald-500">{formatMontant(filtered.reduce((a, s) => a + s.dejaPaye, 0), currency)}</strong>
           </p>
         )}
       </div>
@@ -549,9 +551,9 @@ export const Eleves: React.FC = () => {
                     <td className="px-6 py-4">
                         <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">{s.telephone}</span>
                     </td>
-                    <td className="px-6 py-4 font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{fmtMoney(s.dejaPaye)}</td>
+                    <td className="px-6 py-4 font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{formatMontant(s.dejaPaye, currency)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {s.restant <= 0 ? <span className="text-[10px] font-black bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-md uppercase tracking-widest">OK</span> : <span className="font-black text-rose-600 dark:text-rose-400">{fmtMoney(s.restant)}</span>}
+                      {s.restant <= 0 ? <span className="text-[10px] font-black bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-md uppercase tracking-widest">OK</span> : <span className="font-black text-rose-600 dark:text-rose-400">{formatMontant(s.restant, currency)}</span>}
                     </td>
                     <td className="px-6 py-4"><StatusBadge status={s.status} /></td>
                     <td className="px-6 py-4">
@@ -586,17 +588,17 @@ export const Eleves: React.FC = () => {
           <div className="border-t border-slate-100 dark:border-slate-800 p-5 bg-slate-50/50 dark:bg-slate-900/30 flex flex-wrap gap-6 items-center">
             <div className="flex flex-col">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Écolage Total Attendu</span>
-              <span className="font-black text-slate-700 dark:text-slate-300">{new Intl.NumberFormat('fr-FR').format(filtered.reduce((a, s) => a + s.ecolage, 0))} F</span>
+              <span className="font-black text-slate-700 dark:text-slate-300">{formatMontant(filtered.reduce((a, s) => a + s.ecolage, 0), currency)}</span>
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
             <div className="flex flex-col">
               <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Total Perçu</span>
-              <span className="font-black text-emerald-600 dark:text-emerald-400">{new Intl.NumberFormat('fr-FR').format(filtered.reduce((a, s) => a + s.dejaPaye, 0))} F</span>
+              <span className="font-black text-emerald-600 dark:text-emerald-400">{formatMontant(filtered.reduce((a, s) => a + s.dejaPaye, 0), currency)}</span>
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
             <div className="flex flex-col">
               <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Reste à recouvrer</span>
-              <span className="font-black text-rose-600 dark:text-rose-400">{new Intl.NumberFormat('fr-FR').format(filtered.reduce((a, s) => a + s.restant, 0))} F</span>
+              <span className="font-black text-rose-600 dark:text-rose-400">{formatMontant(filtered.reduce((a, s) => a + s.restant, 0), currency)}</span>
             </div>
             <div className="ml-auto flex items-center gap-4">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100/50 dark:bg-emerald-500/10 rounded-lg">

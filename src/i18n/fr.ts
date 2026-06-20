@@ -50,7 +50,7 @@ export const fr = {
     forgotPassword: 'Mot de passe oublié ?',
     noAccount: 'Pas encore inscrit ?',
     registerSchool: 'Inscrire mon établissement',
-    welcomeTitle: 'Bienvenue sur GestioSchool',
+    welcomeTitle: 'Bienvenue sur Ysiow',
     welcomeSubtitle: 'La plateforme complète pour gérer votre établissement scolaire.',
     feature1: 'Gestion des élèves et paiements',
     feature2: 'Bulletins et notes en ligne',

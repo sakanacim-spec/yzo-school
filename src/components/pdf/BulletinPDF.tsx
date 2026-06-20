@@ -1,5 +1,5 @@
-import React from 'react';
 import { BulletinEleveResultat } from '../../utils/bulletinCalculations';
+import { useStore } from '../../store/useStore';
 
 interface BulletinTogoPDFProps {
     data: BulletinEleveResultat;
@@ -17,8 +17,13 @@ const getDateFr = (): string => {
     return `${d.getDate()} ${mois[d.getMonth()]} ${d.getFullYear()}`;
 };
 
-export const BulletinTogoPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps>(
+export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps>(
     ({ data, schoolName, schoolLogo, schoolStamp, schoolYear, studentPhoto }, ref) => {
+    const country = (useStore((s) => s.schoolCountry) || 'TOGO').toUpperCase();
+    const phone = useStore((s) => s.schoolPhone) || 'Téléphone non renseigné';
+    const address = useStore((s) => s.schoolAddress) || 'Adresse non renseignée';
+    const city = useStore((s) => s.schoolCity) || 'Apéssito';
+
     return (
         <div
             ref={ref}
@@ -62,8 +67,8 @@ export const BulletinTogoPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFP
                         <div className="flex-1 flex justify-center gap-8 items-start px-2">
                              {/* 2. BLOC MINISTÈRE (Centre-Gauche) */}
                             <div className="flex-1 flex flex-col items-center text-center space-y-1.5">
-                                <p className="font-bold uppercase text-[11px] tracking-widest leading-none">République Togolaise</p>
-                                <p className="italic text-[9px] leading-none">Travail – Liberté – Patrie</p>
+                                <p className="font-bold uppercase text-[11px] tracking-widest leading-none">{country}</p>
+                                <p className="italic text-[9px] leading-none"></p>
                                 <div className="w-12 border-t border-black my-1"></div>
                                 <p className="font-black uppercase text-[11.5px] leading-tight">Ministère de l'Éducation Nationale</p>
                                 <p className="font-bold uppercase text-[10px] leading-tight">Direction Régionale de l'Éducation</p>
@@ -77,8 +82,8 @@ export const BulletinTogoPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFP
                                 </h2>
                                 <p className="italic font-black text-[11px] uppercase tracking-wider mb-0.5">Travail-Rigueur-succès</p>
                                 <div className="flex flex-col text-[10px] font-bold space-y-0.5">
-                                    <p>Tél: +228 90 17 79 66 / 99 41 40 47</p>
-                                    <p>BP: 80159 Apéssito - TOGO</p>
+                                    <p>Tél: {phone}</p>
+                                    <p>{address}</p>
                                 </div>
                             </div>
                         </div>
@@ -459,7 +464,7 @@ export const BulletinTogoPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFP
                     </p>
                     {/* Date de création — plus grande, en bas de page */}
                     <p className="text-[11px] font-bold text-black text-right">
-                        Fait à Apessito, le {getDateFr()}
+                        Fait à {city}, le {getDateFr()}
                     </p>
                 </div>
             </div>

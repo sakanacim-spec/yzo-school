@@ -52,7 +52,7 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
           {/* Introduction */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60">
             <p className="font-medium text-slate-800 dark:text-slate-200">
-              Chez <span className="font-bold text-amber-500">GestioSchool</span>, nous croyons que la vie privée de vos enfants et la sécurité de vos données financières et académiques sont fondamentales. Cette politique vous explique comment les données sont collectées, stockées, protégées et isolées dans notre système multi-établissement.
+              Chez <span className="font-bold text-amber-500">Ysiow</span>, nous croyons que la vie privée de vos enfants et la sécurité de vos données financières et académiques sont fondamentales. Cette politique vous explique comment les données sont collectées, stockées, protégées et isolées dans notre système multi-établissement.
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
               Dernière mise à jour : Mai 2026. Conforme aux standards internationaux de protection des données (RGPD / RPD).
@@ -161,7 +161,7 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
 
           {/* Footer légal */}
           <div className="pt-6 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-400">
-            GestioSchool est hébergé sur des serveurs sécurisés et utilise la technologie Supabase Postgres.
+            Ysiow est hébergé sur des serveurs sécurisés et utilise la technologie Supabase Postgres.
           </div>
         </div>
 

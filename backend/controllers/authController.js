@@ -277,7 +277,7 @@ async function login(req, res) {
         // Vérification accès école
         const { data: school, error: schoolErr } = await supabase
             .from('schools')
-            .select('id, name, slug, status, trial_ends_at')
+            .select('id, name, slug, status, trial_ends_at, country, address, phone')
             .eq('slug', schoolSlug)
             .single();
 
@@ -329,6 +329,9 @@ async function login(req, res) {
                 role: user.role,
                 school_name: school.name,
                 school_slug: school.slug,
+                school_country: school.country,
+                school_address: school.address,
+                school_phone: school.phone,
                 school_logo: null
             },
         });

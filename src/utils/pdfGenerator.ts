@@ -6,9 +6,10 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Student } from '../types';
+import { useStore } from '../store/useStore';
+import { formatMontant } from './helpers';
 
 // ── Utilitaires (inchangés) ──────────────────────────────────
-const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n).replace(/\s/g, '.') + ' FCFA';
 const fmtDate = (d?: string) => {
   const date = d ? new Date(d) : new Date();
   return date.toLocaleDateString('fr-FR').replace(/\//g, '.');
@@ -62,12 +63,17 @@ const drawOfficialHeader = (
   // 2. TEXTE CENTRAL (Flex-like spacing - SATURÉ)
   const centerX = w / 2;
   
+  const state = useStore.getState();
+  const country = (state.schoolCountry || 'TOGO').toUpperCase();
+  const address = state.schoolAddress || 'Adresse non renseignée';
+  const phone = state.schoolPhone || 'Téléphone non renseigné';
+
   // Bloc Ministère (Centre-Gauche)
   doc.setFontSize(10);
-  doc.text('RÉPUBLIQUE TOGOLAISE', centerX - 35, y, { align: 'center' });
+  doc.text(country, centerX - 35, y, { align: 'center' });
   doc.setFont('times', 'italic');
   doc.setFontSize(8);
-  doc.text('Travail - Liberté - Patrie', centerX - 35, y + 5, { align: 'center' });
+  doc.text('', centerX - 35, y + 5, { align: 'center' }); // Devise can be dynamic later if needed
   doc.setLineWidth(0.3);
   doc.line(centerX - 42, y + 7, centerX - 28, y + 7);
   doc.setFont('times', 'bold');
@@ -86,8 +92,8 @@ const drawOfficialHeader = (
   doc.text('Travail-Rigueur-Succès', centerX + 35, y + 7, { align: 'center' });
   doc.setFont('times', 'bold');
   doc.setFontSize(10);
-  doc.text('Tél: +228 90 17 79 66 / 99 41 40 47', centerX + 35, y + 14, { align: 'center' });
-  doc.text('BP: 80159 Apéssito - TOGO', centerX + 35, y + 19, { align: 'center' });
+  doc.text(`Tél: ${phone}`, centerX + 35, y + 14, { align: 'center' });
+  doc.text(address, centerX + 35, y + 19, { align: 'center' });
 
   // 3. LOGO (Extrême Droite - Réduit et poussé)
   if (schoolLogo) {
@@ -214,13 +220,15 @@ const drawFinanceTable = (
   doc.setLineWidth(0.5);
   doc.line(14, startY + 1.5, 70, startY + 1.5);
 
+  const currency = useStore.getState().currency;
+
   autoTable(doc, {
     startY: startY + 5,
-    head: [['Désignation', 'Montant (FCFA)']],
+    head: [[`Désignation`, `Montant (${currency})`]],
     body: [
-      ['Écolage annuel dû', fmtMoney(student.ecolage)],
-      ['Montant déjà réglé', fmtMoney(student.dejaPaye)],
-      ['Solde restant à payer', student.restant <= 0 ? 'SOLDÉ ✓' : fmtMoney(student.restant)],
+      ['Écolage annuel dû', formatMontant(student.ecolage, currency)],
+      ['Montant déjà réglé', formatMontant(student.dejaPaye, currency)],
+      ['Solde restant à payer', student.restant <= 0 ? 'SOLDÉ ✓' : formatMontant(student.restant, currency)],
     ],
     styles: {
       fontSize: 10,
@@ -459,6 +467,8 @@ export const generateClassePDF = (
   const taux = totalEcolage > 0 ? Math.round((totalPaye / totalEcolage) * 100) : 0;
   const nbSoldes = students.filter(s => s.restant <= 0).length;
 
+  const currency = useStore.getState().currency;
+
   // Bandeau résumé compact
   doc.setFillColor(241, 245, 249);
   doc.setDrawColor(226, 232, 240);
@@ -466,7 +476,7 @@ export const generateClassePDF = (
   doc.setFontSize(8);
   doc.setFont('times', 'bold');
   doc.setTextColor(15, 23, 42);
-  const summary = `Effectif: ${students.length}  |  Écolage: ${fmtMoney(totalEcolage)}  |  Perçu: ${fmtMoney(totalPaye)}  |  Restant: ${fmtMoney(totalRestant)}  |  Taux: ${taux}%  |  Soldés: ${nbSoldes}`;
+  const summary = `Effectif: ${students.length}  |  Écolage: ${formatMontant(totalEcolage, currency)}  |  Perçu: ${formatMontant(totalPaye, currency)}  |  Restant: ${formatMontant(totalRestant, currency)}  |  Taux: ${taux}%  |  Soldés: ${nbSoldes}`;
   doc.text(summary, w / 2, y + 6.5, { align: 'center' });
   y += 14;
 
@@ -480,9 +490,9 @@ export const generateClassePDF = (
       s.prenom,
       s.sexe,
       s.telephone,
-      fmtMoney(s.ecolage),
-      fmtMoney(s.dejaPaye),
-      s.restant <= 0 ? 'SOLDÉ' : fmtMoney(s.restant),
+      formatMontant(s.ecolage, currency),
+      formatMontant(s.dejaPaye, currency),
+      s.restant <= 0 ? 'SOLDÉ' : formatMontant(s.restant, currency),
       s.status,
     ]),
     foot: [[
@@ -491,9 +501,9 @@ export const generateClassePDF = (
       `${students.length} élèves`,
       '',
       '',
-      fmtMoney(totalEcolage),
-      fmtMoney(totalPaye),
-      fmtMoney(totalRestant),
+      formatMontant(totalEcolage, currency),
+      formatMontant(totalPaye, currency),
+      formatMontant(totalRestant, currency),
       `${taux}%`,
     ]],
     styles: {
@@ -604,6 +614,8 @@ export const generateNonSoldesPDF = (
   const totalPaye = students.reduce((a, s) => a + s.dejaPaye, 0);
   const totalRestant = students.reduce((a, s) => a + s.restant, 0);
 
+  const currency = useStore.getState().currency;
+
   doc.setFillColor(254, 242, 242);
   doc.setDrawColor(254, 205, 211);
   doc.roundedRect(14, y, w - 28, 10, 2, 2, 'FD');
@@ -611,7 +623,7 @@ export const generateNonSoldesPDF = (
   doc.setFont('times', 'bold');
   doc.setTextColor(153, 27, 27);
   doc.text(
-    `${students.length} élève(s) non soldé(s)  ·  Restant total : ${fmtMoney(totalRestant)}  ·  Perçu : ${fmtMoney(totalPaye)}  ·  Attendu : ${fmtMoney(totalEcolage)}`,
+    `${students.length} élève(s) non soldé(s)  ·  Restant total : ${formatMontant(totalRestant, currency)}  ·  Perçu : ${formatMontant(totalPaye, currency)}  ·  Attendu : ${formatMontant(totalEcolage, currency)}`,
     w / 2, y + 6.5, { align: 'center' }
   );
   doc.setTextColor(0, 0, 0);
@@ -628,17 +640,17 @@ export const generateNonSoldesPDF = (
         s.classe,
         s.cycle,
         s.telephone,
-        fmtMoney(s.ecolage),
-        fmtMoney(s.dejaPaye),
-        fmtMoney(s.restant),
+        formatMontant(s.ecolage, currency),
+        formatMontant(s.dejaPaye, currency),
+        formatMontant(s.restant, currency),
         `${taux}%`,
         s.status,
       ];
     }),
     foot: [['', `TOTAL — ${students.length} élève(s)`, '', '', '',
-      fmtMoney(totalEcolage),
-      fmtMoney(totalPaye),
-      fmtMoney(totalRestant),
+      formatMontant(totalEcolage, currency),
+      formatMontant(totalPaye, currency),
+      formatMontant(totalRestant, currency),
       '', '',
     ]],
     styles: {

@@ -6,6 +6,7 @@ import { CLASS_CONFIG } from '../data/classConfig';
 import { API_BASE_URL } from '../config';
 import { parseResponse, getAuthHeaders } from '../services/apiHelpers';
 import { getCycle } from '../data/classConfig';
+import { formatMontant } from '../utils/helpers';
 
 const computeStatus = (restant: number, ecolage: number): 'Soldé' | 'Partiel' | 'Non soldé' => {
   if (restant <= 0) return 'Soldé';
@@ -15,12 +16,12 @@ const computeStatus = (restant: number, ecolage: number): 'Soldé' | 'Partiel' |
   return 'Non soldé';
 };
 
-const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' FCFA';
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
 // ── Modale ajout paiement ────────────────────────────────────
 const PaymentModal: React.FC<{ student: Student; onClose: () => void }> = ({ student, onClose }) => {
   const addPayment = useStore((s) => s.addPayment);
+  const currency = useStore((s) => s.currency);
   const [form, setForm] = useState({ montant: '', recu: '', note: '', date: new Date().toISOString().slice(0, 10) });
   const [error, setError] = useState('');
 
@@ -30,7 +31,7 @@ const PaymentModal: React.FC<{ student: Student; onClose: () => void }> = ({ stu
     e.preventDefault();
     const montant = Number(form.montant);
     if (!montant || montant <= 0) { setError('Montant invalide.'); return; }
-    if (montant > maxPay) { setError(`Le montant dépasse le restant (${fmtMoney(maxPay)}).`); return; }
+    if (montant > maxPay) { setError(`Le montant dépasse le restant (${formatMontant(maxPay, currency)}).`); return; }
     addPayment(student.id, { montant, recu: form.recu, note: form.note, date: form.date });
     onClose();
   };
@@ -59,15 +60,15 @@ const PaymentModal: React.FC<{ student: Student; onClose: () => void }> = ({ stu
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Écolage</p>
-                <p className="font-bold text-slate-700 dark:text-slate-300">{fmtMoney(student.ecolage)}</p>
+                <p className="font-bold text-slate-700 dark:text-slate-300">{formatMontant(student.ecolage, currency)}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Déjà payé</p>
-                <p className="font-bold text-emerald-600 dark:text-emerald-400">{fmtMoney(student.dejaPaye)}</p>
+                <p className="font-bold text-emerald-600 dark:text-emerald-400">{formatMontant(student.dejaPaye, currency)}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Restant</p>
-                <p className="font-black text-rose-600 dark:text-rose-400">{fmtMoney(student.restant)}</p>
+                <p className="font-black text-rose-600 dark:text-rose-400">{formatMontant(student.restant, currency)}</p>
               </div>
             </div>
           </div>
@@ -75,11 +76,11 @@ const PaymentModal: React.FC<{ student: Student; onClose: () => void }> = ({ stu
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
-            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Montant perçu (FCFA) *</label>
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Montant perçu ({currency}) *</label>
             <input
               type="number" min={1} max={maxPay} required autoFocus
               className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-lg font-black focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all dark:text-white"
-              placeholder={`Maximum : ${fmtMoney(maxPay)}`}
+              placeholder={`Maximum : ${formatMontant(maxPay, currency)}`}
               value={form.montant}
               onChange={(e) => { setForm({ ...form, montant: e.target.value }); setError(''); }}
             />
@@ -142,6 +143,7 @@ const StudentPaymentRow: React.FC<{ student: Student; onPay: (s: Student) => voi
   if (!user) return null;
 
   const [open, setOpen] = useState(false);
+  const currency = useStore((s) => s.currency);
   const taux = Math.round((student.dejaPaye / student.ecolage) * 100);
 
   return (
@@ -174,9 +176,9 @@ const StudentPaymentRow: React.FC<{ student: Student; onPay: (s: Student) => voi
         
         <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-auto">
           <div className="text-left sm:text-right">
-            <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{new Intl.NumberFormat('fr-FR').format(student.dejaPaye)} F</p>
+            <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{formatMontant(student.dejaPaye, currency)}</p>
             <p className={`text-[11px] font-bold ${student.restant > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
-              {student.restant > 0 ? `Reste : ${new Intl.NumberFormat('fr-FR').format(student.restant)} F` : 'INTÉGRALEMENT SOLDÉ'}
+              {student.restant > 0 ? `Reste : ${formatMontant(student.restant, currency)}` : 'INTÉGRALEMENT SOLDÉ'}
             </p>
           </div>
           
@@ -211,7 +213,7 @@ const StudentPaymentRow: React.FC<{ student: Student; onPay: (s: Student) => voi
                     {fmtDate(p.date)}
                   </div>
                   <div className="font-black text-emerald-600 dark:text-emerald-400 text-sm shrink-0 w-32">
-                    +{new Intl.NumberFormat('fr-FR').format(p.montant)} FCFA
+                    +{formatMontant(p.montant, currency)}
                   </div>
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     {p.recu && <span className="text-[10px] font-black bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md uppercase tracking-widest shrink-0">Reçu {p.recu}</span>}

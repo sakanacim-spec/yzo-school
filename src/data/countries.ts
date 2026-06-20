@@ -222,3 +222,68 @@ export function getSortedCountries(lang: 'fr' | 'en' = 'fr'): Country[] {
     return nameA.localeCompare(nameB, lang);
   });
 }
+
+// Devise par défaut selon le pays
+export function getCurrencyForCountry(code: string): string {
+  // Zone Euro
+  if (['FR', 'BE', 'DE', 'IT', 'ES', 'PT', 'NL', 'AT', 'IE', 'FI', 'GR', 'LU', 'MT', 'CY', 'EE', 'LV', 'LT', 'SK', 'SI', 'MC', 'AD', 'SM', 'VA'].includes(code)) return '€';
+  
+  // Dollar US
+  if (['US', 'EC', 'SV', 'PR', 'ZW'].includes(code)) return '$';
+  
+  // Dollar Canadien
+  if (code === 'CA') return 'CAD';
+  
+  // Franc Suisse
+  if (code === 'CH') return 'CHF';
+  
+  // Dirham Marocain
+  if (code === 'MA') return 'MAD';
+  
+  // Dinar Algérien
+  if (code === 'DZ') return 'DZD';
+  
+  // Dinar Tunisien
+  if (code === 'TN') return 'TND';
+
+  // Ouguiya Mauritanien
+  if (code === 'MR') return 'MRU';
+
+  // Franc Guinéen
+  if (code === 'GN') return 'GNF';
+
+  // Franc Congolais
+  if (code === 'CD') return 'CDF';
+  
+  // Franc Rwandais
+  if (code === 'RW') return 'RWF';
+
+  // Franc Burundais
+  if (code === 'BI') return 'BIF';
+
+  // Franc Djiboutien
+  if (code === 'DJ') return 'DJF';
+  
+  // Franc Comorien
+  if (code === 'KM') return 'KMF';
+
+  // Ariary Malgache
+  if (code === 'MG') return 'MGA';
+
+  // Cedi Ghanéen
+  if (code === 'GH') return 'GHS';
+  
+  // Naira Nigérian
+  if (code === 'NG') return 'NGN';
+  
+  // Livre Sterling
+  if (code === 'GB') return '£';
+
+  // Par défaut, FCFA (UEMOA / CEMAC) pour les pays francophones d'Afrique non spécifiés ci-dessus
+  // BJ, BF, CI, GW, ML, NE, SN, TG (UEMOA)
+  // CM, CF, CG, GA, GQ, TD (CEMAC)
+  if (['BJ', 'BF', 'CI', 'GW', 'ML', 'NE', 'SN', 'TG', 'CM', 'CF', 'CG', 'GA', 'GQ', 'TD'].includes(code)) return 'FCFA';
+
+  // Fallback si non trouvé
+  return 'FCFA';
+}

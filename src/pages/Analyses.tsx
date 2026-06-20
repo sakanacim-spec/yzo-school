@@ -8,8 +8,12 @@ import {
 import { TrendingUp, AlertTriangle, Target, Award, Eye, EyeOff, Activity, ShieldAlert, BarChart2 } from 'lucide-react';
 import { computeCycleComparison } from '../services/analyticsService';
 
+import { computeCycleComparison } from '../services/analyticsService';
+import { formatMontant } from '../utils/helpers';
+
 const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number }[]; label?: string }) => {
   const privacyMode = useStore(s => s.privacyMode);
+  const currency = useStore(s => s.currency);
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white/90 dark:bg-slate-900/90 shadow-2xl rounded-2xl border border-slate-200/50 dark:border-slate-700/50 p-4 text-xs backdrop-blur-xl">
@@ -22,7 +26,7 @@ const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
               <span className="font-bold text-slate-600 dark:text-slate-300 capitalize">{p.name}</span>
             </div>
             <span className="font-black text-slate-900 dark:text-white">
-              {privacyMode ? '••••••' : new Intl.NumberFormat('fr-FR').format(p.value)} FCFA
+              {privacyMode ? '••••••' : formatMontant(p.value, currency)}
             </span>
           </div>
         ))}
@@ -33,11 +37,12 @@ const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
 
 const PieMoneyTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number }[] }) => {
   const privacyMode = useStore(s => s.privacyMode);
+  const currency = useStore(s => s.currency);
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white/90 dark:bg-slate-900/90 shadow-2xl rounded-2xl border border-slate-200/50 dark:border-slate-700/50 p-4 text-xs backdrop-blur-xl">
       <p className="font-black text-slate-800 dark:text-slate-100 mb-1">{payload[0].name}</p>
-      <p className="text-amber-600 font-bold">{privacyMode ? '••••••' : new Intl.NumberFormat('fr-FR').format(payload[0].value)} FCFA</p>
+      <p className="text-amber-600 font-bold">{privacyMode ? '••••••' : formatMontant(payload[0].value, currency)}</p>
     </div>
   );
 };
@@ -53,13 +58,13 @@ const SingleValueTooltip = ({ active, payload }: { active?: boolean; payload?: a
   );
 };
 
-const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
 const COLORS = ['#1e40af', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
 
 export const Analyses: React.FC = () => {
   const students = useStore((s) => s.students);
   const privacyMode = useStore((s) => s.privacyMode);
   const setPrivacyMode = useStore((s) => s.setPrivacyMode);
+  const currency = useStore((s) => s.currency);
 
   const maskValue = (val: string | number) => privacyMode ? '••••••' : val;
 
@@ -158,9 +163,9 @@ export const Analyses: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         {[
           { label: 'Taux Recouvrement', value: maskValue(`${tauxGlobal}%`), colors: { text: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-500/20' }, icon: <Target className="w-6 h-6 text-blue-600 dark:text-blue-400" /> },
-          { label: 'Revenus Encaissés', value: maskValue(`${fmtMoney(totalPaye)} F`), colors: { text: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-500/20' }, icon: <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> },
-          { label: 'À Recouvrer', value: maskValue(`${fmtMoney(totalRestant)} F`), colors: { text: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-500/20' }, icon: <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400" /> },
-          { label: 'Potentiel Total', value: maskValue(`${fmtMoney(totalEcolage)} F`), colors: { text: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-500/10', border: 'border-violet-500/20' }, icon: <Award className="w-6 h-6 text-violet-600 dark:text-violet-400" /> },
+          { label: 'Revenus Encaissés', value: maskValue(formatMontant(totalPaye, currency)), colors: { text: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-500/20' }, icon: <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> },
+          { label: 'À Recouvrer', value: maskValue(formatMontant(totalRestant, currency)), colors: { text: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-500/20' }, icon: <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400" /> },
+          { label: 'Potentiel Total', value: maskValue(formatMontant(totalEcolage, currency)), colors: { text: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-500/10', border: 'border-violet-500/20' }, icon: <Award className="w-6 h-6 text-violet-600 dark:text-violet-400" /> },
         ].map((k, idx) => (
           <div key={k.label} className={`pro-card p-6 ${k.colors.bg} ${k.colors.border} relative overflow-hidden group hover:-translate-y-1 transition-all duration-300`} style={{ animationDelay: `${idx * 100}ms` }}>
             <div className={`absolute -right-8 -top-8 w-24 h-24 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity bg-current ${k.colors.text}`} />
@@ -180,7 +185,7 @@ export const Analyses: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">Revenus par classe</h3>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Montants encaissés vs restants (FCFA)</p>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Montants encaissés vs restants ({currency})</p>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={320}>
@@ -201,7 +206,7 @@ export const Analyses: React.FC = () => {
         <div className="pro-card p-8 flex flex-col">
           <div className="mb-8">
             <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">Répartition des revenus</h3>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Montants encaissés (FCFA)</p>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Montants encaissés ({currency})</p>
           </div>
           <div className="flex-1 min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -282,8 +287,8 @@ export const Analyses: React.FC = () => {
                     }`}>{c.cycle}</span>
                   </td>
                   <td className="px-4 py-3 font-bold text-slate-500">{maskValue(c.effectif)}</td>
-                  <td className="px-4 py-3 font-black text-emerald-600 whitespace-nowrap">{maskValue(fmtMoney(c.paye))} F</td>
-                  <td className="px-4 py-3 font-black text-rose-500 whitespace-nowrap">{maskValue(fmtMoney(c.restant))} F</td>
+                  <td className="px-4 py-3 font-black text-emerald-600 whitespace-nowrap">{maskValue(formatMontant(c.paye, currency))}</td>
+                  <td className="px-4 py-3 font-black text-rose-500 whitespace-nowrap">{maskValue(formatMontant(c.restant, currency))}</td>
                   <td className="px-4 py-3 min-w-[150px]">
                     <div className="flex items-center gap-3">
                       <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -335,8 +340,8 @@ export const Analyses: React.FC = () => {
                     <tr key={s.id} className="hover:bg-rose-100/50 dark:hover:bg-rose-500/10 transition-colors">
                       <td className="px-4 py-3 font-black text-slate-800 dark:text-white whitespace-nowrap">{s.prenom} {s.nom}</td>
                       <td className="px-4 py-3 font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap">{s.classe}</td>
-                      <td className="px-4 py-3 font-black text-emerald-600 whitespace-nowrap">{maskValue(fmtMoney(s.dejaPaye))} F</td>
-                      <td className="px-4 py-3 font-black text-rose-600 whitespace-nowrap">{maskValue(fmtMoney(s.restant))} F</td>
+                      <td className="px-4 py-3 font-black text-emerald-600 whitespace-nowrap">{maskValue(formatMontant(s.dejaPaye, currency))}</td>
+                      <td className="px-4 py-3 font-black text-rose-600 whitespace-nowrap">{maskValue(formatMontant(s.restant, currency))}</td>
                       <td className="px-4 py-3"><span className="px-2.5 py-1 rounded-lg bg-rose-200/50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 font-black text-[10px]">{maskValue(`${t}%`)}</span></td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-xs whitespace-nowrap">{maskValue(s.telephone)}</td>
                     </tr>
@@ -360,18 +365,18 @@ export const Analyses: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="bg-indigo-50/80 dark:bg-indigo-500/10 rounded-2xl p-6 border border-indigo-100 dark:border-indigo-500/20 transition-transform hover:-translate-y-1">
             <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2">Potentiel Maximum</p>
-            <p className="text-3xl font-black text-indigo-900 dark:text-indigo-400 tracking-tighter mb-1">{maskValue(fmtMoney(totalEcolage))} F</p>
+            <p className="text-3xl font-black text-indigo-900 dark:text-indigo-400 tracking-tighter mb-1">{maskValue(formatMontant(totalEcolage, currency))}</p>
             <p className="text-[11px] font-bold text-indigo-400">Si 100% du recouvrement est atteint</p>
           </div>
           <div className="bg-emerald-50/80 dark:bg-emerald-500/10 rounded-2xl p-6 border border-emerald-100 dark:border-emerald-500/20 transition-transform hover:-translate-y-1">
             <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2">Situation Réelle ({maskValue(tauxGlobal)}%)</p>
-            <p className="text-3xl font-black text-emerald-900 dark:text-emerald-400 tracking-tighter mb-1">{maskValue(fmtMoney(totalPaye))} F</p>
+            <p className="text-3xl font-black text-emerald-900 dark:text-emerald-400 tracking-tighter mb-1">{maskValue(formatMontant(totalPaye, currency))}</p>
             <p className="text-[11px] font-bold text-emerald-400">Total encaissé de façon effective</p>
           </div>
           <div className="bg-amber-50/80 dark:bg-amber-500/10 rounded-2xl p-6 border border-amber-100 dark:border-amber-500/20 transition-transform hover:-translate-y-1">
             <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2">Déficit Objectif</p>
             <p className="text-3xl font-black text-amber-900 dark:text-amber-400 tracking-tighter mb-1">{maskValue(100 - tauxGlobal)}%</p>
-            <p className="text-[11px] font-bold text-amber-500">Soit {maskValue(fmtMoney(totalRestant))} FCFA en attente</p>
+            <p className="text-[11px] font-bold text-amber-500">Soit {maskValue(formatMontant(totalRestant, currency))} en attente</p>
           </div>
         </div>
       </div>

@@ -403,6 +403,9 @@ async function impersonateSchool(req, res) {
                 role: 'admin',
                 school_name: school.name,
                 school_slug: school.slug,
+                school_country: school.country,
+                school_address: school.address,
+                school_phone: school.phone,
                 school_logo: null
             }
         });

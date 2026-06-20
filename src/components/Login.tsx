@@ -61,7 +61,7 @@ export const Login: React.FC = () => {
   const login = useStore((s) => s.login);
   const language = useStore((s) => s.language);
   const T = getTranslations(language);
-  const appName = "GestioSchool";
+  const appName = "Ysiow";
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [view, setView] = useState<'login' | 'register' | 'link'>('login');
@@ -254,7 +254,7 @@ export const Login: React.FC = () => {
 
 
           {/* Login Panel */}
-          <div className="form-container sign-in-container" style={{ width: '100%', zIndex: 5 }}>
+          <div className="form-container sign-in-container">
             <form className="auth-form" onSubmit={handleAuth}>
               <SchoolLogo />
               <h1 className="text-2xl font-black text-slate-900 tracking-tighter">{T.login.title}</h1>
@@ -289,11 +289,32 @@ export const Login: React.FC = () => {
               {error && <div className="text-rose-500 text-xs mt-2 font-bold max-w-sm mx-auto">{error}</div>}
               <div className="max-w-sm mx-auto w-full flex flex-col items-center">
                 <button className="auth-button w-full mb-3" type="submit" disabled={loading}>{loading ? T.login.loggingIn : T.login.loginButton}</button>
-                <div className="text-xs text-slate-500 font-medium">
-                  {T.login.noAccount} <button type="button" className="text-amber-600 font-bold hover:underline" onClick={() => setView('register')}>{T.login.registerSchool}</button>
-                </div>
               </div>
             </form>
+          </div>
+
+          {/* Overlay Panel */}
+          <div className="overlay-container">
+            <div className="overlay">
+              <div className="overlay-panel overlay-right">
+                <h2 className="text-3xl font-black mb-4 tracking-tighter">Bonjour, Parent ! 🌟</h2>
+                <p className="text-sm font-medium opacity-90 mb-8 leading-relaxed max-w-[280px]">
+                  Plongez au cœur de l'éducation de votre enfant. Suivez chaque instant de sa réussite avec nous.
+                </p>
+                <div className="text-left text-xs space-y-3 mb-8 bg-white/10 p-5 rounded-2xl backdrop-blur-sm border border-white/20">
+                   <p className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-white rounded-full"></div> Suivi des notes en temps réel</p>
+                   <p className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-white rounded-full"></div> Notifications de présence</p>
+                   <p className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-white rounded-full"></div> Communication école-famille</p>
+                </div>
+                <button 
+                  className="auth-button ghost"
+                  type="button" 
+                  onClick={() => setView('register')}
+                >
+                  CRÉER UN COMPTE
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -17,6 +17,16 @@ export interface AppState {
   setSchoolLogo: (logo: string | null) => void;
   schoolStamp: string | null;       // Sceau de l'école
   setSchoolStamp: (stamp: string | null) => void;
+  schoolName: string;
+  setSchoolName: (name: string) => void;
+  schoolCountry: string | null;
+  setSchoolCountry: (country: string | null) => void;
+  schoolAddress: string | null;
+  setSchoolAddress: (address: string | null) => void;
+  schoolPhone: string | null;
+  setSchoolPhone: (phone: string | null) => void;
+  currency: string;
+  setCurrency: (currency: string) => void;
   tranches: any[];
   setTranches: (tranches: any[]) => void;
 
@@ -257,12 +267,22 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       // ── Identité ─────────────────────────────────────────
-      appName: 'EduFinance',
+      appName: 'Ysiow',
       setAppName: (name) => set({ appName: name }),
       schoolLogo: null,
       setSchoolLogo: (logo) => set({ schoolLogo: logo }),
       schoolStamp: null,
       setSchoolStamp: (stamp) => set({ schoolStamp: stamp }),
+      schoolName: 'Établissement',
+      setSchoolName: (name) => set({ schoolName: name }),
+      schoolCountry: null,
+      setSchoolCountry: (country) => set({ schoolCountry: country }),
+      schoolAddress: null,
+      setSchoolAddress: (address) => set({ schoolAddress: address }),
+      schoolPhone: null,
+      setSchoolPhone: (phone) => set({ schoolPhone: phone }),
+      currency: 'FCFA',
+      setCurrency: (currency) => set({ currency }),
       tranches: [],
       setTranches: (tranches) => {
         set({ tranches });
@@ -360,7 +380,17 @@ export const useStore = create<AppState>()(
               // ⚡ Informations multi-tenant
               schoolSlug: result.user.school_slug || undefined,
               schoolName: result.user.school_name || undefined,
+              schoolCountry: result.user.school_country || undefined,
+              schoolAddress: result.user.school_address || undefined,
+              schoolPhone: result.user.school_phone || undefined,
             };
+
+            // Déduire la devise si on a le pays
+            let newCurrency = 'FCFA';
+            if (loggedUser.schoolCountry) {
+              const { getCurrencyForCountry } = await import('../data/countries');
+              newCurrency = getCurrencyForCountry(loggedUser.schoolCountry);
+            }
 
             // Déterminer la page de redirection selon le rôle
             let targetPage: AppPage = 'dashboard';
@@ -394,6 +424,10 @@ export const useStore = create<AppState>()(
               schoolLogo: result.user.school_logo || null,
               schoolStamp: null,
               schoolName: result.user.school_name || 'Établissement',
+              schoolCountry: result.user.school_country || null,
+              schoolAddress: result.user.school_address || null,
+              schoolPhone: result.user.school_phone || null,
+              currency: newCurrency,
             });
 
             set({ user: loggedUser, isAuthenticated: true, currentPage: targetPage });
@@ -612,11 +646,6 @@ export const useStore = create<AppState>()(
       chatRecipientId: null,
       setChatRecipientId: (id) => set({ chatRecipientId: id }),
 
-      // ── Paramètres ───────────────────────────────────────
-      schoolName: 'Établissement Scolaire',
-      setSchoolName: (name) => set({ schoolName: name }),
-      schoolYear: '2024-2025',
-      setSchoolYear: (year) => set({ schoolYear: year }),
       messageRemerciement:
         "Nous vous remercions sincèrement pour votre ponctualité dans le règlement de la scolarité. Votre soutien contribue au bon fonctionnement de notre établissement.",
       setMessageRemerciement: (m) => set({ messageRemerciement: m }),
@@ -639,8 +668,6 @@ export const useStore = create<AppState>()(
       },
       settings: {
         seuilDeuxiemeTranche: 70,
-        schoolName: 'Établissement Scolaire',
-        schoolYear: '2024-2025',
         messageRemerciement: "Nous vous remercions sincèrement pour votre ponctualité dans le règlement de la scolarité. Votre soutien contribue au bon fonctionnement de notre établissement.",
         messageRappel: "Nous vous rappelons cordialement que le règlement du solde de scolarité est attendu. Veuillez régulariser votre situation dans les meilleurs délais.",
         currency: 'FCFA',

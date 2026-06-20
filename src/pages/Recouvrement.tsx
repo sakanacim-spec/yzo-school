@@ -9,8 +9,7 @@ import { computeClassComparison, computePriorityList } from '../services/analyti
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-
-const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' FCFA';
+import { formatMontant } from '../utils/helpers';
 
 export const Recouvrement: React.FC = () => {
     const students = useStore(s => s.students);
@@ -18,6 +17,7 @@ export const Recouvrement: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterClass, setFilterClass] = useState('');
     const [filterCycle, setFilterCycle] = useState('');
+    const currency = useStore(s => s.currency);
 
     // 1. Calcul des données
     const classComp = useMemo(() => computeClassComparison(students), [students]);
@@ -50,7 +50,7 @@ export const Recouvrement: React.FC = () => {
                 `${s.nom} ${s.prenom}`,
                 s.classe,
                 s.telephone,
-                fmtMoney(s.restant),
+                formatMontant(s.restant, currency),
                 s.joursRetard.toString(),
                 s.niveauPriorite
             ]),
@@ -211,7 +211,7 @@ export const Recouvrement: React.FC = () => {
                                                 )}
                                             </td>
                                             <td className="p-4 text-right font-bold text-red-600">
-                                                {fmtMoney(s.restant)}
+                                                {formatMontant(s.restant, currency)}
                                             </td>
                                             <td className="p-4 text-center">
                                                 <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold border ${urgent ? 'bg-red-100 text-red-800 border-red-200' :

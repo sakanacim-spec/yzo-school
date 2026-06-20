@@ -1,5 +1,6 @@
 import { Student, StatusPaiement, DashboardStats, ClassStats } from '../types';
 import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
+import { COUNTRIES } from '../data/countries';
 
 export const generateId = (): string => {
   // Use a proper UUID v4 format to avoid "invalid input syntax for type uuid" error in Supabase
@@ -48,16 +49,27 @@ export const getStatusColor = (status: StatusPaiement): string => {
   return colors[status];
 };
 
-export const formatMontant = (montant: number): string => {
-  return new Intl.NumberFormat('fr-FR').format(montant) + ' FCFA';
+export const formatMontant = (montant: number, currency: string = 'FCFA'): string => {
+  return new Intl.NumberFormat('fr-FR').format(montant) + ' ' + currency;
 };
 
-export const formatPhoneTogo = (phone: string): string => {
+export const formatPhoneNumber = (phone: string, countryCode: string | null = null): string => {
   const cleaned = (phone || '').replace(/\D/g, '');
-  if (cleaned.startsWith('228')) {
-    return '+' + cleaned;
+  
+  if (!countryCode) return '+' + cleaned;
+  
+  // Chercher l'indicatif du pays
+  const country = COUNTRIES.find((c: any) => c.code === countryCode);
+  const dialCode = country ? country.dialCode.replace('+', '') : '';
+
+  let localPhone = cleaned;
+  if (localPhone.startsWith('0')) localPhone = localPhone.substring(1);
+  
+  if (dialCode && localPhone.startsWith(dialCode)) {
+    return '+' + localPhone;
   }
-  return '+228' + cleaned;
+  
+  return '+' + dialCode + localPhone;
 };
 
 export const calculateDashboardStats = (students: Student[]): DashboardStats => {
@@ -107,8 +119,8 @@ export const calculateClassStats = (students: Student[]): ClassStats[] => {
   }).filter(c => c.effectif > 0);
 };
 
-export const generateWhatsAppLink = (phone: string, message: string): string => {
-  const formattedPhone = formatPhoneTogo(phone).replace('+', '');
+export const generateWhatsAppLink = (phone: string, message: string, countryCode: string | null = null): string => {
+  const formattedPhone = formatPhoneNumber(phone, countryCode).replace('+', '');
   const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
 };

@@ -50,7 +50,7 @@ export const en = {
     forgotPassword: 'Forgot password?',
     noAccount: 'Not registered yet?',
     registerSchool: 'Register my school',
-    welcomeTitle: 'Welcome to GestioSchool',
+    welcomeTitle: 'Welcome to Ysiow',
     welcomeSubtitle: 'The complete platform to manage your school.',
     feature1: 'Student & payment management',
     feature2: 'Report cards & grades online',

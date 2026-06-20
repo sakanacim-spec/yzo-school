@@ -21,11 +21,13 @@ export const messagePresenceArrivee = (nomEleve: string, heure: string, ecole: s
 export const messageAbsence = (nomEleve: string, date: string, ecole: string) =>
     `Bonjour,\n\nNous vous informons que votre enfant *${nomEleve}* a été absent(e) le *${date}* à l'école *${ecole}*.\n\nVeuillez nous contacter pour justifier cette absence.\n\nCordialement,\nL'Administration`;
 
-export const messagePaiement = (nomEleve: string, montant: number, soldeRestant: number, ecole: string) =>
-    `Bonjour,\n\nNous confirmons la réception du paiement de *${montant.toLocaleString('fr-FR')} FCFA* pour votre enfant *${nomEleve}*.\n\nSolde restant : *${soldeRestant.toLocaleString('fr-FR')} FCFA*\n\nMerci pour votre confiance.\n\n${ecole}`;
+import { formatMontant } from './helpers';
 
-export const messageRappelPaiement = (nomEleve: string, montantDu: number, ecole: string) =>
-    `Bonjour,\n\nNous vous rappelons cordialement que le solde de scolarité de votre enfant *${nomEleve}* s'élève à *${montantDu.toLocaleString('fr-FR')} FCFA*.\n\nVeuillez régulariser votre situation dans les meilleurs délais.\n\nCordialement,\n${ecole}`;
+export const messagePaiement = (nomEleve: string, montant: number, soldeRestant: number, ecole: string, currency: string) =>
+    `Bonjour,\n\nNous confirmons la réception du paiement de *${formatMontant(montant, currency)}* pour votre enfant *${nomEleve}*.\n\nSolde restant : *${formatMontant(soldeRestant, currency)}*\n\nMerci pour votre confiance.\n\n${ecole}`;
+
+export const messageRappelPaiement = (nomEleve: string, montantDu: number, ecole: string, currency: string) =>
+    `Bonjour,\n\nNous vous rappelons cordialement que le solde de scolarité de votre enfant *${nomEleve}* s'élève à *${formatMontant(montantDu, currency)}*.\n\nVeuillez régulariser votre situation dans les meilleurs délais.\n\nCordialement,\n${ecole}`;
 
 export const messageEcole = (ecole: string, contenu: string) =>
     `📢 *${ecole}*\n\n${contenu}\n\nCordialement,\nL'Administration`;

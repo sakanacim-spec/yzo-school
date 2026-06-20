@@ -9,6 +9,8 @@ import { Student } from '../types';
 import { ClassFinanceRow, computeMonthlyEvolution, computeRecouvrement } from '../services/analyticsService';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useStore } from '../store/useStore';
+import { formatMontant } from './helpers';
 
 const COLORS = {
     primary: [0, 0, 0],         // Pure black
@@ -16,10 +18,6 @@ const COLORS = {
     muted: [100, 100, 100],     // Gray
     border: [0, 0, 0],          // Solid black borders
     bg: [255, 255, 255],        // White background
-};
-
-const fmtPrice = (n: number) => {
-    return new Intl.NumberFormat('fr-FR').format(n).replace(/\s/g, '.') + ' FCFA';
 };
 
 export const generateRapportMensuelPDF = (
@@ -67,12 +65,18 @@ export const generateRapportMensuelPDF = (
     // 2. TEXTE CENTRAL (Saturation Max)
     const centerX = w / 2;
     
+    const state = useStore.getState();
+    const country = (state.schoolCountry || 'TOGO').toUpperCase();
+    const address = state.schoolAddress || 'Adresse non renseignée';
+    const phone = state.schoolPhone || 'Téléphone non renseigné';
+    const currency = state.currency;
+
     // Bloc Ministère (Centre-Gauche)
     doc.setFontSize(10);
-    doc.text('RÉPUBLIQUE TOGOLAISE', centerX - 35, y, { align: 'center' });
+    doc.text(country, centerX - 35, y, { align: 'center' });
     doc.setFont('times', 'italic');
     doc.setFontSize(8);
-    doc.text('Travail - Liberté - Patrie', centerX - 35, y + 5, { align: 'center' });
+    doc.text('', centerX - 35, y + 5, { align: 'center' });
     doc.setLineWidth(0.3);
     doc.line(centerX - 42, y + 7.5, centerX - 28, y + 7.5);
     doc.setFont('times', 'bold');
@@ -91,8 +95,8 @@ export const generateRapportMensuelPDF = (
     doc.text('Travail-Rigueur-Succès', centerX + 35, y + 7, { align: 'center' });
     doc.setFont('times', 'bold');
     doc.setFontSize(10);
-    doc.text('Tél: +228 90 17 79 66 / 99 41 40 47', centerX + 35, y + 14, { align: 'center' });
-    doc.text('BP: 80159 Apéssito - TOGO', centerX + 35, y + 19, { align: 'center' });
+    doc.text(`Tél: ${phone}`, centerX + 35, y + 14, { align: 'center' });
+    doc.text(address, centerX + 35, y + 19, { align: 'center' });
 
     // 3. LOGO (Extrême Droite - Réduit et poussé)
     if (schoolInfo.logo) {
@@ -138,9 +142,9 @@ export const generateRapportMensuelPDF = (
         startY: y,
         head: [['INDICATEUR', 'VALEUR']],
         body: [
-            ['REVENUS THÉORIQUES ATTENDUS', fmtPrice(recou.totalTheorique)],
-            ['TOTAL DES ENCAISSEMENTS RÉELS', fmtPrice(recou.totalEncaisse)],
-            ['SOLDE RESTANT À RECOUVRER', fmtPrice(recou.totalRestant)],
+            ['REVENUS THÉORIQUES ATTENDUS', formatMontant(recou.totalTheorique, currency)],
+            ['TOTAL DES ENCAISSEMENTS RÉELS', formatMontant(recou.totalEncaisse, currency)],
+            ['SOLDE RESTANT À RECOUVRER', formatMontant(recou.totalRestant, currency)],
             ['TAUX DE RECOUVREMENT GLOBAL', `${new Intl.NumberFormat('fr-FR').format(recou.taux)}%`],
         ],
         theme: 'plain',
@@ -180,9 +184,9 @@ export const generateRapportMensuelPDF = (
         body: allClassStats.map(c => [
             c.classe.toUpperCase(),
             c.effectif,
-            fmtPrice(c.totalTheorique),
-            fmtPrice(c.totalEncaisse),
-            fmtPrice(c.totalRestant),
+            formatMontant(c.totalTheorique, currency),
+            formatMontant(c.totalEncaisse, currency),
+            formatMontant(c.totalRestant, currency),
             `${new Intl.NumberFormat('fr-FR').format(c.taux)}%`
         ]),
         styles: { 
@@ -250,7 +254,7 @@ export const generateRapportMensuelPDF = (
     doc.setFontSize(11);
     doc.setFont('times', 'normal');
     const conclusion = `Le présent rapport certifie qu'au ${format(now, 'dd.MM.yyyy')}, le taux de recouvrement global est de ${new Intl.NumberFormat('fr-FR').format(recou.taux)}%. ` + 
-        `Un montant total de ${fmtPrice(recou.totalRestant)} reste à percevoir pour clôturer l'exercice.`;
+        `Un montant total de ${formatMontant(recou.totalRestant, currency)} reste à percevoir pour clôturer l'exercice.`;
     
     doc.text(doc.splitTextToSize(conclusion, w - (margin * 2)), margin, y);
 
