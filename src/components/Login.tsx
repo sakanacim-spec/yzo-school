@@ -138,7 +138,7 @@ export const Login: React.FC = () => {
     );
   }
 
-  if (view === 'register') {
+  if (isMobile && view === 'register') {
     return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
             <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
@@ -250,8 +250,19 @@ export const Login: React.FC = () => {
 
       {/* --- DESKTOP VIEW --- */}
       {!isMobile && (
-        <div className="auth-container">
+        <div className={`auth-container ${view === 'register' ? 'right-panel-active' : ''}`}>
 
+          {/* Sign Up Panel */}
+          <div className="form-container sign-up-container bg-slate-900 overflow-y-auto custom-scrollbar">
+             <div className="min-h-full w-full flex flex-col items-center justify-center p-4">
+                 <Register 
+                   onBack={() => setView('login')} 
+                   onSuccess={(admin) => {
+                     window.location.reload();
+                   }} 
+                 />
+             </div>
+          </div>
 
           {/* Login Panel */}
           <div className="form-container sign-in-container">
@@ -296,6 +307,20 @@ export const Login: React.FC = () => {
           {/* Overlay Panel */}
           <div className="overlay-container">
             <div className="overlay">
+              <div className="overlay-panel overlay-left">
+                <h2 className="text-3xl font-black mb-4 tracking-tighter">De retour ? 👋</h2>
+                <p className="text-sm font-medium opacity-90 mb-8 leading-relaxed max-w-[280px]">
+                  Connectez-vous pour accéder au tableau de bord et gérer votre établissement.
+                </p>
+                <button 
+                  className="auth-button ghost"
+                  type="button" 
+                  onClick={() => setView('login')}
+                >
+                  SE CONNECTER
+                </button>
+              </div>
+
               <div className="overlay-panel overlay-right">
                 <h2 className="text-3xl font-black mb-4 tracking-tighter">Bonjour, Parent ! 🌟</h2>
                 <p className="text-sm font-medium opacity-90 mb-8 leading-relaxed max-w-[280px]">
