@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { Student } from '../types';
-import { CLASS_CONFIG } from '../data/classConfig';
+
 import { generateRecuPDF } from '../utils/pdfGenerator';
 import { uploadStudentPhoto, deleteStudentPhoto } from '../services/photoService';
 import { COUNTRIES } from '../data/countries';
 import {
   Search, Plus, Trash2, Edit2, FileText,
   MessageCircle, ChevronUp, ChevronDown, ChevronRight, X, Check,
-  Download, Filter, Camera, User, Users, GraduationCap, Building2, Smartphone
+  Download, Filter, Camera, User, Users, GraduationCap, Building2, Smartphone, Phone, School, Wallet
 } from 'lucide-react';
 import { StudentDetail } from '../components/StudentDetail';
 import { formatMontant } from '../utils/helpers';
@@ -37,17 +37,18 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
   const updateStudent = useStore((s) => s.updateStudent);
   const currency = useStore((s) => s.currency);
   const addPayment = useStore((s) => s.addPayment);
-  const currency = useStore((s) => s.currency);
   const [modalStep, setModalStep] = useState<1 | 2>(1);
 
+  const classes = useStore((s) => s.classes) || [];
   const [form, setForm] = useState({
-    nom: editingStudent?.nom ?? '',
-    prenom: editingStudent?.prenom ?? '',
-    classe: editingStudent?.classe ?? CLASS_CONFIG[0].name,
-    telephone: editingStudent?.telephone ?? '',
-    sexe: (editingStudent?.sexe ?? 'M') as 'M' | 'F',
-    estRedoublant: editingStudent?.redoublant ?? false,
-    ecoleProvenance: editingStudent?.ecoleProvenance ?? '',
+    nom: student?.nom ?? '',
+    prenom: student?.prenom ?? '',
+    classe: student?.classe ?? (classes.length > 0 ? classes[0].name : ''),
+    ecolage: student?.ecolage ?? (classes.length > 0 ? classes[0].ecolage : 0),
+    telephone: student?.telephone ?? '',
+    sexe: (student?.sexe ?? 'M') as 'M' | 'F',
+    estRedoublant: student?.redoublant ?? false,
+    ecoleProvenance: student?.ecoleProvenance ?? '',
     montantPaye: 0,
     recuAssociatif: '',
   });
@@ -63,25 +64,28 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
       nom: form.nom.trim(),
       prenom: form.prenom.trim(),
       classe: form.classe,
+      ecolage: form.ecolage,
       sexe: form.sexe as 'M' | 'F',
       telephone: form.telephone || '',
       ecoleProvenance: form.ecoleProvenance || '',
-      redoublant: form.estRedoublant
+      redoublant: form.estRedoublant,
+      dejaPaye: student ? student.dejaPaye : form.montantPaye,
+      recu: student ? student.recu : form.recuAssociatif
     };
     
-    if (editingStudent) {
-      updateStudent(editingStudent.id, baseStudent);
+    if (student) {
+      updateStudent(student.id, baseStudent);
       if (form.montantPaye > 0) {
-        addPayment(editingStudent.id, form.montantPaye, form.recuAssociatif);
+        addPayment(student.id, { montant: form.montantPaye, date: new Date().toISOString(), recu: form.recuAssociatif, mode: 'ESPECES', commentaire: 'Scolarité' });
       }
     } else {
       const studentId = addStudent(baseStudent);
       if (form.montantPaye > 0 && studentId) {
-        addPayment(studentId, form.montantPaye, form.recuAssociatif);
+        addPayment(studentId, { montant: form.montantPaye, date: new Date().toISOString(), recu: form.recuAssociatif, mode: 'ESPECES', commentaire: 'Scolarité' });
       }
     }
     
-    setIsModalOpen(false);
+    onClose();
   };
 
   return (
@@ -95,14 +99,14 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-slate-800 tracking-tight">
-                    {editingStudent ? 'Modifier l\'élève' : 'Nouvelle Inscription'}
+                    {student ? 'Modifier l\'élève' : 'Nouvelle Inscription'}
                   </h3>
                   <p className="text-sm font-bold text-slate-400 mt-1">
                     Étape {modalStep} sur 2 : {modalStep === 1 ? 'Identité' : 'Scolarité & Finance'}
                   </p>
                 </div>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+              <button onClick={() => onClose()} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -155,16 +159,44 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                 <div className={`space-y-6 transition-all duration-500 ${modalStep === 2 ? 'opacity-100 translate-x-0 block' : 'opacity-0 translate-x-10 hidden'}`}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <GraduationCap className="w-3 h-3" /> Classe *
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                        Classe *
                       </label>
                       <div className="relative">
-                        <select className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer" value={form.classe} onChange={(e) => setForm({ ...form, classe: e.target.value })}>
-                          {CLASS_CONFIG.map((c) => <option key={c.name} value={c.name}>{c.name} - {c.cycle} ({formatMontant(c.ecolage, currency)})</option>)}
+                        <select className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer" 
+                          value={form.classe} 
+                          onChange={(e) => {
+                            const newClasse = e.target.value;
+                            const classDef = classes.find(c => c.name === newClasse);
+                            setForm({ ...form, classe: newClasse, ecolage: classDef ? classDef.ecolage : form.ecolage });
+                          }}>
+                          {classes.map((c) => <option key={c.name} value={c.name}>{c.name} - {c.cycle} ({formatMontant(c.ecolage, currency)})</option>)}
                         </select>
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                       </div>
                     </div>
+
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                        Frais de scolarité à payer *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          required
+                          value={form.ecolage}
+                          onChange={(e) => setForm({ ...form, ecolage: Number(e.target.value) })}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-5 pr-12 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        />
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
+                          {currency}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                         <School className="w-3 h-3" /> École de provenance
@@ -173,7 +205,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                     </div>
                   </div>
 
-                  {!editingStudent && (
+                  {!student && (
                     <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 p-6 rounded-2xl relative overflow-hidden">
                       <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl pointer-events-none"></div>
                       <h4 className="text-[12px] font-black text-emerald-800 uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10">
@@ -216,7 +248,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                 {modalStep === 1 ? (
                   <>Continuer <ChevronRight className="w-4 h-4" /></>
                 ) : (
-                  <>{editingStudent ? 'Mettre à jour' : 'Inscrire l\'élève'} <Check className="w-4 h-4" /></>
+                  <>{student ? 'Mettre à jour' : 'Inscrire l\'élève'} <Check className="w-4 h-4" /></>
                 )}
               </button>
             </div>
@@ -336,6 +368,7 @@ export const Eleves: React.FC = () => {
   const setSearchQuery = useStore((s) => s.setSearchQuery);
   const filterClasse = useStore((s) => s.filterClasse);
   const setFilterClasse = useStore((s) => s.setFilterClasse);
+  const classesList = useStore((s) => s.classes) || [];
   const filterCycle = useStore((s) => s.filterCycle);
   const setFilterCycle = useStore((s) => s.setFilterCycle);
   const filterStatus = useStore((s) => s.filterStatus);
@@ -397,7 +430,7 @@ export const Eleves: React.FC = () => {
     else setDeleteConfirm(id);
   };
 
-  const classes = [...new Set(CLASS_CONFIG.map((c) => c.name))];
+  const classes = [...new Set(classesList.map(c => c.name))];
 
   return (
     <div className="space-y-6 pb-20 max-w-[1600px] mx-auto animate-slideUp">
@@ -470,8 +503,8 @@ export const Eleves: React.FC = () => {
               <option>Primaire</option><option>Collège</option><option>Lycée</option>
             </select>
             <select className="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-[13px] font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all cursor-pointer" value={filterClasse} onChange={(e) => setFilterClasse(e.target.value)}>
-              <option value="">Toutes les classes</option>
-              {classes.map((c) => <option key={c}>{c}</option>)}
+              <option value="Toutes">Toutes les classes</option>
+              {classesList.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
             </select>
             <select className="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-[13px] font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all cursor-pointer" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
               <option value="">Tous les statuts financiers</option>

@@ -1,5 +1,5 @@
 import { Student, StatusPaiement, DashboardStats, ClassStats } from '../types';
-import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
+import { useStore } from '../store/useStore';
 import { COUNTRIES } from '../data/countries';
 
 export const generateId = (): string => {
@@ -12,11 +12,11 @@ export const generateId = (): string => {
 };
 
 export const getCycleFromClasse = (classe: string): 'Primaire' | 'Collège' | 'Lycée' => {
-  return getCycle(classe);
+  return useStore.getState().getCycle(classe);
 };
 
 export const getEcolageFromClasse = (classe: string): number => {
-  return getEcolage(classe);
+  return useStore.getState().getEcolage(classe);
 };
 
 export const getStatusPaiement = (student: Student, seuil: number = 70): StatusPaiement => {
@@ -94,9 +94,9 @@ export const calculateDashboardStats = (students: Student[]): DashboardStats => 
 };
 
 export const calculateClassStats = (students: Student[]): ClassStats[] => {
-  const allClasses = CLASS_CONFIG.map(c => c.name);
+  const classes = useStore.getState().classes.map(c => c.name);
   
-  return allClasses.map(classe => {
+  return classes.map(classe => {
     const classStudents = students.filter(s => s.classe === classe);
     const ecolageTotal = classStudents.reduce((sum, s) => sum + s.ecolage, 0);
     const paye = classStudents.reduce((sum, s) => sum + s.dejaPaye, 0);

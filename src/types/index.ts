@@ -104,6 +104,7 @@ export interface AppSettings extends AdminSettings {
   schoolEmail?: string; // Utilisé dans pdfUtils.ts
   academicYear?: string; // Utilisé dans pdfUtils.ts
   tranches?: Tranche[];
+  classes?: ClassConfig[]; // Configuration personnalisée des classes et écolages
 }
 
 export interface DashboardStats {

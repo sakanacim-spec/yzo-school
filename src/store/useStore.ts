@@ -3,9 +3,9 @@
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType } from '../types';
+import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle } from '../types';
 import { API_BASE_URL } from '../config';
-import { getEcolage, getCycle } from '../data/classConfig';
+import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
 import { createActivityLog } from '../utils/activityLogger';
 
@@ -29,6 +29,10 @@ export interface AppState {
   setCurrency: (currency: string) => void;
   tranches: any[];
   setTranches: (tranches: any[]) => void;
+  classes: ClassConfig[];
+  setClasses: (classes: ClassConfig[]) => void;
+  getEcolage: (className: string) => number;
+  getCycle: (className: string) => Cycle;
 
   // Auth
   user: User | null;
@@ -49,7 +53,7 @@ export interface AppState {
   // Élèves
   students: Student[];
   setStudents: (students: Student[]) => void;
-  addStudent: (student: Omit<Student, 'id' | 'createdAt' | 'updatedAt' | 'cycle' | 'status' | 'restant' | 'historiquesPaiements' | 'ecolage'>) => void;
+  addStudent: (student: Omit<Student, 'id' | 'createdAt' | 'updatedAt' | 'cycle' | 'status' | 'restant' | 'historiquesPaiements'>) => void;
   updateStudent: (id: string, updates: Partial<Student>) => void;
   deleteStudent: (id: string) => void;
   addPayment: (studentId: string, payment: Omit<Payment, 'id' | 'studentId'>) => void;
@@ -72,9 +76,6 @@ export interface AppState {
   chatRecipientId: string | null;
   setChatRecipientId: (id: string | null) => void;
 
-  // Paramètres
-  schoolName: string;
-  setSchoolName: (name: string) => void;
   schoolYear: string;
   setSchoolYear: (year: string) => void;
   messageRemerciement: string;
@@ -89,7 +90,8 @@ export interface AppState {
     schoolStamp?: string | null,
     messageRemerciement?: string,
     messageRappel?: string,
-    tranches?: any[]
+    tranches?: any[],
+    classes?: ClassConfig[]
   }) => Promise<void>;
   settings: AppSettings;
   updateSettings: (settings: AppSettings) => void;
@@ -273,8 +275,12 @@ export const useStore = create<AppState>()(
       setSchoolLogo: (logo) => set({ schoolLogo: logo }),
       schoolStamp: null,
       setSchoolStamp: (stamp) => set({ schoolStamp: stamp }),
-      schoolName: 'Établissement',
+      schoolName: 'Établissement Scolaire',
       setSchoolName: (name) => set({ schoolName: name }),
+      
+      schoolYear: '2023-2024',
+      setSchoolYear: (year) => set({ schoolYear: year }),
+      
       schoolCountry: null,
       setSchoolCountry: (country) => set({ schoolCountry: country }),
       schoolAddress: null,
@@ -289,6 +295,23 @@ export const useStore = create<AppState>()(
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend(get()).then(() => set({ lastSyncTimestamp: Date.now() }));
         });
+      },
+      classes: CLASS_CONFIG,
+      setClasses: (classes) => {
+        set({ classes });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend(get()).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
+      },
+      getEcolage: (className: string): number => {
+        const state = get();
+        const config = state.classes.find(c => c.name.toLowerCase() === className.toLowerCase());
+        return config ? config.ecolage : 60000;
+      },
+      getCycle: (className: string): Cycle => {
+        const state = get();
+        const config = state.classes.find(c => c.name.toLowerCase() === className.toLowerCase());
+        return config ? config.cycle : 'Primaire';
       },
 
       // ── Thème ──────────────────────────────────────────
@@ -501,7 +524,7 @@ export const useStore = create<AppState>()(
       students: [],
       setStudents: (students) => set({ students: deduplicateStudents(students.map(repairStudent)).list }),
       addStudent: (data) => {
-        const ecolage = getEcolage((data as { classe: string }).classe);
+        const ecolage = data.ecolage;
         const restant = ecolage - ((data as { dejaPaye?: number }).dejaPaye || 0);
         const studentId = uuid();
         const existing = get().students.find(s => 
@@ -546,8 +569,13 @@ export const useStore = create<AppState>()(
           if (s.id !== id) return s;
           const updated = { ...s, ...updates, updatedAt: new Date().toISOString() };
           if (updates.classe) {
-            updated.ecolage = getEcolage(updates.classe);
             updated.cycle = getCycle(updates.classe);
+            if (updates.ecolage === undefined) {
+              updated.ecolage = getEcolage(updates.classe);
+            }
+          }
+          if (updates.ecolage !== undefined) {
+            updated.ecolage = updates.ecolage;
           }
           if (updates.dejaPaye !== undefined || updates.classe) {
             updated.restant = updated.ecolage - updated.dejaPaye;
@@ -671,6 +699,8 @@ export const useStore = create<AppState>()(
         messageRemerciement: "Nous vous remercions sincèrement pour votre ponctualité dans le règlement de la scolarité. Votre soutien contribue au bon fonctionnement de notre établissement.",
         messageRappel: "Nous vous rappelons cordialement que le règlement du solde de scolarité est attendu. Veuillez régulariser votre situation dans les meilleurs délais.",
         currency: 'FCFA',
+        schoolName: 'Établissement Scolaire',
+        schoolYear: '2023-2024',
         nomEcole: 'Établissement Scolaire',
         anneScolaire: '2024-2025',
         adresse: 'Adresse de l\'établissement',
@@ -678,7 +708,8 @@ export const useStore = create<AppState>()(
         email: 'contact@ecole.ci',
         badgeParentResponsable: 'Parent Responsable',
         badge2emeTranche: '2ème Tranche Validée',
-        tranches: []
+        tranches: [],
+        classes: CLASS_CONFIG
       },
       updateSettings: (newSettings) => set({ settings: newSettings }),
 
@@ -912,14 +943,15 @@ export const useStore = create<AppState>()(
             if (data.appSettings) {
               const { appSettings } = data;
               set({
-                appName: appSettings.appName || 'YZO GESTION',
+                appName: appSettings.appName || 'YSIOW',
                 schoolName: appSettings.schoolName || '',
                 schoolYear: appSettings.schoolYear || '',
                 schoolLogo: appSettings.schoolLogo || null,
                 schoolStamp: appSettings.schoolStamp || null,
                 messageRemerciement: appSettings.messageRemerciement || '',
                 messageRappel: appSettings.messageRappel || '',
-                tranches: appSettings.tranches || []
+                tranches: appSettings.tranches || [],
+                classes: appSettings.classes || CLASS_CONFIG
               });
               console.log(`🎨 [Sync Parent] Paramètres appliqués ! Logo: ${!!appSettings.schoolLogo}`);
             }
@@ -1024,6 +1056,7 @@ export const useStore = create<AppState>()(
               messageRappel: data.appSettings.messageRappel || get().messageRappel,
               ...(data.appSettings.cycleSchedules ? { cycleSchedules: data.appSettings.cycleSchedules } : {}),
               ...(data.appSettings.tranches ? { tranches: data.appSettings.tranches } : {}),
+              ...(data.appSettings.classes ? { classes: data.appSettings.classes } : {}),
             });
             console.log('✅ [Sync] Paramètres appliqués ! Logo:', !!get().schoolLogo, '| Sceau:', !!get().schoolStamp);
           } else {
@@ -1173,7 +1206,8 @@ export const useStore = create<AppState>()(
                 schoolYear: data.schoolYear || get().schoolYear,
                 schoolLogo: data.schoolLogo !== null && data.schoolLogo !== undefined ? data.schoolLogo : get().schoolLogo,
                 schoolStamp: data.schoolStamp !== null && data.schoolStamp !== undefined ? data.schoolStamp : get().schoolStamp,
-                tranches: data.tranches || get().tranches
+                tranches: data.tranches || get().tranches,
+                classes: data.classes || get().classes
               });
               console.log('✅ [Settings] App state updated with cloud settings.');
             }
@@ -1304,6 +1338,7 @@ export const useStore = create<AppState>()(
         receiptCounter: state.receiptCounter || 0,
         cycleSchedules: state.cycleSchedules || [],
         tranches: state.tranches || [],
+        classes: state.classes || CLASS_CONFIG,
         announcements: state.announcements || [],
         announcementReads: state.announcementReads || [],
         currentPeriode: state.currentPeriode || 'TRIMESTRE 1',

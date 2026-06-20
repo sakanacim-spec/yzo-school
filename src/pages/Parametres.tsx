@@ -41,6 +41,11 @@ export const Parametres: React.FC = () => {
   const [localTranches, setLocalTranches] = useState(tranches || []);
   const [tranchesSaved, setTranchesSaved] = useState(false);
 
+  const classes = useStore((s) => s.classes);
+  const setClasses = useStore((s) => s.setClasses);
+  const [localClasses, setLocalClasses] = useState(classes || []);
+  const [classesSaved, setClassesSaved] = useState(false);
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLogoError('');
     const file = e.target.files?.[0];
@@ -421,6 +426,110 @@ export const Parametres: React.FC = () => {
                         >
                             <Save className="w-4 h-4" />
                             {tranchesSaved ? 'Enregistré' : 'Enregistrer'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── CLASSES ET FRAIS DE SCOLARITÉ ────────────────────────────── */}
+            {(user?.role === 'directeur' || user?.role === 'comptable' || user?.role === 'admin' || user?.role === 'directeur_general') && (
+                <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800 mt-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3">
+                            <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
+                                <School className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            Classes & Frais de Scolarité
+                        </h3>
+                        <button
+                            onClick={() => {
+                                const updated = [...localClasses, { name: `Nouvelle Classe ${localClasses.length + 1}`, cycle: 'Primaire' as any, ecolage: 50000 }];
+                                setLocalClasses(updated);
+                            }}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-500 text-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:hover:bg-indigo-500 dark:text-indigo-400 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all"
+                        >
+                            <Plus className="w-3.5 h-3.5" /> Ajouter
+                        </button>
+                    </div>
+
+                    <div className="space-y-3 mb-6">
+                        {localClasses.length === 0 ? (
+                        <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                            <p className="text-sm font-bold text-slate-500">Aucune classe paramétrée</p>
+                        </div>
+                        ) : (
+                        localClasses.map((c, idx) => (
+                            <div key={idx} className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                                <input
+                                    type="text"
+                                    value={c.name}
+                                    onChange={(e) => {
+                                        const updated = [...localClasses];
+                                        updated[idx].name = e.target.value;
+                                        setLocalClasses(updated);
+                                    }}
+                                    placeholder="Nom de la classe (ex: CP1)"
+                                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full"
+                                />
+                                <select
+                                    value={c.cycle}
+                                    onChange={(e) => {
+                                        const updated = [...localClasses];
+                                        updated[idx].cycle = e.target.value as any;
+                                        setLocalClasses(updated);
+                                    }}
+                                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-auto"
+                                >
+                                    <option value="Primaire">Primaire</option>
+                                    <option value="Collège">Collège</option>
+                                    <option value="Lycée">Lycée</option>
+                                </select>
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={c.ecolage}
+                                            onChange={(e) => {
+                                                const updated = [...localClasses];
+                                                updated[idx].ecolage = Number(e.target.value);
+                                                setLocalClasses(updated);
+                                            }}
+                                            className="w-full sm:w-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-12 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-right"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">FCFA</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            const updated = localClasses.filter((_, i) => i !== idx);
+                                            setLocalClasses(updated);
+                                        }}
+                                        className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors ml-auto sm:ml-1 shrink-0"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                        )}
+                    </div>
+
+                    <div className="flex justify-end">
+                        <button
+                            onClick={() => {
+                                setClasses(localClasses);
+                                updateAllSettings({ classes: localClasses });
+                                setClassesSaved(true);
+                                setTimeout(() => setClassesSaved(false), 3000);
+                            }}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
+                            classesSaved
+                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20'
+                            }`}
+                        >
+                            <Save className="w-4 h-4" />
+                            {classesSaved ? 'Enregistré' : 'Enregistrer'}
                         </button>
                     </div>
                 </div>

@@ -22,8 +22,8 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
     ({ data, schoolName, schoolLogo, schoolStamp, schoolYear, studentPhoto }, ref) => {
     const country = (useStore((s) => s.schoolCountry) || 'TOGO').toUpperCase();
     const phone = useStore((s) => s.schoolPhone) || 'Téléphone non renseigné';
-    const address = useStore((s) => s.schoolAddress) || 'Adresse non renseignée';
-    const city = useStore((s) => s.schoolCity) || 'Apéssito';
+    const address = useStore((s) => s.schoolAddress) || 'Apéssito';
+    const city = address.split(',').pop()?.trim() || 'Lomé';
 
     return (
         <div

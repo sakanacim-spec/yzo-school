@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../store/useStore';
-import { CLASS_CONFIG } from '../data/classConfig';
+
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -8,7 +8,7 @@ import {
 import { TrendingUp, AlertTriangle, Target, Award, Eye, EyeOff, Activity, ShieldAlert, BarChart2 } from 'lucide-react';
 import { computeCycleComparison } from '../services/analyticsService';
 
-import { computeCycleComparison } from '../services/analyticsService';
+
 import { formatMontant } from '../utils/helpers';
 
 const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number }[]; label?: string }) => {
@@ -62,6 +62,7 @@ const COLORS = ['#1e40af', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'
 
 export const Analyses: React.FC = () => {
   const students = useStore((s) => s.students);
+  const classes = useStore((s) => s.classes) || [];
   const privacyMode = useStore((s) => s.privacyMode);
   const setPrivacyMode = useStore((s) => s.setPrivacyMode);
   const currency = useStore((s) => s.currency);
@@ -69,7 +70,7 @@ export const Analyses: React.FC = () => {
   const maskValue = (val: string | number) => privacyMode ? '••••••' : val;
 
   const classData = useMemo(() => {
-    return CLASS_CONFIG.map((c) => {
+    return classes.map((c) => {
       const cls = students.filter((s) => s.classe === c.name);
       if (!cls.length) return null;
       const ecolageTotal = cls.reduce((a, s) => a + s.ecolage, 0);

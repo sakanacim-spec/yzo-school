@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Target, Search, Filter, Printer, Download, FileText } from 'lucide-react';
-import { CLASS_CONFIG } from '../data/classConfig';
+
 import { computeClassComparison, computePriorityList } from '../services/analyticsService';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -33,7 +33,7 @@ export const Recouvrement: React.FC = () => {
         });
     }, [basePriorityList, searchTerm, filterClass, filterCycle]);
 
-    const classesConfig = CLASS_CONFIG;
+    const classesConfig = useStore((s) => s.classes) || [];
     const cycles = ['Primaire', 'Collège', 'Lycée'];
 
     // --- Actions Export ---

@@ -4,7 +4,7 @@
 // Les pages ne font qu'appeler ces fonctions.
 // ============================================================
 import { Student, Payment, Cycle } from '../types';
-import { CLASS_CONFIG } from '../data/classConfig';
+import { useStore } from '../store/useStore';
 
 // ─────────────────────────────────────────────
 // TYPES EXPORTÉS
@@ -168,7 +168,7 @@ export function computeProjection(students: Student[]): ProjectionResult {
  * @returns ClassFinanceRow[] trié par taux décroissant
  */
 export function computeClassComparison(students: Student[]): ClassFinanceRow[] {
-  const rows: ClassFinanceRow[] = CLASS_CONFIG
+  const rows: ClassFinanceRow[] = useStore.getState().classes
     .map((config) => {
       const classeStudents = students.filter((s) => s.classe === config.name);
       if (classeStudents.length === 0) return null;

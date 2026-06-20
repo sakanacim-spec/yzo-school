@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { Student, Payment, User } from '../types';
 import { CreditCard, Plus, X, Check, Search, Clock, ChevronDown, ChevronUp, Loader2, Wallet, ArrowUpRight, TrendingDown, AlertCircle } from 'lucide-react';
-import { CLASS_CONFIG } from '../data/classConfig';
+
 import { API_BASE_URL } from '../config';
 import { parseResponse, getAuthHeaders } from '../services/apiHelpers';
 import { getCycle } from '../data/classConfig';
@@ -232,6 +232,7 @@ const StudentPaymentRow: React.FC<{ student: Student; onPay: (s: Student) => voi
 // ── PAGE PRINCIPALE ──────────────────────────────────────────
 export const Paiements: React.FC = () => {
   const students = useStore((s) => s.students);
+  const classesList = useStore((s) => s.classes) || [];
   const setStudents = useStore((s) => s.setStudents);
   const user = useStore((s) => s.user);
   const [loading, setLoading] = useState(false);
@@ -299,7 +300,7 @@ export const Paiements: React.FC = () => {
     }
   }, [students.length, setStudents]);
 
-  const classes = [...new Set(CLASS_CONFIG.map((c) => c.name))];
+  const classes = [...new Set(classesList.map((c) => c.name))];
 
   return (
     <div className="space-y-6 pb-20 max-w-[1600px] mx-auto animate-slideUp">

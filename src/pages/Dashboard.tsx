@@ -9,7 +9,7 @@ import {
   Users, TrendingUp, Wallet, AlertCircle, CheckCircle, School, BookOpen, 
   GraduationCap, Target, ArrowUpRight, BarChart2, UserCheck, FileText, Eye, EyeOff 
 } from 'lucide-react';
-import { CLASS_CONFIG } from '../data/classConfig';
+
 import {
   computeRecouvrement,
   computeClassComparison,
@@ -86,6 +86,7 @@ const CustomTooltip: React.FC<{ active?: boolean; payload?: { name: string; valu
 
 export const Dashboard: React.FC = () => {
   const students = useStore((s) => s.students);
+  const classes = useStore((s) => s.classes) || [];
   const user = useStore((s) => s.user);
   const getPresencesToday = useStore((s) => s.getPresencesToday);
   const isSyncing = useStore((s) => s.isSyncing);
@@ -172,7 +173,7 @@ export const Dashboard: React.FC = () => {
   }, [students]);
 
   const classData = useMemo(() => {
-    return CLASS_CONFIG.map((c) => {
+    return classes.map((c) => {
       const cls = students.filter((s) => s.classe === c.name);
       return {
         classe: c.name,
@@ -190,7 +191,7 @@ export const Dashboard: React.FC = () => {
   ].filter((d) => d.value > 0);
 
   const topClasses = useMemo(() => {
-    return CLASS_CONFIG.map((c) => {
+    return classes.map((c) => {
       const cls = students.filter((s) => s.classe === c.name);
       if (!cls.length) return null;
       const paye = cls.reduce((a, s) => a + s.dejaPaye, 0);
