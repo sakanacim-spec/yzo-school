@@ -10,6 +10,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { formatMontant } from '../utils/helpers';
+import { drawHeader } from '../utils/pdfUtils';
 
 export const Recouvrement: React.FC = () => {
     const students = useStore(s => s.students);
@@ -22,6 +23,7 @@ export const Recouvrement: React.FC = () => {
     const schoolAddress = useStore(s => s.schoolAddress);
     const schoolPhone = useStore(s => s.schoolPhone);
     const appName = useStore(s => s.appName);
+    const storeSettings = useStore(s => s.settings);
 
     // 1. Calcul des données
     const classComp = useMemo(() => computeClassComparison(students), [students]);
@@ -49,42 +51,27 @@ export const Recouvrement: React.FC = () => {
     const generatePDFList = () => {
         const doc = new jsPDF({ orientation: 'landscape' });
         
-        const ecole = sanitizeText(schoolName || appName || 'Etablissement');
-        const adresse = sanitizeText(schoolAddress || '');
-        const tel = sanitizeText(schoolPhone || '');
+        const fullSettings = {
+            ...storeSettings,
+            schoolName: schoolName || appName || 'Etablissement',
+            schoolAddress: schoolAddress,
+            schoolPhone: schoolPhone,
+            currency
+        };
 
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text(ecole, 14, 15);
-        
+        const yOffset = drawHeader(doc, fullSettings as any, 'LISTE PRIORITAIRE DE RECOUVREMENT');
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        let yOffset = 22;
-        if (adresse) {
-            doc.text(`Adresse : ${adresse}`, 14, yOffset);
-            yOffset += 6;
-        }
-        if (tel) {
-            doc.text(`Tel : ${tel}`, 14, yOffset);
-            yOffset += 6;
-        }
-
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(sanitizeText('LISTE PRIORITAIRE DE RECOUVREMENT'), 14, yOffset + 10);
-        
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Genere le : ${new Date().toLocaleDateString('fr-FR')}`, 14, yOffset + 16);
+        doc.text(`Généré le : ${new Date().toLocaleDateString('fr-FR')}`, 14, yOffset + 6);
 
         autoTable(doc, {
-            startY: yOffset + 22,
-            head: [['Nom Prenom', 'Classe', 'Telephone', 'Restant', 'Retard (Jours)', 'Priorite']],
+            startY: yOffset + 12,
+            head: [['Nom Prénom', 'Classe', 'Téléphone', 'Restant', 'Retard (Jours)', 'Priorité']],
             body: priorityList.map(s => [
                 sanitizeText(`${s.nom} ${s.prenom}`),
                 sanitizeText(s.classe),
                 s.telephone || '-',
-                sanitizeText(formatMontant(s.restant, currency).replace('€', 'Eur').replace('£', 'GBP')),
+                formatMontant(s.restant, currency).replace('€', 'Eur').replace('£', 'GBP').replace(/[\u202F\u00A0]/g, ' '),
                 s.joursRetard.toString(),
                 sanitizeText(s.niveauPriorite)
             ]),
@@ -104,37 +91,36 @@ export const Recouvrement: React.FC = () => {
     };
 
     const generateExcelList = () => {
-        const data = priorityList.map(s => ({
-            'Nom et Prénom': `${s.nom} ${s.prenom}`,
-            'Classe': s.classe,
-            'Cycle': s.cycle,
-            'Téléphone': s.telephone || '-',
-            'Sexe': s.sexe,
-            'Montant Restant': formatMontant(s.restant, currency),
-            'Jours Retard': s.joursRetard,
-            'Priorité': s.niveauPriorite,
-            'Score Stratégique': s.scorePriorite,
-        }));
-
-        const ws = XLSX.utils.json_to_sheet([]);
-        
-        const ecole = schoolName || appName || 'Établissement';
-        const headerRows = [
-            [ecole],
-            ...(schoolAddress ? [[`Adresse: ${schoolAddress}`]] : []),
-            ...(schoolPhone ? [[`Tél: ${schoolPhone}`]] : []),
-            [],
+        // En-tête avec les informations de l'établissement
+        const headerInfo = [
+            [storeSettings?.schoolMinistry || ''],
+            [schoolName || appName || 'Etablissement'],
+            [storeSettings?.schoolSlogan ? `« ${storeSettings.schoolSlogan} »` : ''],
+            [schoolAddress ? `Adresse: ${schoolAddress}` : ''],
+            [schoolPhone ? `Tel: ${schoolPhone}` : ''],
+            [''],
             ['LISTE PRIORITAIRE DE RECOUVREMENT'],
             [`Généré le: ${new Date().toLocaleDateString('fr-FR')}`],
-            []
+            ['']
         ];
 
-        XLSX.utils.sheet_add_aoa(ws, headerRows, { origin: 'A1' });
-        XLSX.utils.sheet_add_json(ws, data, { origin: -1, skipHeader: false });
+        const data = priorityList.map(s => ({
+            "Nom Complet": `${s.nom} ${s.prenom}`,
+            "Classe": s.classe,
+            "Téléphone Parent": s.telephone || '-',
+            "Reste à Payer": formatMontant(s.restant, currency).replace(/[\u202F\u00A0]/g, ' '),
+            "Jours de Retard": s.joursRetard,
+            "Niveau de Priorité": s.niveauPriorite
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data, { origin: "A10" });
+        
+        // Ajouter l'en-tête personnalisé au-dessus
+        XLSX.utils.sheet_add_aoa(ws, headerInfo, { origin: "A1" });
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Recouvrement");
-        XLSX.writeFile(wb, "Liste_Recouvrement.xlsx");
+        XLSX.writeFile(wb, `Recouvrement_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.xlsx`);
     };
 
     const handlePrint = () => {

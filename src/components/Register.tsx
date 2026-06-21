@@ -30,6 +30,8 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
   const [address, setAddress] = useState('');
   const [schoolPhone, setSchoolPhone] = useState('');
   const [schoolEmail, setSchoolEmail] = useState('');
+  const [slogan, setSlogan] = useState('');
+  const [ministry, setMinistry] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState<'fr' | 'en'>(language);
 
   // Admin States
@@ -87,6 +89,8 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
         address,
         phone: schoolPhone,
         email: schoolEmail,
+        slogan,
+        ministry,
         preferred_language: preferredLanguage,
         accepted_terms: true,
         accepted_privacy_policy: true,
@@ -280,6 +284,36 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             </div>
           </div>
         </div>
+
+          {/* Slogan & Ministère */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Ministère de tutelle</label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <input
+                  type="text"
+                  value={ministry}
+                  onChange={(e) => setMinistry(e.target.value)}
+                  placeholder="Ex: Ministère de l'Éducation Nationale"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Slogan de l'établissement</label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <input
+                  type="text"
+                  value={slogan}
+                  onChange={(e) => setSlogan(e.target.value)}
+                  placeholder="Ex: L'excellence pour tous"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          </div>
 
         {/* ── Section : Directeur ── */}
         <div className="border border-white/10 rounded-xl p-4 space-y-3">

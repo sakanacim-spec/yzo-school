@@ -24,36 +24,56 @@ const drawRoundedRect = (doc: jsPDF, x: number, y: number, w: number, h: number,
 };
 
 // En-tête commun pour tous les documents
-const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, schoolNameFontSize: number = 20) => {
+export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, schoolNameFontSize: number = 20) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   
   // Bandeau supérieur
-  drawRoundedRect(doc, 0, 0, pageWidth, 45, 0, COLORS.primary);
+  drawRoundedRect(doc, 0, 0, pageWidth, 55, 0, COLORS.primary);
   
-  // Nom de l'école
+  // Ministère et Pays (si disponibles)
   doc.setTextColor(...COLORS.white);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  if (settings.schoolMinistry) {
+    doc.text(settings.schoolMinistry.toUpperCase(), 14, 12);
+  }
+  if (settings.schoolCountry) {
+    doc.text(settings.schoolCountry.toUpperCase(), pageWidth - 14, 12, { align: 'right' });
+  }
+
+  // Nom de l'école
   doc.setFontSize(schoolNameFontSize);
   doc.setFont('helvetica', 'bold');
-  doc.text(settings.schoolName, pageWidth / 2, 18, { align: 'center' });
+  doc.text(settings.schoolName, pageWidth / 2, 24, { align: 'center' });
+  
+  // Slogan
+  if (settings.schoolSlogan) {
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    doc.text(`« ${settings.schoolSlogan} »`, pageWidth / 2, 32, { align: 'center' });
+  }
   
   // Coordonnées
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${settings.schoolAddress || settings.adresse || ''} | Tél: ${settings.schoolPhone || settings.telephone || ''}`, pageWidth / 2, 28, { align: 'center' });
-  doc.text(`Email: ${settings.schoolEmail || settings.email || ''} | Année scolaire: ${settings.academicYear || settings.schoolYear || settings.anneScolaire || ''}`, pageWidth / 2, 36, { align: 'center' });
+  const contact1 = [settings.schoolAddress || settings.adresse, settings.schoolPhone || settings.telephone ? `Tél: ${settings.schoolPhone || settings.telephone}` : ''].filter(Boolean).join(' | ');
+  const contact2 = [settings.schoolEmail || settings.email ? `Email: ${settings.schoolEmail || settings.email}` : '', `Année scolaire: ${settings.academicYear || settings.schoolYear || settings.anneScolaire || ''}`].filter(Boolean).join(' | ');
+  
+  doc.text(contact1, pageWidth / 2, 42, { align: 'center' });
+  doc.text(contact2, pageWidth / 2, 48, { align: 'center' });
   
   // Titre du document
   doc.setTextColor(...COLORS.dark);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text(title, pageWidth / 2, 58, { align: 'center' });
+  doc.text(title, pageWidth / 2, 72, { align: 'center' });
   
   // Ligne décorative sous le titre
   doc.setDrawColor(...COLORS.primary);
   doc.setLineWidth(0.8);
-  doc.line(pageWidth / 2 - 40, 62, pageWidth / 2 + 40, 62);
+  doc.line(pageWidth / 2 - 40, 76, pageWidth / 2 + 40, 76);
   
-  return 75; // Position Y après l'en-tête
+  return 85; // Position Y après l'en-tête
 };
 
 // Pied de page commun

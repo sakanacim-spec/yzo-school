@@ -54,6 +54,8 @@ const schoolRegisterSchema = Joi.object({
     address: Joi.string().trim().allow('', null),
     phone: Joi.string().trim().allow('', null),
     email: Joi.string().email().allow('', null),
+    slogan: Joi.string().trim().allow('', null),
+    ministry: Joi.string().trim().allow('', null),
     preferred_language: Joi.string().valid('fr', 'en').default('fr'),
     accepted_terms: Joi.boolean().allow(null),
     accepted_privacy_policy: Joi.boolean().allow(null),
@@ -176,6 +178,8 @@ async function registerSchool(req, res) {
             address: validatedData.address || null,
             phone: validatedData.phone || null,
             email: validatedData.email || null,
+            slogan: validatedData.slogan || null,
+            ministry: validatedData.ministry || null,
             preferred_language: validatedData.preferred_language || 'fr',
             status: 'trial',
             trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +2 mois
@@ -332,6 +336,8 @@ async function login(req, res) {
                 school_country: school.country,
                 school_address: school.address,
                 school_phone: school.phone,
+                school_slogan: school.slogan,
+                school_ministry: school.ministry,
                 school_logo: null
             },
         });
@@ -386,10 +392,40 @@ async function updatePushToken(req, res) {
     }
 }
 
+// 📌 Update Profile 📌
+async function updateProfile(req, res) {
+    if (!req.user) {
+        return res.status(401).json({ error: 'Non authentifié' });
+    }
+
+    const { school_address, school_phone, school_slogan, school_ministry } = req.body;
+    
+    try {
+        const updates = { updated_at: new Date().toISOString() };
+        if (school_address !== undefined) updates.address = school_address;
+        if (school_phone !== undefined) updates.phone = school_phone;
+        if (school_slogan !== undefined) updates.slogan = school_slogan;
+        if (school_ministry !== undefined) updates.ministry = school_ministry;
+
+        const { error } = await supabase
+            .from('schools')
+            .update(updates)
+            .eq('slug', req.user.schoolSlug);
+
+        if (error) throw error;
+
+        return res.json({ message: 'Profil mis à jour' });
+    } catch (err) {
+        console.error('Update Profile Error:', err.message);
+        return res.status(500).json({ error: err.message });
+    }
+}
+
 module.exports = {
     register,
     registerSchool,
     login,
     deleteSelfAccount,
-    updatePushToken
+    updatePushToken,
+    updateProfile
 };

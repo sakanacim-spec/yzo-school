@@ -245,11 +245,16 @@ async function updateSchoolStatus(req, res) {
 // Modifier les informations d'une école
 async function updateSchool(req, res) {
     const { id } = req.params;
-    const { name, address, phone, email, trial_ends_at } = req.body;
+    const { name, address, phone, email, slogan, ministry, trial_ends_at } = req.body;
 
     try {
         const updates = {};
         if (name !== undefined) updates.name = name;
+        if (address !== undefined) updates.address = address;
+        if (phone !== undefined) updates.phone = phone;
+        if (email !== undefined) updates.email = email;
+        if (slogan !== undefined) updates.slogan = slogan;
+        if (ministry !== undefined) updates.ministry = ministry;
         if (trial_ends_at !== undefined) updates.trial_ends_at = trial_ends_at;
 
         const { data: school, error } = await supabase

@@ -2,12 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, School, MessageSquare, Shield, Info,
-  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers
+  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe
 } from 'lucide-react';
 import { GestionPersonnel } from '../components/GestionPersonnel';
+import { BACKEND_URL } from '../config';
 
 export const Parametres: React.FC = () => {
   const schoolName = useStore((s) => s.schoolName);
+  const schoolAddress = useStore((s) => s.schoolAddress);
+  const schoolPhone = useStore((s) => s.schoolPhone);
+  const schoolSlogan = useStore((s) => s.schoolSlogan);
+  const schoolMinistry = useStore((s) => s.schoolMinistry);
   const schoolYear = useStore((s) => s.schoolYear);
   const messageRemerciement = useStore((s) => s.messageRemerciement);
   const messageRappel = useStore((s) => s.messageRappel);
@@ -17,6 +22,10 @@ export const Parametres: React.FC = () => {
   const user = useStore((s) => s.user);
 
   const [localSchool, setLocalSchool] = useState(schoolName || '');
+  const [localAddress, setLocalAddress] = useState(schoolAddress || '');
+  const [localPhone, setLocalPhone] = useState(schoolPhone || '');
+  const [localSlogan, setLocalSlogan] = useState(schoolSlogan || '');
+  const [localMinistry, setLocalMinistry] = useState(schoolMinistry || '');
   const [localYear, setLocalYear] = useState(schoolYear || '');
   const [localRem, setLocalRem] = useState(messageRemerciement || '');
   const [localRap, setLocalRap] = useState(messageRappel || '');
@@ -25,11 +34,15 @@ export const Parametres: React.FC = () => {
 
   useEffect(() => {
     setLocalSchool(schoolName || '');
+    setLocalAddress(schoolAddress || '');
+    setLocalPhone(schoolPhone || '');
+    setLocalSlogan(schoolSlogan || '');
+    setLocalMinistry(schoolMinistry || '');
     setLocalYear(schoolYear || '');
     setLocalRem(messageRemerciement || '');
     setLocalRap(messageRappel || '');
     setLocalAppName(appName || '');
-  }, [schoolName, schoolYear, messageRemerciement, messageRappel, appName]);
+  }, [schoolName, schoolAddress, schoolPhone, schoolSlogan, schoolMinistry, schoolYear, messageRemerciement, messageRappel, appName]);
   
   const [logoPreview, setLogoPreview] = useState<string | null>(schoolLogo);
   const [logoError, setLogoError] = useState('');
@@ -151,18 +164,45 @@ export const Parametres: React.FC = () => {
   };
 
   const updateAllSettings = useStore((s) => s.updateAllSettings);
+  const currency = useStore((s) => s.currency);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     await updateAllSettings({
+      appName: localAppName,
       schoolName: localSchool,
+      schoolAddress: localAddress,
+      schoolPhone: localPhone,
+      schoolSlogan: localSlogan,
+      schoolMinistry: localMinistry,
       schoolYear: localYear,
       messageRemerciement: localRem,
       messageRappel: localRap,
-      appName: localAppName,
       schoolLogo: logoPreview,
       schoolStamp: stampPreview
     });
+
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${BACKEND_URL}/api/auth/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            school_address: localAddress,
+            school_phone: localPhone,
+            school_slogan: localSlogan,
+            school_ministry: localMinistry
+          })
+        });
+      }
+    } catch (err) {
+      console.error('Erreur MAJ profil ecole', err);
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -224,6 +264,50 @@ export const Parametres: React.FC = () => {
                             value={localSchool}
                             onChange={(e) => setLocalSchool(e.target.value)}
                             placeholder="Ex : Groupe Scolaire Excellence"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
+                            Ministère de tutelle
+                        </label>
+                        <input
+                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            value={localMinistry}
+                            onChange={(e) => setLocalMinistry(e.target.value)}
+                            placeholder="Ex : Ministère de l'Éducation Nationale"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
+                            Slogan de l'établissement
+                        </label>
+                        <input
+                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            value={localSlogan}
+                            onChange={(e) => setLocalSlogan(e.target.value)}
+                            placeholder="Ex : L'excellence pour tous"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
+                            Adresse de l'établissement
+                        </label>
+                        <input
+                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            value={localAddress}
+                            onChange={(e) => setLocalAddress(e.target.value)}
+                            placeholder="Ex : Quartier, Ville"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
+                            Téléphone de l'établissement
+                        </label>
+                        <input
+                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            value={localPhone}
+                            onChange={(e) => setLocalPhone(e.target.value)}
+                            placeholder="Ex : +228 90 00 00 00"
                         />
                     </div>
                     <div>
@@ -403,7 +487,7 @@ export const Parametres: React.FC = () => {
                                             }}
                                             className="w-24 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-8 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-right"
                                         />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">%</span>
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">%</span>
                                     </div>
                                     <button
                                         onClick={() => {

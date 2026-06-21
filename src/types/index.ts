@@ -102,6 +102,9 @@ export interface AppSettings extends AdminSettings {
   schoolAddress?: string; // Utilisé dans pdfUtils.ts
   schoolPhone?: string; // Utilisé dans pdfUtils.ts
   schoolEmail?: string; // Utilisé dans pdfUtils.ts
+  schoolSlogan?: string; // Slogan de l'école
+  schoolMinistry?: string; // Ministère de tutelle
+  schoolCountry?: string; // Pays de provenance
   academicYear?: string; // Utilisé dans pdfUtils.ts
   tranches?: Tranche[];
   classes?: ClassConfig[]; // Configuration personnalisée des classes et écolages

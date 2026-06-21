@@ -25,6 +25,10 @@ export interface AppState {
   setSchoolAddress: (address: string | null) => void;
   schoolPhone: string | null;
   setSchoolPhone: (phone: string | null) => void;
+  schoolSlogan: string | null;
+  setSchoolSlogan: (slogan: string | null) => void;
+  schoolMinistry: string | null;
+  setSchoolMinistry: (ministry: string | null) => void;
   currency: string;
   setCurrency: (currency: string) => void;
   tranches: any[];
@@ -91,7 +95,11 @@ export interface AppState {
     messageRemerciement?: string,
     messageRappel?: string,
     tranches?: any[],
-    classes?: ClassConfig[]
+    classes?: ClassConfig[],
+    schoolAddress?: string | null,
+    schoolPhone?: string | null,
+    schoolSlogan?: string | null,
+    schoolMinistry?: string | null
   }) => Promise<void>;
   settings: AppSettings;
   updateSettings: (settings: AppSettings) => void;
@@ -287,6 +295,10 @@ export const useStore = create<AppState>()(
       setSchoolAddress: (address) => set({ schoolAddress: address }),
       schoolPhone: null,
       setSchoolPhone: (phone) => set({ schoolPhone: phone }),
+      schoolSlogan: null,
+      setSchoolSlogan: (slogan) => set({ schoolSlogan: slogan }),
+      schoolMinistry: null,
+      setSchoolMinistry: (ministry) => set({ schoolMinistry: ministry }),
       currency: 'FCFA',
       setCurrency: (currency) => set({ currency }),
       tranches: [],
@@ -406,6 +418,8 @@ export const useStore = create<AppState>()(
               schoolCountry: result.user.school_country || undefined,
               schoolAddress: result.user.school_address || undefined,
               schoolPhone: result.user.school_phone || undefined,
+              schoolSlogan: result.user.school_slogan || undefined,
+              schoolMinistry: result.user.school_ministry || undefined,
             };
 
             // Déduire la devise si on a le pays
@@ -450,6 +464,8 @@ export const useStore = create<AppState>()(
               schoolCountry: result.user.school_country || null,
               schoolAddress: result.user.school_address || null,
               schoolPhone: result.user.school_phone || null,
+              schoolSlogan: result.user.school_slogan || null,
+              schoolMinistry: result.user.school_ministry || null,
               currency: newCurrency,
             });
 
