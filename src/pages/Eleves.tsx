@@ -505,7 +505,7 @@ export const Eleves: React.FC = () => {
           <div className="min-h-0 flex flex-wrap gap-4 pt-1">
             <select className="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-[13px] font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all cursor-pointer" value={filterCycle} onChange={(e) => setFilterCycle(e.target.value)}>
               <option value="">Tous les cycles</option>
-              <option>Maternelle</option><option>Primaire</option><option>Collège</option><option>Lycée</option>
+              {[...new Set(students.map(s => s.cycle))].filter(Boolean).sort().map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <select className="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-[13px] font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all cursor-pointer" value={filterClasse} onChange={(e) => setFilterClasse(e.target.value)}>
               <option value="Toutes">Toutes les classes</option>

@@ -158,7 +158,7 @@ export const Recouvrement: React.FC = () => {
                             onChange={(e) => setFilterCycle(e.target.value)}
                         >
                             <option value="">Tous les cycles</option>
-                            {cycles.map(c => (
+                            {[...new Set(students.map(s => s.cycle))].filter(Boolean).sort().map(c => (
                                 <option key={c} value={c}>{c}</option>
                             ))}
                         </select>
