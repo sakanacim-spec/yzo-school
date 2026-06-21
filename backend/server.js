@@ -92,7 +92,7 @@ app.use((err, req, res, _next) => {
 // ── Démarrage ─────────────────────────────────────────────────
 const server = app.listen(PORT, () => {
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`🚀 Ysiow Backend démarré`);
+    console.log(`🚀 Yziow Backend démarré`);
     console.log(`${'='.repeat(60)}`);
     console.log(`📡 Serveur: http://localhost:${PORT}`);
     console.log(`🛡️  Base de données: Supabase PostgreSQL`);

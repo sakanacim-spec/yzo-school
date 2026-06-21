@@ -269,7 +269,7 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       // ── Identité ─────────────────────────────────────────
-      appName: 'Ysiow',
+      appName: 'Yziow',
       setAppName: (name) => set({ appName: name }),
       schoolLogo: null,
       setSchoolLogo: (logo) => set({ schoolLogo: logo }),
@@ -944,7 +944,7 @@ export const useStore = create<AppState>()(
             if (data.appSettings) {
               const { appSettings } = data;
               set({
-                appName: appSettings.appName || 'YSIOW',
+                appName: appSettings.appName || 'YZIOW',
                 schoolName: appSettings.schoolName || '',
                 schoolYear: appSettings.schoolYear || '',
                 schoolLogo: appSettings.schoolLogo || null,

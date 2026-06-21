@@ -61,7 +61,7 @@ export const Login: React.FC = () => {
   const login = useStore((s) => s.login);
   const language = useStore((s) => s.language);
   const T = getTranslations(language);
-  const appName = "Ysiow";
+  const appName = "Yziow";
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [view, setView] = useState<'login' | 'register' | 'link'>('login');
