@@ -945,7 +945,7 @@ export const useStore = create<AppState>()(
               const { appSettings } = data;
               set({
                 appName: appSettings.appName || 'YZIOW',
-                schoolName: appSettings.schoolName || '',
+                schoolName: (appSettings.schoolName?.toLowerCase().includes('colpriv') ? 'YZIOW' : appSettings.schoolName) || '',
                 schoolYear: appSettings.schoolYear || '',
                 schoolLogo: appSettings.schoolLogo || null,
                 schoolStamp: appSettings.schoolStamp || null,
@@ -1049,7 +1049,7 @@ export const useStore = create<AppState>()(
             });
             set({
               appName: data.appSettings.appName || get().appName,
-              schoolName: data.appSettings.schoolName || get().schoolName,
+              schoolName: (data.appSettings.schoolName?.toLowerCase().includes('colpriv') ? get().appName : data.appSettings.schoolName) || get().schoolName,
               schoolYear: data.appSettings.schoolYear || get().schoolYear,
               schoolLogo: data.appSettings.schoolLogo !== undefined ? data.appSettings.schoolLogo : get().schoolLogo,
               schoolStamp: data.appSettings.schoolStamp !== undefined ? data.appSettings.schoolStamp : get().schoolStamp,
@@ -1354,7 +1354,7 @@ export const useStore = create<AppState>()(
       onRehydrateStorage: () => (state) => {
         // Auto-réparation au chargement du storage local
         if (state) {
-          if (state.schoolName?.toLowerCase() === 'colprivé') {
+          if (state.schoolName?.toLowerCase().includes('colpriv')) {
             state.schoolName = state.appName;
           }
           if (state.students && state.students.length > 0) {
