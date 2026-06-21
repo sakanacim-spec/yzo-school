@@ -163,16 +163,21 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                         Classe *
                       </label>
                       <div className="relative">
-                        <select className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer" 
+                        <input
+                          type="text"
+                          list="classes-list"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" 
+                          placeholder="Sélectionner ou saisir une classe"
                           value={form.classe} 
                           onChange={(e) => {
                             const newClasse = e.target.value;
                             const classDef = classes.find(c => c.name === newClasse);
                             setForm({ ...form, classe: newClasse, ecolage: classDef ? classDef.ecolage : form.ecolage });
-                          }}>
+                          }}
+                        />
+                        <datalist id="classes-list">
                           {classes.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                        </datalist>
                       </div>
                     </div>
 
