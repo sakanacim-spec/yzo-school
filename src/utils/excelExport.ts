@@ -6,7 +6,7 @@ import { Student } from '../types';
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
 
-export const exportToExcel = (students: Student[], filename = 'export_eleves'): void => {
+export const exportToExcel = (students: Student[], currency: string = 'FCFA', filename = 'export_eleves'): void => {
   const data = students.map((s, i) => ({
     '#': i + 1,
     Nom: s.nom,
@@ -17,9 +17,9 @@ export const exportToExcel = (students: Student[], filename = 'export_eleves'): 
     Sexe: s.sexe === 'M' ? 'Masculin' : 'Féminin',
     Redoublant: s.redoublant ? 'Oui' : 'Non',
     'École de Provenance': s.ecoleProvenance,
-    'Écolage (FCFA)': fmtMoney(s.ecolage),
-    'Déjà Payé (FCFA)': fmtMoney(s.dejaPaye),
-    'Restant (FCFA)': s.restant <= 0 ? 'SOLDÉ' : fmtMoney(s.restant),
+    [`Écolage (${currency})`]: fmtMoney(s.ecolage),
+    [`Déjà Payé (${currency})`]: fmtMoney(s.dejaPaye),
+    [`Restant (${currency})`]: s.restant <= 0 ? 'SOLDÉ' : fmtMoney(s.restant),
     'Taux (%)': `${Math.min(100, Math.round((s.dejaPaye / s.ecolage) * 100))} %`,
     Statut: s.status,
     'N° Reçu': s.recu,
@@ -43,9 +43,9 @@ export const exportToExcel = (students: Student[], filename = 'export_eleves'): 
     { Indicateur: 'Primaire', Valeur: students.filter((s) => s.cycle === 'Primaire').length },
     { Indicateur: 'Collège',  Valeur: students.filter((s) => s.cycle === 'Collège').length },
     { Indicateur: 'Lycée',    Valeur: students.filter((s) => s.cycle === 'Lycée').length },
-    { Indicateur: 'Écolage total attendu (FCFA)', Valeur: fmtMoney(students.reduce((a, s) => a + s.ecolage, 0)) },
-    { Indicateur: 'Total payé (FCFA)',            Valeur: fmtMoney(students.reduce((a, s) => a + s.dejaPaye, 0)) },
-    { Indicateur: 'Total restant (FCFA)',          Valeur: fmtMoney(students.reduce((a, s) => a + s.restant, 0)) },
+    { Indicateur: `Écolage total attendu (${currency})`, Valeur: fmtMoney(students.reduce((a, s) => a + s.ecolage, 0)) },
+    { Indicateur: `Total payé (${currency})`,            Valeur: fmtMoney(students.reduce((a, s) => a + s.dejaPaye, 0)) },
+    { Indicateur: `Total restant (${currency})`,          Valeur: fmtMoney(students.reduce((a, s) => a + s.restant, 0)) },
     { Indicateur: 'Taux de recouvrement (%)',
       Valeur: students.length > 0
         ? `${Math.round((students.reduce((a, s) => a + s.dejaPaye, 0) / students.reduce((a, s) => a + s.ecolage, 0)) * 100)} %`

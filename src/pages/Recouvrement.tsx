@@ -110,7 +110,7 @@ export const Recouvrement: React.FC = () => {
             'Cycle': s.cycle,
             'Téléphone': s.telephone || '-',
             'Sexe': s.sexe,
-            'Montant Restant': s.restant,
+            'Montant Restant': formatMontant(s.restant, currency),
             'Jours Retard': s.joursRetard,
             'Priorité': s.niveauPriorite,
             'Score Stratégique': s.scorePriorite,

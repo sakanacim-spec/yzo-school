@@ -116,6 +116,7 @@ export const Documents: React.FC = () => {
   const messageRappel       = useStore((s) => s.messageRappel);
   const schoolLogo          = useStore((s) => s.schoolLogo);
   const schoolStamp         = useStore((s) => s.schoolStamp);
+  const currency            = useStore((s) => s.currency);
 
   const [filterClasse, setFilterClasse] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -151,7 +152,7 @@ export const Documents: React.FC = () => {
   };
 
   const handleExportExcel = () => {
-    exportToExcel(students, `export_${schoolYear}`);
+    exportToExcel(students, currency, `export_${schoolYear}`);
   };
 
   if (students.length === 0) {

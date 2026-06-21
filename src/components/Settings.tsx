@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore';
 import { Save, School, FileText, Bell, Percent } from 'lucide-react';
 
 export const Settings = () => {
-  const { settings, updateSettings, user } = useStore();
+  const { settings, updateSettings, user, currency } = useStore();
   const [formData, setFormData] = useState(settings);
   const [saved, setSaved] = useState(false);
 
@@ -200,23 +200,23 @@ export const Settings = () => {
               <div className="bg-green-50 border border-green-100 p-3 sm:p-4 rounded-lg">
                 <h3 className="font-semibold text-green-800 mb-2 text-sm sm:text-base">Primaire</h3>
                 <ul className="text-xs sm:text-sm text-green-700 space-y-1">
-                  <li>CP1, CP2, CE1, CE2, CM1: <strong>50 000 FCFA</strong></li>
-                  <li>CI, CI 1, CI 2, CM2: <strong>55 000 FCFA</strong></li>
+                  <li>CP1, CP2, CE1, CE2, CM1: <strong>50 000 {currency}</strong></li>
+                  <li>CI, CI 1, CI 2, CM2: <strong>55 000 {currency}</strong></li>
                 </ul>
               </div>
               <div className="bg-blue-50 border border-blue-100 p-3 sm:p-4 rounded-lg">
                 <h3 className="font-semibold text-blue-800 mb-2 text-sm sm:text-base">Collège</h3>
                 <ul className="text-xs sm:text-sm text-blue-700 space-y-1">
-                  <li>6EME, 5EME, 4EME: <strong>60 000 FCFA</strong></li>
-                  <li>3EME: <strong>70 000 FCFA</strong></li>
+                  <li>6EME, 5EME, 4EME: <strong>60 000 {currency}</strong></li>
+                  <li>3EME: <strong>70 000 {currency}</strong></li>
                 </ul>
               </div>
               <div className="bg-purple-50 border border-purple-100 p-3 sm:p-4 rounded-lg">
                 <h3 className="font-semibold text-purple-800 mb-2 text-sm sm:text-base">Lycée</h3>
                 <ul className="text-xs sm:text-sm text-purple-700 space-y-1">
-                  <li>2nde S, 2nde A4: <strong>75 000 FCFA</strong></li>
-                  <li>1er A4, 1er D: <strong>85 000 FCFA</strong></li>
-                  <li>Tle A4, Tle D: <strong>95 000 FCFA</strong></li>
+                  <li>2nde S, 2nde A4: <strong>75 000 {currency}</strong></li>
+                  <li>1er A4, 1er D: <strong>85 000 {currency}</strong></li>
+                  <li>Tle A4, Tle D: <strong>95 000 {currency}</strong></li>
                 </ul>
               </div>
             </div>

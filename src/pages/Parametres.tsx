@@ -518,7 +518,7 @@ export const Parametres: React.FC = () => {
                                             }}
                                             className="w-full sm:w-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-12 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-right"
                                         />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">FCFA</span>
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{currency}</span>
                                     </div>
                                     <button
                                         onClick={() => {
