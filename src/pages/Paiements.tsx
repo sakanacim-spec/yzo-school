@@ -364,7 +364,7 @@ export const Paiements: React.FC = () => {
           onChange={(e) => setFilterClasse(e.target.value)}
         >
           <option value="">Toutes les classes</option>
-          {classes.map((c) => <option key={c}>{c}</option>)}
+          {[...new Set(students.map(s => s.classe))].filter(Boolean).sort().map(className => <option key={className} value={className}>{className}</option>)}
         </select>
         <select 
           className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-[13px] font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all dark:text-white cursor-pointer" 

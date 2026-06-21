@@ -144,8 +144,8 @@ export const Recouvrement: React.FC = () => {
                             onChange={(e) => setFilterClass(e.target.value)}
                         >
                             <option value="">Toutes les classes</option>
-                            {classesConfig.map(c => (
-                                <option key={c.name} value={c.name}>{c.name}</option>
+                            {[...new Set(students.map(s => s.classe))].filter(Boolean).sort().map(className => (
+                                <option key={className} value={className}>{className}</option>
                             ))}
                         </select>
                     </div>

@@ -509,7 +509,7 @@ export const Eleves: React.FC = () => {
             </select>
             <select className="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-[13px] font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all cursor-pointer" value={filterClasse} onChange={(e) => setFilterClasse(e.target.value)}>
               <option value="Toutes">Toutes les classes</option>
-              {classesList.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+              {[...new Set(students.map(s => s.classe))].filter(Boolean).sort().map(className => <option key={className} value={className}>{className}</option>)}
             </select>
             <select className="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-[13px] font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all cursor-pointer" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
               <option value="">Tous les statuts financiers</option>
