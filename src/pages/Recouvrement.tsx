@@ -18,7 +18,10 @@ export const Recouvrement: React.FC = () => {
     const [filterClass, setFilterClass] = useState('');
     const [filterCycle, setFilterCycle] = useState('');
     const currency = useStore(s => s.currency);
-    const settings = useStore(s => s.settings);
+    const schoolName = useStore(s => s.schoolName);
+    const schoolAddress = useStore(s => s.schoolAddress);
+    const schoolPhone = useStore(s => s.schoolPhone);
+    const appName = useStore(s => s.appName);
 
     // 1. Calcul des données
     const classComp = useMemo(() => computeClassComparison(students), [students]);
@@ -39,17 +42,16 @@ export const Recouvrement: React.FC = () => {
 
     // --- Actions Export ---
 
-    const removeAccents = (str: string) => {
-        return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    const sanitizeText = (str: string) => {
+        return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u202F\u00A0]/g, ' ') : "";
     };
 
     const generatePDFList = () => {
         const doc = new jsPDF({ orientation: 'landscape' });
         
-        const ecole = removeAccents(settings?.nomEcole || settings?.schoolName || 'Etablissement');
-        const adresse = removeAccents(settings?.adresse || '');
-        const tel = settings?.telephone || '';
-        const email = removeAccents(settings?.email || '');
+        const ecole = sanitizeText(schoolName || appName || 'Etablissement');
+        const adresse = sanitizeText(schoolAddress || '');
+        const tel = sanitizeText(schoolPhone || '');
 
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
@@ -66,14 +68,10 @@ export const Recouvrement: React.FC = () => {
             doc.text(`Tel : ${tel}`, 14, yOffset);
             yOffset += 6;
         }
-        if (email) {
-            doc.text(`Email : ${email}`, 14, yOffset);
-            yOffset += 6;
-        }
 
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.text(removeAccents('LISTE PRIORITAIRE DE RECOUVREMENT'), 14, yOffset + 10);
+        doc.text(sanitizeText('LISTE PRIORITAIRE DE RECOUVREMENT'), 14, yOffset + 10);
         
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
@@ -83,12 +81,12 @@ export const Recouvrement: React.FC = () => {
             startY: yOffset + 22,
             head: [['Nom Prenom', 'Classe', 'Telephone', 'Restant', 'Retard (Jours)', 'Priorite']],
             body: priorityList.map(s => [
-                removeAccents(`${s.nom} ${s.prenom}`),
-                removeAccents(s.classe),
+                sanitizeText(`${s.nom} ${s.prenom}`),
+                sanitizeText(s.classe),
                 s.telephone || '-',
-                formatMontant(s.restant, currency).replace('€', 'Eur').replace('£', 'GBP'),
+                sanitizeText(formatMontant(s.restant, currency).replace('€', 'Eur').replace('£', 'GBP')),
                 s.joursRetard.toString(),
-                removeAccents(s.niveauPriorite)
+                sanitizeText(s.niveauPriorite)
             ]),
             styles: { fontSize: 9, font: 'helvetica' },
             headStyles: { fillColor: [220, 38, 38] },
@@ -120,12 +118,11 @@ export const Recouvrement: React.FC = () => {
 
         const ws = XLSX.utils.json_to_sheet([]);
         
-        const ecole = settings?.nomEcole || settings?.schoolName || 'Établissement';
+        const ecole = schoolName || appName || 'Établissement';
         const headerRows = [
             [ecole],
-            ...(settings?.adresse ? [[`Adresse: ${settings.adresse}`]] : []),
-            ...(settings?.telephone ? [[`Tél: ${settings.telephone}`]] : []),
-            ...(settings?.email ? [[`Email: ${settings.email}`]] : []),
+            ...(schoolAddress ? [[`Adresse: ${schoolAddress}`]] : []),
+            ...(schoolPhone ? [[`Tél: ${schoolPhone}`]] : []),
             [],
             ['LISTE PRIORITAIRE DE RECOUVREMENT'],
             [`Généré le: ${new Date().toLocaleDateString('fr-FR')}`],
