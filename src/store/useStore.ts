@@ -1354,6 +1354,9 @@ export const useStore = create<AppState>()(
       onRehydrateStorage: () => (state) => {
         // Auto-réparation au chargement du storage local
         if (state) {
+          if (state.schoolName?.toLowerCase() === 'colprivé') {
+            state.schoolName = state.appName;
+          }
           if (state.students && state.students.length > 0) {
             // Déduplication agressive pour éradiquer les doublons (Nom+Prénom+Classe)
             state.students = deduplicateStudents(state.students.map(repairStudent)).list;
