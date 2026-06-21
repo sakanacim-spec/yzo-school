@@ -106,6 +106,14 @@ export interface AppSettings extends AdminSettings {
   schoolMinistry?: string; // Ministère de tutelle
   schoolCountry?: string; // Pays de provenance
   academicYear?: string; // Utilisé dans pdfUtils.ts
+  
+  // Paramètres de personnalisation des bulletins
+  bulletinTemplate?: 'officiel' | 'classique';
+  bulletinShowPhoto?: boolean;
+  bulletinShowRank?: boolean;
+  bulletinShowClassAverage?: boolean;
+  bulletinShowAppreciation?: boolean;
+
   tranches?: Tranche[];
   classes?: ClassConfig[]; // Configuration personnalisée des classes et écolages
 }

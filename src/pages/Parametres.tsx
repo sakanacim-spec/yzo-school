@@ -21,6 +21,12 @@ export const Parametres: React.FC = () => {
   const schoolStamp = useStore((s) => s.schoolStamp);
   const user = useStore((s) => s.user);
 
+  const bulletinTemplate = useStore((s) => s.settings?.bulletinTemplate ?? 'officiel');
+  const bulletinShowPhoto = useStore((s) => s.settings?.bulletinShowPhoto ?? true);
+  const bulletinShowRank = useStore((s) => s.settings?.bulletinShowRank ?? true);
+  const bulletinShowClassAverage = useStore((s) => s.settings?.bulletinShowClassAverage ?? true);
+  const bulletinShowAppreciation = useStore((s) => s.settings?.bulletinShowAppreciation ?? true);
+
   const [localSchool, setLocalSchool] = useState(schoolName || '');
   const [localAddress, setLocalAddress] = useState(schoolAddress || '');
   const [localPhone, setLocalPhone] = useState(schoolPhone || '');
@@ -30,6 +36,13 @@ export const Parametres: React.FC = () => {
   const [localRem, setLocalRem] = useState(messageRemerciement || '');
   const [localRap, setLocalRap] = useState(messageRappel || '');
   const [localAppName, setLocalAppName] = useState(appName || '');
+  
+  const [localBulletinTemplate, setLocalBulletinTemplate] = useState<'officiel'|'classique'>(bulletinTemplate);
+  const [localBulletinShowPhoto, setLocalBulletinShowPhoto] = useState(bulletinShowPhoto);
+  const [localBulletinShowRank, setLocalBulletinShowRank] = useState(bulletinShowRank);
+  const [localBulletinShowClassAverage, setLocalBulletinShowClassAverage] = useState(bulletinShowClassAverage);
+  const [localBulletinShowAppreciation, setLocalBulletinShowAppreciation] = useState(bulletinShowAppreciation);
+
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -42,7 +55,12 @@ export const Parametres: React.FC = () => {
     setLocalRem(messageRemerciement || '');
     setLocalRap(messageRappel || '');
     setLocalAppName(appName || '');
-  }, [schoolName, schoolAddress, schoolPhone, schoolSlogan, schoolMinistry, schoolYear, messageRemerciement, messageRappel, appName]);
+    setLocalBulletinTemplate(bulletinTemplate);
+    setLocalBulletinShowPhoto(bulletinShowPhoto);
+    setLocalBulletinShowRank(bulletinShowRank);
+    setLocalBulletinShowClassAverage(bulletinShowClassAverage);
+    setLocalBulletinShowAppreciation(bulletinShowAppreciation);
+  }, [schoolName, schoolAddress, schoolPhone, schoolSlogan, schoolMinistry, schoolYear, messageRemerciement, messageRappel, appName, bulletinTemplate, bulletinShowPhoto, bulletinShowRank, bulletinShowClassAverage, bulletinShowAppreciation]);
   
   const [logoPreview, setLogoPreview] = useState<string | null>(schoolLogo);
   const [logoError, setLogoError] = useState('');
@@ -179,7 +197,12 @@ export const Parametres: React.FC = () => {
       messageRemerciement: localRem,
       messageRappel: localRap,
       schoolLogo: logoPreview,
-      schoolStamp: stampPreview
+      schoolStamp: stampPreview,
+      bulletinTemplate: localBulletinTemplate,
+      bulletinShowPhoto: localBulletinShowPhoto,
+      bulletinShowRank: localBulletinShowRank,
+      bulletinShowClassAverage: localBulletinShowClassAverage,
+      bulletinShowAppreciation: localBulletinShowAppreciation
     });
 
     try {
@@ -534,6 +557,91 @@ export const Parametres: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* ── CONFIGURATION DES BULLETINS ────────────────────────────── */}
+            {(user?.role === 'directeur' || user?.role === 'admin' || user?.role === 'directeur_general') && (
+                <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800 mt-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3">
+                            <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
+                                <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            Configuration des Bulletins
+                        </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
+                                Modèle de Bulletin
+                            </label>
+                            <select
+                                value={localBulletinTemplate}
+                                onChange={(e) => setLocalBulletinTemplate(e.target.value as 'officiel'|'classique')}
+                                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            >
+                                <option value="officiel">Modèle Officiel (Complet)</option>
+                                <option value="classique">Modèle Classique (Simplifié)</option>
+                            </select>
+                            <p className="mt-2 text-xs text-slate-500">Le modèle classique masque l'historique complet des trimestres.</p>
+                        </div>
+                        
+                        <div className="space-y-4 pt-2">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    checked={localBulletinShowPhoto}
+                                    onChange={(e) => setLocalBulletinShowPhoto(e.target.checked)}
+                                    className="w-5 h-5 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700" 
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Afficher la photo de l'élève</span>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    checked={localBulletinShowRank}
+                                    onChange={(e) => setLocalBulletinShowRank(e.target.checked)}
+                                    className="w-5 h-5 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700" 
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Afficher le rang de l'élève (matière et général)</span>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    checked={localBulletinShowClassAverage}
+                                    onChange={(e) => setLocalBulletinShowClassAverage(e.target.checked)}
+                                    className="w-5 h-5 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700" 
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Afficher la moyenne de la classe par matière</span>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    checked={localBulletinShowAppreciation}
+                                    onChange={(e) => setLocalBulletinShowAppreciation(e.target.checked)}
+                                    className="w-5 h-5 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700" 
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Afficher l'appréciation globale (cases rondes)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end mt-6">
+                        <button
+                            onClick={handleSave}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
+                            saved
+                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20'
+                            }`}
+                        >
+                            <Save className="w-4 h-4" />
+                            {saved ? 'Enregistré' : 'Enregistrer'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
 
             {/* ── CLASSES ET FRAIS DE SCOLARITÉ ────────────────────────────── */}
             {(user?.role === 'directeur' || user?.role === 'comptable' || user?.role === 'admin' || user?.role === 'directeur_general') && (

@@ -67,6 +67,8 @@ const drawOfficialHeader = (
   const country = (state.schoolCountry || 'TOGO').toUpperCase();
   const address = state.schoolAddress || 'Adresse non renseignée';
   const phone = state.schoolPhone || 'Téléphone non renseigné';
+  const slogan = state.schoolSlogan || 'Travail-Rigueur-Succès';
+  const ministry = state.schoolMinistry || "MINISTERE DE L'EDUCATION NATIONALE\nDIRECTION RÉGIONALE DE L'ÉDUCATION\nINSPECTION DE L'ENSEIGNEMENT GENERAL";
 
   // Bloc Ministère (Centre-Gauche)
   doc.setFontSize(10);
@@ -77,11 +79,10 @@ const drawOfficialHeader = (
   doc.setLineWidth(0.3);
   doc.line(centerX - 42, y + 7, centerX - 28, y + 7);
   doc.setFont('times', 'bold');
-  doc.setFontSize(10.5);
-  doc.text('MINISTERE DE L\'EDUCATION NATIONALE', centerX - 35, y + 13, { align: 'center' });
   doc.setFontSize(9.5);
-  doc.text('DIRECTION RÉGIONALE DE L\'ÉDUCATION', centerX - 35, y + 18, { align: 'center' });
-  doc.text('INSPECTION DE L\'ENSEIGNEMENT GENERAL', centerX - 35, y + 23, { align: 'center' });
+  
+  const ministryLines = doc.splitTextToSize(ministry.toUpperCase(), 70);
+  doc.text(ministryLines, centerX - 35, y + 13, { align: 'center' });
 
   // Bloc Établissement (Centre-Droite)
   doc.setFontSize(schoolNameFontSize);
@@ -89,7 +90,7 @@ const drawOfficialHeader = (
   doc.text(schoolName.toUpperCase(), centerX + 35, y, { align: 'center' });
   doc.setFontSize(11);
   doc.setFont('times', 'italic');
-  doc.text('Travail-Rigueur-Succès', centerX + 35, y + 7, { align: 'center' });
+  doc.text(`« ${slogan} »`, centerX + 35, y + 7, { align: 'center' });
   doc.setFont('times', 'bold');
   doc.setFontSize(10);
   doc.text(`Tél: ${phone}`, centerX + 35, y + 14, { align: 'center' });

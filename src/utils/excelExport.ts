@@ -4,7 +4,10 @@
 import * as XLSX from 'xlsx';
 import { Student } from '../types';
 
-const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
+const fmtMoney = (n: number) => {
+  const formatted = new Intl.NumberFormat('fr-FR').format(n);
+  return formatted.replace(/\u202F|\u00A0/g, ' ');
+};
 
 export const exportToExcel = (students: Student[], currency: string = 'FCFA', filename = 'export_eleves'): void => {
   const data = students.map((s, i) => ({

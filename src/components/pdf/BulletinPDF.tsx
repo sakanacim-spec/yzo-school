@@ -24,6 +24,15 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
     const phone = useStore((s) => s.schoolPhone) || 'Téléphone non renseigné';
     const address = useStore((s) => s.schoolAddress) || 'Apéssito';
     const city = address.split(',').pop()?.trim() || 'Lomé';
+    const slogan = useStore((s) => s.schoolSlogan) || 'Travail-Rigueur-Succès';
+    const ministry = useStore((s) => s.schoolMinistry) || "MINISTERE DE L'EDUCATION NATIONALE\nDIRECTION RÉGIONALE DE L'ÉDUCATION\nINSPECTION DE L'ENSEIGNEMENT GENERAL";
+
+    // Retrieve bulletin configuration settings
+    const bulletinTemplate = useStore((s) => s.settings?.bulletinTemplate ?? 'officiel');
+    const showPhoto = useStore((s) => s.settings?.bulletinShowPhoto ?? true);
+    const showRank = useStore((s) => s.settings?.bulletinShowRank ?? true);
+    const showClassAvg = useStore((s) => s.settings?.bulletinShowClassAverage ?? true);
+    const showAppreciation = useStore((s) => s.settings?.bulletinShowAppreciation ?? true);
 
     return (
         <div
@@ -69,11 +78,12 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                              {/* 2. BLOC MINISTÈRE (Centre-Gauche) */}
                             <div className="flex-1 flex flex-col items-center text-center space-y-1.5">
                                 <p className="font-bold uppercase text-[11px] tracking-widest leading-none">{country}</p>
-                                <p className="italic text-[9px] leading-none"></p>
                                 <div className="w-12 border-t border-black my-1"></div>
-                                <p className="font-black uppercase text-[11.5px] leading-tight">Ministère de l'Éducation Nationale</p>
-                                <p className="font-bold uppercase text-[10px] leading-tight">Direction Régionale de l'Éducation</p>
-                                <p className="font-bold uppercase text-[10px] leading-tight">Inspection de l'Enseignement Général</p>
+                                {ministry.split('\n').map((line, idx) => (
+                                    <p key={idx} className={`${idx === 0 ? 'font-black uppercase text-[11.5px]' : 'font-bold uppercase text-[10px]'} leading-tight`}>
+                                        {line}
+                                    </p>
+                                ))}
                             </div>
 
                             {/* 3. BLOC ÉTABLISSEMENT (Centre-Droite) */}
@@ -81,7 +91,7 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                                 <h2 className="font-black uppercase tracking-tight text-[18px] leading-none mb-1">
                                     {schoolName}
                                 </h2>
-                                <p className="italic font-black text-[11px] uppercase tracking-wider mb-0.5">Travail-Rigueur-succès</p>
+                                <p className="italic font-black text-[11px] uppercase tracking-wider mb-0.5">« {slogan} »</p>
                                 <div className="flex flex-col text-[10px] font-bold space-y-0.5">
                                     <p>Tél: {phone}</p>
                                     <p>{address}</p>
@@ -163,28 +173,30 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                     </div>
 
                     {/* CADRE PHOTO PASSEPORT — agrandi */}
-                    <div
-                        className="border-l-[1.5px] border-black flex-shrink-0 relative bg-[#f8f8f8]"
-                        style={{ width: '35mm', minHeight: '35mm' }}
-                    >
-                        {studentPhoto ? (
-                            <img
-                                src={studentPhoto}
-                                alt="Photo élève"
-                                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
-                            <div
-                                className="absolute inset-0 flex flex-col items-center justify-center w-full h-full"
-                            >
-                                <svg viewBox="0 0 60 80" width="44" height="56" xmlns="http://www.w3.org/2000/svg" opacity={0.28}>
-                                    <circle cx="30" cy="22" r="16" fill="#555" />
-                                    <ellipse cx="30" cy="70" rx="25" ry="20" fill="#555" />
-                                </svg>
-                                <span className="text-[8px] text-gray-400 font-bold mt-1 uppercase tracking-widest">PHOTO</span>
-                            </div>
-                        )}
-                    </div>
+                    {showPhoto && (
+                        <div
+                            className="border-l-[1.5px] border-black flex-shrink-0 relative bg-[#f8f8f8]"
+                            style={{ width: '35mm', minHeight: '35mm' }}
+                        >
+                            {studentPhoto ? (
+                                <img
+                                    src={studentPhoto}
+                                    alt="Photo élève"
+                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                            ) : (
+                                <div
+                                    className="absolute inset-0 flex flex-col items-center justify-center w-full h-full"
+                                >
+                                    <svg viewBox="0 0 60 80" width="44" height="56" xmlns="http://www.w3.org/2000/svg" opacity={0.28}>
+                                        <circle cx="30" cy="22" r="16" fill="#555" />
+                                        <ellipse cx="30" cy="70" rx="25" ry="20" fill="#555" />
+                                    </svg>
+                                    <span className="text-[8px] text-gray-400 font-bold mt-1 uppercase tracking-widest">PHOTO</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* ──────────────── TABLEAU DES NOTES ──────────────── */}
@@ -193,12 +205,12 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         <col style={{ width: '18%' }} />
                         <col style={{ width: '5.5%' }} />
                         <col style={{ width: '5.5%' }} />
-                        <col style={{ width: '6%' }} />
+                        {showClassAvg && <col style={{ width: '6%' }} />}
                         <col style={{ width: '5.5%' }} />
                         <col style={{ width: '6%' }} />
                         <col style={{ width: '4%' }} />
                         <col style={{ width: '5%' }} />
-                        <col style={{ width: '4.5%' }} />
+                        {showRank && <col style={{ width: '4.5%' }} />}
                         <col style={{ width: '14%' }} />
                         <col style={{ width: '14%' }} />
                         <col style={{ width: '12%' }} />
@@ -208,12 +220,12 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                             <th className="border-[1.5px] border-black p-0.5">MATIÈRES</th>
                             <th className="border-[1.5px] border-black p-0.5">CL.<br/>(/20)</th>
                             <th className="border-[1.5px] border-black p-0.5">DEV.<br/>(/20)</th>
-                            <th className="border-[1.5px] border-black p-0.5" style={{ fontSize: '7px' }}>MOY.<br/>CL.</th>
+                            {showClassAvg && <th className="border-[1.5px] border-black p-0.5" style={{ fontSize: '7px' }}>MOY.<br/>CL.</th>}
                             <th className="border-[1.5px] border-black p-0.5">COMP.<br/>(/20)</th>
                             <th className="border-[1.5px] border-black p-0.5">MOY.<br/>(/20)</th>
                             <th className="border-[1.5px] border-black p-0.5">COEF</th>
                             <th className="border-[1.5px] border-black p-0.5">CxF</th>
-                            <th className="border-[1.5px] border-black p-0.5">RANG</th>
+                            {showRank && <th className="border-[1.5px] border-black p-0.5">RANG</th>}
                             <th className="border-[1.5px] border-black p-0.5">PROFESSEUR</th>
                             <th className="border-[1.5px] border-black p-0.5">APPRÉCIATION</th>
                             <th className="border-[1.5px] border-black p-0.5">SIGNATURE</th>
@@ -223,7 +235,7 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         {data.categories.map((cat) => (
                             <React.Fragment key={cat.categorie}>
                                 <tr className="bg-gray-100 font-bold">
-                                    <td colSpan={12} className="border-[1.5px] border-black p-0.5 pl-1.5 text-[8.5px] uppercase">
+                                    <td colSpan={10 + (showClassAvg ? 1 : 0) + (showRank ? 1 : 0)} className="border-[1.5px] border-black p-0.5 pl-1.5 text-[8.5px] uppercase">
                                         {cat.categorie}
                                     </td>
                                 </tr>
@@ -232,12 +244,12 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                                         <td className="border-[1.5px] border-black p-0.5 text-left uppercase font-bold text-[10px] leading-tight">{l.matiere.nom}</td>
                                         <td className="border-[1.5px] border-black p-0.5 font-bold text-[11px]">{l.noteClasse !== null ? l.noteClasse : '-'}</td>
                                         <td className="border-[1.5px] border-black p-0.5 font-bold text-[11px]">{l.noteDevoir !== null ? l.noteDevoir : '-'}</td>
-                                        <td className="border-[1.5px] border-black p-0.5 font-black text-[11px] text-blue-900 bg-blue-50">{l.moyenneClasseMatiere !== null ? l.moyenneClasseMatiere : '-'}</td>
+                                        {showClassAvg && <td className="border-[1.5px] border-black p-0.5 font-black text-[11px] text-blue-900 bg-blue-50">{l.moyenneClasseMatiere !== null ? l.moyenneClasseMatiere : '-'}</td>}
                                         <td className="border-[1.5px] border-black p-0.5 font-bold text-[11px]">{l.noteCompo !== null ? l.noteCompo : '-'}</td>
                                         <td className="border-[1.5px] border-black p-0.5 font-black text-[12px] bg-gray-50">{l.moyenneMatiere !== null ? l.moyenneMatiere : '-'}</td>
                                         <td className="border-[1.5px] border-black p-0.5 font-bold text-[11px]">{l.coef}</td>
                                         <td className="border-[1.5px] border-black p-0.5 font-bold text-[12px] bg-gray-50">{l.totalPoints !== null ? l.totalPoints : '-'}</td>
-                                        <td className="border-[1.5px] border-black p-0.5 font-bold text-[11px]">{l.rangMatiere}</td>
+                                        {showRank && <td className="border-[1.5px] border-black p-0.5 font-bold text-[11px]">{l.rangMatiere}</td>}
                                         {/* Colonne PROF : wrapping autorisé, taille réduite pour les longs noms */}
                                         <td
                                             className="border-[1.5px] border-black p-0.5 text-[9.5px] leading-tight"
@@ -251,21 +263,21 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                                 ))}
                                 {/* SOUS TOTAL CATÉGORIE */}
                                 <tr className="bg-gray-50 font-bold border-black border-t-[1.5px]">
-                                    <td colSpan={6} className="border-[1.5px] border-black p-0.5 text-right italic text-[9.5px] font-semibold">
+                                    <td colSpan={5 + (showClassAvg ? 1 : 0)} className="border-[1.5px] border-black p-0.5 text-right italic text-[9.5px] font-semibold">
                                         Sous-Total {cat.categorie.split('-')[1]}
                                     </td>
                                     <td className="border-[1.5px] border-black p-0.5 text-center font-bold text-[11px]">{cat.totalCoefs}</td>
                                     <td className="border-[1.5px] border-black p-0.5 text-center font-bold text-[12px] text-rose-700 bg-rose-50">{cat.totalPoints.toFixed(2)}</td>
-                                    <td colSpan={4} className="border-[1.5px] border-black p-0.5"></td>
+                                    <td colSpan={3 + (showRank ? 1 : 0)} className="border-[1.5px] border-black p-0.5"></td>
                                 </tr>
                             </React.Fragment>
                         ))}
                         {/* TOTAL GÉNÉRAL */}
                         <tr className="font-black bg-gray-200 border-t-[2px] border-black text-[11px]">
-                            <td colSpan={6} className="border-[1.5px] border-black p-0.5 text-right uppercase tracking-wider">TOTAL GÉNÉRAL</td>
+                            <td colSpan={5 + (showClassAvg ? 1 : 0)} className="border-[1.5px] border-black p-0.5 text-right uppercase tracking-wider">TOTAL GÉNÉRAL</td>
                             <td className="border-[1.5px] border-black p-0.5 text-center text-[12px] text-blue-900">{data.totalCoefsGeneral}</td>
                             <td className="border-[1.5px] border-black p-0.5 text-center text-[13px] text-rose-900 bg-rose-100">{data.totalPointsGeneral.toFixed(2)}</td>
-                            <td colSpan={4} className="border-[1.5px] border-black p-0.5"></td>
+                            <td colSpan={3 + (showRank ? 1 : 0)} className="border-[1.5px] border-black p-0.5"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -277,8 +289,9 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                     <div style={{ borderRight: '1.5px solid black', display: 'flex', flexDirection: 'column', flex: 1 }}>
 
                         {/* 1. TABLEAU DES RÉSULTATS (HORIZONTAL 6 COLONNES - Demande USER) */}
-                        <div style={{ display: 'flex', flexDirection: 'column', borderBottom: '1.5px solid black' }}>
-                            {/* LIGNE 1 : EN-TÊTES (6 COLONNES) */}
+                        {bulletinTemplate === 'officiel' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', borderBottom: '1.5px solid black' }}>
+                                {/* LIGNE 1 : EN-TÊTES (6 COLONNES) */}
                             <div style={{ 
                                 display: 'grid', 
                                 gridTemplateColumns: 'repeat(6, 1fr)', 
@@ -371,29 +384,34 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                                 })()}
                             </div>
                         </div>
+                        )}
 
                         {/* 2. STATISTIQUES EXPLICITES DE LA CLASSE (Les informations importantes) */}
-                        <div className="p-2 flex-col justify-center space-y-2 flex-1 bg-[#f8f9fa]">
+                        <div className={`p-2 flex-col justify-center space-y-2 flex-1 bg-[#f8f9fa] ${bulletinTemplate === 'classique' ? 'py-4 space-y-3 text-[10.5px]' : ''}`}>
                             <div className="flex justify-between items-end border-b border-gray-200 pb-0.5">
                                 <span className="uppercase text-[11px] font-black text-black">Moyenne Générale :</span>
-                                <span className="font-black text-[14px] text-rose-800 leading-none">{data.moyenneGenerale.toFixed(2)}</span>
+                                <span className={`font-black text-rose-800 leading-none ${bulletinTemplate === 'classique' ? 'text-[16px]' : 'text-[14px]'}`}>{data.moyenneGenerale.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between items-end border-b border-gray-200 pb-0.5 mb-1">
-                                <span className="uppercase text-[11px] font-black text-black">Rang :</span>
-                                <span className="font-black text-[14px] text-blue-800 leading-none">{data.rangGeneral} <span className="text-[10px] font-normal text-gray-500">/ {data.effectifClasse}</span></span>
-                            </div>
+                            {showRank && (
+                                <div className="flex justify-between items-end border-b border-gray-200 pb-0.5 mb-1">
+                                    <span className="uppercase text-[11px] font-black text-black">Rang :</span>
+                                    <span className={`font-black text-blue-800 leading-none ${bulletinTemplate === 'classique' ? 'text-[16px]' : 'text-[14px]'}`}>{data.rangGeneral} <span className="text-[10px] font-normal text-gray-500">/ {data.effectifClasse}</span></span>
+                                </div>
+                            )}
                             <div className="flex justify-between items-end border-b border-gray-200 pb-0.5">
                                 <span className="text-[10px] font-bold text-gray-800">Plus forte moyenne :</span>
-                                <span className="font-black text-[12.5px] text-emerald-700 leading-none">{data.moyenneMax.toFixed(2)}</span>
+                                <span className={`font-black text-emerald-700 leading-none ${bulletinTemplate === 'classique' ? 'text-[14px]' : 'text-[12.5px]'}`}>{data.moyenneMax.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-end border-b border-gray-200 pb-0.5">
                                 <span className="text-[10px] font-bold text-gray-800">Plus faible moyenne :</span>
-                                <span className="font-black text-[12.5px] text-red-700 leading-none">{data.moyenneMin.toFixed(2)}</span>
+                                <span className={`font-black text-red-700 leading-none ${bulletinTemplate === 'classique' ? 'text-[14px]' : 'text-[12.5px]'}`}>{data.moyenneMin.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between items-end">
-                                <span className="text-[10px] font-bold text-gray-800">Moyenne générale de la classe :</span>
-                                <span className="font-black text-[12.5px] text-blue-700 leading-none">{data.moyenneClasse.toFixed(2)}</span>
-                            </div>
+                            {showClassAvg && (
+                                <div className="flex justify-between items-end border-b border-gray-200 pb-0.5">
+                                    <span className="text-[10px] font-bold text-gray-800">Moyenne générale de la classe :</span>
+                                    <span className={`font-black text-blue-700 leading-none ${bulletinTemplate === 'classique' ? 'text-[14px]' : 'text-[12.5px]'}`}>{data.moyenneClasse.toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between items-end pt-1 border-t border-gray-300 mt-2">
                                 <div className="flex gap-6">
                                     <span className="text-[10px] font-bold text-red-700 uppercase">Absences : <span className="text-[13px]">{data.absences ?? 0}</span></span>
@@ -404,39 +422,41 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                     </div>
 
                     {/* COLONNE DROITE : Appréciation (Cases rondes) */}
-                    <div style={{ width: '38mm', display: 'flex', flexDirection: 'column' }}>
-                        <div className="text-[8px] font-black uppercase text-center" style={{ padding: '2px 4px', background: '#e5e5e5', borderBottom: '1.5px solid black' }}>
-                            APPRÉCIATION
-                        </div>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', padding: '3px 6px' }}>
-                            {[
-                                { label: 'Très Bien',    min: 16 },
-                                { label: 'Bien',         min: 14 },
-                                { label: 'Assez Bien',   min: 12 },
-                                { label: 'Passable',     min: 10 },
-                                { label: 'Insuffisant',  min: 8 },
-                                { label: 'Faible',       min: 5 },
-                                { label: 'Médiocre',     min: 0 },
-                            ].map(({ label, min }, i, arr) => {
-                                const max = arr[i - 1]?.min ?? 21;
-                                const checked = data.moyenneGenerale >= min && data.moyenneGenerale < max;
-                                return (
-                                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                        <div style={{
-                                            width: 9, height: 9, borderRadius: '50%',
-                                            border: '1.5px solid black',
-                                            background: checked ? '#1a1a1a' : 'white',
-                                            flexShrink: 0,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                        }}>
-                                            {checked && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'white' }} />}
+                    {showAppreciation && (
+                        <div style={{ width: '38mm', display: 'flex', flexDirection: 'column' }}>
+                            <div className="text-[8px] font-black uppercase text-center" style={{ padding: '2px 4px', background: '#e5e5e5', borderBottom: '1.5px solid black' }}>
+                                APPRÉCIATION
+                            </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', padding: '3px 6px' }}>
+                                {[
+                                    { label: 'Très Bien',    min: 16 },
+                                    { label: 'Bien',         min: 14 },
+                                    { label: 'Assez Bien',   min: 12 },
+                                    { label: 'Passable',     min: 10 },
+                                    { label: 'Insuffisant',  min: 8 },
+                                    { label: 'Faible',       min: 5 },
+                                    { label: 'Médiocre',     min: 0 },
+                                ].map(({ label, min }, i, arr) => {
+                                    const max = arr[i - 1]?.min ?? 21;
+                                    const checked = data.moyenneGenerale >= min && data.moyenneGenerale < max;
+                                    return (
+                                        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <div style={{
+                                                width: 9, height: 9, borderRadius: '50%',
+                                                border: '1.5px solid black',
+                                                background: checked ? '#1a1a1a' : 'white',
+                                                flexShrink: 0,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                {checked && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'white' }} />}
+                                            </div>
+                                            <span className={`text-[8px] ${checked ? 'font-black' : 'font-semibold text-gray-600'}`}>{label}</span>
                                         </div>
-                                        <span className={`text-[8px] ${checked ? 'font-black' : 'font-semibold text-gray-600'}`}>{label}</span>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* DÉCISION DU CONSEIL */}

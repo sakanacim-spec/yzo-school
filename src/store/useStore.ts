@@ -99,7 +99,12 @@ export interface AppState {
     schoolAddress?: string | null,
     schoolPhone?: string | null,
     schoolSlogan?: string | null,
-    schoolMinistry?: string | null
+    schoolMinistry?: string | null,
+    bulletinTemplate?: 'officiel' | 'classique',
+    bulletinShowPhoto?: boolean,
+    bulletinShowRank?: boolean,
+    bulletinShowClassAverage?: boolean,
+    bulletinShowAppreciation?: boolean
   }) => Promise<void>;
   settings: AppSettings;
   updateSettings: (settings: AppSettings) => void;
@@ -725,7 +730,12 @@ export const useStore = create<AppState>()(
         badgeParentResponsable: 'Parent Responsable',
         badge2emeTranche: '2ème Tranche Validée',
         tranches: [],
-        classes: CLASS_CONFIG
+        classes: CLASS_CONFIG,
+        bulletinTemplate: 'officiel',
+        bulletinShowPhoto: true,
+        bulletinShowRank: true,
+        bulletinShowClassAverage: true,
+        bulletinShowAppreciation: true
       },
       updateSettings: (newSettings) => set({ settings: newSettings }),
 

@@ -3,7 +3,8 @@ import { Student, AppSettings } from '../types';
 import { getCycleByClass } from '../data/classes';
 
 const formatMoney = (amount: number, currency: string): string => {
-  return new Intl.NumberFormat('fr-FR').format(amount) + ' ' + currency;
+  const formatted = new Intl.NumberFormat('fr-FR').format(amount);
+  return formatted.replace(/\u202F|\u00A0/g, ' ') + ' ' + (currency || 'FCFA');
 };
 
 // Couleurs professionnelles
