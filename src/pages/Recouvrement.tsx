@@ -18,6 +18,7 @@ export const Recouvrement: React.FC = () => {
     const [filterClass, setFilterClass] = useState('');
     const [filterCycle, setFilterCycle] = useState('');
     const currency = useStore(s => s.currency);
+    const settings = useStore(s => s.settings);
 
     // 1. Calcul des données
     const classComp = useMemo(() => computeClassComparison(students), [students]);
@@ -38,28 +39,63 @@ export const Recouvrement: React.FC = () => {
 
     // --- Actions Export ---
 
+    const removeAccents = (str: string) => {
+        return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    };
+
     const generatePDFList = () => {
         const doc = new jsPDF({ orientation: 'landscape' });
+        
+        const ecole = removeAccents(settings?.nomEcole || settings?.schoolName || 'Etablissement');
+        const adresse = removeAccents(settings?.adresse || '');
+        const tel = settings?.telephone || '';
+        const email = removeAccents(settings?.email || '');
+
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text(ecole, 14, 15);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        let yOffset = 22;
+        if (adresse) {
+            doc.text(`Adresse : ${adresse}`, 14, yOffset);
+            yOffset += 6;
+        }
+        if (tel) {
+            doc.text(`Tel : ${tel}`, 14, yOffset);
+            yOffset += 6;
+        }
+        if (email) {
+            doc.text(`Email : ${email}`, 14, yOffset);
+            yOffset += 6;
+        }
+
         doc.setFontSize(14);
-        doc.text('Liste Prioritaire de Recouvrement', 14, 15);
+        doc.setFont("helvetica", "bold");
+        doc.text(removeAccents('LISTE PRIORITAIRE DE RECOUVREMENT'), 14, yOffset + 10);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Genere le : ${new Date().toLocaleDateString('fr-FR')}`, 14, yOffset + 16);
 
         autoTable(doc, {
-            startY: 20,
-            head: [['Nom Prénom', 'Classe', 'Téléphone', 'Restant', 'Retard (Jours)', 'Priorité']],
+            startY: yOffset + 22,
+            head: [['Nom Prenom', 'Classe', 'Telephone', 'Restant', 'Retard (Jours)', 'Priorite']],
             body: priorityList.map(s => [
-                `${s.nom} ${s.prenom}`,
-                s.classe,
-                s.telephone,
-                formatMontant(s.restant, currency),
+                removeAccents(`${s.nom} ${s.prenom}`),
+                removeAccents(s.classe),
+                s.telephone || '-',
+                formatMontant(s.restant, currency).replace('€', 'Eur').replace('£', 'GBP'),
                 s.joursRetard.toString(),
-                s.niveauPriorite
+                removeAccents(s.niveauPriorite)
             ]),
-            styles: { fontSize: 9 },
+            styles: { fontSize: 9, font: 'helvetica' },
             headStyles: { fillColor: [220, 38, 38] },
             didParseCell: (data) => {
                 if (data.column.index === 5 && data.section === 'body') {
                     const val = data.cell.raw as string;
-                    if (val === 'Élevé') data.cell.styles.textColor = [220, 38, 38];
+                    if (val === 'Eleve') data.cell.styles.textColor = [220, 38, 38];
                     else if (val === 'Moyen') data.cell.styles.textColor = [217, 119, 6];
                     else data.cell.styles.textColor = [22, 163, 74];
                 }
@@ -74,7 +110,7 @@ export const Recouvrement: React.FC = () => {
             'Nom et Prénom': `${s.nom} ${s.prenom}`,
             'Classe': s.classe,
             'Cycle': s.cycle,
-            'Téléphone': s.telephone,
+            'Téléphone': s.telephone || '-',
             'Sexe': s.sexe,
             'Montant Restant': s.restant,
             'Jours Retard': s.joursRetard,
@@ -82,7 +118,23 @@ export const Recouvrement: React.FC = () => {
             'Score Stratégique': s.scorePriorite,
         }));
 
-        const ws = XLSX.utils.json_to_sheet(data);
+        const ws = XLSX.utils.json_to_sheet([]);
+        
+        const ecole = settings?.nomEcole || settings?.schoolName || 'Établissement';
+        const headerRows = [
+            [ecole],
+            ...(settings?.adresse ? [[`Adresse: ${settings.adresse}`]] : []),
+            ...(settings?.telephone ? [[`Tél: ${settings.telephone}`]] : []),
+            ...(settings?.email ? [[`Email: ${settings.email}`]] : []),
+            [],
+            ['LISTE PRIORITAIRE DE RECOUVREMENT'],
+            [`Généré le: ${new Date().toLocaleDateString('fr-FR')}`],
+            []
+        ];
+
+        XLSX.utils.sheet_add_aoa(ws, headerRows, { origin: 'A1' });
+        XLSX.utils.sheet_add_json(ws, data, { origin: -1, skipHeader: false });
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Recouvrement");
         XLSX.writeFile(wb, "Liste_Recouvrement.xlsx");
