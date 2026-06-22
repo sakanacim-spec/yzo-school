@@ -227,7 +227,12 @@ export const Annonces: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end">
+                        <div className="pt-6 mt-6 border-t border-slate-100 flex flex-col items-end gap-2">
+                            {(!titre.trim() || !message.trim()) && (
+                                <p className="text-xs font-bold text-rose-500">
+                                    ⚠️ Veuillez remplir le titre ET le contenu détaillé pour pouvoir publier.
+                                </p>
+                            )}
                             <button
                                 type="submit"
                                 disabled={!titre.trim() || !message.trim()}
