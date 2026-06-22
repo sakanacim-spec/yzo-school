@@ -560,6 +560,14 @@ export const useStore = create<AppState>()(
           return;
         }
 
+        const initialPayment = (data.dejaPaye && data.dejaPaye > 0) ? {
+            id: uuid(),
+            date: new Date().toISOString(),
+            montant: data.dejaPaye,
+            note: "Versement initial à l'inscription",
+            recu: `REC-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`
+        } : null;
+
         const student: Student = {
           ...data,
           id: studentId,
@@ -567,7 +575,7 @@ export const useStore = create<AppState>()(
           restant,
           cycle: getCycle(data.classe),
           status: computeStatus(restant, ecolage),
-          historiquesPaiements: [],
+          historiquesPaiements: initialPayment ? [initialPayment] : [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
