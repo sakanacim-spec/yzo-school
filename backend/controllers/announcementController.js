@@ -259,7 +259,7 @@ async function acknowledgeRead(req, res) {
         // Rechercher si l'entrée existe déjà pour éviter l'erreur d'upsert sans contrainte d'unicité
         const { data: existing, error: searchError } = await supabase
             .from(`announcement_reads_${schoolSlug}`)
-            .select('id')
+            .select('*')
             .eq('announcement_id', announcementId)
             .eq('parent_id', parentId)
             .maybeSingle();
@@ -274,7 +274,8 @@ async function acknowledgeRead(req, res) {
             const { error } = await supabase
                 .from(`announcement_reads_${schoolSlug}`)
                 .update({ read_at: new Date().toISOString() })
-                .eq('id', existing.id);
+                .eq('announcement_id', announcementId)
+                .eq('parent_id', parentId);
             queryError = error;
         } else {
             const { error } = await supabase
