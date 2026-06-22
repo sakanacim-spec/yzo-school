@@ -15,6 +15,7 @@ import bgImage3 from '../assets/login-bg3.jpg';
 import bgImage4 from '../assets/login-bg4.jpg';
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import { Register } from './Register';
+import { ParentRegister } from './ParentRegister';
 import { getTranslations } from '../i18n';
 
 const BG_IMAGES = [bgImage1, bgImage2, bgImage3, bgImage4];
@@ -64,7 +65,7 @@ export const Login: React.FC = () => {
   const appName = "Yziow";
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [view, setView] = useState<'login' | 'register' | 'link'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'parent-register' | 'link'>('login');
 
   
   // Auth Form States
@@ -147,6 +148,23 @@ export const Login: React.FC = () => {
                   onSuccess={(admin) => {
                     // Auto-login après inscription réussie
                     window.location.reload();
+                  }} 
+                />
+            </div>
+        </div>
+    );
+  }
+
+  if (isMobile && view === 'parent-register') {
+    return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
+                <ParentRegister 
+                  schools={schools}
+                  onBack={() => setView('login')} 
+                  onSuccess={(user) => {
+                    // Switch to login so they can log in
+                    setView('login');
                   }} 
                 />
             </div>
@@ -250,17 +268,27 @@ export const Login: React.FC = () => {
 
       {/* --- DESKTOP VIEW --- */}
       {!isMobile && (
-        <div className={`auth-container ${view === 'register' ? 'right-panel-active' : ''}`}>
+        <div className={`auth-container ${view === 'register' || view === 'parent-register' ? 'right-panel-active' : ''}`}>
 
           {/* Sign Up Panel */}
           <div className="form-container sign-up-container bg-slate-900 overflow-y-auto custom-scrollbar">
              <div className="min-h-full w-full flex flex-col items-center justify-center p-4">
-                 <Register 
-                   onBack={() => setView('login')} 
-                   onSuccess={(admin) => {
-                     window.location.reload();
-                   }} 
-                 />
+                 {view === 'register' ? (
+                   <Register 
+                     onBack={() => setView('login')} 
+                     onSuccess={(admin) => {
+                       window.location.reload();
+                     }} 
+                   />
+                 ) : (
+                   <ParentRegister 
+                     schools={schools}
+                     onBack={() => setView('login')} 
+                     onSuccess={(user) => {
+                       setView('login');
+                     }} 
+                   />
+                 )}
              </div>
           </div>
 
@@ -332,11 +360,18 @@ export const Login: React.FC = () => {
                    <p className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-white rounded-full"></div> Communication école-famille</p>
                 </div>
                 <button 
-                  className="auth-button ghost"
+                  className="auth-button ghost mb-2"
+                  type="button" 
+                  onClick={() => setView('parent-register')}
+                >
+                  CRÉER MON COMPTE PARENT
+                </button>
+                <button 
+                  className="w-full py-2 text-amber-100 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors underline"
                   type="button" 
                   onClick={() => setView('register')}
                 >
-                  CRÉER UN COMPTE
+                  {T.login.registerSchool}
                 </button>
               </div>
             </div>
@@ -394,6 +429,10 @@ export const Login: React.FC = () => {
 
                     <button type="submit" disabled={loading} className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-500/30 active:scale-95 transition-transform flex items-center justify-center gap-2 mt-4">
                         {loading ? T.login.loggingIn : T.login.loginButton}
+                    </button>
+                    
+                    <button type="button" onClick={() => setView('parent-register')} className="w-full py-3 text-blue-600 bg-blue-50 border border-blue-100 text-[10px] font-black uppercase tracking-widest mt-2 rounded-2xl hover:bg-blue-100 transition-colors shadow-sm">
+                        Je suis parent, Créer mon compte
                     </button>
                     
                     <button type="button" onClick={() => setView('register')} className="w-full py-2 text-amber-600 text-[10px] font-black uppercase tracking-widest mt-2">
