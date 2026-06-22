@@ -444,7 +444,12 @@ async function getParentData(req, res) {
 
         return res.json({
             announcements: announcements || [],
-            announcementReads: announcementReads || [],
+            announcementReads: (announcementReads || []).map(r => ({
+                announcementId: r.announcement_id,
+                parentId: r.parent_id,
+                readAt: r.read_at,
+                remindAt: r.remind_at || null
+            })),
             unreadMessages: unreadMessages || 0,
             appSettings,
             students,
