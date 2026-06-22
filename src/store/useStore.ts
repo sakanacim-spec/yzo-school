@@ -1009,6 +1009,10 @@ export const useStore = create<AppState>()(
               localReads.forEach((lr: any) => {
                 if (!merged.find((mr: any) => mr.announcementId === lr.announcementId && mr.parentId === lr.parentId)) {
                   merged.push(lr);
+                  // Le backend n'a pas cette lecture, on la renvoie silencieusement
+                  if (lr.readAt) {
+                      get().reportAnnouncementReadToBackend(lr.announcementId);
+                  }
                 }
               });
               set({ announcementReads: merged });
