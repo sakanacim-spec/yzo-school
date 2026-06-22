@@ -256,18 +256,40 @@ async function acknowledgeRead(req, res) {
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
     try {
-        const { error } = await supabase
+        // Rechercher si l'entrée existe déjà pour éviter l'erreur d'upsert sans contrainte d'unicité
+        const { data: existing, error: searchError } = await supabase
             .from(`announcement_reads_${schoolSlug}`)
-            .upsert({
-                announcement_id: announcementId,
-                parent_id: parentId,
-                read_at: new Date().toISOString()
-            }, { onConflict: 'announcement_id, parent_id' });
+            .select('id')
+            .eq('announcement_id', announcementId)
+            .eq('parent_id', parentId)
+            .maybeSingle();
 
-        if (error) {
-            // Si la table n'existe pas, on tente de la créer (silencieusement ou log)
-            console.error('❌ [ReadStatus] Erreur upsert:', error.message);
-            return res.status(500).json({ error: error.message });
+        if (searchError) {
+            console.error('❌ [ReadStatus] Erreur recherche:', searchError.message);
+            return res.status(500).json({ error: searchError.message });
+        }
+
+        let queryError;
+        if (existing) {
+            const { error } = await supabase
+                .from(`announcement_reads_${schoolSlug}`)
+                .update({ read_at: new Date().toISOString() })
+                .eq('id', existing.id);
+            queryError = error;
+        } else {
+            const { error } = await supabase
+                .from(`announcement_reads_${schoolSlug}`)
+                .insert({
+                    announcement_id: announcementId,
+                    parent_id: parentId,
+                    read_at: new Date().toISOString()
+                });
+            queryError = error;
+        }
+
+        if (queryError) {
+            console.error('❌ [ReadStatus] Erreur update/insert:', queryError.message);
+            return res.status(500).json({ error: queryError.message });
         }
 
         return res.json({ success: true, message: 'Lecture enregistrée.' });
