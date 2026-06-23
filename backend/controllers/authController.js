@@ -130,18 +130,25 @@ async function register(req, res) {
 
         // ── Auto-Link des enfants dès l'inscription ──
         try {
-            const { data: studentsToLink } = await supabase
-                .from(`students_${school_slug}`)
-                .select('id')
-                .eq('telephone_parent', telephone.trim());
+            // Nettoyage du numéro : on ne garde que les chiffres
+            const cleanPhone = (phone) => phone ? phone.replace(/\D/g, '') : '';
+            const userPhoneClean = cleanPhone(telephone);
 
-            if (studentsToLink && studentsToLink.length > 0) {
-                const linkPayload = studentsToLink.map(s => ({
-                    parent_id: parent.id,
-                    student_id: s.id
-                }));
-                await supabase.from(`parent_student_${school_slug}`).insert(linkPayload);
-                console.log(`✅ [AutoLink] ${linkPayload.length} enfant(s) lié(s) au nouveau parent ${parent.id}`);
+            if (userPhoneClean) {
+                const { data: allStudents } = await supabase
+                    .from(`students_${school_slug}`)
+                    .select('id, telephone_parent');
+
+                const studentsToLink = (allStudents || []).filter(s => cleanPhone(s.telephone_parent) === userPhoneClean);
+
+                if (studentsToLink.length > 0) {
+                    const linkPayload = studentsToLink.map(s => ({
+                        parent_id: parent.id,
+                        student_id: s.id
+                    }));
+                    await supabase.from(`parent_student_${school_slug}`).insert(linkPayload);
+                    console.log(`✅ [AutoLink] ${linkPayload.length} enfant(s) lié(s) au nouveau parent ${parent.id}`);
+                }
             }
         } catch (linkErr) {
             console.error('⚠️ [AutoLink Reg] Erreur lors de la liaison automatique :', linkErr.message);
@@ -345,35 +352,41 @@ async function login(req, res) {
         // ── Auto-Link des enfants lors de la connexion ──
         if (user.role === 'parent') {
             try {
-                // Trouver les étudiants ayant le même numéro de téléphone parent
-                const { data: studentsToLink } = await supabase
-                    .from(`students_${schoolSlug}`)
-                    .select('id')
-                    .eq('telephone_parent', user.telephone.trim());
+                // Nettoyage du numéro pour comparaison stricte
+                const cleanPhone = (phone) => phone ? phone.replace(/\D/g, '') : '';
+                const userPhoneClean = cleanPhone(user.telephone);
 
-                if (studentsToLink && studentsToLink.length > 0) {
-                    const studentIds = studentsToLink.map(s => s.id);
-                    
-                    // Vérifier ceux qui sont déjà liés
-                    const { data: existingLinks } = await supabase
-                        .from(`parent_student_${schoolSlug}`)
-                        .select('student_id')
-                        .eq('parent_id', user.id)
-                        .in('student_id', studentIds);
+                if (userPhoneClean) {
+                    const { data: allStudents } = await supabase
+                        .from(`students_${schoolSlug}`)
+                        .select('id, telephone_parent');
 
-                    const linkedIds = (existingLinks || []).map(l => l.student_id);
-                    const newLinks = studentIds.filter(id => !linkedIds.includes(id)).map(id => ({
-                        parent_id: user.id,
-                        student_id: id
-                    }));
+                    const studentsToLink = (allStudents || []).filter(s => cleanPhone(s.telephone_parent) === userPhoneClean);
 
-                    if (newLinks.length > 0) {
-                        await supabase.from(`parent_student_${schoolSlug}`).insert(newLinks);
-                        console.log(`✅ [AutoLink] ${newLinks.length} enfant(s) nouvellement lié(s) au parent ${user.id}`);
+                    if (studentsToLink.length > 0) {
+                        const studentIds = studentsToLink.map(s => s.id);
+                        
+                        // Vérifier ceux qui sont déjà liés
+                        const { data: existingLinks } = await supabase
+                            .from(`parent_student_${schoolSlug}`)
+                            .select('student_id')
+                            .eq('parent_id', user.id)
+                            .in('student_id', studentIds);
+
+                        const linkedIds = (existingLinks || []).map(l => l.student_id);
+                        const newLinks = studentIds.filter(id => !linkedIds.includes(id)).map(id => ({
+                            parent_id: user.id,
+                            student_id: id
+                        }));
+
+                        if (newLinks.length > 0) {
+                            await supabase.from(`parent_student_${schoolSlug}`).insert(newLinks);
+                            console.log(`✅ [AutoLink Login] ${newLinks.length} enfant(s) nouvellement lié(s) au parent ${user.id}`);
+                        }
                     }
                 }
             } catch (autoLinkErr) {
-                console.error('⚠️ [AutoLink] Erreur lors de la liaison automatique :', autoLinkErr.message);
+                console.error('⚠️ [AutoLink Login] Erreur lors de la liaison automatique :', autoLinkErr.message);
             }
         }
 

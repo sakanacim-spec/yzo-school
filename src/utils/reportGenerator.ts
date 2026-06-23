@@ -55,12 +55,8 @@ export const generateRapportMensuelPDF = (
     doc.setTextColor(0, 0, 0);
     doc.setFont('times', 'bold');
 
-    // 1. SCEAU (Extrême Gauche - Réduit et poussé)
-    if (schoolInfo.stamp) {
-        try {
-            doc.addImage(schoolInfo.stamp, 'PNG', margin - 10, y, 18, 18);
-        } catch(e) {}
-    }
+    // 1. MINISTERE (Emplacement gauche, réservé au Sceau de l'État si disponible un jour)
+    // L'espace est utilisé par le texte ci-dessous
 
     // 2. TEXTE CENTRAL (Saturation Max)
     const centerX = w / 2;
@@ -272,6 +268,13 @@ export const generateRapportMensuelPDF = (
     doc.setLineWidth(0.2);
     doc.line(margin + 5, y + 2, margin + 55, y + 2);
     doc.line(w - margin - 55, y + 2, w - margin - 5, y + 2);
+
+    // Ajout du cachet de l'établissement
+    if (schoolInfo.stamp) {
+        try {
+            doc.addImage(schoolInfo.stamp, 'PNG', w - margin - 40, y + 5, 20, 20);
+        } catch(e) {}
+    }
 
     // --- FOOTER ---
     const totalPages = doc.getNumberOfPages();

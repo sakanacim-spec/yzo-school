@@ -139,6 +139,7 @@ export const Dashboard: React.FC = () => {
   }, [students, classComp]);
 
   const stats = useMemo(() => {
+    const activeCycles = Array.from(new Set(classes.map(c => c.cycle)));
     const maternelle = students.filter((s) => s.cycle === 'Maternelle');
     const primaire = students.filter((s) => s.cycle === 'Primaire');
     const college = students.filter((s) => s.cycle === 'Collège');
@@ -163,6 +164,7 @@ export const Dashboard: React.FC = () => {
     const nonSoldes = students.filter((s) => s.status !== 'Soldé').length;
 
     return {
+      activeCycles,
       maternelle: maternelle.length, primaire: primaire.length, college: college.length, lycee: lycee.length,
       cycleStats: {
         Maternelle: cycleStat(maternelle),
@@ -172,7 +174,7 @@ export const Dashboard: React.FC = () => {
       },
       totalEcolage, totalPaye, totalRestant, taux, soldes, nonSoldes,
     };
-  }, [students]);
+  }, [students, classes]);
 
   const classData = useMemo(() => {
     return classes.map((c) => {
@@ -191,7 +193,7 @@ export const Dashboard: React.FC = () => {
     { name: 'Primaire', value: stats.primaire },
     { name: 'Collège', value: stats.college },
     { name: 'Lycée', value: stats.lycee },
-  ].filter((d) => d.value > 0);
+  ].filter((d) => stats.activeCycles.includes(d.name as any) || d.value > 0);
 
   const topClasses = useMemo(() => {
     return classes.map((c) => {
@@ -386,7 +388,7 @@ export const Dashboard: React.FC = () => {
             colors: { border: 'border-rose-500', bg: 'bg-rose-50 dark:bg-rose-500/10', text: 'text-rose-600', fill: 'bg-rose-500' },
             key: 'Lycée' as const,
           },
-        ] as const).map((c) => {
+        ] as const).filter(c => stats.activeCycles.includes(c.key) || stats.cycleStats[c.key].count > 0).map((c) => {
           const cs = stats.cycleStats[c.key];
           return (
             <div key={c.label} className={`pro-card p-8 border-t-4 border-t-transparent hover:border-t-${c.colors.fill.replace('bg-','')} transition-all duration-300 group`}>

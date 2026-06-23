@@ -29,11 +29,11 @@ const getBadgeColor = (student: Student): [number, number, number] => {
   return [234, 88, 12];
 };
 
-// Génère un numéro de document formaté : YZO-2026-XXXXX
+// Génère un numéro de document formaté : YZIOW-2026-XXXXX
 const genDocNumber = (student: Student): string => {
   const year = new Date().getFullYear();
   const id = String(student.id || Math.floor(Math.random() * 99999)).padStart(5, '0');
-  return `YZO-${year}-${id}`;
+  return `YZIOW-${year}-${id}`;
 };
 
 // ── EN-TÊTE INSTITUTIONNEL CENTRÉ ─────────────────────────────
@@ -53,12 +53,8 @@ const drawOfficialHeader = (
   doc.setTextColor(0, 0, 0);
   doc.setFont('times', 'bold');
 
-  // 1. SCEAU (Extrême Gauche - Réduit et poussé)
-  if (schoolStamp) {
-      try {
-          doc.addImage(schoolStamp, 'PNG', 8, y, 18, 18);
-      } catch(e) {}
-  }
+  // 1. MINISTÈRE (Emplacement gauche, réservé au Sceau de l'État si disponible un jour)
+  // L'espace est utilisé par le texte ci-dessous
 
   // 2. TEXTE CENTRAL (Flex-like spacing - SATURÉ)
   const centerX = w / 2;
@@ -258,7 +254,52 @@ const drawFinanceTable = (
     },
   });
 
-  return (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  let currentY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+
+  // Historique des paiements
+  if (student.historiquesPaiements && student.historiquesPaiements.length > 0) {
+    doc.setFontSize(8);
+    doc.setFont('times', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('HISTORIQUE DES PAIEMENTS', 14, currentY);
+    doc.setDrawColor(37, 99, 235);
+    doc.setLineWidth(0.5);
+    doc.line(14, currentY + 1.5, 70, currentY + 1.5);
+
+    const historyBody = student.historiquesPaiements.map(p => [
+      new Date(p.date).toLocaleDateString('fr-FR'),
+      p.recu || '—',
+      p.mode || 'Espèces',
+      formatMontant(p.montant, currency)
+    ]);
+
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Date', 'N° Reçu', 'Mode', `Montant (${currency})`]],
+      body: historyBody,
+      styles: {
+        fontSize: 9,
+        cellPadding: { top: 4, bottom: 4, left: 6, right: 6 },
+        font: 'times',
+        lineColor: [226, 232, 240],
+        lineWidth: 0.3,
+      },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [51, 65, 85],
+        fontStyle: 'bold',
+        fontSize: 8.5,
+      },
+      columnStyles: {
+        3: { halign: 'right', fontStyle: 'bold', textColor: [22, 163, 74] },
+      },
+      margin: { left: 14, right: 14 },
+    });
+    
+    currentY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  }
+
+  return currentY;
 };
 
 // ── BADGE STATUT ENCADRÉ ──────────────────────────────────────
@@ -329,7 +370,7 @@ const drawMessage = (
 };
 
 // ── ZONE SIGNATURES PROFESSIONNELLE ──────────────────────────
-const drawSignatureZone = (doc: jsPDF, startY: number): void => {
+const drawSignatureZone = (doc: jsPDF, startY: number, schoolStamp?: string): void => {
   const w = doc.internal.pageSize.getWidth();
   const sigWidth = 65;
   const leftX = 14;
@@ -360,13 +401,29 @@ const drawSignatureZone = (doc: jsPDF, startY: number): void => {
   doc.setFont('times', 'bold');
   doc.setTextColor(71, 85, 105);
   doc.text("Cachet de l'Établissement", rightX + sigWidth / 2, startY + 6, { align: 'center' });
-  // Cercle cachet
-  doc.setDrawColor(200, 210, 225);
-  doc.setLineWidth(0.5);
-  doc.circle(rightX + sigWidth / 2, startY + 17, 7, 'D');
-  doc.setFontSize(5.5);
-  doc.setTextColor(180, 190, 205);
-  doc.text('CACHET', rightX + sigWidth / 2, startY + 18, { align: 'center' });
+  
+  // Placement du sceau/cachet si disponible
+  if (schoolStamp) {
+    try {
+        doc.addImage(schoolStamp, 'PNG', rightX + (sigWidth - 18) / 2, startY + 8, 18, 18);
+    } catch(e) {
+        // Cercle cachet de fallback
+        doc.setDrawColor(200, 210, 225);
+        doc.setLineWidth(0.5);
+        doc.circle(rightX + sigWidth / 2, startY + 17, 7, 'D');
+        doc.setFontSize(5.5);
+        doc.setTextColor(180, 190, 205);
+        doc.text('CACHET', rightX + sigWidth / 2, startY + 18, { align: 'center' });
+    }
+  } else {
+    // Cercle cachet de fallback
+    doc.setDrawColor(200, 210, 225);
+    doc.setLineWidth(0.5);
+    doc.circle(rightX + sigWidth / 2, startY + 17, 7, 'D');
+    doc.setFontSize(5.5);
+    doc.setTextColor(180, 190, 205);
+    doc.text('CACHET', rightX + sigWidth / 2, startY + 18, { align: 'center' });
+  }
 };
 
 // ── PIED DE PAGE DISCRET ──────────────────────────────────────
@@ -430,7 +487,7 @@ export const generateRecuPDF = (
 
   // Zone signatures (fixée en bas si assez de place, sinon positionnée dynamiquement)
   const sigY = Math.max(y + 6, h - 55);
-  drawSignatureZone(doc, sigY);
+  drawSignatureZone(doc, sigY, schoolStamp);
 
   // Pied de page
   drawFooter(doc, schoolName);
