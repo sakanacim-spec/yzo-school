@@ -712,7 +712,26 @@ export const useStore = create<AppState>()(
 
       updateAllSettings: async (newSettings) => {
         console.log('💾 [Store] Saving all settings to cloud...', Object.keys(newSettings));
-        set(newSettings);
+        set((state) => {
+          const { 
+            bulletinTemplate, bulletinShowPhoto, bulletinShowRank, 
+            bulletinShowClassAverage, bulletinShowAppreciation, 
+            ...rootSettings 
+          } = newSettings as any;
+          
+          return {
+            ...rootSettings,
+            settings: {
+              ...state.settings,
+              ...(bulletinTemplate !== undefined && { bulletinTemplate }),
+              ...(bulletinShowPhoto !== undefined && { bulletinShowPhoto }),
+              ...(bulletinShowRank !== undefined && { bulletinShowRank }),
+              ...(bulletinShowClassAverage !== undefined && { bulletinShowClassAverage }),
+              ...(bulletinShowAppreciation !== undefined && { bulletinShowAppreciation })
+            }
+          };
+        });
+        
         try {
           const { syncToBackend } = await import('../services/backendSync');
           const result = await syncToBackend(newSettings);
