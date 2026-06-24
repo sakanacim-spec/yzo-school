@@ -206,14 +206,12 @@ export const Parametres: React.FC = () => {
     });
 
     try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        await fetch(`${BACKEND_URL}/api/auth/profile`, {
+      const { getAuthHeaders: authHeaders } = await import('../services/apiHelpers');
+      const headers = authHeaders();
+      if (headers.Authorization) {
+        const response = await fetch(`${BACKEND_URL}/api/auth/profile`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
+          headers,
           body: JSON.stringify({
             school_address: localAddress,
             school_phone: localPhone,
@@ -221,6 +219,14 @@ export const Parametres: React.FC = () => {
             school_ministry: localMinistry
           })
         });
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          console.error('Erreur MAJ profil ecole:', errData);
+        } else {
+          console.log('✅ Identité établissement sauvegardée en base (table schools)');
+        }
+      } else {
+        console.warn('⚠️ Aucun token trouvé - impossible de mettre à jour le profil école');
       }
     } catch (err) {
       console.error('Erreur MAJ profil ecole', err);

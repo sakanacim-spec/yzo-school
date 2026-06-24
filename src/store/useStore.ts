@@ -1115,6 +1115,11 @@ export const useStore = create<AppState>()(
               ...(data.appSettings.cycleSchedules ? { cycleSchedules: data.appSettings.cycleSchedules } : {}),
               ...(data.appSettings.tranches ? { tranches: data.appSettings.tranches } : {}),
               ...(data.appSettings.classes ? { classes: data.appSettings.classes } : {}),
+              ...(data.appSettings.schoolAddress !== undefined ? { schoolAddress: data.appSettings.schoolAddress } : {}),
+              ...(data.appSettings.schoolPhone !== undefined ? { schoolPhone: data.appSettings.schoolPhone } : {}),
+              ...(data.appSettings.schoolSlogan !== undefined ? { schoolSlogan: data.appSettings.schoolSlogan } : {}),
+              ...(data.appSettings.schoolMinistry !== undefined ? { schoolMinistry: data.appSettings.schoolMinistry } : {}),
+              ...(data.appSettings.schoolCountry !== undefined ? { schoolCountry: data.appSettings.schoolCountry } : {}),
             });
             console.log('✅ [Sync] Paramètres appliqués ! Logo:', !!get().schoolLogo, '| Sceau:', !!get().schoolStamp);
           } else {

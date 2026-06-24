@@ -227,6 +227,11 @@ async function syncFromFrontend(req, res) {
                     message_remerciement: appSettings.messageRemerciement,
                     message_rappel: appSettings.messageRappel,
                     tranches: appSettings.tranches || [],
+                    school_address: appSettings.schoolAddress !== undefined ? appSettings.schoolAddress : null,
+                    school_phone: appSettings.schoolPhone !== undefined ? appSettings.schoolPhone : null,
+                    school_slogan: appSettings.schoolSlogan !== undefined ? appSettings.schoolSlogan : null,
+                    school_ministry: appSettings.schoolMinistry !== undefined ? appSettings.schoolMinistry : null,
+                    school_country: appSettings.schoolCountry !== undefined ? appSettings.schoolCountry : null,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
                 if (settingsErr) {
@@ -366,6 +371,14 @@ async function syncToFrontend(req, res) {
         const announcementReads = await fetchTable('announcement_reads');
         
         const { data: appSettings, error: settingsError } = await supabase.from(tbl('app_settings')).select('*').single();
+        
+        // Fetch school identity from the schools table (source of truth for address, phone, slogan, ministry)
+        const { data: schoolData } = await supabase
+            .from('schools')
+            .select('name, country, address, phone, slogan, ministry')
+            .eq('slug', schoolSlug)
+            .single();
+        
         console.log('🎨 [Sync GET] appSettings from DB:', {
             found: !!appSettings,
             error: settingsError?.message || null,
@@ -427,16 +440,22 @@ async function syncToFrontend(req, res) {
                 dateHeure: l.date_heure
             })),
             links: links || [],
-            appSettings: appSettings ? {
-                appName: appSettings.app_name,
-                schoolName: appSettings.school_name,
-                schoolYear: appSettings.school_year,
-                schoolLogo: appSettings.school_logo,
-                schoolStamp: appSettings.school_stamp,
-                messageRemerciement: appSettings.message_remerciement,
-                messageRappel: appSettings.message_rappel,
-                tranches: appSettings.tranches || []
-            } : null,
+            appSettings: {
+                appName: appSettings?.app_name || schoolData?.name || null,
+                schoolName: appSettings?.school_name || schoolData?.name || null,
+                schoolYear: appSettings?.school_year || null,
+                schoolLogo: appSettings?.school_logo || null,
+                schoolStamp: appSettings?.school_stamp || null,
+                messageRemerciement: appSettings?.message_remerciement || null,
+                messageRappel: appSettings?.message_rappel || null,
+                tranches: appSettings?.tranches || [],
+                // Identity fields — primary source: app_settings, fallback: schools table
+                schoolAddress: appSettings?.school_address || schoolData?.address || null,
+                schoolPhone: appSettings?.school_phone || schoolData?.phone || null,
+                schoolSlogan: appSettings?.school_slogan || schoolData?.slogan || null,
+                schoolMinistry: appSettings?.school_ministry || schoolData?.ministry || null,
+                schoolCountry: appSettings?.school_country || schoolData?.country || null
+            },
             announcements: (announcements || []).map(a => ({
                 id: a.id,
                 titre: a.titre,
