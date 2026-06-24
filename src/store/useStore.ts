@@ -1115,11 +1115,12 @@ export const useStore = create<AppState>()(
               ...(data.appSettings.cycleSchedules ? { cycleSchedules: data.appSettings.cycleSchedules } : {}),
               ...(data.appSettings.tranches ? { tranches: data.appSettings.tranches } : {}),
               ...(data.appSettings.classes ? { classes: data.appSettings.classes } : {}),
-              ...(data.appSettings.schoolAddress !== undefined ? { schoolAddress: data.appSettings.schoolAddress } : {}),
-              ...(data.appSettings.schoolPhone !== undefined ? { schoolPhone: data.appSettings.schoolPhone } : {}),
-              ...(data.appSettings.schoolSlogan !== undefined ? { schoolSlogan: data.appSettings.schoolSlogan } : {}),
-              ...(data.appSettings.schoolMinistry !== undefined ? { schoolMinistry: data.appSettings.schoolMinistry } : {}),
-              ...(data.appSettings.schoolCountry !== undefined ? { schoolCountry: data.appSettings.schoolCountry } : {}),
+              // Identity fields — use backend value if non-null, fallback to existing state
+              schoolAddress: data.appSettings.schoolAddress || get().schoolAddress || null,
+              schoolPhone: data.appSettings.schoolPhone || get().schoolPhone || null,
+              schoolSlogan: data.appSettings.schoolSlogan || get().schoolSlogan || null,
+              schoolMinistry: data.appSettings.schoolMinistry || get().schoolMinistry || null,
+              schoolCountry: data.appSettings.schoolCountry || get().schoolCountry || null,
             });
             console.log('✅ [Sync] Paramètres appliqués ! Logo:', !!get().schoolLogo, '| Sceau:', !!get().schoolStamp);
           } else {
