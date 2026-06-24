@@ -1364,6 +1364,11 @@ export const useStore = create<AppState>()(
       partialize: (state) => ({
         students: state.students,
         schoolName: state.schoolName,
+        schoolCountry: state.schoolCountry,
+        schoolAddress: state.schoolAddress,
+        schoolPhone: state.schoolPhone,
+        schoolSlogan: state.schoolSlogan,
+        schoolMinistry: state.schoolMinistry,
         schoolYear: state.schoolYear,
         messageRemerciement: state.messageRemerciement,
         messageRappel: state.messageRappel,
@@ -1371,6 +1376,7 @@ export const useStore = create<AppState>()(
         isAuthenticated: state.isAuthenticated,
         appName: state.appName,
         schoolLogo: state.schoolLogo,
+        schoolStamp: state.schoolStamp,
         parents: state.parents || [],
         presences: state.presences || [],
         activityLogs: (state.activityLogs || []).slice(0, 500),
@@ -1388,6 +1394,7 @@ export const useStore = create<AppState>()(
         currentPage: state.currentPage,
         theme: state.theme,
         chatRecipientId: state.chatRecipientId,
+        settings: state.settings,
       }),
       onRehydrateStorage: () => (state) => {
         // Auto-réparation au chargement du storage local
