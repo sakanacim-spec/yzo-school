@@ -30,8 +30,13 @@ export const Parametres: React.FC = () => {
   const [localSchool, setLocalSchool] = useState(schoolName || '');
   const [localAddress, setLocalAddress] = useState(schoolAddress || '');
   const [localPhone, setLocalPhone] = useState(schoolPhone || '');
-  const [localSlogan, setLocalSlogan] = useState(schoolSlogan || '');
-  const [localMinistry, setLocalMinistry] = useState(schoolMinistry || '');
+  // Slogan/Ministry: lire depuis Zustand ou fallback sur localStorage direct
+  const [localSlogan, setLocalSlogan] = useState(
+    schoolSlogan || localStorage.getItem('school_identity_slogan') || ''
+  );
+  const [localMinistry, setLocalMinistry] = useState(
+    schoolMinistry || localStorage.getItem('school_identity_ministry') || ''
+  );
   const [localYear, setLocalYear] = useState(schoolYear || '');
   const [localRem, setLocalRem] = useState(messageRemerciement || '');
   const [localRap, setLocalRap] = useState(messageRappel || '');
@@ -49,8 +54,9 @@ export const Parametres: React.FC = () => {
     setLocalSchool(schoolName || '');
     setLocalAddress(schoolAddress || '');
     setLocalPhone(schoolPhone || '');
-    setLocalSlogan(schoolSlogan || '');
-    setLocalMinistry(schoolMinistry || '');
+    // Pour slogan et ministry: si Zustand a une valeur, l'utiliser, sinon garder celle du localStorage direct
+    if (schoolSlogan) setLocalSlogan(schoolSlogan);
+    if (schoolMinistry) setLocalMinistry(schoolMinistry);
     setLocalYear(schoolYear || '');
     setLocalRem(messageRemerciement || '');
     setLocalRap(messageRappel || '');
@@ -186,6 +192,15 @@ export const Parametres: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 💾 Sauvegarde directe dans localStorage comme filet de sécurité absolu
+    try {
+      localStorage.setItem('school_identity_slogan', localSlogan || '');
+      localStorage.setItem('school_identity_ministry', localMinistry || '');
+      localStorage.setItem('school_identity_address', localAddress || '');
+      localStorage.setItem('school_identity_phone', localPhone || '');
+    } catch (_) {}
+    
     await updateAllSettings({
       appName: localAppName,
       schoolName: localSchool,
