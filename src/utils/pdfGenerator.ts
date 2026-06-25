@@ -113,9 +113,11 @@ const drawOfficialHeader = (
   doc.setFont('times', 'normal');
   doc.text(`Année scolaire : ${schoolYear}`, w / 2, y, { align: 'center' });
   
-  y += 10;
+  y += 5;
   doc.setFontSize(10);
-  doc.text(`Fait à Apéssito, le ${fmtDate()}`, 14, y);
+  // Utilise la ville extraite de l'adresse (avant la virgule ou l'adresse complète)
+  const cityFromAddress = (state.schoolAddress || '').split(',')[0].trim() || schoolName;
+  doc.text(`Fait à ${cityFromAddress}, le ${fmtDate()}`, 14, y);
   doc.text(`N° : ${docNumber}`, w - 14, y, { align: 'right' });
   
   y += 5;
@@ -514,7 +516,7 @@ export const generateClassePDF = (
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const w = doc.internal.pageSize.getWidth();
-  const docNumber = `YZO-${new Date().getFullYear()}-CL${classe.replace(/\s/g, '').toUpperCase()}`;
+  const docNumber = `YZIOW-${new Date().getFullYear()}-CL${classe.replace(/\s/g, '').toUpperCase()}`;
 
   let y = drawOfficialHeader(doc, schoolName, schoolYear, `LISTE FINANCIÈRE — ${classe.toUpperCase()}`, docNumber, schoolLogo, schoolStamp);
 

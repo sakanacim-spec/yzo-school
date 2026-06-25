@@ -16,7 +16,6 @@ export const Parametres: React.FC = () => {
   const schoolYear = useStore((s) => s.schoolYear);
   const messageRemerciement = useStore((s) => s.messageRemerciement);
   const messageRappel = useStore((s) => s.messageRappel);
-  const appName = useStore((s) => s.appName);
   const schoolLogo = useStore((s) => s.schoolLogo);
   const schoolStamp = useStore((s) => s.schoolStamp);
   const user = useStore((s) => s.user);
@@ -40,7 +39,6 @@ export const Parametres: React.FC = () => {
   const [localYear, setLocalYear] = useState(schoolYear || '');
   const [localRem, setLocalRem] = useState(messageRemerciement || '');
   const [localRap, setLocalRap] = useState(messageRappel || '');
-  const [localAppName, setLocalAppName] = useState(appName || '');
   
   const [localBulletinTemplate, setLocalBulletinTemplate] = useState<'officiel'|'classique'>(bulletinTemplate);
   const [localBulletinShowPhoto, setLocalBulletinShowPhoto] = useState(bulletinShowPhoto);
@@ -60,13 +58,12 @@ export const Parametres: React.FC = () => {
     setLocalYear(schoolYear || '');
     setLocalRem(messageRemerciement || '');
     setLocalRap(messageRappel || '');
-    setLocalAppName(appName || '');
     setLocalBulletinTemplate(bulletinTemplate);
     setLocalBulletinShowPhoto(bulletinShowPhoto);
     setLocalBulletinShowRank(bulletinShowRank);
     setLocalBulletinShowClassAverage(bulletinShowClassAverage);
     setLocalBulletinShowAppreciation(bulletinShowAppreciation);
-  }, [schoolName, schoolAddress, schoolPhone, schoolSlogan, schoolMinistry, schoolYear, messageRemerciement, messageRappel, appName, bulletinTemplate, bulletinShowPhoto, bulletinShowRank, bulletinShowClassAverage, bulletinShowAppreciation]);
+  }, [schoolName, schoolAddress, schoolPhone, schoolSlogan, schoolMinistry, schoolYear, messageRemerciement, messageRappel, bulletinTemplate, bulletinShowPhoto, bulletinShowRank, bulletinShowClassAverage, bulletinShowAppreciation]);
   
   const [logoPreview, setLogoPreview] = useState<string | null>(schoolLogo);
   const [logoError, setLogoError] = useState('');
@@ -202,7 +199,6 @@ export const Parametres: React.FC = () => {
     } catch (_) {}
     
     await updateAllSettings({
-      appName: localAppName,
       schoolName: localSchool,
       schoolAddress: localAddress,
       schoolPhone: localPhone,
@@ -287,17 +283,15 @@ export const Parametres: React.FC = () => {
                 
                 <form onSubmit={handleSave} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Plateforme — nom fixe, non modifiable */}
                     <div>
                         <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                            Nom de l'application
+                            Plateforme
                         </label>
-                        <input
-                            disabled={user?.role !== 'directeur' && user?.role !== 'comptable'}
-                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-60"
-                            value={localAppName}
-                            onChange={(e) => setLocalAppName(e.target.value)}
-                            placeholder="Ex : EduFinance"
-                        />
+                        <div className="w-full bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-4 py-3 flex items-center justify-between">
+                            <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 tracking-widest">YZIOW</span>
+                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest bg-indigo-100 dark:bg-indigo-500/20 px-2 py-1 rounded-lg">Nom fixe</span>
+                        </div>
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
@@ -811,6 +805,8 @@ export const Parametres: React.FC = () => {
                     <button
                         onClick={() => {
                             setCycleSchedules(localSchedules);
+                            // Persiste les horaires vers le backend via le sync
+                            updateAllSettings({ cycleSchedules: localSchedules });
                             setScheduleSaved(true);
                             setTimeout(() => setScheduleSaved(false), 3000);
                         }}
@@ -890,10 +886,10 @@ export const Parametres: React.FC = () => {
                 </div>
             )}
 
-            {/* ── À PROPOS ──────────────────────────────────────── */}
+            {/* ── À PROPOS ────────────────────────────── */}
             <div className="flex items-center justify-center gap-2 text-slate-400 dark:text-slate-600">
                 <Info className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">{appName} v1.0 — Nomade Corp</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest">YZIOW v1.0 — Nomade Corp</span>
             </div>
 
         </div>

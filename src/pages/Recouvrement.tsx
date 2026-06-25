@@ -22,7 +22,10 @@ export const Recouvrement: React.FC = () => {
     const schoolName = useStore(s => s.schoolName);
     const schoolAddress = useStore(s => s.schoolAddress);
     const schoolPhone = useStore(s => s.schoolPhone);
-    const appName = useStore(s => s.appName);
+    const schoolSlogan = useStore(s => s.schoolSlogan);
+    const schoolMinistry = useStore(s => s.schoolMinistry);
+    const schoolCountry = useStore(s => s.schoolCountry);
+    const schoolYear = useStore(s => s.schoolYear);
     const storeSettings = useStore(s => s.settings);
 
     // 1. Calcul des données
@@ -54,9 +57,13 @@ export const Recouvrement: React.FC = () => {
         
         const fullSettings = {
             ...storeSettings,
-            schoolName: schoolName || appName || 'Etablissement',
+            schoolName: schoolName || 'Etablissement',
             schoolAddress: schoolAddress,
             schoolPhone: schoolPhone,
+            schoolSlogan: schoolSlogan,
+            schoolMinistry: schoolMinistry,
+            schoolCountry: schoolCountry,
+            schoolYear: schoolYear,
             currency
         };
 
@@ -94,11 +101,12 @@ export const Recouvrement: React.FC = () => {
     const generateExcelList = () => {
         // En-tête avec les informations de l'établissement
         const headerInfo = [
-            [storeSettings?.schoolMinistry || ''],
-            [schoolName || appName || 'Etablissement'],
-            [storeSettings?.schoolSlogan ? `« ${storeSettings.schoolSlogan} »` : ''],
+            [schoolMinistry || ''],
+            [schoolName || 'Etablissement'],
+            [schoolSlogan ? `« ${schoolSlogan} »` : ''],
             [schoolAddress ? `Adresse: ${schoolAddress}` : ''],
             [schoolPhone ? `Tel: ${schoolPhone}` : ''],
+            [schoolYear ? `Année scolaire: ${schoolYear}` : ''],
             [''],
             ['LISTE PRIORITAIRE DE RECOUVREMENT'],
             [`Généré le: ${new Date().toLocaleDateString('fr-FR')}`],
