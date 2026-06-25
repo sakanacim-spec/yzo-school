@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { StatusPaiement } from '../types';
-import { CLASSES_BY_CYCLE } from '../data/classConfig';
 import { formatMontant, getStatusPaiement, generateWhatsAppLink } from '../utils/helpers';
 import { generateReceipt, generateClassReport, generateNonSoldesReport } from '../utils/pdfService';
 import {
@@ -18,7 +17,7 @@ export const Reports = () => {
   const { students, settings } = useStore();
   const [selectedClasse, setSelectedClasse] = useState('');
 
-  const allClasses = [...CLASSES_BY_CYCLE.Primaire, ...CLASSES_BY_CYCLE.Collège, ...CLASSES_BY_CYCLE.Lycée];
+  const allClasses = useStore((s) => s.classes).map((c) => c.name);
   const nonSoldes = students.filter(s => s.restant > 0);
   const classStudents = selectedClasse ? students.filter(s => s.classe === selectedClasse) : [];
 

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { importExcel, exportToExcel, exportNonSoldesToExcel, exportClassToExcel } from '../utils/excelService';
-import { CLASSES_BY_CYCLE as CLASSES } from '../data/classConfig';
+
 import { 
   Upload, 
   Download, 
@@ -21,7 +21,7 @@ export const ImportExport = () => {
   const [selectedClasse, setSelectedClasse] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const allClasses = [...CLASSES.Primaire, ...CLASSES.Collège, ...CLASSES.Lycée];
+  const allClasses = useStore((s) => s.classes).map((c) => c.name);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

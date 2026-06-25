@@ -44,7 +44,7 @@ export const Recouvrement: React.FC = () => {
 
     const classesConfig = useStore((s) => s.classes) || [];
     const activeCyclesSet = new Set(classesConfig.map(c => c.cycle));
-    const cycles = ['Maternelle', 'Primaire', 'Collège', 'Lycée'].filter(c => activeCyclesSet.has(c as any));
+    const cycles = Array.from(activeCyclesSet);
 
     // --- Actions Export ---
 

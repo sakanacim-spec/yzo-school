@@ -80,14 +80,8 @@ export const Parametres: React.FC = () => {
   const cycleSchedules = useStore((s) => s.cycleSchedules) || [];
   const setCycleSchedules = useStore((s) => s.setCycleSchedules);
 
-  // Calcul des cycles actifs à partir des classes configurées
-  // On respecte l'ordre canonique des cycles
-  const CYCLES_ORDER = ['Maternelle', 'Primaire', 'Collège', 'Lycée'] as const;
-
   // Cycles réellement présents dans les classes de l'établissement
-  const activeCycles = CYCLES_ORDER.filter(c =>
-    classes.some(cls => cls.cycle === c)
-  );
+  const activeCycles = Array.from(new Set(classes.map(c => c.cycle)));
 
   // Construire localSchedules en ne gardant que les cycles actifs
   // Conserver l'heure déjà enregistrée si elle existe, sinon valeur par défaut
@@ -735,20 +729,28 @@ export const Parametres: React.FC = () => {
                                     placeholder="Nom de la classe (ex: CP1)"
                                     className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full"
                                 />
-                                <select
+                                <input
+                                    type="text"
+                                    list="cycle-suggestions"
                                     value={c.cycle}
                                     onChange={(e) => {
                                         const updated = [...localClasses];
                                         updated[idx].cycle = e.target.value as any;
                                         setLocalClasses(updated);
                                     }}
+                                    placeholder="Cycle (ex: Primaire, Université)"
                                     className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-auto"
-                                >
-                                    <option value="Maternelle">Maternelle</option>
-                                    <option value="Primaire">Primaire</option>
-                                    <option value="Collège">Collège</option>
-                                    <option value="Lycée">Lycée</option>
-                                </select>
+                                />
+                                <datalist id="cycle-suggestions">
+                                    <option value="Maternelle" />
+                                    <option value="Primaire" />
+                                    <option value="Collège" />
+                                    <option value="Lycée" />
+                                    <option value="Licence" />
+                                    <option value="Master" />
+                                    <option value="Université" />
+                                    <option value="Formation Professionnelle" />
+                                </datalist>
                                 <div className="flex items-center gap-2 w-full sm:w-auto">
                                     <div className="relative flex-1">
                                         <input

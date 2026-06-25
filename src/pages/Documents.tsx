@@ -122,13 +122,15 @@ export const Documents: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [generating, setGenerating]     = useState(false);
 
-  const cycleOrder = { 'Maternelle': 1, 'Primaire': 2, 'Collège': 3, 'Lycée': 4 };
+  const classesConfig = useStore((s) => s.classes) || [];
+  const uniqueCycles = Array.from(new Set(classesConfig.map((c) => c.cycle)));
+
   const classes = [...new Set(students.map((s) => s.classe))]
     .sort((a, b) => {
       const sA = students.find((s) => s.classe === a);
       const sB = students.find((s) => s.classe === b);
-      const cA = cycleOrder[sA?.cycle as keyof typeof cycleOrder] || 0;
-      const cB = cycleOrder[sB?.cycle as keyof typeof cycleOrder] || 0;
+      const cA = uniqueCycles.indexOf(sA?.cycle || '');
+      const cB = uniqueCycles.indexOf(sB?.cycle || '');
       return cA - cB || a.localeCompare(b);
     });
 

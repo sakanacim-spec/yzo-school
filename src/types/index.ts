@@ -4,7 +4,7 @@
 
 
 
-export type Cycle = 'Maternelle' | 'Primaire' | 'Collège' | 'Lycée';
+export type Cycle = string;
 
 export type PaymentStatus = 'Soldé' | 'Partiel' | 'Non soldé';
 
@@ -118,12 +118,17 @@ export interface AppSettings extends AdminSettings {
   classes?: ClassConfig[]; // Configuration personnalisée des classes et écolages
 }
 
+export interface GlobalStats {
+  totalStudents: number;
+  totalBoys: number;
+  totalGirls: number;
+  newRegistrations: number;
+  totalRevenue: number;
+  unpaidFees: number;
+}
+
 export interface DashboardStats {
   totalEleves: number;
-  totalPrimaire: number;
-  totalMaternelle: number;
-  totalCollege: number;
-  totalLycee: number;
   totalEcolageAttendu: number;
   totalDejaPaye: number;
   totalRestant: number;
@@ -280,8 +285,7 @@ export type AppPage =
   | 'superadmin_schools'
   | 'superadmin_billing';
 
-// Les types de cycles existants
-export const CYCLES: Cycle[] = ['Maternelle', 'Primaire', 'Collège', 'Lycée'];
+
 
 // ── MODULE 2 : ACADÉMIQUE & NOTES ─────────────────────────
 

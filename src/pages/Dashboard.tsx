@@ -140,10 +140,6 @@ export const Dashboard: React.FC = () => {
 
   const stats = useMemo(() => {
     const activeCycles = Array.from(new Set(classes.map(c => c.cycle)));
-    const maternelle = students.filter((s) => s.cycle === 'Maternelle');
-    const primaire = students.filter((s) => s.cycle === 'Primaire');
-    const college = students.filter((s) => s.cycle === 'Collège');
-    const lycee = students.filter((s) => s.cycle === 'Lycée');
 
     const cycleStat = (arr: typeof students) => ({
       count: arr.length,
@@ -156,6 +152,12 @@ export const Dashboard: React.FC = () => {
         : 0,
     });
 
+    const cycleStats: Record<string, ReturnType<typeof cycleStat>> = {};
+    activeCycles.forEach(cycle => {
+      const cycleStudents = students.filter((s) => s.cycle === cycle);
+      cycleStats[cycle] = cycleStat(cycleStudents);
+    });
+
     const totalEcolage = students.reduce((a, s) => a + s.ecolage, 0);
     const totalPaye = students.reduce((a, s) => a + s.dejaPaye, 0);
     const totalRestant = students.reduce((a, s) => a + s.restant, 0);
@@ -165,13 +167,7 @@ export const Dashboard: React.FC = () => {
 
     return {
       activeCycles,
-      maternelle: maternelle.length, primaire: primaire.length, college: college.length, lycee: lycee.length,
-      cycleStats: {
-        Maternelle: cycleStat(maternelle),
-        Primaire: cycleStat(primaire),
-        Collège: cycleStat(college),
-        Lycée: cycleStat(lycee),
-      },
+      cycleStats,
       totalEcolage, totalPaye, totalRestant, taux, soldes, nonSoldes,
     };
   }, [students, classes]);
@@ -188,12 +184,10 @@ export const Dashboard: React.FC = () => {
     }).filter((c) => c.total > 0);
   }, [students]);
 
-  const cycleData = [
-    { name: 'Maternelle', value: stats.maternelle },
-    { name: 'Primaire', value: stats.primaire },
-    { name: 'Collège', value: stats.college },
-    { name: 'Lycée', value: stats.lycee },
-  ].filter((d) => stats.activeCycles.includes(d.name as any) || d.value > 0);
+  const cycleData = stats.activeCycles.map(cycle => ({
+    name: cycle,
+    value: stats.cycleStats[cycle]?.count || 0
+  })).filter((d) => d.value > 0);
 
   const topClasses = useMemo(() => {
     return classes.map((c) => {
@@ -363,81 +357,67 @@ export const Dashboard: React.FC = () => {
 
       {/* ── CYCLE ANALYSIS ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {([
-            {
-              label: 'Maternelle', sub: 'Maternelle 1 à Grande Section',
-              icon: <School className="w-6 h-6 text-emerald-600" />,
-              colors: { border: 'border-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-600', fill: 'bg-emerald-500' },
-              key: 'Maternelle' as const,
-            },
-            {
-              label: 'Primaire', sub: 'CI au CM2',
-            icon: <School className="w-6 h-6 text-amber-600" />,
-            colors: { border: 'border-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-600', fill: 'bg-amber-500' },
-            key: 'Primaire' as const,
-          },
-          {
-            label: 'Collège', sub: '6ème au 3ème',
-            icon: <BookOpen className="w-6 h-6 text-indigo-600" />,
-            colors: { border: 'border-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-600', fill: 'bg-indigo-500' },
-            key: 'Collège' as const,
-          },
-          {
-            label: 'Lycée', sub: 'Seconde à Terminale',
-            icon: <GraduationCap className="w-6 h-6 text-rose-600" />,
-            colors: { border: 'border-rose-500', bg: 'bg-rose-50 dark:bg-rose-500/10', text: 'text-rose-600', fill: 'bg-rose-500' },
-            key: 'Lycée' as const,
-          },
-        ] as const).filter(c => stats.activeCycles.includes(c.key) || stats.cycleStats[c.key].count > 0).map((c) => {
-          const cs = stats.cycleStats[c.key];
-          return (
-            <div key={c.label} className={`pro-card p-8 border-t-4 border-t-transparent hover:border-t-${c.colors.fill.replace('bg-','')} transition-all duration-300 group`}>
-              <div className="flex items-center gap-5 mb-8">
-                <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center shadow-md ${c.colors.bg} group-hover:scale-110 transition-transform duration-500 ease-out`}>
-                  {c.icon}
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <p className={`text-2xl font-black tracking-tighter text-slate-900 dark:text-white`}>{c.label}</p>
-                  <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest truncate mt-0.5">{c.sub}</p>
-                </div>
-                <div className={`px-4 py-2 rounded-xl font-black text-xl bg-slate-50 dark:bg-slate-800 ${c.colors.text}`}>
-                  {maskValue(cs.count)}
-                </div>
-              </div>
+          {stats.activeCycles.map((cycle) => {
+            const cs = stats.cycleStats[cycle];
+            if (!cs) return null;
 
-              <div className="space-y-4 mb-8">
-                <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Attendu</span>
-                  <span className="font-black text-slate-900 dark:text-white">{maskValue(formatMontant(cs.ecolage, currency))}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
-                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wide">Perçu</span>
-                  <span className="font-black text-emerald-600">{maskValue(formatMontant(cs.paye, currency))}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 rounded-xl bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30">
-                  <span className="text-xs font-bold text-rose-600 uppercase tracking-wide">Reste</span>
-                  <span className="font-black text-rose-600">{maskValue(formatMontant(cs.restant, currency))}</span>
-                </div>
-              </div>
+            let icon = <BookOpen className="w-6 h-6 text-indigo-600" />;
+            let colors = { border: 'border-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-600', fill: 'bg-indigo-500' };
 
-              <div>
-                <div className="flex justify-between items-end mb-3">
-                  <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Taux de recouvrement</span>
-                  <span className={`text-xl font-black ${c.colors.text}`}>{maskValue(`${cs.taux}%`)}</span>
+            if (cycle === 'Maternelle') { icon = <School className="w-6 h-6 text-emerald-600" />; colors = { border: 'border-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-600', fill: 'bg-emerald-500' }; }
+            else if (cycle === 'Primaire') { icon = <School className="w-6 h-6 text-amber-600" />; colors = { border: 'border-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-600', fill: 'bg-amber-500' }; }
+            else if (cycle === 'Collège') { icon = <BookOpen className="w-6 h-6 text-indigo-600" />; colors = { border: 'border-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-600', fill: 'bg-indigo-500' }; }
+            else if (cycle === 'Lycée') { icon = <GraduationCap className="w-6 h-6 text-rose-600" />; colors = { border: 'border-rose-500', bg: 'bg-rose-50 dark:bg-rose-500/10', text: 'text-rose-600', fill: 'bg-rose-500' }; }
+            else { icon = <GraduationCap className="w-6 h-6 text-cyan-600" />; colors = { border: 'border-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-500/10', text: 'text-cyan-600', fill: 'bg-cyan-500' }; }
+
+            return (
+              <div key={cycle} className={`pro-card p-8 border-t-4 border-t-transparent hover:border-t-${colors.fill.replace('bg-','')} transition-all duration-300 group`}>
+                <div className="flex items-center gap-5 mb-8">
+                  <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center shadow-md ${colors.bg} group-hover:scale-110 transition-transform duration-500 ease-out`}>
+                    {icon}
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <p className={`text-2xl font-black tracking-tighter text-slate-900 dark:text-white`}>{cycle}</p>
+                    <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest truncate mt-0.5">Statistiques du cycle</p>
+                  </div>
+                  <div className={`px-4 py-2 rounded-xl font-black text-xl bg-slate-50 dark:bg-slate-800 ${colors.text}`}>
+                    {maskValue(cs.count)}
+                  </div>
                 </div>
-                <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner p-0.5">
-                  <div
-                    className={`h-full ${c.colors.fill} rounded-full transition-all duration-1000 shadow-md relative overflow-hidden`}
-                    style={{ width: `${cs.taux}%` }}
-                  >
-                    <div className="absolute inset-0 bg-white/20 w-full h-full -translate-x-full animate-[shimmer_2s_infinite]" />
+
+                <div className="space-y-4 mb-8">
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Attendu</span>
+                    <span className="font-black text-slate-900 dark:text-white">{maskValue(formatMontant(cs.ecolage, currency))}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
+                    <span className="text-xs font-bold text-emerald-600 uppercase tracking-wide">Perçu</span>
+                    <span className="font-black text-emerald-600">{maskValue(formatMontant(cs.paye, currency))}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30">
+                    <span className="text-xs font-bold text-rose-600 uppercase tracking-wide">Reste</span>
+                    <span className="font-black text-rose-600">{maskValue(formatMontant(cs.restant, currency))}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-end mb-3">
+                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Taux de recouvrement</span>
+                    <span className={`text-xl font-black ${colors.text}`}>{maskValue(`${cs.taux}%`)}</span>
+                  </div>
+                  <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner p-0.5">
+                    <div
+                      className={`h-full ${colors.fill} rounded-full transition-all duration-1000 shadow-md relative overflow-hidden`}
+                      style={{ width: `${cs.taux}%` }}
+                    >
+                      <div className="absolute inset-0 bg-white/20 w-full h-full -translate-x-full animate-[shimmer_2s_infinite]" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
       {/* ── CHARTS SECTION ── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

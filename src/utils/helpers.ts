@@ -76,10 +76,6 @@ export const formatPhoneNumber = (phone: string, countryCode: string | null = nu
 export const calculateDashboardStats = (students: Student[]): DashboardStats => {
   const stats: DashboardStats = {
     totalEleves: students.length,
-    totalMaternelle: students.filter(s => s.cycle === 'Maternelle').length,
-    totalPrimaire: students.filter(s => s.cycle === 'Primaire').length,
-    totalCollege: students.filter(s => s.cycle === 'Collège').length,
-    totalLycee: students.filter(s => s.cycle === 'Lycée').length,
     totalEcolageAttendu: students.reduce((sum, s) => sum + s.ecolage, 0),
     totalDejaPaye: students.reduce((sum, s) => sum + s.dejaPaye, 0),
     totalRestant: students.reduce((sum, s) => sum + s.restant, 0),
