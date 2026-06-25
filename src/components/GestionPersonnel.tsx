@@ -65,6 +65,7 @@ export const GestionPersonnel = () => {
     switch (r) {
       case 'admin': return 'Administrateur (Complet)';
       case 'censeur': return 'Censeur';
+      case 'secretaire': return 'Secrétaire';
       case 'superviseur': return 'Surveillant (Gardien - Scan)';
       case 'comptable': return 'Comptable';
       default: return r;
@@ -106,6 +107,7 @@ export const GestionPersonnel = () => {
             <label className="block text-xs font-semibold text-gray-600 mb-1">Rôle d'accès</label>
             <select value={role} onChange={e => setRole(e.target.value)} className="w-full text-sm border-gray-200 rounded-lg focus:ring-indigo-500 bg-white">
               <option value="superviseur">Surveillant (Scans de cartes uniquement)</option>
+              <option value="secretaire">Secrétaire (Saisie, Inscriptions, Reçus)</option>
               <option value="censeur">Censeur (Outils académiques)</option>
               <option value="comptable">Comptable (Finances)</option>
               <option value="admin">Administrateur (Gestion globale)</option>

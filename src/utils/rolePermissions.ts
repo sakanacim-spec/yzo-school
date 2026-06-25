@@ -3,7 +3,7 @@
 // ============================================================
 import { AppPage } from '../types';
 
-type Role = 'superadmin' | 'admin' | 'directeur' | 'directeur_general' | 'proviseur' | 'censeur' | 'superviseur' | 'surveillant' | 'comptable' | 'parent';
+type Role = 'superadmin' | 'admin' | 'directeur' | 'directeur_general' | 'proviseur' | 'censeur' | 'superviseur' | 'surveillant' | 'comptable' | 'parent' | 'secretaire';
 
 // Pages accessibles par rôle
 const ROLE_PAGES: Record<Role, AppPage[]> = {
@@ -50,6 +50,10 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
     parent: [
         'parent_dashboard', 'parent_historique', 'parent_recus',
         'parent_badges', 'parent_messages', 'chat', 'annonces'
+    ],
+    secretaire: [
+        'dashboard', 'eleves', 'scan_information', 'scan_presence', 'scan_sortie',
+        'documents', 'chat', 'annonces'
     ],
 };
 
@@ -100,6 +104,9 @@ const ROLE_ACTIONS: Record<Role, ActionType[]> = {
     ],
     censeur: [],
     parent: [],
+    secretaire: [
+        'ajouter_eleve', 'modifier_eleve', 'generer_recu', 'scan_presence'
+    ],
 };
 
 export const canAccessPage = (role: string | undefined, page: AppPage): boolean => {
@@ -136,6 +143,7 @@ export const getRoleLabel = (role: string): string => {
         proviseur: 'Proviseur',
         censeur: 'Censeur',
         parent: 'Parent',
+        secretaire: 'Secrétaire',
     };
     return labels[role] || role;
 };
