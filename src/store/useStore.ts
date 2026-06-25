@@ -797,12 +797,8 @@ export const useStore = create<AppState>()(
       },
 
       // ── Horaires par cycle ──────────────────────────────────
-      cycleSchedules: [
-        { cycle: 'Maternelle', heureLimite: '07:30' },
-        { cycle: 'Primaire', heureLimite: '07:30' },
-        { cycle: 'Collège', heureLimite: '07:45' },
-        { cycle: 'Lycée', heureLimite: '08:00' },
-      ],
+      // Vide par défaut — les cycles actifs sont dérivés des classes configurées
+      cycleSchedules: [],
       setCycleSchedules: (schedules) => {
         set({ cycleSchedules: schedules });
         // Sync to backend

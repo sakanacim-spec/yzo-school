@@ -73,14 +73,47 @@ export const Parametres: React.FC = () => {
   const [stampError, setStampError] = useState('');
   const stampFileRef = useRef<HTMLInputElement>(null);
 
+  // Cycles et classes — déclarés EN PREMIER car utilisés pour calculer les cycles actifs
+  const classes = useStore((s) => s.classes) || [];
+  const setClasses = useStore((s) => s.setClasses);
+
   const cycleSchedules = useStore((s) => s.cycleSchedules) || [];
   const setCycleSchedules = useStore((s) => s.setCycleSchedules);
-  const [localSchedules, setLocalSchedules] = useState(cycleSchedules);
+
+  // Calcul des cycles actifs à partir des classes configurées
+  // On respecte l'ordre canonique des cycles
+  const CYCLES_ORDER = ['Maternelle', 'Primaire', 'Collège', 'Lycée'] as const;
+
+  // Cycles réellement présents dans les classes de l'établissement
+  const activeCycles = CYCLES_ORDER.filter(c =>
+    classes.some(cls => cls.cycle === c)
+  );
+
+  // Construire localSchedules en ne gardant que les cycles actifs
+  // Conserver l'heure déjà enregistrée si elle existe, sinon valeur par défaut
+  const DEFAULT_TIMES: Record<string, string> = {
+    'Maternelle': '07:30',
+    'Primaire': '07:30',
+    'Collège': '07:45',
+    'Lycée': '08:00',
+  };
+
+  const buildSchedulesFromCycles = (activeCyc: string[]) =>
+    activeCyc.map(cycle => ({
+      cycle,
+      heureLimite: cycleSchedules.find(s => s.cycle === cycle)?.heureLimite || DEFAULT_TIMES[cycle] || '08:00',
+    }));
+
+  const [localSchedules, setLocalSchedules] = useState(
+    () => buildSchedulesFromCycles(activeCycles)
+  );
   const [scheduleSaved, setScheduleSaved] = useState(false);
 
+  // Re-synchroniser quand les classes ou les horaires changés dans le store
   useEffect(() => {
-    setLocalSchedules(cycleSchedules);
-  }, [cycleSchedules]);
+    setLocalSchedules(buildSchedulesFromCycles(activeCycles));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classes, cycleSchedules]);
 
   const tranches = useStore((s) => s.tranches) || [];
   const setTranches = useStore((s) => s.setTranches);
@@ -91,8 +124,7 @@ export const Parametres: React.FC = () => {
     setLocalTranches(tranches);
   }, [tranches]);
 
-  const classes = useStore((s) => s.classes) || [];
-  const setClasses = useStore((s) => s.setClasses);
+  // Note: classes & setClasses already declared above
   const [localClasses, setLocalClasses] = useState(classes);
   const [classesSaved, setClassesSaved] = useState(false);
 
@@ -784,23 +816,29 @@ export const Parametres: React.FC = () => {
                         Horaires & Retards
                     </h3>
                     <div className="space-y-3 mb-6">
-                        {localSchedules.map((schedule, idx) => (
-                        <div key={schedule.cycle} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
-                            <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">
-                                {schedule.cycle}
-                            </span>
-                            <input
-                                type="time"
-                                value={schedule.heureLimite}
-                                onChange={(e) => {
-                                    const updated = [...localSchedules];
-                                    updated[idx] = { ...schedule, heureLimite: e.target.value };
-                                    setLocalSchedules(updated);
-                                }}
-                                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-sm font-bold font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                            />
-                        </div>
-                        ))}
+                        {activeCycles.length === 0 ? (
+                          <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                            <p className="text-sm font-bold text-slate-500">Configurez d'abord vos classes pour voir les cycles disponibles.</p>
+                          </div>
+                        ) : (
+                          localSchedules.map((schedule, idx) => (
+                          <div key={schedule.cycle} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
+                              <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">
+                                  {schedule.cycle}
+                              </span>
+                              <input
+                                  type="time"
+                                  value={schedule.heureLimite}
+                                  onChange={(e) => {
+                                      const updated = [...localSchedules];
+                                      updated[idx] = { ...schedule, heureLimite: e.target.value };
+                                      setLocalSchedules(updated);
+                                  }}
+                                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-sm font-bold font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                              />
+                          </div>
+                          ))
+                        )}
                     </div>
                     <button
                         onClick={() => {
