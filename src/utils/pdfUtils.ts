@@ -3,9 +3,10 @@ import { Student, AppSettings } from '../types';
 import { getCycleByClass } from '../data/classes';
 import { getCountryName } from '../data/countries';
 
-const formatMoney = (amount: number, currency: string): string => {
-  const formatted = new Intl.NumberFormat('fr-FR').format(amount);
-  return formatted.replace(/\u202F|\u00A0/g, ' ') + ' ' + (currency || 'FCFA');
+import { formatMontant } from './helpers';
+
+const formatMoney = (amount: number, currency?: string): string => {
+  return formatMontant(amount, currency);
 };
 
 // Couleurs professionnelles

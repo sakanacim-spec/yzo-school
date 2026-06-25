@@ -3,13 +3,15 @@
 // ============================================================
 import * as XLSX from 'xlsx';
 import { Student } from '../types';
+import { useStore } from '../store/useStore';
 
 const fmtMoney = (n: number) => {
   const formatted = new Intl.NumberFormat('fr-FR').format(n);
   return formatted.replace(/\u202F|\u00A0/g, ' ');
 };
 
-export const exportToExcel = (students: Student[], currency: string = 'FCFA', filename = 'export_eleves'): void => {
+export const exportToExcel = (students: Student[], currency?: string, filename = 'export_eleves'): void => {
+  const actualCurrency = currency || useStore.getState().currency || 'FCFA';
   const data = students.map((s, i) => ({
     '#': i + 1,
     Nom: s.nom,
@@ -20,9 +22,9 @@ export const exportToExcel = (students: Student[], currency: string = 'FCFA', fi
     Sexe: s.sexe === 'M' ? 'Masculin' : 'Féminin',
     Redoublant: s.redoublant ? 'Oui' : 'Non',
     'École de Provenance': s.ecoleProvenance,
-    [`Écolage (${currency})`]: fmtMoney(s.ecolage),
-    [`Déjà Payé (${currency})`]: fmtMoney(s.dejaPaye),
-    [`Restant (${currency})`]: s.restant <= 0 ? 'SOLDÉ' : fmtMoney(s.restant),
+    [`Écolage (${actualCurrency})`]: fmtMoney(s.ecolage),
+    [`Déjà Payé (${actualCurrency})`]: fmtMoney(s.dejaPaye),
+    [`Restant (${actualCurrency})`]: s.restant <= 0 ? 'SOLDÉ' : fmtMoney(s.restant),
     'Taux (%)': `${Math.min(100, Math.round((s.dejaPaye / s.ecolage) * 100))} %`,
     Statut: s.status,
     'N° Reçu': s.recu,

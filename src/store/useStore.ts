@@ -664,7 +664,7 @@ export const useStore = create<AppState>()(
         const u = get().user;
         if (u) {
           const student = get().students.find(s => s.id === studentId);
-          get().addActivityLog(createActivityLog(u.nom, u.role, 'paiement', `Paiement : ${paymentData.montant} FCFA pour ${student ? student.prenom + ' ' + student.nom : studentId}`));
+          get().addActivityLog(createActivityLog(u.nom, u.role, 'paiement', `Paiement : ${paymentData.montant} ${get().currency} pour ${student ? student.prenom + ' ' + student.nom : studentId}`));
         }
 
         set({ students });

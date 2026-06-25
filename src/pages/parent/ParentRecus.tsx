@@ -4,6 +4,7 @@ import { FileText, Download, Loader2, AlertCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { formatMontant } from '../../utils/helpers';
 
 export const ParentRecus: React.FC = () => {
     const [payments, setPayments] = useState<any[]>([]);
@@ -48,7 +49,7 @@ export const ParentRecus: React.FC = () => {
         doc.text(`Date : ${format(new Date(payment.date), 'dd/MM/yyyy')}`, 20, 50);
         doc.text(`Élève : ${payment.studentName}`, 20, 60);
         doc.text(`Classe : ${payment.classe}`, 20, 70);
-        doc.text(`Montant payé : ${payment.montant.toLocaleString()} FCFA`, 20, 80);
+        doc.text(`Montant payé : ${formatMontant(payment.montant)}`, 20, 80);
         if (payment.note) {
             doc.text(`Note : ${payment.note}`, 20, 90);
         }
@@ -94,7 +95,7 @@ export const ParentRecus: React.FC = () => {
                                     </div>
                                     <span className="text-xs font-mono text-slate-400">#{payment.recu}</span>
                                 </div>
-                                <h3 className="font-bold text-slate-800 text-lg mb-1">{payment.montant.toLocaleString()} FCFA</h3>
+                                  <h3 className="font-bold text-slate-800 text-lg mb-1">{formatMontant(payment.montant)}</h3>
                                 <p className="text-sm font-medium text-slate-600 truncate">{payment.studentName}</p>
                                 <p className="text-xs text-slate-500 mt-1">
                                     {format(new Date(payment.date), 'dd MMM yyyy', { locale: fr })}

@@ -49,9 +49,10 @@ export const getStatusColor = (status: StatusPaiement): string => {
   return colors[status];
 };
 
-export const formatMontant = (montant: number, currency: string = 'FCFA'): string => {
+export const formatMontant = (montant: number, currency?: string): string => {
+  const actualCurrency = currency || useStore.getState().currency || 'FCFA';
   const formatted = new Intl.NumberFormat('fr-FR').format(montant);
-  return formatted.replace(/\u202F|\u00A0/g, ' ') + ' ' + currency;
+  return formatted.replace(/\u202F|\u00A0/g, ' ') + ' ' + actualCurrency;
 };
 
 export const formatPhoneNumber = (phone: string, countryCode: string | null = null): string => {

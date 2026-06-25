@@ -3,12 +3,13 @@ import { useStore } from '../store/useStore';
 import { getCycleByClass } from '../data/classes';
 import { TrendingUp, TrendingDown, DollarSign, PieChart as PieChartIcon, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { formatMontant } from '../utils/helpers';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
 export default function Finance() {
   const { students, settings } = useStore();
-  const formatMoney = (value: number) => new Intl.NumberFormat('fr-FR').format(value) + ' ' + (settings?.currency || 'FCFA');
+  const formatMoney = (value: number) => formatMontant(value);
 
   const cycleStats = useMemo(() => {
     const cycles = ['Primaire', 'Collège', 'Lycée'] as const;
