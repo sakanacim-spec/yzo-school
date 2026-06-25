@@ -208,7 +208,8 @@ export function getCountryByCode(code: string): Country | undefined {
   return COUNTRIES.find(c => c.code === code);
 }
 
-export function getCountryName(code: string, lang: 'fr' | 'en' = 'fr'): string {
+export function getCountryName(code: string | null | undefined, lang: 'fr' | 'en' = 'fr'): string {
+  if (!code) return '';
   const country = getCountryByCode(code);
   if (!country) return code;
   return lang === 'en' ? country.name_en : country.name_fr;
@@ -287,3 +288,5 @@ export function getCurrencyForCountry(code: string): string {
   // Fallback si non trouvé
   return 'FCFA';
 }
+
+

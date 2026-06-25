@@ -302,7 +302,17 @@ export const generateStudentCard = (student: Student, settings: AdminSettings): 
 
 export const generateClassReport = (students: Student[], classe: string, settings: AdminSettings): void => {
   const doc = new jsPDF('landscape') as jsPDFWithAutoTable;
-  const classStudents = students.filter(s => s.classe === classe);
+  const classStudents = students.filter(s => s.classe === classe).sort((a, b) => {
+    const nameA = String(a.nom ?? '').toLowerCase();
+    const nameB = String(b.nom ?? '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    const prenomA = String(a.prenom ?? '').toLowerCase();
+    const prenomB = String(b.prenom ?? '').toLowerCase();
+    if (prenomA < prenomB) return -1;
+    if (prenomA > prenomB) return 1;
+    return 0;
+  });
   const info = getSchoolInfo();
   
   // Design de la carte
@@ -375,7 +385,17 @@ export const generateClassReport = (students: Student[], classe: string, setting
 
 export const generateNonSoldesReport = (students: Student[], settings: AdminSettings): void => {
   const doc = new jsPDF('landscape') as jsPDFWithAutoTable;
-  const nonSoldes = students.filter(s => s.restant > 0);
+  const nonSoldes = students.filter(s => s.restant > 0).sort((a, b) => {
+    const nameA = String(a.nom ?? '').toLowerCase();
+    const nameB = String(b.nom ?? '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    const prenomA = String(a.prenom ?? '').toLowerCase();
+    const prenomB = String(b.prenom ?? '').toLowerCase();
+    if (prenomA < prenomB) return -1;
+    if (prenomA > prenomB) return 1;
+    return 0;
+  });
   const info = getSchoolInfo();
   
   // Header

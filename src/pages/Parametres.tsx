@@ -617,6 +617,17 @@ export const Parametres: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
+                                Ministère de tutelle
+                            </label>
+                            <textarea
+                                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-y min-h-[100px]"
+                                value={localMinistry}
+                                onChange={(e) => setLocalMinistry(e.target.value)}
+                                placeholder="Ex : Ministère de l'Éducation Nationale&#10;Direction Régionale&#10;Adresse..."
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
                                 Modèle de Bulletin
                             </label>
                             <select

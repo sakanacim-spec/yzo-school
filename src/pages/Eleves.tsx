@@ -417,6 +417,13 @@ export const Eleves: React.FC = () => {
       const vb = String(b[sortKey] ?? '').toLowerCase();
       if (va < vb) return sortDir === 'asc' ? -1 : 1;
       if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      
+      if (sortKey === 'nom') {
+        const prenomA = String(a.prenom ?? '').toLowerCase();
+        const prenomB = String(b.prenom ?? '').toLowerCase();
+        if (prenomA < prenomB) return sortDir === 'asc' ? -1 : 1;
+        if (prenomA > prenomB) return sortDir === 'asc' ? 1 : -1;
+      }
       return 0;
     });
     return list;

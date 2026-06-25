@@ -5,12 +5,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Building2, Users, AlertTriangle,
   Plus, Check, X, Clock, RefreshCw, ToggleLeft, ToggleRight,
-  Globe, Phone, Mail, MapPin, Wallet, Star, Trash2, ExternalLink
+  Globe, Phone, Mail, MapPin, Wallet, Star, Trash2, ExternalLink, Search
 } from 'lucide-react';
 import { School } from '../../types';
 import { API_BASE_URL } from '../../config';
 import { useStore } from '../../store/useStore';
-import { COUNTRIES } from '../../data/countries';
+import { COUNTRIES, getCountryName } from '../../data/countries';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -279,6 +279,7 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
 // ── DASHBOARD PRINCIPAL ───────────────────────────────────────
 export const SuperAdminDashboard: React.FC = () => {
   const [schools, setSchools] = useState<SchoolWithStats[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState<GlobalStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -395,6 +396,17 @@ export const SuperAdminDashboard: React.FC = () => {
     );
   }
 
+  const filteredSchools = schools.filter(s => {
+    const q = searchQuery.toLowerCase();
+    const countryName = getCountryName(s.country).toLowerCase();
+    return (
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.country || '').toLowerCase().includes(q) ||
+      countryName.includes(q) ||
+      (s.city || '').toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="space-y-8">
       {/* En-tête */}
@@ -474,20 +486,32 @@ export const SuperAdminDashboard: React.FC = () => {
 
       {/* Liste des écoles */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white">Établissements enregistrés</h2>
-          <span className="text-sm text-slate-500">{schools.length} école{schools.length !== 1 ? 's' : ''}</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-slate-800 gap-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-white">Établissements enregistrés</h2>
+            <span className="text-sm text-slate-500">{filteredSchools.length} école{filteredSchools.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher (nom, pays...)"
+              className="pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
+            />
+          </div>
         </div>
 
-        {schools.length === 0 ? (
+        {filteredSchools.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Building2 className="w-12 h-12 text-slate-700 mb-4" />
-            <p className="text-slate-500 font-medium">Aucun établissement enregistré</p>
-            <p className="text-slate-600 text-sm mt-1">Cliquez sur "Nouvelle école" pour commencer</p>
+            <p className="text-slate-500 font-medium">{searchQuery ? 'Aucun établissement trouvé pour cette recherche' : 'Aucun établissement enregistré'}</p>
+            {!searchQuery && <p className="text-slate-600 text-sm mt-1">Cliquez sur "Nouvelle école" pour commencer</p>}
           </div>
         ) : (
           <div className="divide-y divide-slate-800">
-            {schools.map((school) => {
+            {filteredSchools.map((school) => {
               const isExpired = school.status === 'trial' && school.trial_days_left === 0;
               return (
                 <div key={school.id} className={`p-5 hover:bg-slate-800/30 transition-colors ${isExpired ? 'border-l-4 border-amber-500' : ''}`}>

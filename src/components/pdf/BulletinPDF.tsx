@@ -1,6 +1,7 @@
 import React from 'react';
 import { BulletinEleveResultat } from '../../utils/bulletinCalculations';
 import { useStore } from '../../store/useStore';
+import { getCountryName } from '../../data/countries';
 
 interface BulletinTogoPDFProps {
     data: BulletinEleveResultat;
@@ -20,7 +21,8 @@ const getDateFr = (): string => {
 
 export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps>(
     ({ data, schoolName, schoolLogo, schoolStamp, schoolYear, studentPhoto }, ref) => {
-    const country = (useStore((s) => s.schoolCountry) || 'TOGO').toUpperCase();
+    const countryCode = useStore((s) => s.schoolCountry);
+    const country = (getCountryName(countryCode) || 'TOGO').toUpperCase();
     const phone = useStore((s) => s.schoolPhone) || 'Téléphone non renseigné';
     const address = useStore((s) => s.schoolAddress) || 'Apéssito';
     const city = address.split(',').pop()?.trim() || 'Lomé';

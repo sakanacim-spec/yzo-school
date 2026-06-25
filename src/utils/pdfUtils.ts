@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { Student, AppSettings } from '../types';
 import { getCycleByClass } from '../data/classes';
+import { getCountryName } from '../data/countries';
 
 const formatMoney = (amount: number, currency: string): string => {
   const formatted = new Intl.NumberFormat('fr-FR').format(amount);
@@ -31,39 +32,39 @@ export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, sch
   // Bandeau supérieur
   drawRoundedRect(doc, 0, 0, pageWidth, 55, 0, COLORS.primary);
   
-  // Ministère et Pays (si disponibles)
+  // Ministère (si disponible)
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   if (settings.schoolMinistry) {
-    doc.text(settings.schoolMinistry.toUpperCase(), 14, 12);
-  }
-  if (settings.schoolCountry) {
-    doc.text(settings.schoolCountry.toUpperCase(), pageWidth - 14, 12, { align: 'right' });
+    // Gérer les retours à la ligne pour le ministère
+    const ministryLines = settings.schoolMinistry.split('\n');
+    let ministryY = 12;
+    ministryLines.forEach(line => {
+      doc.text(line.trim().toUpperCase(), 14, ministryY);
+      ministryY += 5;
+    });
   }
 
-  // Nom de l'école
-  doc.setFontSize(schoolNameFontSize);
+  // Informations de l'école (à la place de l'ancien pays)
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(settings.schoolName, pageWidth / 2, 24, { align: 'center' });
+  doc.text(settings.schoolName, pageWidth - 14, 12, { align: 'right' });
   
-  // Slogan
-  if (settings.schoolSlogan) {
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'italic');
-    doc.text(`« ${settings.schoolSlogan} »`, pageWidth / 2, 32, { align: 'center' });
-  }
-  
-  // Coordonnées
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   const contact1 = [settings.schoolAddress || settings.adresse, settings.schoolPhone || settings.telephone ? `Tél: ${settings.schoolPhone || settings.telephone}` : ''].filter(Boolean).join(' | ');
+  if (contact1) doc.text(contact1, pageWidth - 14, 18, { align: 'right' });
+  
+  if (settings.schoolCountry) {
+    doc.text(getCountryName(settings.schoolCountry).toUpperCase(), pageWidth - 14, 24, { align: 'right' });
+  }
+  
   const contact2 = [settings.schoolEmail || settings.email ? `Email: ${settings.schoolEmail || settings.email}` : '', `Année scolaire: ${settings.academicYear || settings.schoolYear || settings.anneScolaire || ''}`].filter(Boolean).join(' | ');
-  
-  doc.text(contact1, pageWidth / 2, 42, { align: 'center' });
-  doc.text(contact2, pageWidth / 2, 48, { align: 'center' });
-  
-  // Titre du document
+  if (contact2) doc.text(contact2, pageWidth - 14, 30, { align: 'right' });
+
+  // Titre du document (descendu un peu)
   doc.setTextColor(...COLORS.dark);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
