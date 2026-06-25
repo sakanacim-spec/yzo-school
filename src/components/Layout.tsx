@@ -211,12 +211,12 @@ const SidebarContent: React.FC<{
 
       {!collapsed && (
         <div className="ml-4 flex-1 min-w-0">
-          <p className="text-[15px] font-black text-white tracking-tight truncate">
-            {appName}
-          </p>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5">
-            {schoolName}
-          </p>
+            <p className="text-[15px] font-black text-white tracking-tight truncate" title={schoolName}>
+              {schoolName}
+            </p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5" title={appName}>
+              Géré par {appName}
+            </p>
         </div>
       )}
     </div>
