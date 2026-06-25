@@ -72,7 +72,10 @@ export const Annonces: React.FC = () => {
 
     const displayAnnouncements = announcements.filter(a => {
         if (isParent && hiddenAnnouncements.includes(a.id)) return false;
-        if (isParent) return a.cible === 'all' || classes.includes(a.cible);
+        if (isParent) {
+            const hasUnpaid = students.some(s => s.restant > 0);
+            return a.cible === 'all' || classes.includes(a.cible) || (a.cible === 'impayes' && hasUnpaid);
+        }
         return true;
     });
 
@@ -192,6 +195,7 @@ export const Annonces: React.FC = () => {
                                         className="w-full border-none rounded-[14px] px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-100 outline-none font-medium shadow-sm cursor-pointer"
                                     >
                                         <option value="all">Établissement entier</option>
+                                        <option value="impayes">Parents avec impayés</option>
                                         <optgroup label="Classes spécifiques">
                                             {classes.map(c => <option key={c} value={c}>Classe: {c}</option>)}
                                         </optgroup>

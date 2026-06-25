@@ -69,7 +69,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
       telephone: form.telephone || '',
       ecoleProvenance: form.ecoleProvenance || '',
       redoublant: form.estRedoublant,
-      dejaPaye: student ? student.dejaPaye : form.montantPaye,
+      dejaPaye: student ? student.dejaPaye : 0,
       recu: student ? student.recu : form.recuAssociatif
     };
     

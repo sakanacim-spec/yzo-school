@@ -52,7 +52,7 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
         'parent_badges', 'parent_messages', 'chat', 'annonces'
     ],
     secretaire: [
-        'dashboard', 'eleves', 'scan_information', 'scan_presence', 'scan_sortie',
+        'dashboard', 'eleves', 'paiements', 'scan_information', 'scan_presence', 'scan_sortie',
         'documents', 'chat', 'annonces'
     ],
 };
@@ -105,7 +105,7 @@ const ROLE_ACTIONS: Record<Role, ActionType[]> = {
     censeur: [],
     parent: [],
     secretaire: [
-        'ajouter_eleve', 'modifier_eleve', 'generer_recu', 'scan_presence'
+        'ajouter_eleve', 'modifier_eleve', 'ajouter_paiement', 'generer_recu', 'scan_presence'
     ],
 };
 

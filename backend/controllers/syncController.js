@@ -217,6 +217,17 @@ async function syncFromFrontend(req, res) {
                 stampLength: appSettings.schoolStamp?.length || 0,
             });
             try {
+                // Mettre à jour la table schools (qui contient address, phone, slogan, ministry)
+                const { error: schoolUpdateErr } = await supabase.from('schools').update({
+                    address: appSettings.schoolAddress !== undefined ? appSettings.schoolAddress : null,
+                    phone: appSettings.schoolPhone !== undefined ? appSettings.schoolPhone : null,
+                    slogan: appSettings.schoolSlogan !== undefined ? appSettings.schoolSlogan : null,
+                    ministry: appSettings.schoolMinistry !== undefined ? appSettings.schoolMinistry : null,
+                    country: appSettings.schoolCountry !== undefined ? appSettings.schoolCountry : null,
+                }).eq('slug', schoolSlug);
+
+                if (schoolUpdateErr) console.error('❌ [Sync POST] Erreur MAJ schools:', schoolUpdateErr.message);
+
                 const { error: settingsErr } = await supabase.from(tbl('app_settings')).upsert({
                     id: 'global_settings',
                     app_name: appSettings.appName,
@@ -227,11 +238,6 @@ async function syncFromFrontend(req, res) {
                     message_remerciement: appSettings.messageRemerciement,
                     message_rappel: appSettings.messageRappel,
                     tranches: appSettings.tranches || [],
-                    school_address: appSettings.schoolAddress !== undefined ? appSettings.schoolAddress : null,
-                    school_phone: appSettings.schoolPhone !== undefined ? appSettings.schoolPhone : null,
-                    school_slogan: appSettings.schoolSlogan !== undefined ? appSettings.schoolSlogan : null,
-                    school_ministry: appSettings.schoolMinistry !== undefined ? appSettings.schoolMinistry : null,
-                    school_country: appSettings.schoolCountry !== undefined ? appSettings.schoolCountry : null,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
                 if (settingsErr) {

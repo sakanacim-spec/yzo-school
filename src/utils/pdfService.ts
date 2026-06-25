@@ -1,9 +1,20 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Student, AdminSettings } from '../types';
-import { getStatusPaiement, getStatusLabel, formatMontant } from './helpers';
+import { formatMontant, getStatusPaiement, getStatusLabel } from './helpers';
+import { useStore } from '../store/useStore';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+
+const getSchoolInfo = () => {
+  const state = useStore.getState();
+  return {
+    schoolName: state.schoolName && state.schoolName !== 'Établissement Scolaire' ? state.schoolName : state.settings?.nomEcole || 'Établissement',
+    schoolYear: state.schoolYear || state.settings?.anneScolaire || '',
+    schoolAddress: state.schoolAddress || state.settings?.adresse || '',
+    schoolPhone: state.schoolPhone || state.settings?.telephone || '',
+  };
+};
 
 interface jsPDFWithAutoTable extends jsPDF {
   lastAutoTable: { finalY: number };
@@ -16,6 +27,7 @@ const formatDate = (date: Date = new Date()): string => {
 export const generateReceipt = (student: Student, settings: AdminSettings): void => {
   const doc = new jsPDF() as jsPDFWithAutoTable;
   const status = getStatusPaiement(student, settings.seuilDeuxiemeTranche);
+  const info = getSchoolInfo();
   
   // Header
   doc.setFillColor(0, 51, 102);
@@ -24,12 +36,12 @@ export const generateReceipt = (student: Student, settings: AdminSettings): void
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(settings.nomEcole || settings.schoolName, 105, 18, { align: 'center' });
+  doc.text(info.schoolName, 105, 18, { align: 'center' });
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${settings.adresse || ''} | ${settings.telephone || ''}`, 105, 28, { align: 'center' });
-  doc.text(`Année scolaire: ${settings.anneScolaire || settings.schoolYear}`, 105, 35, { align: 'center' });
+  doc.text(`${info.schoolAddress} | ${info.schoolPhone}`, 105, 28, { align: 'center' });
+  doc.text(`Année scolaire: ${info.schoolYear}`, 105, 35, { align: 'center' });
   
   // Title
   doc.setTextColor(0, 0, 0);
@@ -149,7 +161,7 @@ export const generateReceipt = (student: Student, settings: AdminSettings): void
   doc.rect(0, 275, 210, 22, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(8);
-  doc.text(`${settings.nomEcole} - ${settings.adresse}`, 105, 283, { align: 'center' });
+  doc.text(`${info.schoolName} - ${info.schoolAddress}`, 105, 283, { align: 'center' });
   doc.text(`Document généré le ${formatDate()} - Ce reçu fait foi de paiement`, 105, 290, { align: 'center' });
   
   doc.save(`Recu_${student.nom}_${student.prenom}.pdf`);
@@ -159,6 +171,7 @@ export const generateStudentCard = (student: Student, settings: AdminSettings): 
   const doc = new jsPDF() as jsPDFWithAutoTable;
   const status = getStatusPaiement(student, settings.seuilDeuxiemeTranche);
   const pourcentage = Math.round((student.dejaPaye / student.ecolage) * 100);
+  const info = getSchoolInfo();
   
   // Header
   doc.setFillColor(0, 51, 102);
@@ -167,12 +180,12 @@ export const generateStudentCard = (student: Student, settings: AdminSettings): 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.text(settings.nomEcole || settings.schoolName, 105, 20, { align: 'center' });
+  doc.text(info.schoolName, 105, 20, { align: 'center' });
   
   doc.setFontSize(12);
   doc.text('FICHE FINANCIÈRE ÉLÈVE', 105, 32, { align: 'center' });
   doc.setFontSize(10);
-  doc.text(`Année scolaire: ${settings.anneScolaire || settings.schoolYear}`, 105, 40, { align: 'center' });
+  doc.text(`Année scolaire: ${info.schoolYear}`, 105, 40, { align: 'center' });
   
   // Student photo placeholder
   doc.setFillColor(220, 220, 220);
@@ -281,7 +294,7 @@ export const generateStudentCard = (student: Student, settings: AdminSettings): 
   doc.rect(0, 280, 210, 17, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(8);
-  doc.text(`${settings.nomEcole || settings.schoolName} | ${settings.adresse || ''} | ${settings.telephone || ''}`, 105, 288, { align: 'center' });
+  doc.text(`${info.schoolName} | ${info.schoolAddress} | ${info.schoolPhone}`, 105, 288, { align: 'center' });
   doc.text(`Document généré le ${formatDate()}`, 105, 294, { align: 'center' });
   
   doc.save(`Fiche_${student.nom}_${student.prenom}.pdf`);
@@ -290,17 +303,23 @@ export const generateStudentCard = (student: Student, settings: AdminSettings): 
 export const generateClassReport = (students: Student[], classe: string, settings: AdminSettings): void => {
   const doc = new jsPDF('landscape') as jsPDFWithAutoTable;
   const classStudents = students.filter(s => s.classe === classe);
+  const info = getSchoolInfo();
   
-  // Header
-  doc.setFillColor(0, 51, 102);
-  doc.rect(0, 0, 297, 30, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
+  // Design de la carte
+  doc.setDrawColor(79, 70, 229); // Indigo 600
+  doc.setLineWidth(1);
+  doc.roundedRect(10, 10, 277, 190, 5, 5);
+
+  // En-tête avec nom de l'école
   doc.setFont('helvetica', 'bold');
-  doc.text(settings.nomEcole || settings.schoolName, 148.5, 12, { align: 'center' });
+  doc.setFontSize(24);
+  doc.setTextColor(79, 70, 229);
+  doc.text(info.schoolName, 148.5, 20, { align: 'center' });
+
+  // Année scolaire
   doc.setFontSize(12);
-  doc.text(`Rapport Financier - Classe ${classe} - ${settings.anneScolaire || settings.schoolYear}`, 148.5, 23, { align: 'center' });
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Année scolaire: ${info.schoolYear}`, 148.5, 30, { align: 'center' });
   
   // Summary
   const totalEcolage = classStudents.reduce((sum, s) => sum + s.ecolage, 0);
@@ -349,7 +368,7 @@ export const generateClassReport = (students: Student[], classe: string, setting
   // Footer
   const pageHeight = doc.internal.pageSize.height;
   doc.setFontSize(8);
-  doc.text(`Document généré le ${formatDate()} - ${settings.nomEcole || settings.schoolName}`, 148.5, pageHeight - 10, { align: 'center' });
+  doc.text(`Document généré le ${formatDate()} - ${info.schoolName}`, 148.5, pageHeight - 10, { align: 'center' });
   
   doc.save(`Rapport_${classe.replace(/\s/g, '_')}.pdf`);
 };
@@ -357,17 +376,18 @@ export const generateClassReport = (students: Student[], classe: string, setting
 export const generateNonSoldesReport = (students: Student[], settings: AdminSettings): void => {
   const doc = new jsPDF('landscape') as jsPDFWithAutoTable;
   const nonSoldes = students.filter(s => s.restant > 0);
+  const info = getSchoolInfo();
   
   // Header
   doc.setFillColor(220, 38, 38);
   doc.rect(0, 0, 297, 30, 'F');
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(settings.nomEcole || settings.schoolName, 148.5, 12, { align: 'center' });
-  doc.setFontSize(12);
-  doc.text(`LISTE DES ÉLÈVES NON SOLDÉS - ${settings.anneScolaire || settings.schoolYear}`, 148.5, 23, { align: 'center' });
+  doc.setFontSize(16);
+  doc.text(info.schoolName, 148.5, 12, { align: 'center' });
+  doc.setFontSize(14);
+  doc.text(`LISTE DES ÉLÈVES NON SOLDÉS - ${info.schoolYear}`, 148.5, 23, { align: 'center' });
   
   const totalRestant = nonSoldes.reduce((sum, s) => sum + s.restant, 0);
   doc.setTextColor(0, 0, 0);

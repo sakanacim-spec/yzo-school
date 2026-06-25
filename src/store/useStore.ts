@@ -57,7 +57,7 @@ export interface AppState {
   // Élèves
   students: Student[];
   setStudents: (students: Student[]) => void;
-  addStudent: (student: Omit<Student, 'id' | 'createdAt' | 'updatedAt' | 'cycle' | 'status' | 'restant' | 'historiquesPaiements'>) => void;
+  addStudent: (student: Omit<Student, 'id' | 'createdAt' | 'updatedAt' | 'cycle' | 'status' | 'restant' | 'historiquesPaiements'>) => string | undefined;
   updateStudent: (id: string, updates: Partial<Student>) => void;
   deleteStudent: (id: string) => void;
   addPayment: (studentId: string, payment: Omit<Payment, 'id' | 'studentId'>) => void;
@@ -541,7 +541,7 @@ export const useStore = create<AppState>()(
         set({ currentPage: page });
       },
 
-      // ── Élèves ───────────────────────────────────────────
+      // ── Élèves ──────────────────────────────────────────
       students: [],
       setStudents: (students) => set({ students: deduplicateStudents(students.map(repairStudent)).list }),
       addStudent: (data) => {
@@ -557,16 +557,8 @@ export const useStore = create<AppState>()(
         if (existing) {
           console.warn(`[AddStudent] L'élève ${data.prenom} ${data.nom} existe déjà dans cette classe. Mise à jour de l'existant.`);
           get().updateStudent(existing.id, data);
-          return;
+          return existing.id;
         }
-
-        const initialPayment = (data.dejaPaye && data.dejaPaye > 0) ? {
-            id: uuid(),
-            date: new Date().toISOString(),
-            montant: data.dejaPaye,
-            note: "Versement initial à l'inscription",
-            recu: `REC-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`
-        } : null;
 
         const student: Student = {
           ...data,
@@ -575,7 +567,7 @@ export const useStore = create<AppState>()(
           restant,
           cycle: getCycle(data.classe),
           status: computeStatus(restant, ecolage),
-          historiquesPaiements: initialPayment ? [initialPayment] : [],
+          historiquesPaiements: [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -592,6 +584,8 @@ export const useStore = create<AppState>()(
             activityLogs: get().activityLogs
           }).then(() => set({ lastSyncTimestamp: Date.now() }));
         });
+
+        return studentId;
       },
       updateStudent: (id, updates) => {
         const students = get().students.map((s) => {
@@ -993,8 +987,8 @@ export const useStore = create<AppState>()(
             if (data.appSettings) {
               const { appSettings } = data;
               set({
-                appName: (appSettings.appName?.toLowerCase().includes('colpriv') ? 'YZIOW' : appSettings.appName) || 'YZIOW',
-                schoolName: (appSettings.schoolName?.toLowerCase().includes('colpriv') ? 'YZIOW' : appSettings.schoolName) || '',
+                appName: appSettings.appName || 'YZIOW',
+                schoolName: appSettings.schoolName || '',
                 schoolYear: appSettings.schoolYear || '',
                 schoolLogo: appSettings.schoolLogo || null,
                 schoolStamp: appSettings.schoolStamp || null,
@@ -1101,8 +1095,8 @@ export const useStore = create<AppState>()(
               stampLength: data.appSettings.schoolStamp?.length || 0,
             });
             set({
-              appName: (data.appSettings.appName?.toLowerCase().includes('colpriv') ? 'YZIOW' : data.appSettings.appName) || get().appName,
-              schoolName: (data.appSettings.schoolName?.toLowerCase().includes('colpriv') ? get().appName : data.appSettings.schoolName) || get().schoolName,
+              appName: 'YZIOW',
+              schoolName: data.appSettings.schoolName || get().schoolName,
               schoolYear: data.appSettings.schoolYear || get().schoolYear,
               schoolLogo: data.appSettings.schoolLogo !== undefined ? data.appSettings.schoolLogo : get().schoolLogo,
               schoolStamp: data.appSettings.schoolStamp !== undefined ? data.appSettings.schoolStamp : get().schoolStamp,
@@ -1420,11 +1414,8 @@ export const useStore = create<AppState>()(
       onRehydrateStorage: () => (state) => {
         // Auto-réparation au chargement du storage local
         if (state) {
-          if (state.appName?.toLowerCase().includes('colpriv')) {
+          if (state.appName !== 'YZIOW') {
             state.appName = 'YZIOW';
-          }
-          if (state.schoolName?.toLowerCase().includes('colpriv')) {
-            state.schoolName = state.appName;
           }
           if (state.students && state.students.length > 0) {
             // Déduplication agressive pour éradiquer les doublons (Nom+Prénom+Classe)
