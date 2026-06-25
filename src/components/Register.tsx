@@ -100,7 +100,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
       setLanguage(preferredLanguage);
       onSuccess(result.user);
     } catch (err: any) {
-      setError(err.error || T.errors.genericError);
+      setError(err.error || err.message || T.errors.genericError);
     } finally {
       setLoading(false);
     }
