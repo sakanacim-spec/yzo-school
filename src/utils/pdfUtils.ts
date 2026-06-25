@@ -64,7 +64,19 @@ export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, sch
   const contact2 = [settings.schoolEmail || settings.email ? `Email: ${settings.schoolEmail || settings.email}` : '', `Année scolaire: ${settings.academicYear || settings.schoolYear || settings.anneScolaire || ''}`].filter(Boolean).join(' | ');
   if (contact2) doc.text(contact2, pageWidth - 14, 30, { align: 'right' });
 
-  // Titre du document (descendu un peu)
+  // Logo au centre
+  if (settings.schoolLogo) {
+    try {
+      const logoSize = 35; // 35x35 mm
+      const xPos = (pageWidth / 2) - (logoSize / 2);
+      // On le place entre le bandeau et le titre
+      doc.addImage(settings.schoolLogo, 'PNG', xPos, 15, logoSize, logoSize);
+    } catch (e) {
+      console.warn("Erreur chargement logo:", e);
+    }
+  }
+
+  // Titre du document
   doc.setTextColor(...COLORS.dark);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');

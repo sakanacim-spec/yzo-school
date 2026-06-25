@@ -13,6 +13,7 @@ const getSchoolInfo = () => {
     schoolYear: state.schoolYear || state.settings?.anneScolaire || '',
     schoolAddress: state.schoolAddress || state.settings?.adresse || '',
     schoolPhone: state.schoolPhone || state.settings?.telephone || '',
+    schoolLogo: state.schoolLogo || null,
   };
 };
 
@@ -325,6 +326,14 @@ export const generateClassReport = (students: Student[], classe: string, setting
   doc.setFontSize(24);
   doc.setTextColor(79, 70, 229);
   doc.text(info.schoolName, 148.5, 20, { align: 'center' });
+  
+  if (info.schoolLogo) {
+    try {
+      doc.addImage(info.schoolLogo, 'PNG', 15, 15, 25, 25);
+    } catch (e) {
+      console.warn("Erreur chargement logo:", e);
+    }
+  }
 
   // Année scolaire
   doc.setFontSize(12);
@@ -402,6 +411,14 @@ export const generateNonSoldesReport = (students: Student[], settings: AdminSett
   doc.setFillColor(220, 38, 38);
   doc.rect(0, 0, 297, 30, 'F');
   
+  if (info.schoolLogo) {
+    try {
+      doc.addImage(info.schoolLogo, 'PNG', 15, 5, 20, 20);
+    } catch (e) {
+      console.warn("Erreur chargement logo:", e);
+    }
+  }
+
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
