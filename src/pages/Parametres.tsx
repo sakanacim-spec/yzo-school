@@ -504,6 +504,7 @@ export const Parametres: React.FC = () => {
                             Tranches de Paiement
                         </h3>
                         <button
+                            type="button"
                             onClick={() => {
                                 const updated = [...localTranches, { id: crypto.randomUUID?.() || Date.now().toString(), nom: `Tranche ${localTranches.length + 1}`, dateLimite: '', pourcentage: 0 }];
                                 setLocalTranches(updated);
@@ -560,6 +561,7 @@ export const Parametres: React.FC = () => {
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">%</span>
                                     </div>
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             const updated = localTranches.filter((_, i) => i !== idx);
                                             setLocalTranches(updated);
@@ -586,6 +588,7 @@ export const Parametres: React.FC = () => {
 
                     <div className="flex justify-end">
                         <button
+                            type="button"
                             onClick={() => {
                                 setTranches(localTranches);
                                 updateAllSettings({ tranches: localTranches });
@@ -701,7 +704,9 @@ export const Parametres: React.FC = () => {
                             Classes & Frais de Scolarité
                         </h3>
                         <button
-                            onClick={() => {
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
                                 const updated = [...localClasses, { name: `Nouvelle Classe ${localClasses.length + 1}`, cycle: 'Primaire' as any, ecolage: 50000 }];
                                 setLocalClasses(updated);
                             }}
@@ -760,6 +765,7 @@ export const Parametres: React.FC = () => {
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{currency}</span>
                                     </div>
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             const updated = localClasses.filter((_, i) => i !== idx);
                                             setLocalClasses(updated);
@@ -776,6 +782,7 @@ export const Parametres: React.FC = () => {
 
                     <div className="flex justify-end">
                         <button
+                            type="button"
                             onClick={() => {
                                 setClasses(localClasses);
                                 updateAllSettings({ classes: localClasses });
