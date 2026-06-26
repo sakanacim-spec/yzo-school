@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../utils/supabase');
 const { JWT_SECRET, JWT_EXPIRES } = require('../config');
+const { sendWelcomeSMS } = require('../utils/smsService');
 const Joi = require('joi');
 const crypto = require('crypto');
 
@@ -153,6 +154,9 @@ async function register(req, res) {
         } catch (linkErr) {
             console.error('⚠️ [AutoLink Reg] Erreur lors de la liaison automatique :', linkErr.message);
         }
+
+        // 📱 Envoi du SMS de Bienvenue (en arrière-plan pour ne pas bloquer la réponse)
+        sendWelcomeSMS(parent.telephone, school.name || 'Votre École').catch(err => console.error("Erreur SMS Bienvenue:", err));
 
         return res.status(201).json({
             message: 'Compte créé avec succès.',

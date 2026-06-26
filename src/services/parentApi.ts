@@ -44,6 +44,18 @@ export const parentApi = {
         return result;
     },
 
+    // 💰 Paiement (FedaPay)
+    initPayment: async (data: { studentId: string, amount: number, parentPhone: string, parentName: string }) => {
+        const res = await fetch(`${API_URL}/payment/create-transaction`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(data)
+        });
+        const result = await parseResponse(res);
+        if (!res.ok) throw result;
+        return result;
+    },
+
     // ── Recherche d'élèves ───────────────────────────────────────
     searchStudents: async (params: { nom?: string, prenom?: string, classe?: string }) => {
         const query = new URLSearchParams(params as any).toString();

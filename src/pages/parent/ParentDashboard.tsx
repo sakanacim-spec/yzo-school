@@ -58,12 +58,40 @@ export const ParentDashboard: React.FC = () => {
     const user = useStore((s) => s.user);
     const children = useStore((s) => s.students);
     const [loading, setLoading] = useState(false);
+    const [loadingPayment, setLoadingPayment] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [notifStatus, setNotifStatus] = useState<NotificationPermission>(
         'Notification' in window ? Notification.permission : 'denied'
     );
+
+    const handlePayerEnLigne = async (studentId: string, amount: number) => {
+        try {
+            setLoadingPayment(true);
+            const parentName = user?.nom || 'Parent';
+            const parentPhone = user?.username || ''; // Le username est le téléphone
+            
+            const response = await parentApi.initPayment({
+                studentId,
+                amount,
+                parentName,
+                parentPhone
+            });
+
+            if (response && response.url) {
+                // Rediriger vers la page de paiement FedaPay
+                window.location.href = response.url;
+            } else {
+                alert("Impossible d'initialiser le paiement.");
+            }
+        } catch (error: any) {
+            console.error("Erreur de paiement:", error);
+            alert("Erreur lors de l'initialisation du paiement : " + (error.error || error.message || "Erreur inconnue"));
+        } finally {
+            setLoadingPayment(false);
+        }
+    };
 
     // État des annonces
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -382,7 +410,18 @@ export const ParentDashboard: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">{totalRestant.toLocaleString()} {useStore.getState().currency}</p>
-                            <p className="text-xs text-rose-400 dark:text-rose-500 font-bold uppercase tracking-wide">Délai Règlement à respecter</p>
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs text-rose-400 dark:text-rose-500 font-bold uppercase tracking-wide">Délai Règlement à respecter</p>
+                                {totalRestant > 0 && children.length > 0 && (
+                                    <button 
+                                        onClick={() => handlePayerEnLigne(children[0]?.id, totalRestant)}
+                                        disabled={loadingPayment}
+                                        className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                                    >
+                                        {loadingPayment ? '...' : 'Payer en Ligne'}
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
 
