@@ -516,10 +516,23 @@ export const ParentDashboard: React.FC = () => {
                                                 )}
                                             </td>
                                             <td className="px-6 py-5">
-                                                <p className={`font-bold text-base ${getRestant(child) > 25000 ? 'text-red-500' : 'text-amber-600'}`}>
-                                                    {getRestant(child).toLocaleString()} {useStore.getState().currency}
-                                                </p>
-                                                <p className="text-[10px] text-slate-400 italic">Total: {(child.ecolage || 0).toLocaleString()} F</p>
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className={`font-bold text-base ${getRestant(child) > 25000 ? 'text-red-500' : 'text-amber-600'}`}>
+                                                            {getRestant(child).toLocaleString()} {useStore.getState().currency}
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-400 italic">Total: {(child.ecolage || 0).toLocaleString()} F</p>
+                                                    </div>
+                                                    {getRestant(child) > 0 && (
+                                                        <button 
+                                                            onClick={() => handlePayerEnLigne(child.id, getRestant(child))}
+                                                            disabled={loadingPayment}
+                                                            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black uppercase tracking-widest rounded-xl transition-colors shadow-lg shadow-rose-600/20 disabled:opacity-50 active:scale-95"
+                                                        >
+                                                            {loadingPayment ? '...' : 'Payer'}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-5">
                                                 <div className="flex justify-center">
