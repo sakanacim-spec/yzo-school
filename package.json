@@ -23,6 +23,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
     "express": "^4.18.2",
+    "fedapay": "^1.2.5",
     "html5-qrcode": "^2.3.8",
     "joi": "^18.2.1",
     "jsonwebtoken": "^9.0.2",
@@ -40,6 +41,7 @@
     "react-to-print": "^3.3.0",
     "recharts": "^3.7.0",
     "tailwind-merge": "3.4.0",
+    "twilio": "^6.0.2",
     "web-push": "^3.6.7",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zustand": "^5.0.11"
