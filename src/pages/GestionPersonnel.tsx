@@ -117,6 +117,8 @@ export const GestionPersonnel: React.FC = () => {
                             <input 
                                 type="tel"
                                 required
+                                pattern="[0-9+ ]+"
+                                title="Veuillez entrer un numéro valide (chiffres et symbole + uniquement)"
                                 value={telephone}
                                 onChange={e => setTelephone(e.target.value)}
                                 placeholder="Numéro pour la connexion"
@@ -143,7 +145,7 @@ export const GestionPersonnel: React.FC = () => {
                                 onChange={e => setRole(e.target.value as UserRole)}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-700 dark:text-indigo-400"
                             >
-                                <option value="professeur">Professeur</option>
+                                <option value="professeur">Professeur / Enseignant</option>
                                 <option value="surveillant">Surveillant</option>
                                 <option value="censeur">Censeur</option>
                                 <option value="comptable">Comptable</option>
