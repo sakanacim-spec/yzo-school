@@ -15,19 +15,19 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
-        'gestion_academique', 'saisie_notes', 'bulletins'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel'
     ],
     admin: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
-        'gestion_academique', 'saisie_notes', 'bulletins'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel'
     ],
     directeur: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
-        'gestion_academique', 'saisie_notes', 'bulletins'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel'
     ],
     comptable: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
