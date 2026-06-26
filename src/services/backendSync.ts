@@ -31,6 +31,7 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
     if (store.students !== undefined) payload.students = store.students;
     if (store.parents !== undefined) payload.parents = store.parents;
     if (store.presences !== undefined) payload.presences = store.presences;
+    if (store.devoirs !== undefined) payload.devoirs = store.devoirs;
     if (store.activityLogs !== undefined) payload.activityLogs = store.activityLogs;
     if (store.announcements !== undefined) payload.announcements = store.announcements;
     if (store.announcementReads !== undefined) payload.announcementReads = store.announcementReads;

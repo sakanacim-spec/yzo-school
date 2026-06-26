@@ -117,6 +117,11 @@ export interface AppState {
   isAlreadyPresent: (eleveId: string) => boolean;
   hasAlreadyExited: (eleveId: string) => boolean;
 
+  // Devoirs
+  devoirs: Devoir[];
+  addDevoir: (devoir: Devoir) => void;
+  deleteDevoir: (id: string) => void;
+
   // Logs d'activité
   activityLogs: ActivityLog[];
   addActivityLog: (log: ActivityLog) => void;
@@ -456,7 +461,7 @@ export const useStore = create<AppState>()(
             set({
               students: [],
               parents: [],
-              presences: [],
+              presences: [], devoirs: [],
               activityLogs: [],
               links: [],
               announcements: [],
@@ -504,7 +509,7 @@ export const useStore = create<AppState>()(
           currentPage: 'dashboard',
           students: [],
           parents: [],
-          presences: [],
+          presences: [], devoirs: [],
           activityLogs: [],
           links: [],
           announcements: [],
@@ -581,7 +586,7 @@ export const useStore = create<AppState>()(
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend({
             students: get().students,
-            presences: get().presences,
+            presences: get().presences, devoirs: get().devoirs,
             activityLogs: get().activityLogs
           }).then(() => set({ lastSyncTimestamp: Date.now() }));
         });
@@ -620,7 +625,7 @@ export const useStore = create<AppState>()(
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend({
             students: get().students,
-            presences: get().presences,
+            presences: get().presences, devoirs: get().devoirs,
             activityLogs: get().activityLogs
           }).then(() => set({ lastSyncTimestamp: Date.now() }));
         });
@@ -674,7 +679,7 @@ export const useStore = create<AppState>()(
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend({
             students: get().students,
-            presences: get().presences,
+            presences: get().presences, devoirs: get().devoirs,
             activityLogs: get().activityLogs
           }).then(() => set({ lastSyncTimestamp: Date.now() }));
         });
@@ -762,14 +767,14 @@ export const useStore = create<AppState>()(
       updateSettings: (newSettings) => set({ settings: newSettings }),
 
       // ── Présences ─────────────────────────────────────────
-      presences: [],
+      presences: [], devoirs: [],
       addPresence: (presence) => {
         set({ presences: [presence, ...get().presences] });
         // Background sync
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend({
             students: get().students,
-            presences: get().presences,
+            presences: get().presences, devoirs: get().devoirs,
             activityLogs: get().activityLogs
           }).then(() => set({ lastSyncTimestamp: Date.now() }));
         });
@@ -786,9 +791,23 @@ export const useStore = create<AppState>()(
         const today = new Date().toISOString().split('T')[0];
         return get().presences.some(p => p.eleveId === eleveId && p.date === today && (p.type === 'ENTREE' || !p.type));
       },
-      hasAlreadyExited: (eleveId: string) => {
+      hasAlreadyExited: (eleveId) => {
         const today = new Date().toISOString().split('T')[0];
-        return get().presences.some(p => p.eleveId === eleveId && p.date === today && p.type === 'SORTIE');
+        return get().presences.some(p => p.eleveId === eleveId && p.date === today && (p.statut === 'absent' || p.type === 'SORTIE'));
+      },
+
+      // --- Devoirs ---
+      addDevoir: (devoir) => {
+        set({ devoirs: [devoir, ...get().devoirs] });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ devoirs: get().devoirs }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
+      },
+      deleteDevoir: (id) => {
+        set({ devoirs: get().devoirs.filter(d => d.id !== id) });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ devoirs: get().devoirs }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
       },
 
       // ── Horaires par cycle ──────────────────────────────────
@@ -1127,7 +1146,7 @@ export const useStore = create<AppState>()(
             
             set({
               students: repairedStudents,
-              presences: data.presences || [],
+              presences: data.presences || [], devoirs: data.devoirs || [],
               activityLogs: data.activityLogs || [],
               links: data.links || [],
               lastSyncTimestamp: Date.now() // Bloque le polling et synchro sortante immédiate
@@ -1198,7 +1217,7 @@ export const useStore = create<AppState>()(
             headers: getAuthHeaders()
           });
           if (res.ok) {
-            set({ presences: [] });
+            set({ presences: [], devoirs: [] });
             return true;
           }
           return false;
@@ -1394,7 +1413,7 @@ export const useStore = create<AppState>()(
         schoolLogo: state.schoolLogo,
         schoolStamp: state.schoolStamp,
         parents: state.parents || [],
-        presences: state.presences || [],
+        presences: state.presences || [], devoirs: state.devoirs || [],
         activityLogs: (state.activityLogs || []).slice(0, 500),
         receiptCounter: state.receiptCounter || 0,
         cycleSchedules: state.cycleSchedules || [],

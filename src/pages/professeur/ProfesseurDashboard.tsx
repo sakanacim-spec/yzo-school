@@ -121,26 +121,51 @@ export const ProfesseurDashboard: React.FC = () => {
                     )}
                 </div>
 
-                <div className="bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-                    
-                    <div className="relative z-10 flex flex-col h-full">
-                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6">
-                            <Edit3 className="w-6 h-6 text-white" />
+                <div className="flex flex-col gap-6">
+                    <div className="bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+                        
+                        <div className="relative z-10 flex flex-col h-full">
+                            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6">
+                                <Edit3 className="w-6 h-6 text-white" />
+                            </div>
+                            
+                            <h3 className="text-2xl font-black mb-2">Saisie des notes</h3>
+                            <p className="text-indigo-100 font-medium mb-8 flex-1">
+                                Accédez à l'interface de saisie pour entrer les notes d'interrogation, de devoir et de composition de vos élèves.
+                            </p>
+                            
+                            <button 
+                                onClick={handleSaisieNotes}
+                                disabled={myAssignations.length === 0}
+                                className="w-full py-4 bg-white text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            >
+                                Saisir les notes
+                            </button>
                         </div>
+                    </div>
+
+                    <div className="bg-gradient-to-b from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
                         
-                        <h3 className="text-2xl font-black mb-2">Saisie des notes</h3>
-                        <p className="text-indigo-100 font-medium mb-8 flex-1">
-                            Accédez à l'interface de saisie pour entrer les notes d'interrogation, de devoir et de composition de vos élèves.
-                        </p>
-                        
-                        <button 
-                            onClick={handleSaisieNotes}
-                            disabled={myAssignations.length === 0}
-                            className="w-full py-4 bg-white text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                        >
-                            Saisir les notes
-                        </button>
+                        <div className="relative z-10 flex flex-col h-full">
+                            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-6">
+                                <BookOpen className="w-6 h-6 text-white" />
+                            </div>
+                            
+                            <h3 className="text-2xl font-black mb-2">Cahier de Textes</h3>
+                            <p className="text-emerald-100 font-medium mb-8 flex-1">
+                                Saisissez les devoirs à la maison et faites l'appel de présence pour vos classes.
+                            </p>
+                            
+                            <button 
+                                onClick={() => setCurrentPage('cahier_textes')}
+                                disabled={myAssignations.length === 0}
+                                className="w-full py-4 bg-white text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            >
+                                Ouvrir le cahier
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -13,7 +13,7 @@ async function syncFromFrontend(req, res) {
         return res.status(401).json({ error: 'Authentification requise.' });
     }
 
-    const { students = [], presences = [], activityLogs = [], appSettings = null, replace = false, matieres = [], classeMatieres = [], notes = [] } = req.body;
+    const { students = [], presences = [], devoirs = [], activityLogs = [], appSettings = null, replace = false, matieres = [], classeMatieres = [], notes = [] } = req.body;
     const { role, schoolSlug } = req.user;
 
     if (!['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur'].includes(role)) {
@@ -33,6 +33,7 @@ async function syncFromFrontend(req, res) {
             console.log('🧹 [Sync] Mode Remplacer activé : Nettoyage universel de la base locale...');
             
             await supabase.from(tbl('presences')).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            await supabase.from(tbl('devoirs')).delete().neq('id', '00000000-0000-0000-0000-000000000000');
             await supabase.from(tbl('parent_student')).delete().neq('student_id', '00000000-0000-0000-0000-000000000000');
             await supabase.from(tbl('payments')).delete().neq('id', '00000000-0000-0000-0000-000000000000');
             
@@ -175,12 +176,12 @@ async function syncFromFrontend(req, res) {
 
                         const studentName = (p.elevePrenom || 'votre enfant').split(' ')[0];
                         const action = (p.statut || 'Entrée').toLowerCase() === 'entrée' ? 'est ARRIVÉ(E)' : 'est SORTI(E)';
-                        const msg = `🔔 ${studentName} ${action} de l'établissement à ${p.heure}.`;
+                        const msg = `📍 ${studentName} ${action} de l'établissement à ${p.heure}.`;
                         
                         const { data: links } = await supabase.from(tbl('parent_student')).select('parent_id').eq('student_id', p.eleveId);
                         if (links && links.length > 0) {
                             for (const link of links) {
-                                sendPushNotification(link.parent_id, schoolSlug, '📍 Pointage École', msg, 'presence').catch(() => {});
+                                sendPushNotification(link.parent_id, schoolSlug, '🏫 Pointage École', msg, 'presence').catch(() => {});
                             }
                         }
                     }
@@ -188,6 +189,23 @@ async function syncFromFrontend(req, res) {
                     console.error('❌ [Sync Notif] Erreur pointages:', err.message);
                 }
             })();
+        }
+
+        // --- 3c. Sync Devoirs ---
+        if (devoirs.length > 0) {
+            const devoirsData = devoirs.map(d => ({
+                id: d.id,
+                date_donnee: d.dateDonnee,
+                date_rendu: d.dateRendu,
+                matiere: d.matiere,
+                description: d.description,
+                classe: d.classe,
+                professeur_nom: d.professeurNom
+            }));
+            for (let i = 0; i < devoirsData.length; i += CHUNK_SIZE) {
+                const chunk = devoirsData.slice(i, i + CHUNK_SIZE);
+                await supabase.from(tbl('devoirs')).upsert(chunk, { onConflict: 'id' });
+            }
         }
 
         // --- 4. Sync Activity Logs ---

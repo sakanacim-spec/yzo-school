@@ -32,6 +32,7 @@ const ParentRecus = lazy(() => import('./pages/parent/ParentRecus').then(m => ({
 const ParentBadges = lazy(() => import('./pages/parent/ParentBadges').then(m => ({ default: m.ParentBadges })));
 const ParentMessages = lazy(() => import('./pages/parent/ParentMessages').then(m => ({ default: m.ParentMessages })));
 const ParentNotes = lazy(() => import('./pages/parent/ParentNotes').then(m => ({ default: m.ParentNotes })));
+const ParentDevoirsPresence = lazy(() => import('./pages/parent/ParentDevoirsPresence').then(m => ({ default: m.ParentDevoirsPresence })));
 const ParentsList = lazy(() => import('./pages/ParentsList').then(m => ({ default: m.ParentsList })));
 const ImportExport = lazy(() => import('./components/ImportExport').then(m => ({ default: m.ImportExport })));
 const ChatWindow = lazy(() => import('./components/ChatWindow').then(m => ({ default: m.ChatWindow })));
@@ -39,6 +40,7 @@ const Annonces = lazy(() => import('./pages/Annonces').then(m => ({ default: m.A
 const Communication = lazy(() => import('./pages/Communication').then(m => ({ default: m.Communication })));
 const GestionPersonnel = lazy(() => import('./pages/GestionPersonnel').then(m => ({ default: m.GestionPersonnel })));
 const ProfesseurDashboard = lazy(() => import('./pages/professeur/ProfesseurDashboard').then(m => ({ default: m.ProfesseurDashboard })));
+const CahierTextes = lazy(() => import('./pages/professeur/CahierTextes').then(m => ({ default: m.CahierTextes })));
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
 
 const LoadingSpinner = () => (
@@ -99,6 +101,7 @@ const PageContent: React.FC = () => {
     case 'parent_badges': return <ParentBadges />;
     case 'parent_messages': return <ParentMessages />;
     case 'parent_notes': return <ParentNotes />;
+    case 'parent_devoirs_presence': return <ParentDevoirsPresence />;
     case 'parents_list': return <ParentsList />;
     case 'import_export': return <ImportExport />;
     case 'chat': return <ChatWindow />;
@@ -106,6 +109,7 @@ const PageContent: React.FC = () => {
     case 'communication': return <Communication />;
     case 'gestion_personnel': return <GestionPersonnel />;
     case 'prof_dashboard': return <ProfesseurDashboard />;
+    case 'cahier_textes': return <CahierTextes />;
     case 'superadmin_dashboard':
     case 'superadmin_schools':
     case 'superadmin_billing':

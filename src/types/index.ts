@@ -201,6 +201,16 @@ export interface Presence {
   type?: 'ENTREE' | 'SORTIE';
 }
 
+export interface Devoir {
+  id: string;
+  dateDonnee: string; // YYYY-MM-DD
+  dateRendu: string;  // YYYY-MM-DD
+  matiere: string;
+  description: string;
+  classe: string;
+  professeurNom?: string;
+}
+
 // ── Horaires par cycle ───────────────────────────────────
 export interface CycleSchedule {
   cycle: Cycle;
@@ -278,10 +288,12 @@ export type AppPage =
   | 'parent_badges'
   | 'parent_messages'
   | 'parent_notes'
+  | 'parent_devoirs_presence'
   | 'parents_list'
   | 'import_export'
   | 'chat'
   | 'gestion_personnel'
+  | 'cahier_textes'
   | 'prof_dashboard'
   // ── Pages SuperAdmin (propriétaire SaaS) ──
   | 'superadmin_dashboard'

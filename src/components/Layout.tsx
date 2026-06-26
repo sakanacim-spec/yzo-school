@@ -7,7 +7,7 @@ import {
   GraduationCap, LayoutDashboard, Users, CreditCard,
   BarChart3, FileText, Settings, LogOut, Menu, X,
   Bell, ChevronRight, ChevronLeft, Target, Award, MessageSquare,
-  ScanLine, IdCard, ShieldCheck, Activity, Database, Megaphone,
+  ScanLine, IdCard, ShieldCheck, Activity, Database, Megaphone, Calendar,
   BookOpen, Edit3, FileSpreadsheet, Sun, Moon, Clock,
   PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield, Languages, Smartphone
 } from 'lucide-react';
@@ -49,6 +49,7 @@ const PARENT_NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'parent_recus',      label: 'Mes reçus',           icon: <FileText className="w-[18px] h-[18px]" /> },
   { id: 'parent_badges',     label: 'Mes badges',          icon: <Award className="w-[18px] h-[18px]" /> },
   { id: 'parent_notes',      label: 'Notes & Bulletins',   icon: <BookOpen className="w-[18px] h-[18px]" /> },
+  { id: 'parent_devoirs_presence', label: 'Devoirs & Présences', icon: <Calendar className="w-[18px] h-[18px]" /> },
   { id: 'chat',              label: 'Messagerie',          icon: <MessageSquare className="w-[18px] h-[18px]" /> },
   { id: 'annonces',          label: 'Annonces',            icon: <Megaphone className="w-[18px] h-[18px]" /> },
 ];
