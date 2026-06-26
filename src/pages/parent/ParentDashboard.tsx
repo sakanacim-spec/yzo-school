@@ -181,9 +181,12 @@ export const ParentDashboard: React.FC = () => {
         }
     };
 
+    const getDejaPaye = (s: any) => Number(s.dejaPaye !== undefined ? s.dejaPaye : (s.deja_paye || 0));
+    const getRestant = (s: any) => Number(s.restant !== undefined ? s.restant : (Number(s.ecolage || 0) - getDejaPaye(s)));
+
     const totalEcolage = children.reduce((acc, s) => acc + Number(s.ecolage || 0), 0);
-    const totalDejaPaye = children.reduce((acc, s) => acc + Number(s.dejaPaye || 0), 0);
-    const totalRestant = children.reduce((acc, s) => acc + (Number(s.ecolage || 0) - Number(s.dejaPaye || 0)), 0);
+    const totalDejaPaye = children.reduce((acc, s) => acc + getDejaPaye(s), 0);
+    const totalRestant = children.reduce((acc, s) => acc + getRestant(s), 0);
 
     const handleStartChat = async (role: 'administration' | 'comptabilite') => {
         try {
@@ -513,8 +516,8 @@ export const ParentDashboard: React.FC = () => {
                                                 )}
                                             </td>
                                             <td className="px-6 py-5">
-                                                <p className={`font-bold text-base ${(Number(child.ecolage || 0) - Number(child.dejaPaye || 0)) > 25000 ? 'text-red-500' : 'text-amber-600'}`}>
-                                                    {(Number(child.ecolage || 0) - Number(child.dejaPaye || 0)).toLocaleString()} {useStore.getState().currency}
+                                                <p className={`font-bold text-base ${getRestant(child) > 25000 ? 'text-red-500' : 'text-amber-600'}`}>
+                                                    {getRestant(child).toLocaleString()} {useStore.getState().currency}
                                                 </p>
                                                 <p className="text-[10px] text-slate-400 italic">Total: {(child.ecolage || 0).toLocaleString()} F</p>
                                             </td>
