@@ -56,7 +56,7 @@ const IMP_STYLES = {
 // ── Composant principal ──────────────────────────────────────
 export const ParentDashboard: React.FC = () => {
     const user = useStore((s) => s.user);
-    const children = useStore((s) => s.students);
+    const children = useStore((s) => s.students).slice().sort((a, b) => a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom));
     const [loading, setLoading] = useState(false);
     const [loadingPayment, setLoadingPayment] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
@@ -505,7 +505,7 @@ export const ParentDashboard: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5">
-                                                <p className="text-emerald-600 font-bold text-base">{(child.dejaPaye || 0).toLocaleString()} F</p>
+                                                <p className="text-emerald-600 font-bold text-base">{(child.dejaPaye || 0).toLocaleString()} {useStore.getState().currency}</p>
                                                 {child.ecolage > 0 && (
                                                     <div className="w-24 h-1 bg-slate-100 rounded-full mt-2 overflow-hidden">
                                                         <div
@@ -521,7 +521,7 @@ export const ParentDashboard: React.FC = () => {
                                                         <p className={`font-bold text-base ${getRestant(child) > 25000 ? 'text-red-500' : 'text-amber-600'}`}>
                                                             {getRestant(child).toLocaleString()} {useStore.getState().currency}
                                                         </p>
-                                                        <p className="text-[10px] text-slate-400 italic">Total: {(child.ecolage || 0).toLocaleString()} F</p>
+                                                        <p className="text-[10px] text-slate-400 italic">Total: {(child.ecolage || 0).toLocaleString()} {useStore.getState().currency}</p>
                                                     </div>
                                                     {getRestant(child) > 0 && (
                                                         <button 

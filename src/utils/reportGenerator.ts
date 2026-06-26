@@ -69,18 +69,22 @@ export const generateRapportMensuelPDF = (
 
     // Bloc Ministère (Centre-Gauche)
     doc.setFontSize(10);
-    doc.text(country, centerX - 35, y, { align: 'center' });
-    doc.setFont('times', 'italic');
-    doc.setFontSize(8);
-    doc.text('', centerX - 35, y + 5, { align: 'center' });
-    doc.setLineWidth(0.3);
-    doc.line(centerX - 42, y + 7.5, centerX - 28, y + 7.5);
     doc.setFont('times', 'bold');
-    doc.setFontSize(11);
-    doc.text('MINISTERE DE L\'EDUCATION NATIONALE', centerX - 35, y + 13, { align: 'center' });
-    doc.setFontSize(9.5);
-    doc.text('DIRECTION RÉGIONALE DE L\'ÉDUCATION', centerX - 35, y + 18, { align: 'center' });
-    doc.text('INSPECTION DE L\'ENSEIGNEMENT GENERAL', centerX - 35, y + 23, { align: 'center' });
+    
+    if (state.schoolMinistry) {
+        const ministryLines = state.schoolMinistry.split('\n');
+        let ministryY = y;
+        ministryLines.forEach(line => {
+            doc.text(line.trim().toUpperCase(), centerX - 35, ministryY, { align: 'center' });
+            ministryY += 5;
+        });
+    } else {
+        // Fallback si vide
+        doc.text("MINISTERE DE L'EDUCATION NATIONALE", centerX - 35, y, { align: 'center' });
+        doc.setFontSize(9.5);
+        doc.text("DIRECTION RÉGIONALE DE L'ÉDUCATION", centerX - 35, y + 5, { align: 'center' });
+        doc.text("INSPECTION DE L'ENSEIGNEMENT GENERAL", centerX - 35, y + 10, { align: 'center' });
+    }
 
     // Bloc Établissement (Centre-Droite)
     doc.setFontSize(10);
