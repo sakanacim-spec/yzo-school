@@ -48,24 +48,31 @@ const PARENT_NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'parent_historique', label: 'Paiements',           icon: <CreditCard className="w-[18px] h-[18px]" /> },
   { id: 'parent_recus',      label: 'Mes reçus',           icon: <FileText className="w-[18px] h-[18px]" /> },
   { id: 'parent_badges',     label: 'Mes badges',          icon: <Award className="w-[18px] h-[18px]" /> },
+  { id: 'parent_notes',      label: 'Notes & Bulletins',   icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { id: 'chat',              label: 'Messagerie',          icon: <MessageSquare className="w-[18px] h-[18px]" /> },
   { id: 'annonces',          label: 'Annonces',            icon: <Megaphone className="w-[18px] h-[18px]" /> },
 ];
 
+const PROF_NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
+  { id: 'prof_dashboard',    label: 'Tableau de bord',   icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
+  { id: 'saisie_notes',      label: 'Saisie Notes',      icon: <Edit3 className="w-[18px] h-[18px]" /> },
+];
+
 const NAV_GROUPS: Record<string, string> = {
   dashboard: 'Principal',
+  prof_dashboard: 'Principal',
   eleves: 'Gestion',
   parents_list: 'Gestion',
   paiements: 'Finance',
   recouvrement: 'Finance',
-  scan_presence: 'Présences',
-  scan_sortie: 'Présences',
-  scan_information: 'Présences',
-  carte_scolaire: 'Présences',
+  scan_presence: 'Sécurité & Accès',
+  scan_sortie: 'Sécurité & Accès',
+  scan_information: 'Sécurité & Accès',
+  carte_scolaire: 'Sécurité & Accès',
+  verification_recu: 'Sécurité & Accès',
   gestion_academique: 'Académique',
   saisie_notes: 'Académique',
   bulletins: 'Académique',
-  verification_recu: 'Outils',
   analyses: 'Outils',
   documents: 'Outils',
   historique_activites: 'Outils',
@@ -370,7 +377,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const isSyncing = useStore((s) => s.isSyncing);
   const nonSoldes = students.filter((s) => s.status !== 'Soldé').length;
   const isParent = user?.role === 'parent';
-  const baseNavItems = isParent ? PARENT_NAV_ITEMS : NAV_ITEMS;
+  const isProf = user?.role === 'professeur';
+  const baseNavItems = isParent ? PARENT_NAV_ITEMS : isProf ? PROF_NAV_ITEMS : NAV_ITEMS;
   const filteredItems = getFilteredNavItems(user?.role, baseNavItems) as Omit<NavItem, 'badge'>[];
 
   const navItems: NavItem[] = filteredItems.map((item) => ({

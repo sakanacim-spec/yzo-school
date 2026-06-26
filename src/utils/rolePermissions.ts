@@ -3,7 +3,7 @@
 // ============================================================
 import { AppPage } from '../types';
 
-type Role = 'superadmin' | 'admin' | 'directeur' | 'directeur_general' | 'proviseur' | 'censeur' | 'superviseur' | 'surveillant' | 'comptable' | 'parent' | 'secretaire';
+type Role = 'superadmin' | 'admin' | 'directeur' | 'directeur_general' | 'proviseur' | 'censeur' | 'superviseur' | 'surveillant' | 'comptable' | 'parent' | 'secretaire' | 'professeur';
 
 // Pages accessibles par rôle
 const ROLE_PAGES: Record<Role, AppPage[]> = {
@@ -46,6 +46,9 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
     censeur: [
         'dashboard', 'eleves', 'analyses', 'chat', 'scan_information',
         'gestion_academique', 'saisie_notes', 'bulletins'
+    ],
+    professeur: [
+        'prof_dashboard', 'saisie_notes'
     ],
     parent: [
         'parent_dashboard', 'parent_historique', 'parent_recus',

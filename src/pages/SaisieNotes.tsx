@@ -10,10 +10,19 @@ export const SaisieNotes: React.FC = () => {
     const students = useStore((s) => s.students);
     const matieres = useStore((s) => s.matieres);
     const classeMatieres = useStore((s) => s.classeMatieres);
-
+    const user = useStore((s) => s.user);
 
     const periods: PeriodeType[] = ['TRIMESTRE 1', 'TRIMESTRE 2', 'TRIMESTRE 3', 'SEMESTRE 1', 'SEMESTRE 2'];
-    const classesList = Array.from(new Set(students.map(s => s.classe))).sort();
+    
+    const classesList = useMemo(() => {
+        if (user?.role === 'professeur' && user?.nom) {
+            const assignedClasses = classeMatieres
+                .filter(cm => cm.professeur.toLowerCase() === user.nom.toLowerCase())
+                .map(cm => cm.classe);
+            return Array.from(new Set(assignedClasses)).sort();
+        }
+        return Array.from(new Set(students.map(s => s.classe))).sort();
+    }, [students, classeMatieres, user]);
 
     const [selectedClasse, setSelectedClasse] = useState('');
     const [selectedMatiereId, setSelectedMatiereId] = useState('');
@@ -27,10 +36,10 @@ export const SaisieNotes: React.FC = () => {
     // Matieres available for this class
     const availableMatieres = useMemo(() => {
         return classeMatieres
-            .filter(cm => cm.classe === selectedClasse)
+            .filter(cm => cm.classe === selectedClasse && (user?.role !== 'professeur' || cm.professeur.toLowerCase() === user?.nom?.toLowerCase()))
             .map(cm => ({ cm, mat: matieres.find(m => m.id === cm.matiereId) }))
             .filter(item => item.mat !== undefined);
-    }, [classeMatieres, matieres, selectedClasse]);
+    }, [classeMatieres, matieres, selectedClasse, user]);
 
     // Local state for grades being edited (stored as strings to allow typing decimals like "12.")
     const [draftNotes, setDraftNotes] = useState<Record<string, Record<string, string>>>({});

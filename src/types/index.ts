@@ -147,6 +147,7 @@ export type UserRole =
   | 'superviseur'
   | 'surveillant'
   | 'comptable'
+  | 'professeur'
   | 'parent';
 
 export interface User {
@@ -281,6 +282,7 @@ export type AppPage =
   | 'import_export'
   | 'chat'
   | 'gestion_personnel'
+  | 'prof_dashboard'
   // ── Pages SuperAdmin (propriétaire SaaS) ──
   | 'superadmin_dashboard'
   | 'superadmin_schools'

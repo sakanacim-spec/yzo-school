@@ -13,7 +13,7 @@ async function getPersonnel(req, res) {
         const { data: personnel, error } = await supabase
             .from(`profiles_${schoolSlug}`)
             .select('*')
-            .in('role', ['admin', 'superviseur', 'surveillant', 'comptable', 'censeur', 'secretaire']);
+            .in('role', ['admin', 'superviseur', 'surveillant', 'comptable', 'censeur', 'secretaire', 'professeur']);
 
         if (error) throw error;
         return res.json(personnel);
@@ -36,7 +36,7 @@ async function createPersonnel(req, res) {
         return res.status(400).json({ error: 'Champs requis : nom, telephone, password, role.' });
     }
 
-    if (!['admin', 'superviseur', 'comptable', 'censeur', 'secretaire'].includes(role)) {
+    if (!['admin', 'superviseur', 'comptable', 'censeur', 'secretaire', 'professeur', 'surveillant'].includes(role)) {
         return res.status(400).json({ error: 'Rôle invalide.' });
     }
 

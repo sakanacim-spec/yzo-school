@@ -37,6 +37,7 @@ const ImportExport = lazy(() => import('./components/ImportExport').then(m => ({
 const ChatWindow = lazy(() => import('./components/ChatWindow').then(m => ({ default: m.ChatWindow })));
 const Annonces = lazy(() => import('./pages/Annonces').then(m => ({ default: m.Annonces })));
 const Communication = lazy(() => import('./pages/Communication').then(m => ({ default: m.Communication })));
+const ProfesseurDashboard = lazy(() => import('./pages/professeur/ProfesseurDashboard').then(m => ({ default: m.ProfesseurDashboard })));
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
 
 const LoadingSpinner = () => (
@@ -102,6 +103,7 @@ const PageContent: React.FC = () => {
     case 'chat': return <ChatWindow />;
     case 'annonces': return <Annonces />;
     case 'communication': return <Communication />;
+    case 'prof_dashboard': return <ProfesseurDashboard />;
     case 'superadmin_dashboard':
     case 'superadmin_schools':
     case 'superadmin_billing':
