@@ -14,19 +14,19 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
     directeur_general: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
-        'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces',
+        'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
         'gestion_academique', 'saisie_notes', 'bulletins'
     ],
     admin: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
-        'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces',
+        'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
         'gestion_academique', 'saisie_notes', 'bulletins'
     ],
     directeur: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
-        'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces',
+        'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
         'gestion_academique', 'saisie_notes', 'bulletins'
     ],
     comptable: [
@@ -53,7 +53,7 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
     ],
     secretaire: [
         'dashboard', 'eleves', 'paiements', 'scan_information', 'scan_presence', 'scan_sortie',
-        'documents', 'chat', 'annonces'
+        'documents', 'chat', 'annonces', 'communication'
     ],
 };
 

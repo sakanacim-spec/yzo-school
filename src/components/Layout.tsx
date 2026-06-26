@@ -9,7 +9,7 @@ import {
   Bell, ChevronRight, ChevronLeft, Target, Award, MessageSquare,
   ScanLine, IdCard, ShieldCheck, Activity, Database, Megaphone,
   BookOpen, Edit3, FileSpreadsheet, Sun, Moon, Clock,
-  PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield, Languages
+  PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield, Languages, Smartphone
 } from 'lucide-react';
 
 import { SupportModal } from './SupportModal';
@@ -37,6 +37,7 @@ const NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'historique_activites', label: 'Historique',        icon: <Activity className="w-[18px] h-[18px]" /> },
   { id: 'chat',                 label: 'Messagerie',        icon: <MessageSquare className="w-[18px] h-[18px]" /> },
   { id: 'annonces',             label: 'Annonces',          icon: <Megaphone className="w-[18px] h-[18px]" /> },
+  { id: 'communication',        label: 'Communication',     icon: <Smartphone className="w-[18px] h-[18px]" /> },
   { id: 'gestion_personnel',    label: 'Personnel',         icon: <Users className="w-[18px] h-[18px]" /> },
   { id: 'import_export',        label: 'Base de données',   icon: <Database className="w-[18px] h-[18px]" /> },
   { id: 'parametres',           label: 'Paramètres',        icon: <Settings className="w-[18px] h-[18px]" /> },
@@ -70,6 +71,7 @@ const NAV_GROUPS: Record<string, string> = {
   historique_activites: 'Outils',
   chat: 'Communication',
   annonces: 'Communication',
+  communication: 'Communication',
   gestion_personnel: 'Administration',
   import_export: 'Administration',
   parametres: 'Administration',

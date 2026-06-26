@@ -267,6 +267,7 @@ export type AppPage =
   | 'verification_recu'
   | 'historique_activites'
   | 'annonces'
+  | 'communication'
   | 'gestion_academique'
   | 'saisie_notes'
   | 'bulletins'

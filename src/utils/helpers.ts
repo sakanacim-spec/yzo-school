@@ -123,3 +123,21 @@ export const generateWhatsAppLink = (phone: string, message: string, countryCode
   const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
 };
+
+export const sendBulkSMS = async (recipients: { phone: string; message: string }[]): Promise<{ success: boolean; count: number; error?: string }> => {
+  try {
+    // Dans un vrai environnement de production, on ferait un appel API POST ici
+    // vers Twilio, Infobip, ou un fournisseur SMS local.
+    // Exemple : 
+    // await fetch('/api/sms/send-bulk', { method: 'POST', body: JSON.stringify({ recipients }) });
+    
+    // Simulation du temps d'envoi réseau
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    console.log(`[SMS Simulator] ${recipients.length} messages envoyés avec succès.`);
+    return { success: true, count: recipients.length };
+  } catch (error: any) {
+    console.error('Erreur lors de l\'envoi des SMS:', error);
+    return { success: false, count: 0, error: error.message };
+  }
+};
