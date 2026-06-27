@@ -160,6 +160,49 @@ export const SaisieNotes: React.FC = () => {
         setTimeout(() => setSaveStatus(null), 3000);
     };
 
+    // Calculate real-time average for a student
+    const calculateStudentAverage = (studentId: string): number | null => {
+        const draft = draftNotes[studentId];
+        if (!draft) return null;
+
+        const nc = draft.noteClasse === '' ? null : parseFloat(draft.noteClasse);
+        const nd = draft.noteDevoir === '' ? null : parseFloat(draft.noteDevoir);
+        const nCp = draft.noteCompo === '' ? null : parseFloat(draft.noteCompo);
+
+        let moyClasseMat: number | null = null;
+        const notesEvaluations = [nc, nd].filter(x => x !== null && !isNaN(x)) as number[];
+        if (notesEvaluations.length > 0) {
+            moyClasseMat = notesEvaluations.reduce((a,b) => a+b, 0) / notesEvaluations.length;
+        }
+
+        const paramPourMoyenne = [moyClasseMat, nCp].filter(x => x !== null && !isNaN(x)) as number[];
+        if (paramPourMoyenne.length > 0) {
+            return paramPourMoyenne.reduce((a,b) => a+b, 0) / paramPourMoyenne.length;
+        }
+
+        return null;
+    };
+
+    // Calculate class average
+    const classAverage = useMemo(() => {
+        const averages = classStudents.map(s => calculateStudentAverage(s.id)).filter(a => a !== null) as number[];
+        if (averages.length === 0) return null;
+        return averages.reduce((a, b) => a + b, 0) / averages.length;
+    }, [draftNotes, classStudents]);
+
+    // Keyboard navigation
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number, field: string) => {
+        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+            e.preventDefault();
+            const nextInput = document.getElementById(`input-${field}-${currentIndex + 1}`);
+            if (nextInput) nextInput.focus();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prevInput = document.getElementById(`input-${field}-${currentIndex - 1}`);
+            if (prevInput) prevInput.focus();
+        }
+    };
+
     return (
         <div className="space-y-6 max-w-6xl mx-auto pb-10">
             {/* Header */}
@@ -244,9 +287,10 @@ export const SaisieNotes: React.FC = () => {
                                 <tr className="bg-white border-b border-gray-200 text-sm">
                                     <th className="p-4 font-bold text-gray-600 w-16">N°</th>
                                     <th className="p-4 font-bold text-gray-600">Nom & Prénom(s)</th>
-                                    <th className="p-4 font-bold text-blue-600 w-40 text-center">Interro. (/20)</th>
-                                    <th className="p-4 font-bold text-indigo-600 w-40 text-center">Devoir (/20)</th>
-                                    <th className="p-4 font-bold text-purple-600 w-40 text-center">Compo. (/20)</th>
+                                    <th className="p-4 font-bold text-blue-600 w-32 text-center">Interro. (/20)</th>
+                                    <th className="p-4 font-bold text-indigo-600 w-32 text-center">Devoir (/20)</th>
+                                    <th className="p-4 font-bold text-purple-600 w-32 text-center">Compo. (/20)</th>
+                                    <th className="p-4 font-bold text-rose-600 w-32 text-center">Moyenne</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -258,44 +302,69 @@ export const SaisieNotes: React.FC = () => {
                                         </td>
                                         <td className="p-4 text-center">
                                             <input
+                                                id={`input-noteClasse-${index}`}
                                                 type="number"
                                                 min="0" max="20" step="0.5"
                                                 className="w-20 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold"
                                                 value={draftNotes[student.id]?.noteClasse ?? ''}
                                                 onChange={(e) => handleNoteChange(student.id, 'noteClasse', e.target.value)}
+                                                onKeyDown={(e) => handleKeyDown(e, index, 'noteClasse')}
                                                 placeholder="--"
                                             />
                                         </td>
                                         <td className="p-4 text-center">
                                             <input
+                                                id={`input-noteDevoir-${index}`}
                                                 type="number"
                                                 min="0" max="20" step="0.5"
                                                 className="w-20 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold"
                                                 value={draftNotes[student.id]?.noteDevoir ?? ''}
                                                 onChange={(e) => handleNoteChange(student.id, 'noteDevoir', e.target.value)}
+                                                onKeyDown={(e) => handleKeyDown(e, index, 'noteDevoir')}
                                                 placeholder="--"
                                             />
                                         </td>
                                         <td className="p-4 text-center">
                                             <input
+                                                id={`input-noteCompo-${index}`}
                                                 type="number"
                                                 min="0" max="20" step="0.5"
                                                 className="w-20 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-semibold"
                                                 value={draftNotes[student.id]?.noteCompo ?? ''}
                                                 onChange={(e) => handleNoteChange(student.id, 'noteCompo', e.target.value)}
+                                                onKeyDown={(e) => handleKeyDown(e, index, 'noteCompo')}
                                                 placeholder="--"
                                             />
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <div className="w-20 mx-auto px-3 py-2 bg-rose-50 text-rose-700 rounded-lg font-black text-center">
+                                                {calculateStudentAverage(student.id) !== null 
+                                                    ? calculateStudentAverage(student.id)!.toFixed(2) 
+                                                    : '--'}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
                                 {classStudents.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="p-8 text-center text-gray-500 font-semibold">
+                                        <td colSpan={6} className="p-8 text-center text-gray-500 font-semibold">
                                             Aucun élève trouvé dans cette classe.
                                         </td>
                                     </tr>
                                 )}
                             </tbody>
+                            {classStudents.length > 0 && classAverage !== null && (
+                                <tfoot>
+                                    <tr className="bg-rose-50/50 border-t-2 border-rose-100">
+                                        <td colSpan={5} className="p-4 font-black text-rose-700 text-right">
+                                            Moyenne Générale de la Classe :
+                                        </td>
+                                        <td className="p-4 text-center font-black text-rose-700 text-lg">
+                                            {classAverage.toFixed(2)}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            )}
                         </table>
                     </div>
                 </div>
