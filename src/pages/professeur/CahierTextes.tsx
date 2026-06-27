@@ -66,7 +66,7 @@ export const CahierTextes: React.FC = () => {
 
     const existing = (presences || []).find(p => p.eleveId === studentId && p.date === appelDate);
     if (existing) {
-      alert("Ce pointage a d\u00e9j\u00e0 \u00e9t\u00e9 enregistr\u00e9 pour aujourd'hui.");
+      alert("Ce pointage a déjà été enregistré pour aujourd'hui.");
       return; 
     }
 
@@ -84,7 +84,7 @@ export const CahierTextes: React.FC = () => {
   };
 
   if (!user || user.role !== 'professeur') {
-    return <div className="p-8 text-center">Acc\u00e8s restreint.</div>;
+    return <div className="p-8 text-center">Accès restreint.</div>;
   }
 
   return (
@@ -98,8 +98,8 @@ export const CahierTextes: React.FC = () => {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 dark:text-white">Cahier de Textes & Pr\u00e9sences</h1>
-          <p className="text-slate-500">G\u00e9rez les devoirs et faites l'appel de vos classes.</p>
+          <h1 className="text-2xl font-black text-slate-800 dark:text-white">Cahier de Textes & Présences</h1>
+          <p className="text-slate-500">Gérez les devoirs et faites l'appel de vos classes.</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -130,7 +130,7 @@ export const CahierTextes: React.FC = () => {
           className={`pb-4 px-4 font-bold text-sm transition-colors border-b-2 ${activeTab === 'devoirs' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
         >
           <BookOpen className="w-4 h-4 inline-block mr-2" />
-          Devoirs & Le\u00e7ons
+          Devoirs & Leçons
         </button>
         <button
           onClick={() => setActiveTab('appel')}
@@ -152,7 +152,7 @@ export const CahierTextes: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
-                <textarea rows={4} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex: Exercices 1 \u00e0 4 page 45..." className="w-full bg-slate-50 border p-3 rounded-xl dark:bg-slate-900 dark:border-slate-700" required />
+                <textarea rows={4} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex: Exercices 1 à 4 page 45..." className="w-full bg-slate-50 border p-3 rounded-xl dark:bg-slate-900 dark:border-slate-700" required />
               </div>
               <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex justify-center items-center gap-2">
                 <Plus className="w-5 h-5" /> Publier
@@ -166,7 +166,7 @@ export const CahierTextes: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
                     <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-black">{d.matiere}</span>
-                    <span className="text-xs font-bold text-slate-400">Donn\u00e9 le {format(new Date(d.dateDonnee), 'dd MMM yyyy', {locale: fr})}</span>
+                    <span className="text-xs font-bold text-slate-400">Donné le {format(new Date(d.dateDonnee), 'dd MMM yyyy', {locale: fr})}</span>
                   </div>
                   <button onClick={() => deleteDevoir(d.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
@@ -177,7 +177,7 @@ export const CahierTextes: React.FC = () => {
               </div>
             ))}
             {myDevoirs.length === 0 && (
-              <div className="p-8 text-center text-slate-500 font-medium">Aucun devoir enregistr\u00e9.</div>
+              <div className="p-8 text-center text-slate-500 font-medium">Aucun devoir enregistré.</div>
             )}
           </div>
         </div>
@@ -194,7 +194,7 @@ export const CahierTextes: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b-2 border-slate-100 dark:border-slate-700 text-sm font-bold text-slate-400 uppercase">
-                  <th className="py-4">El\u00e8ve</th>
+                  <th className="py-4">Elève</th>
                   <th className="py-4 text-center">Pointage du jour</th>
                 </tr>
               </thead>
