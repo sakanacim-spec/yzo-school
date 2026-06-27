@@ -52,7 +52,7 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
     ],
     parent: [
         'parent_dashboard', 'parent_historique', 'parent_recus',
-        'parent_badges', 'parent_messages', 'chat', 'annonces'
+        'parent_badges', 'parent_messages', 'chat', 'annonces', 'parent_notes', 'parent_devoirs_presence'
     ],
     secretaire: [
         'dashboard', 'eleves', 'paiements', 'scan_information', 'scan_presence', 'scan_sortie',
