@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
-import { Edit3, Save, CheckCircle2 } from 'lucide-react';
+import { Edit3, Save, CheckCircle2, Printer, Calculator, X } from 'lucide-react';
 import { Note, PeriodeType } from '../types';
 import { v4 as uuid } from '../utils/uuid';
+import { generateBordereauPDF } from '../utils/bordereauPdf';
 
 export const SaisieNotes: React.FC = () => {
     const currentPeriode = useStore((s) => s.currentPeriode);
@@ -33,6 +34,7 @@ export const SaisieNotes: React.FC = () => {
     const [selectedClasse, setSelectedClasse] = useState('');
     const [selectedMatiereId, setSelectedMatiereId] = useState('');
     const [saveStatus, setSaveStatus] = useState<string | null>(null);
+    const [activeCalculator, setActiveCalculator] = useState<string | null>(null); // studentId
 
     // Filter students for the selected class
     const classStudents = useMemo(() => {
@@ -203,6 +205,35 @@ export const SaisieNotes: React.FC = () => {
         }
     };
 
+    const handleDownloadBordereau = () => {
+        if (!selectedClasse || !selectedMatiereId) return;
+        const matiereName = matieres.find(m => m.id === selectedMatiereId)?.nom || 'Matière';
+        const settings = useStore.getState().settings || {} as any;
+
+        const studentsData = classStudents.map(student => {
+            const draft = draftNotes[student.id] || {};
+            const moyenne = calculateStudentAverage(student.id);
+            return {
+                nom: student.nom,
+                prenom: student.prenom,
+                noteClasse: draft.noteClasse || '--',
+                noteDevoir: draft.noteDevoir || '--',
+                noteCompo: draft.noteCompo || '--',
+                moyenne: moyenne !== null ? moyenne.toFixed(2) : '--'
+            };
+        });
+
+        generateBordereauPDF(
+            selectedClasse,
+            matiereName,
+            currentPeriode,
+            user?.nom || 'Professeur',
+            studentsData,
+            classAverage !== null ? classAverage.toFixed(2) : '--',
+            settings
+        );
+    };
+
     return (
         <div className="space-y-6 max-w-6xl mx-auto pb-10">
             {/* Header */}
@@ -261,18 +292,27 @@ export const SaisieNotes: React.FC = () => {
 
             {/* Table de Saisie */}
             {selectedClasse && selectedMatiereId ? (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in">
-                    <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in relative">
+                    <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50 flex-wrap gap-4">
                         <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
                             Effectif de la classe : <span className="text-rose-600 bg-rose-100 px-2 py-0.5 rounded-md">{classStudents.length}</span>
                         </div>
-                        <button
-                            onClick={handleSave}
-                            className="bg-rose-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-rose-700 shadow-md transition-all active:scale-95"
-                        >
-                            <Save className="w-5 h-5" />
-                            Enregistrer les notes
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handleDownloadBordereau}
+                                className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 shadow-sm transition-all active:scale-95"
+                            >
+                                <Printer className="w-5 h-5 text-gray-500" />
+                                Télécharger le bordereau
+                            </button>
+                            <button
+                                onClick={handleSave}
+                                className="bg-rose-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-rose-700 shadow-md transition-all active:scale-95"
+                            >
+                                <Save className="w-5 h-5" />
+                                Enregistrer les notes
+                            </button>
+                        </div>
                     </div>
 
                     {saveStatus && (
@@ -301,16 +341,73 @@ export const SaisieNotes: React.FC = () => {
                                             {student.nom} {student.prenom}
                                         </td>
                                         <td className="p-4 text-center">
-                                            <input
-                                                id={`input-noteClasse-${index}`}
-                                                type="number"
-                                                min="0" max="20" step="0.5"
-                                                className="w-20 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold"
-                                                value={draftNotes[student.id]?.noteClasse ?? ''}
-                                                onChange={(e) => handleNoteChange(student.id, 'noteClasse', e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, 'noteClasse')}
-                                                placeholder="--"
-                                            />
+                                            <div className="flex items-center justify-center gap-1 relative">
+                                                <input
+                                                    id={`input-noteClasse-${index}`}
+                                                    type="number"
+                                                    min="0" max="20" step="0.5"
+                                                    className="w-20 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold"
+                                                    value={draftNotes[student.id]?.noteClasse ?? ''}
+                                                    onChange={(e) => handleNoteChange(student.id, 'noteClasse', e.target.value)}
+                                                    onKeyDown={(e) => handleKeyDown(e, index, 'noteClasse')}
+                                                    placeholder="--"
+                                                />
+                                                <button 
+                                                    onClick={() => setActiveCalculator(activeCalculator === student.id ? null : student.id)}
+                                                    className={`p-1.5 rounded-lg transition-colors ${activeCalculator === student.id ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'}`}
+                                                    title="Calculatrice de moyenne d'interrogations"
+                                                >
+                                                    <Calculator className="w-4 h-4" />
+                                                </button>
+
+                                                {/* Calculator Popup */}
+                                                {activeCalculator === student.id && (
+                                                    <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 w-56 bg-white rounded-xl shadow-xl border border-gray-200 p-3 animate-fade-in">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="text-xs font-bold text-gray-500 uppercase">Calculatrice</span>
+                                                            <button onClick={() => setActiveCalculator(null)} className="text-gray-400 hover:text-gray-700">
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            {[1, 2, 3, 4, 5].map(num => (
+                                                                <div key={num} className="flex items-center gap-2">
+                                                                    <span className="text-xs font-semibold text-gray-500 w-12">Note {num}</span>
+                                                                    <input 
+                                                                        type="number" min="0" max="20" step="0.5"
+                                                                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                                                        id={`calc-${student.id}-${num}`}
+                                                                        onChange={() => {
+                                                                            // Calculate average instantly
+                                                                            let sum = 0;
+                                                                            let count = 0;
+                                                                            for(let i=1; i<=5; i++) {
+                                                                                const val = (document.getElementById(`calc-${student.id}-${i}`) as HTMLInputElement)?.value;
+                                                                                if (val) {
+                                                                                    sum += parseFloat(val);
+                                                                                    count++;
+                                                                                }
+                                                                            }
+                                                                            if (count > 0) {
+                                                                                const avg = (sum / count).toFixed(2);
+                                                                                handleNoteChange(student.id, 'noteClasse', avg);
+                                                                            } else {
+                                                                                handleNoteChange(student.id, 'noteClasse', '');
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="mt-3 pt-2 border-t border-gray-100 text-center">
+                                                            <span className="text-xs text-gray-500">Moyenne générée :</span>
+                                                            <div className="font-black text-blue-600 text-lg">
+                                                                {draftNotes[student.id]?.noteClasse || '--'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="p-4 text-center">
                                             <input
