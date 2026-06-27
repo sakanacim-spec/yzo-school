@@ -534,7 +534,7 @@ export const useStore = create<AppState>()(
             return;
           }
         } else if (u?.role === 'parent') {
-          const allowed: AppPage[] = ['parent_dashboard', 'parent_historique', 'parent_recus', 'parent_badges', 'chat', 'annonces', 'parent_notes'];
+          const allowed: AppPage[] = ['parent_dashboard', 'parent_historique', 'parent_recus', 'parent_badges', 'chat', 'annonces', 'parent_notes', 'parent_devoirs_presence'];
           if (!allowed.includes(page)) {
             set({ currentPage: 'parent_dashboard' });
             return;
