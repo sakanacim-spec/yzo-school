@@ -16,9 +16,12 @@ export const CahierTextes: React.FC = () => {
   const addPresence = useStore(s => s.addPresence);
   const matieres = useStore(s => s.matieres);
   
-  const personnel = useStore(s => s.personnel) || [];
-  const prof = personnel.find(p => p.id === user?.id);
-  const myAssignations = prof?.assignations || [];
+  const classeMatieres = useStore(s => s.classeMatieres) || [];
+  
+  const myAssignations = useMemo(() => {
+    if (!user || !user.nom) return [];
+    return classeMatieres.filter(cm => cm.professeur.toLowerCase() === user.nom.toLowerCase());
+  }, [classeMatieres, user]);
 
   const [selectedClasse, setSelectedClasse] = useState(myAssignations[0]?.classe || '');
   const [selectedMatiereId, setSelectedMatiereId] = useState(myAssignations[0]?.matiereId || '');
