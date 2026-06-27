@@ -4,6 +4,7 @@ import { BookOpen, UserCheck, Calendar, CheckCircle2, Clock, XCircle, Plus, Tras
 import { format, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { uploadDevoirFile } from '../../services/backendSync';
+import { notificationService } from '../../services/notificationService';
 
 const safeFormatDate = (dateStr: string | undefined, fmt: string) => {
   if (!dateStr) return 'Date non précisée';
@@ -85,7 +86,7 @@ export const CahierTextes: React.FC = () => {
     setFile(null);
   };
 
-  const markPresence = (studentId: string, statut: 'present' | 'absent' | 'retard') => {
+  const markPresence = async (studentId: string, statut: 'present' | 'absent' | 'retard') => {
     const student = classStudents.find(s => s.id === studentId);
     if (!student) return;
 
@@ -93,6 +94,13 @@ export const CahierTextes: React.FC = () => {
     if (existing) {
       alert("Ce pointage a déjà été enregistré pour aujourd'hui.");
       return; 
+    }
+
+    if (statut === 'absent' || statut === 'retard') {
+      const confirmMsg = `Voulez-vous notifier les parents que ${student.nom} ${student.prenom} est ${statut} aujourd'hui ?`;
+      if (!window.confirm(confirmMsg)) {
+          return; // Annuler si le prof ne confirme pas
+      }
     }
 
     addPresence({
@@ -106,6 +114,16 @@ export const CahierTextes: React.FC = () => {
       statut,
       type: 'ENTREE'
     });
+
+    if (statut === 'absent' || statut === 'retard') {
+      const title = statut === 'absent' ? 'Alerte Absence' : 'Alerte Retard';
+      const msg = `Votre enfant ${student.nom} ${student.prenom} a été marqué ${statut.toUpperCase()} ce ${new Date(appelDate).toLocaleDateString('fr-FR')}.`;
+      const success = await notificationService.notifyParents(student.id, msg, 'presence', title);
+      
+      if (success) {
+          alert(`Notification envoyée avec succès aux parents de ${student.nom}.`);
+      }
+    }
   };
 
   if (!user || user.role !== 'professeur') {

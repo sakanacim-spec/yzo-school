@@ -9,12 +9,12 @@ export const notificationService = {
     /**
      * Envoie une notification push aux parents liés à un élève.
      */
-    notifyParents: async (studentId: string, message: string): Promise<boolean> => {
+    notifyParents: async (studentId: string, message: string, type: string = 'general', title?: string): Promise<boolean> => {
         try {
             const res = await fetch(`${API_BASE_URL}/notifications/send`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ studentId, message })
+                body: JSON.stringify({ studentId, message, type, title })
             });
 
             if (res.ok) {
