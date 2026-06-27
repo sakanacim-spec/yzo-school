@@ -1,4 +1,5 @@
 const { supabase } = require('../utils/supabase');
+const { sendPushNotification } = require('../utils/webPush');
 
 /**
  * Récupère les conversations pour l'utilisateur connecté
@@ -133,10 +134,44 @@ async function sendMessage(req, res) {
         if (error) throw error;
 
         // Update conversation
-        await supabase.from(`conversations_${schoolSlug}`).update({
-            last_message: text || 'Photo',
-            updated_at: new Date().toISOString()
-        }).eq('id', convId);
+        const { data: updatedConv } = await supabase.from(`conversations_${schoolSlug}`)
+            .update({
+                last_message: text || 'Photo',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', convId)
+            .select()
+            .single();
+
+        // ─────────────────────────────────────────────
+        // 🔔 NOTIFICATIONS PUSH
+        // ─────────────────────────────────────────────
+        if (updatedConv) {
+            if (role === 'parent') {
+                // Le parent écrit à l'école -> Notifier les admins concernés
+                const targetAdminRole = updatedConv.admin_role === 'comptabilite' ? 'comptable' : 'admin';
+                
+                // Chercher tous les profils ayant ce rôle (on inclut aussi le directeur/DG pour qu'ils soient au courant)
+                const { data: admins } = await supabase
+                    .from(`profiles_${schoolSlug}`)
+                    .select('id, role')
+                    .in('role', [targetAdminRole, 'directeur', 'directeur_general']);
+
+                if (admins && admins.length > 0) {
+                    const title = `Nouveau message (Parent)`;
+                    for (const admin of admins) {
+                        // On évite de s'auto-notifier si jamais (peu probable ici)
+                        if (admin.id !== id) {
+                            sendPushNotification(admin.id, schoolSlug, title, text || 'Nouvelle image', 'message').catch(console.error);
+                        }
+                    }
+                }
+            } else {
+                // L'école écrit au parent -> Notifier le parent
+                const title = `Nouveau message de l'école`;
+                sendPushNotification(updatedConv.parent_id, schoolSlug, title, text || 'Nouvelle image', 'message').catch(console.error);
+            }
+        }
 
         return res.status(201).json(message);
     } catch (err) {

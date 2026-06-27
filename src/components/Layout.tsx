@@ -368,7 +368,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   }, [user?.role, setConnectedParentsCount]);
 
   useEffect(() => {
-    if (user?.role === 'parent') {
+    if (user?.role && user.role !== 'professeur') {
       fetchUnreadMessages();
       const iv = setInterval(fetchUnreadMessages, 30000);
       return () => clearInterval(iv);
