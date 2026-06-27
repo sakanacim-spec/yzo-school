@@ -3,6 +3,7 @@ import { useStore } from '../../store/useStore';
 import { BookOpen, UserCheck, Calendar, CheckCircle2, Clock, XCircle, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { uploadDevoirFile } from '../../services/backendSync';
 
 export const CahierTextes: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'devoirs' | 'appel'>('devoirs');
@@ -38,16 +39,32 @@ export const CahierTextes: React.FC = () => {
 
   // Appel state
   const [appelDate, setAppelDate] = useState(new Date().toISOString().split('T')[0]);
+  const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const classStudents = useMemo(() => students.filter(s => s.classe === selectedClasse).sort((a,b) => a.nom.localeCompare(b.nom)), [students, selectedClasse]);
   
   const myDevoirs = useMemo(() => (devoirs || []).filter(d => d.classe === selectedClasse).sort((a,b) => new Date(b.dateDonnee).getTime() - new Date(a.dateDonnee).getTime()), [devoirs, selectedClasse]);
 
-  const handleAddDevoir = (e: React.FormEvent) => {
+  const handleAddDevoir = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!desc || !selectedClasse || !selectedMatiereId) return;
     const matiere = matieres.find(m => m.id === selectedMatiereId)?.nom || 'Inconnue';
     
+    let fichierUrl = undefined;
+    if (file) {
+      setIsUploading(true);
+      try {
+        fichierUrl = await uploadDevoirFile(file);
+      } catch (err) {
+        console.error("Erreur upload", err);
+        alert("L'envoi du fichier a échoué.");
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
     addDevoir({
       id: crypto.randomUUID(),
       dateDonnee: new Date().toISOString().split('T')[0],
@@ -55,9 +72,11 @@ export const CahierTextes: React.FC = () => {
       matiere,
       description: desc,
       classe: selectedClasse,
-      professeurNom: user?.nom || 'Professeur'
+      professeurNom: user?.nom || 'Professeur',
+      fichierUrl
     });
     setDesc('');
+    setFile(null);
   };
 
   const markPresence = (studentId: string, statut: 'present' | 'absent' | 'retard') => {
@@ -154,8 +173,12 @@ export const CahierTextes: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
                 <textarea rows={4} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex: Exercices 1 à 4 page 45..." className="w-full bg-slate-50 border p-3 rounded-xl dark:bg-slate-900 dark:border-slate-700" required />
               </div>
-              <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex justify-center items-center gap-2">
-                <Plus className="w-5 h-5" /> Publier
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fichier joint (PDF, Image) - Optionnel</label>
+                <input type="file" accept=".pdf,image/*" onChange={e => setFile(e.target.files?.[0] || null)} className="w-full bg-slate-50 border p-2 rounded-xl dark:bg-slate-900 dark:border-slate-700 text-sm" />
+              </div>
+              <button type="submit" disabled={isUploading} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl flex justify-center items-center gap-2">
+                <Plus className="w-5 h-5" /> {isUploading ? 'Envoi en cours...' : 'Publier'}
               </button>
             </form>
           </div>
@@ -171,6 +194,13 @@ export const CahierTextes: React.FC = () => {
                   <button onClick={() => deleteDevoir(d.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
                 <p className="text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap">{d.description}</p>
+                {d.fichierUrl && (
+                  <div className="mt-2">
+                    <a href={d.fichierUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-lg text-sm font-bold transition-colors">
+                      <BookOpen className="w-4 h-4" /> Voir la pièce jointe
+                    </a>
+                  </div>
+                )}
                 <div className="mt-2 text-sm font-bold flex items-center gap-1 text-amber-600">
                   <Calendar className="w-4 h-4" /> \u00c0 rendre pour le {format(new Date(d.dateRendu), 'EEEE dd MMMM yyyy', {locale: fr})}
                 </div>

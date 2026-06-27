@@ -31,15 +31,15 @@ export const ParentDevoirsPresence: React.FC = () => {
   }, [presences, selectedChildId]);
 
   if (!user || user.role !== 'parent') {
-    return <div className="p-8 text-center">Acc\u00e8s r\u00e9serv\u00e9 aux parents.</div>;
+    return <div className="p-8 text-center">Accès réservé aux parents.</div>;
   }
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 dark:text-white">Devoirs & Pr\u00e9sences</h1>
-          <p className="text-slate-500">Suivez le travail \u00e0 la maison et l'assiduit\u00e9 de vos enfants.</p>
+          <h1 className="text-2xl font-black text-slate-800 dark:text-white">Devoirs & Présences</h1>
+          <p className="text-slate-500">Suivez le travail à la maison et l'assiduité de vos enfants.</p>
         </div>
         
         {myChildren.length > 1 && (
@@ -61,14 +61,14 @@ export const ParentDevoirsPresence: React.FC = () => {
           className={`pb-4 px-4 font-bold text-sm transition-colors border-b-2 ${activeTab === 'devoirs' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
         >
           <BookOpen className="w-4 h-4 inline-block mr-2" />
-          Travail \u00e0 faire
+          Travail à faire
         </button>
         <button
           onClick={() => setActiveTab('presence')}
           className={`pb-4 px-4 font-bold text-sm transition-colors border-b-2 ${activeTab === 'presence' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
         >
           <UserCheck className="w-4 h-4 inline-block mr-2" />
-          Assiduit\u00e9 & Retards
+          Assiduité & Retards
         </button>
       </div>
 
@@ -85,10 +85,17 @@ export const ParentDevoirsPresence: React.FC = () => {
                       <span className="text-xs font-bold text-slate-400">Par {d.professeurNom}</span>
                     </div>
                     <p className="text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap leading-relaxed">{d.description}</p>
+                    {d.fichierUrl && (
+                      <div className="mt-3">
+                        <a href={d.fichierUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-lg text-sm font-bold transition-colors">
+                          <BookOpen className="w-4 h-4" /> Télécharger la pièce jointe
+                        </a>
+                      </div>
+                    )}
                   </div>
                   <div className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${isLate ? 'bg-slate-100 text-slate-500' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'}`}>
                     <Calendar className="w-4 h-4" /> 
-                    \u00c0 rendre le {format(new Date(d.dateRendu), 'dd MMM yyyy', {locale: fr})}
+                    À rendre le {format(new Date(d.dateRendu), 'dd MMM yyyy', {locale: fr})}
                   </div>
                 </div>
               </div>
@@ -98,7 +105,7 @@ export const ParentDevoirsPresence: React.FC = () => {
             <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700">
               <CheckCircle2 className="w-12 h-12 text-emerald-300 mx-auto mb-3" />
               <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-1">Aucun devoir</h3>
-              <p className="text-sm text-slate-500">Aucun travail \u00e0 la maison n'est enregistr\u00e9 pour le moment.</p>
+              <p className="text-sm text-slate-500">Aucun travail à la maison n'est enregistré pour le moment.</p>
             </div>
           )}
         </div>
@@ -139,8 +146,8 @@ export const ParentDevoirsPresence: React.FC = () => {
           ) : (
             <div className="text-center py-12">
               <CheckCircle2 className="w-12 h-12 text-emerald-300 mx-auto mb-3" />
-              <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-1">Assiduit\u00e9 parfaite</h3>
-              <p className="text-sm text-slate-500">Aucune absence ni retard enregistr\u00e9 pour cet enfant.</p>
+              <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-1">Assiduité parfaite</h3>
+              <p className="text-sm text-slate-500">Aucune absence ni retard enregistré pour cet enfant.</p>
             </div>
           )}
         </div>

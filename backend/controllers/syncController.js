@@ -200,7 +200,8 @@ async function syncFromFrontend(req, res) {
                 matiere: d.matiere,
                 description: d.description,
                 classe: d.classe,
-                professeur_nom: d.professeurNom
+                professeur_nom: d.professeurNom,
+                fichier_url: d.fichierUrl || null
             }));
             for (let i = 0; i < devoirsData.length; i += CHUNK_SIZE) {
                 const chunk = devoirsData.slice(i, i + CHUNK_SIZE);
@@ -389,6 +390,7 @@ async function syncToFrontend(req, res) {
         const logs = await fetchTable('activity_logs', 'date_heure');
         const links = await fetchTable('parent_student');
         const announcements = await fetchTable('announcements', 'created_at');
+        const dbDevoirs = await fetchTable('devoirs', 'date_donnee');
         const dbMatieres = await fetchTable('matieres');
         const dbClasseMatieres = await fetchTable('classe_matieres');
         const dbNotes = await fetchTable('notes');
@@ -490,6 +492,16 @@ async function syncToFrontend(req, res) {
                 createdAt: a.created_at,
                 date: a.created_at ? a.created_at.split('T')[0] : new Date().toISOString().split('T')[0]
             })),
+            devoirs: dbDevoirs ? dbDevoirs.map(d => ({
+                id: d.id,
+                dateDonnee: d.date_donnee,
+                dateRendu: d.date_rendu,
+                matiere: d.matiere,
+                description: d.description,
+                classe: d.classe,
+                professeurNom: d.professeur_nom,
+                fichierUrl: d.fichier_url
+            })) : [],
             matieres: dbMatieres ? dbMatieres.map(m => ({
                 id: m.id,
                 nom: m.nom,
@@ -614,4 +626,31 @@ async function deleteStudent(req, res) {
     }
 }
 
-module.exports = { syncFromFrontend, syncToFrontend, clearPresences, clearActivityLogs, clearStudents, deleteMatiere, deleteClasseMatiere, deleteNote, deleteStudent };
+async function uploadDevoirFile(req, res) {
+    if (!req.user || !['professeur', 'admin', 'directeur', 'directeur_general'].includes(req.user.role)) {
+        return res.status(403).json({ error: 'Non autorisé à uploader des devoirs.' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier.' });
+    
+    try {
+        const fileName = `${Date.now()}_${req.file.originalname}`;
+        const { data, error } = await supabase.storage
+            .from('devoirs')
+            .upload(fileName, req.file.buffer, {
+                contentType: req.file.mimetype
+            });
+            
+        if (error) throw error;
+        
+        const { data: { publicUrl } } = supabase.storage
+            .from('devoirs')
+            .getPublicUrl(fileName);
+            
+        return res.json({ fichierUrl: publicUrl });
+    } catch (err) {
+        console.error('Erreur upload:', err);
+        return res.status(500).json({ error: err.message });
+    }
+}
+
+module.exports = { syncFromFrontend, syncToFrontend, clearPresences, clearActivityLogs, clearStudents, deleteMatiere, deleteClasseMatiere, deleteNote, deleteStudent, uploadDevoirFile };

@@ -2,8 +2,11 @@
 // ROUTES — Synchronisation
 // ============================================================
 const router = require('express').Router();
+const multer = require('multer');
 const { authenticateToken } = require('../middleware/auth');
-const { syncFromFrontend, syncToFrontend, clearPresences, clearActivityLogs, clearStudents, deleteMatiere, deleteClasseMatiere, deleteNote, deleteStudent } = require('../controllers/syncController');
+const { syncFromFrontend, syncToFrontend, clearPresences, clearActivityLogs, clearStudents, deleteMatiere, deleteClasseMatiere, deleteNote, deleteStudent, uploadDevoirFile } = require('../controllers/syncController');
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Route protégée : seuls les utilisateurs authentifiés (directeur/comptable) peuvent synchroniser
 router.use(authenticateToken);
@@ -18,5 +21,8 @@ router.delete('/matiere/:id', deleteMatiere);
 router.delete('/classe-matiere/:id', deleteClasseMatiere);
 router.delete('/note/:id', deleteNote);
 router.delete('/student/:id', deleteStudent);
+
+// Upload
+router.post('/upload-devoir', upload.single('file'), uploadDevoirFile);
 
 module.exports = router;

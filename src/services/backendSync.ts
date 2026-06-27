@@ -146,3 +146,18 @@ export async function isBackendAvailable() {
         return false;
     }
 }
+
+export async function uploadDevoirFile(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const headers = getAuthHeaders();
+    delete headers['Content-Type'];
+    const response = await fetch(`${BACKEND_URL}/api/sync/upload-devoir`, {
+        method: 'POST',
+        headers,
+        body: formData
+    });
+    if (!response.ok) throw new Error('Erreur upload fichier');
+    const result = await response.json();
+    return result.fichierUrl;
+}

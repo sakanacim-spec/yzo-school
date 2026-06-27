@@ -209,6 +209,7 @@ export interface Devoir {
   description: string;
   classe: string;
   professeurNom?: string;
+  fichierUrl?: string;
 }
 
 // ── Horaires par cycle ───────────────────────────────────
