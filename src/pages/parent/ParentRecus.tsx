@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { parentApi } from '../../services/parentApi';
 import { FileText, Download, Loader2, AlertCircle } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { formatMontant } from '../../utils/helpers';
+import { generatePaymentReceipt } from '../../utils/pdfUtils';
+import { useStore } from '../../store/useStore';
 
 export const ParentRecus: React.FC = () => {
     const [payments, setPayments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const settings = useStore((s) => s.settings);
 
     useEffect(() => {
         const fetchRecus = async () => {
@@ -41,20 +43,11 @@ export const ParentRecus: React.FC = () => {
     }, []);
 
     const downloadReceipt = (payment: any) => {
-        const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.text('Reçu EduFinance', 20, 20);
-        doc.setFontSize(12);
-        doc.text(`Reçu N° : ${payment.recu}`, 20, 40);
-        doc.text(`Date : ${format(new Date(payment.date), 'dd/MM/yyyy')}`, 20, 50);
-        doc.text(`Élève : ${payment.studentName}`, 20, 60);
-        doc.text(`Classe : ${payment.classe}`, 20, 70);
-        doc.text(`Montant payé : ${formatMontant(payment.montant)}`, 20, 80);
-        if (payment.note) {
-            doc.text(`Note : ${payment.note}`, 20, 90);
-        }
-
-        doc.save(`Recu_${payment.recu}.pdf`);
+        const studentObj = {
+            nom: payment.studentName,
+            classe: payment.classe
+        };
+        generatePaymentReceipt(payment, studentObj, settings);
     };
 
     if (loading) {

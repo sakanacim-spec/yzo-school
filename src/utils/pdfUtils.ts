@@ -819,3 +819,77 @@ export const generateGlobalReport = (students: Student[], settings: AppSettings)
   
   doc.save('Rapport_Global.pdf');
 };
+
+export const generatePaymentReceipt = (payment: any, student: any, settings: AppSettings): void => {
+  const doc = new jsPDF({ format: 'a5', orientation: 'landscape' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  let y = drawHeader(doc, settings, 'REÇU DE CAISSE', 12);
+  
+  // Numéro de reçu
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.dark);
+  const recuId = payment.recu || `REC-${new Date(payment.date).getTime().toString().slice(-6)}`;
+  doc.text(`N° ${recuId}`, pageWidth - 20, y - 10, { align: 'right' });
+  
+  // Encadré informations
+  y += 5;
+  drawRoundedRect(doc, 20, y, pageWidth - 40, 60, 3, COLORS.light);
+  
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.dark);
+  
+  // Date
+  doc.text(`Date du paiement :`, 25, y + 10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(new Date(payment.date).toLocaleDateString('fr-FR'), 80, y + 10);
+  
+  // Elève
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Élève :`, 25, y + 20);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${student.prenom || student.studentName || ''} ${student.nom || ''}`.trim(), 80, y + 20);
+  
+  // Classe
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Classe :`, 25, y + 30);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${student.classe}`, 80, y + 30);
+
+  // Motif (Note)
+  if (payment.note) {
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Motif :`, 25, y + 40);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${payment.note}`, 80, y + 40);
+  }
+  
+  // Montant (Highlight)
+  doc.setFillColor(...COLORS.primary);
+  doc.rect(25, y + 45, pageWidth - 50, 10, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text('MONTANT PAYÉ :', 30, y + 52);
+  doc.setFont('helvetica', 'bold');
+  doc.text(formatMoney(payment.montant, settings.currency), 80, y + 52);
+  
+  // Signatures
+  doc.setTextColor(...COLORS.dark);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Signature de la caisse', pageWidth - 70, pageHeight - 20);
+  
+  if (settings.schoolStamp) {
+    try {
+      doc.addImage(settings.schoolStamp, 'PNG', pageWidth - 70, pageHeight - 40, 30, 30);
+    } catch (e) {
+      console.warn('Erreur lors de l\'ajout du cachet', e);
+    }
+  }
+  
+  doc.save(`Recu_${recuId}.pdf`);
+};

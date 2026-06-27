@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { Student, Payment, User } from '../types';
-import { CreditCard, Plus, X, Check, Search, Clock, ChevronDown, ChevronUp, Loader2, Wallet, ArrowUpRight, TrendingDown, AlertCircle } from 'lucide-react';
+import { CreditCard, Plus, X, Check, Search, Clock, ChevronDown, ChevronUp, Loader2, Wallet, ArrowUpRight, TrendingDown, AlertCircle, Download } from 'lucide-react';
 
 import { API_BASE_URL } from '../config';
 import { parseResponse, getAuthHeaders } from '../services/apiHelpers';
 import { getCycle } from '../data/classConfig';
 import { formatMontant } from '../utils/helpers';
+import { generatePaymentReceipt } from '../utils/pdfUtils';
+import { notificationService } from '../services/notificationService';
 
 const computeStatus = (restant: number, ecolage: number): 'Soldé' | 'Partiel' | 'Non soldé' => {
   if (restant <= 0) return 'Soldé';
@@ -27,12 +29,18 @@ const PaymentModal: React.FC<{ student: Student; onClose: () => void }> = ({ stu
 
   const maxPay = student.restant;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const montant = Number(form.montant);
     if (!montant || montant <= 0) { setError('Montant invalide.'); return; }
     if (montant > maxPay) { setError(`Le montant dépasse le restant (${formatMontant(maxPay, currency)}).`); return; }
     addPayment(student.id, { montant, recu: form.recu, note: form.note, date: form.date });
+
+    if (student.parentId) {
+      const msg = `Nous avons bien reçu votre paiement de ${formatMontant(montant, currency)} pour ${student.prenom} ${student.nom}.`;
+      await notificationService.notifyParents(student.id, msg, 'payment', 'Paiement enregistré');
+    }
+
     onClose();
   };
 
@@ -144,7 +152,8 @@ const StudentPaymentRow: React.FC<{ student: Student; onPay: (s: Student) => voi
 
   const [open, setOpen] = useState(false);
   const currency = useStore((s) => s.currency);
-  const taux = Math.round((student.dejaPaye / student.ecolage) * 100);
+  const taux = student.ecolage > 0 ? Math.round(((student.ecolage - student.restant) / student.ecolage) * 100) : 0;
+  const settings = useStore((s) => s.settings);
 
   return (
     <div className="group border border-slate-100 dark:border-slate-800/60 rounded-[1.5rem] overflow-hidden bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:border-slate-200 dark:hover:border-slate-700">
@@ -219,6 +228,13 @@ const StudentPaymentRow: React.FC<{ student: Student; onPay: (s: Student) => voi
                     {p.recu && <span className="text-[10px] font-black bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md uppercase tracking-widest shrink-0">Reçu {p.recu}</span>}
                     {p.note && <span className="text-sm font-medium text-slate-500 dark:text-slate-400 truncate">{p.note}</span>}
                   </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); generatePaymentReceipt(p, student, settings); }}
+                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors ml-auto"
+                    title="Télécharger le reçu"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
                 </div>
               ))}
             </div>
