@@ -202,7 +202,7 @@ export const CahierTextes: React.FC = () => {
                   </div>
                 )}
                 <div className="mt-2 text-sm font-bold flex items-center gap-1 text-amber-600">
-                  <Calendar className="w-4 h-4" /> \u00c0 rendre pour le {format(new Date(d.dateRendu), 'EEEE dd MMMM yyyy', {locale: fr})}
+                  <Calendar className="w-4 h-4" /> À rendre pour le {format(new Date(d.dateRendu), 'EEEE dd MMMM yyyy', {locale: fr})}
                 </div>
               </div>
             ))}
