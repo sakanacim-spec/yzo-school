@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Phone, MessageSquare, Send, Users, AlertCircle, Filter, CheckCircle2 } from 'lucide-react';
+import { Phone, MessageSquare, Send, Users, AlertCircle, Filter, CheckCircle2, BellRing } from 'lucide-react';
 import { formatMontant, generateWhatsAppLink, sendBulkSMS } from '../utils/helpers';
+import { notificationService } from '../services/notificationService';
 import { Student } from '../types';
 
 export const Communication: React.FC = () => {
@@ -66,6 +67,36 @@ export const Communication: React.FC = () => {
 
         const result = await sendBulkSMS(recipients);
         setSendResult(result);
+        setIsSending(false);
+    };
+
+    const handleSendPush = async () => {
+        if (filteredStudents.length === 0) return alert("Aucun destinataire sélectionné.");
+        if (!window.confirm(`Êtes-vous sûr de vouloir envoyer une Notification Push à ${filteredStudents.length} parents ?\n(Cette action est 100% gratuite)`)) return;
+
+        setIsSending(true);
+        setSendResult(null);
+
+        let sentCount = 0;
+        let failCount = 0;
+
+        for (const student of filteredStudents) {
+            const message = buildMessage(student);
+            const success = await notificationService.notifyParents(
+                student.id,
+                message,
+                'general',
+                activeTab === 'impayes' ? '🚨 Relance de Paiement' : '📢 Message de l\'École'
+            );
+            if (success) sentCount++;
+            else failCount++;
+        }
+
+        setSendResult({
+            success: sentCount > 0,
+            count: sentCount,
+            error: failCount > 0 ? `${failCount} push ont échoué (parents non connectés).` : undefined
+        });
         setIsSending(false);
     };
 
@@ -155,45 +186,59 @@ export const Communication: React.FC = () => {
                         <p className="text-xs text-slate-500 mt-2">
                             Aperçu : {messageTemplate.length} caractères (env. {Math.ceil(messageTemplate.length / 160)} SMS/destinataire).
                         </p>
-                    </div>
-
-                    {/* Boutons d'envoi */}
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <button
-                            onClick={handleSendSMS}
-                            disabled={isSending || filteredStudents.length === 0}
-                            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(79,70,229,0.3)]"
-                        >
-                            {isSending ? (
-                                <span className="animate-pulse">Envoi en cours...</span>
-                            ) : (
-                                <>
-                                    <Send className="w-5 h-5" />
-                                    Envoyer par SMS ({filteredStudents.length})
-                                </>
-                            )}
-                        </button>
-                        
-                        <button
-                            onClick={handleSendWhatsApp}
-                            disabled={filteredStudents.length === 0}
-                            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-emerald-500 text-white rounded-2xl font-bold hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                        >
-                            <Phone className="w-5 h-5" />
-                            WhatsApp
-                        </button>
-                    </div>
-
-                    {/* Resultats d'envoi */}
-                    {sendResult && (
-                        <div className={`p-4 rounded-xl flex items-center gap-3 ${sendResult.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-                            {sendResult.success ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-                            <div>
-                                <p className="font-bold">{sendResult.success ? 'Envoi réussi !' : 'Erreur lors de l\'envoi'}</p>
-                                <p className="text-sm">{sendResult.success ? `${sendResult.count} SMS ont été envoyés aux parents.` : sendResult.error}</p>
-                            </div>
+                    
+                        {/* Boutons d'envoi */}
+                        <div className="flex flex-col sm:flex-row gap-4 mt-6">
+                            <button
+                                onClick={handleSendPush}
+                                disabled={isSending || filteredStudents.length === 0}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-2xl font-bold hover:from-amber-600 hover:to-amber-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                            >
+                                {isSending ? (
+                                    <span className="animate-pulse">Envoi en cours...</span>
+                                ) : (
+                                    <>
+                                        <BellRing className="w-5 h-5" />
+                                        Push ({filteredStudents.length}) - Gratuit
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleSendSMS}
+                                disabled={isSending || filteredStudents.length === 0}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(79,70,229,0.3)]"
+                            >
+                                {isSending ? (
+                                    <span className="animate-pulse">Envoi en cours...</span>
+                                ) : (
+                                    <>
+                                        <Send className="w-5 h-5" />
+                                        SMS ({filteredStudents.length})
+                                    </>
+                                )}
+                            </button>
+                            
+                            <button
+                                onClick={handleSendWhatsApp}
+                                disabled={filteredStudents.length === 0}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-4 bg-emerald-500 text-white rounded-2xl font-bold hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                            >
+                                <Phone className="w-5 h-5" />
+                                WhatsApp
+                            </button>
                         </div>
-                    )}
+
+                        {/* Resultats d'envoi */}
+                        {sendResult && (
+                            <div className={`mt-6 p-4 rounded-xl flex items-center gap-3 ${sendResult.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                                {sendResult.success ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+                                <div>
+                                    <p className="font-bold">{sendResult.success ? 'Envoi réussi !' : 'Erreur lors de l\'envoi'}</p>
+                                    <p className="text-sm">{sendResult.success ? `${sendResult.count} messages ont été envoyés avec succès. ${sendResult.error || ''}` : sendResult.error}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Colonne Droite : Liste des destinataires */}
