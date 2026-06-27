@@ -5,6 +5,7 @@ import { getTranslations } from '../i18n';
 import { useStore } from '../store/useStore';
 
 interface ParentRegisterProps {
+    schools?: { slug: string; name: string; logo_url: string }[];
     onBack: () => void;
     onSuccess: (parentData: any) => void;
 }
@@ -26,7 +27,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
         setError('');
         
         if (!acceptedTerms) {
-            setError(T.register?.acceptTerms || "Veuillez accepter les conditions d'utilisation.");
+            setError((T.register as any)?.acceptTerms || "Veuillez accepter les conditions d'utilisation.");
             return;
         }
 
@@ -44,7 +45,8 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
             });
             onSuccess(data);
         } catch (err: any) {
-            setError(err.error || err.message || T.register?.error || "Erreur lors de l'inscription.");
+            console.error('Registration error:', err);
+            setError(err.message || (T.register as any)?.error || "Une erreur s'est produite lors de la création de votre compte.");
         } finally {
             setLoading(false);
         }

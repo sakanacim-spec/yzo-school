@@ -106,6 +106,7 @@ const ROLE_ACTIONS: Record<Role, ActionType[]> = {
         'voir_historique'
     ],
     censeur: [],
+    professeur: [],
     parent: [],
     secretaire: [
         'ajouter_eleve', 'modifier_eleve', 'ajouter_paiement', 'generer_recu', 'scan_presence'

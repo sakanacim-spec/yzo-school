@@ -3,7 +3,7 @@
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle } from '../types';
+import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir } from '../types';
 import { API_BASE_URL } from '../config';
 import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
@@ -96,6 +96,8 @@ export interface AppState {
     messageRappel?: string,
     tranches?: any[],
     classes?: ClassConfig[],
+    cycleSchedules?: CycleSchedule[],
+    schoolCountry?: string | null,
     schoolAddress?: string | null,
     schoolPhone?: string | null,
     schoolSlogan?: string | null,

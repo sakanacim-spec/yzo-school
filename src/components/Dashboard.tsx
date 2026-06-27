@@ -31,7 +31,7 @@ export const Dashboard = () => {
     { name: 'Primaire', value: stats.totalPrimaire, color: '#22c55e' },
     { name: 'Collège', value: stats.totalCollege, color: '#3b82f6' },
     { name: 'Lycée', value: stats.totalLycee, color: '#1e3a5f' }
-  ].filter(d => d.value > 0);
+  ].filter(d => (d.value || 0) > 0);
 
   const statusData = [
     { name: 'Soldés', value: stats.elevesSoldes, color: '#22c55e' },

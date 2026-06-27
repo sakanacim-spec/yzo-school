@@ -105,6 +105,8 @@ export interface AppSettings extends AdminSettings {
   schoolSlogan?: string; // Slogan de l'école
   schoolMinistry?: string; // Ministère de tutelle
   schoolCountry?: string; // Pays de provenance
+  schoolLogo?: string | null;
+  schoolStamp?: string | null;
   academicYear?: string; // Utilisé dans pdfUtils.ts
   
   // Paramètres de personnalisation des bulletins
@@ -116,6 +118,7 @@ export interface AppSettings extends AdminSettings {
 
   tranches?: Tranche[];
   classes?: ClassConfig[]; // Configuration personnalisée des classes et écolages
+  cycleSchedules?: CycleSchedule[]; // Horaires
 }
 
 export interface GlobalStats {
@@ -129,6 +132,9 @@ export interface GlobalStats {
 
 export interface DashboardStats {
   totalEleves: number;
+  totalPrimaire?: number;
+  totalCollege?: number;
+  totalLycee?: number;
   totalEcolageAttendu: number;
   totalDejaPaye: number;
   totalRestant: number;
@@ -161,6 +167,8 @@ export interface User {
   schoolCountry?: string; // code pays de l'école
   schoolAddress?: string;
   schoolPhone?: string;
+  schoolSlogan?: string;
+  schoolMinistry?: string;
 }
 
 // ── École (Multi-Tenant) ─────────────────────────────────
@@ -174,7 +182,8 @@ export interface School {
   email?: string;
   trial_ends_at: string;   // ISO date
   status: 'active' | 'suspended' | 'trial';
-  created_at: string;
+  country?: string;
+  city?: string;
   student_count?: number;  // calculé côté serveur
   revenue?: number;        // 2000 FCFA/élève
 }

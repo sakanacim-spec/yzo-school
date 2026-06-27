@@ -98,9 +98,10 @@ export const importFromExcel = async (file: File): Promise<Student[]> => {
               status,
               historiquesPaiements: dejaPaye > 0 ? [{
                 id: 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                  var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                  const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
                   return v.toString(16);
                 }),
+                studentId,
                 date: new Date().toISOString(),
                 montant: dejaPaye,
                 note: "Versement initial importé",
