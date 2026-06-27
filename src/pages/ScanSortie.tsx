@@ -131,8 +131,8 @@ export const ScanSortie: React.FC = () => {
                 `Sortie enregistrée : ${student.prenom} ${student.nom} (${student.classe}) le ${dateAffichage} à ${heure}`
             ));
 
-            const msg = `🏫 Sortie validée : ${student.prenom} ${student.nom} a quitté l'établissement le ${dateAffichage} à ${heure}.`;
-            notificationService.notifyParents(student.id, msg);
+            const msg = `🚪 Alerte Sortie : ${student.prenom} ${student.nom} a quitté l'établissement à ${heure}.`;
+            notificationService.notifyParents(student.id, msg, 'presence', 'Alerte Sortie');
         } else {
             playErrorSound();
             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);

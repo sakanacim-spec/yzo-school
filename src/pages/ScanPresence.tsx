@@ -149,8 +149,14 @@ export const ScanPresence: React.FC = () => {
             ));
 
             // Notification Push instantanée aux parents
-            const msg = `✅ Présence validée : ${student.prenom} ${student.nom} est arrivé(e) à l'école le ${dateAffichage} à ${heure}.`;
-            notificationService.notifyParents(student.id, msg);
+            const isRetard = presence.statut === 'retard';
+            if (isRetard) {
+                const msg = `⚠️ Alerte Retard : ${student.prenom} ${student.nom} est arrivé(e) en retard à ${heure}.`;
+                notificationService.notifyParents(student.id, msg, 'presence', 'Alerte Retard');
+            } else {
+                const msg = `✅ Présence validée : ${student.prenom} ${student.nom} est arrivé(e) à l'école à ${heure}.`;
+                notificationService.notifyParents(student.id, msg, 'presence', 'Alerte Présence');
+            }
         } else {
             // Son d'erreur (buzzer) si déjà présent
             playErrorSound();
