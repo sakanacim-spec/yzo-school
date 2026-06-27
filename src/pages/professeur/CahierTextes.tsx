@@ -19,8 +19,14 @@ export const CahierTextes: React.FC = () => {
   const classeMatieres = useStore(s => s.classeMatieres) || [];
   
   const myAssignations = useMemo(() => {
-    if (!user || !user.nom) return [];
-    return classeMatieres.filter(cm => cm.professeur.toLowerCase() === user.nom.toLowerCase());
+    if (!user) return [];
+    const userName = (user.nom || '').trim().toLowerCase();
+    const userUsername = (user.username || '').trim().toLowerCase();
+    
+    return classeMatieres.filter((cm) => {
+        const profName = (cm.professeur || '').trim().toLowerCase();
+        return profName === userName || profName === userUsername;
+    });
   }, [classeMatieres, user]);
 
   const [selectedClasse, setSelectedClasse] = useState(myAssignations[0]?.classe || '');
@@ -83,6 +89,13 @@ export const CahierTextes: React.FC = () => {
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+      {myAssignations.length === 0 && (
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl mb-6">
+          <h3 className="font-bold text-amber-800">Aucune classe assignée</h3>
+          <p className="text-amber-700 text-sm">Veuillez demander à l'administration de vous assigner des matières et des classes depuis le menu "Académique".</p>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
         <div>
           <h1 className="text-2xl font-black text-slate-800 dark:text-white">Cahier de Textes & Pr\u00e9sences</h1>

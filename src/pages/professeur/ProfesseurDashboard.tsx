@@ -5,12 +5,16 @@ import { BookOpen, Users, GraduationCap, Edit3 } from 'lucide-react';
 export const ProfesseurDashboard: React.FC = () => {
     const { user, students, classeMatieres, matieres, setCurrentPage } = useStore();
 
-    // Trouver les assignations pour ce professeur (le nom du professeur doit correspondre à user.nom)
+    // Trouver les assignations pour ce professeur
     const myAssignations = useMemo(() => {
-        if (!user || !user.nom) return [];
-        return classeMatieres.filter(
-            (cm) => cm.professeur.toLowerCase() === user.nom.toLowerCase()
-        );
+        if (!user) return [];
+        const userName = (user.nom || '').trim().toLowerCase();
+        const userUsername = (user.username || '').trim().toLowerCase();
+        
+        return classeMatieres.filter((cm) => {
+            const profName = (cm.professeur || '').trim().toLowerCase();
+            return profName === userName || profName === userUsername;
+        });
     }, [classeMatieres, user]);
 
     // Calculer le nombre total de classes uniques
@@ -137,8 +141,7 @@ export const ProfesseurDashboard: React.FC = () => {
                             
                             <button 
                                 onClick={handleSaisieNotes}
-                                disabled={myAssignations.length === 0}
-                                className="w-full py-4 bg-white text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                                className="w-full py-4 bg-white text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors shadow-lg"
                             >
                                 Saisir les notes
                             </button>
@@ -160,8 +163,7 @@ export const ProfesseurDashboard: React.FC = () => {
                             
                             <button 
                                 onClick={() => setCurrentPage('cahier_textes')}
-                                disabled={myAssignations.length === 0}
-                                className="w-full py-4 bg-white text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                                className="w-full py-4 bg-white text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-colors shadow-lg"
                             >
                                 Ouvrir le cahier
                             </button>

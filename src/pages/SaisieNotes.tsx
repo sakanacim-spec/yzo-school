@@ -15,9 +15,15 @@ export const SaisieNotes: React.FC = () => {
     const periods: PeriodeType[] = ['TRIMESTRE 1', 'TRIMESTRE 2', 'TRIMESTRE 3', 'SEMESTRE 1', 'SEMESTRE 2'];
     
     const classesList = useMemo(() => {
-        if (user?.role === 'professeur' && user?.nom) {
+        if (user?.role === 'professeur') {
+            const userName = (user.nom || '').trim().toLowerCase();
+            const userUsername = (user.username || '').trim().toLowerCase();
+
             const assignedClasses = classeMatieres
-                .filter(cm => cm.professeur.toLowerCase() === user.nom.toLowerCase())
+                .filter(cm => {
+                    const profName = (cm.professeur || '').trim().toLowerCase();
+                    return profName === userName || profName === userUsername;
+                })
                 .map(cm => cm.classe);
             return Array.from(new Set(assignedClasses)).sort();
         }
