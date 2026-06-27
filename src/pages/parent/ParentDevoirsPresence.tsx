@@ -1,8 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { BookOpen, UserCheck, Calendar, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+
+const safeFormatDate = (dateStr: string | undefined, fmt: string) => {
+  if (!dateStr) return 'Date non précisée';
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt, { locale: fr }) : 'Date invalide';
+};
 
 export const ParentDevoirsPresence: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'devoirs' | 'presence'>('devoirs');
@@ -75,7 +81,8 @@ export const ParentDevoirsPresence: React.FC = () => {
       {activeTab === 'devoirs' && (
         <div className="space-y-4">
           {childDevoirs.map(d => {
-            const isLate = new Date(d.dateRendu) < new Date(new Date().toISOString().split('T')[0]);
+            const dateObj = d.dateRendu ? new Date(d.dateRendu) : null;
+            const isLate = dateObj && isValid(dateObj) ? dateObj < new Date(new Date().toISOString().split('T')[0]) : false;
             return (
               <div key={d.id} className="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -95,7 +102,7 @@ export const ParentDevoirsPresence: React.FC = () => {
                   </div>
                   <div className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${isLate ? 'bg-slate-100 text-slate-500' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'}`}>
                     <Calendar className="w-4 h-4" /> 
-                    À rendre le {format(new Date(d.dateRendu), 'dd MMM yyyy', {locale: fr})}
+                    À rendre le {safeFormatDate(d.dateRendu, 'dd MMM yyyy')}
                   </div>
                 </div>
               </div>
@@ -125,7 +132,7 @@ export const ParentDevoirsPresence: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {childPresences.map(p => (
                   <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
-                    <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">{format(new Date(p.date), 'EEEE dd MMMM', {locale: fr})}</td>
+                    <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">{safeFormatDate(p.date, 'EEEE dd MMMM')}</td>
                     <td className="px-6 py-4 text-slate-500 font-medium">{p.heure.slice(0, 5)}</td>
                     <td className="px-6 py-4">
                       <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${

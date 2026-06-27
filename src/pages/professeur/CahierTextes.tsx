@@ -1,9 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { BookOpen, UserCheck, Calendar, CheckCircle2, Clock, XCircle, Plus, Trash2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { uploadDevoirFile } from '../../services/backendSync';
+
+const safeFormatDate = (dateStr: string | undefined, fmt: string) => {
+  if (!dateStr) return 'Date non précisée';
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt, { locale: fr }) : 'Date invalide';
+};
 
 export const CahierTextes: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'devoirs' | 'appel'>('devoirs');
@@ -189,7 +195,7 @@ export const CahierTextes: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
                     <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-black">{d.matiere}</span>
-                    <span className="text-xs font-bold text-slate-400">Donné le {format(new Date(d.dateDonnee), 'dd MMM yyyy', {locale: fr})}</span>
+                    <span className="text-xs font-bold text-slate-400">Donné le {safeFormatDate(d.dateDonnee, 'dd MMM yyyy')}</span>
                   </div>
                   <button onClick={() => deleteDevoir(d.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
@@ -202,7 +208,7 @@ export const CahierTextes: React.FC = () => {
                   </div>
                 )}
                 <div className="mt-2 text-sm font-bold flex items-center gap-1 text-amber-600">
-                  <Calendar className="w-4 h-4" /> À rendre pour le {format(new Date(d.dateRendu), 'EEEE dd MMMM yyyy', {locale: fr})}
+                  <Calendar className="w-4 h-4" /> À rendre pour le {safeFormatDate(d.dateRendu, 'EEEE dd MMMM yyyy')}
                 </div>
               </div>
             ))}
