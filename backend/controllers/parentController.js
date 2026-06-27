@@ -410,6 +410,48 @@ async function getParentData(req, res) {
             }));
         }
 
+        // 6.5 Devoirs et Présences
+        let devoirs = [];
+        let presences = [];
+        
+        if (studentIds.length > 0) {
+            // Get classes of children
+            const classesOfChildren = [...new Set(students.map(s => s.classe).filter(Boolean))];
+            
+            if (classesOfChildren.length > 0) {
+                const { data: dbDevoirs } = await supabase
+                    .from(`devoirs_${schoolSlug}`)
+                    .select('*')
+                    .in('classe', classesOfChildren);
+                    
+                devoirs = (dbDevoirs || []).map(d => ({
+                    id: d.id,
+                    dateDonnee: d.date_donnee,
+                    dateRendu: d.date_rendu,
+                    matiere: d.matiere,
+                    description: d.description,
+                    classe: d.classe,
+                    professeurNom: d.professeur_nom,
+                    fichierUrl: d.fichier_url || null
+                }));
+            }
+            
+            const { data: dbPresences } = await supabase
+                .from(`presences_${schoolSlug}`)
+                .select('*')
+                .in('student_id', studentIds);
+                
+            presences = (dbPresences || []).map(p => ({
+                id: p.id,
+                studentId: p.student_id,
+                date: p.date,
+                status: p.status,
+                motif: p.motif,
+                type: p.type
+            }));
+        }
+
+
         // 7. Badges
         let badges = [];
         try {
@@ -456,7 +498,9 @@ async function getParentData(req, res) {
             notes,
             matieres,
             classeMatieres,
-            badges
+            badges,
+            devoirs,
+            presences
         });
     } catch (err) {
         console.error('[getParentData] Error:', err.message);

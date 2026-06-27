@@ -79,7 +79,6 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         <div className="flex-1 flex justify-center gap-8 items-start px-2">
                              {/* 2. BLOC MINISTÈRE (Centre-Gauche) */}
                             <div className="flex-1 flex flex-col items-center text-center space-y-1.5">
-                                <p className="font-bold uppercase text-[11px] tracking-widest leading-none">{country}</p>
                                 <div className="w-12 border-t border-black my-1"></div>
                                 {ministry.split('\n').map((line, idx) => (
                                     <p key={idx} className={`${idx === 0 ? 'font-black uppercase text-[11.5px]' : 'font-bold uppercase text-[10px]'} leading-tight`}>

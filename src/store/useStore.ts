@@ -1057,6 +1057,8 @@ export const useStore = create<AppState>()(
             }
             if (Array.isArray(data.matieres)) set({ matieres: data.matieres });
             if (Array.isArray(data.classeMatieres)) set({ classeMatieres: data.classeMatieres });
+            if (Array.isArray(data.devoirs)) set({ devoirs: data.devoirs });
+            if (Array.isArray(data.presences)) set({ presences: data.presences });
             
             // 🏅 Badges
             if (Array.isArray(data.badges)) {
