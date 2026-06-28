@@ -436,8 +436,13 @@ async function syncToFrontend(req, res) {
         const dbExpenses = await fetchTable('expenses', 'date');
         const dbResources = await fetchTable('resources', 'created_at');
         const dbPayrolls = await fetchTable('payrolls', 'mois');
-        const dbPersonnels = await fetchTable('personnels', 'nom');
         
+        // Fetch personnels from profiles table (staff only)
+        const { data: dbPersonnels } = await supabase
+            .from(tbl('profiles'))
+            .select('id, nom, telephone, role')
+            .in('role', ['admin', 'directeur', 'superviseur', 'surveillant', 'comptable', 'censeur', 'secretaire', 'professeur'])
+            .order('nom');
         const { data: appSettings, error: settingsError } = await supabase.from(tbl('app_settings')).select('*').single();
         
         // Fetch school identity from the schools table (source of truth for address, phone, slogan, ministry)
@@ -574,6 +579,17 @@ async function syncToFrontend(req, res) {
                 parentId: r.parent_id,
                 readAt: r.read_at,
                 remindAt: r.remind_at || null
+            })),
+            seances: dbSeances || [],
+            expenses: dbExpenses || [],
+            resources: dbResources || [],
+            payrolls: dbPayrolls || [],
+            personnels: (dbPersonnels || []).map(p => ({
+                id: p.id,
+                nom: p.nom,
+                prenom: '', // profiles table currently only holds 'nom'
+                role: p.role,
+                telephone: p.telephone
             }))
         });
 

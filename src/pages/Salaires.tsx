@@ -23,10 +23,11 @@ export const Salaires: React.FC = () => {
         return payrolls.find(p => p.personnelId === personnelId && p.mois === month);
     };
 
-    const handleGeneratePayroll = (personnelId: string, baseSalary: number) => {
-        // En réalité, le baseSalary viendrait du contrat du personnel, 
-        // mais pour l'instant on utilise une valeur par défaut ou on demande à l'admin.
-        const salaireBase = baseSalary || 150000; 
+    const handleGeneratePayroll = (personnelId: string) => {
+        const salaireSaisi = window.prompt("Saisissez le salaire de base pour ce mois (en FCFA) :", "150000");
+        if (salaireSaisi === null) return; // Annulé
+
+        const salaireBase = parseFloat(salaireSaisi.replace(/\s+/g, '')) || 150000; 
 
         const newPayroll: Payroll = {
             id: uuid(),
@@ -136,7 +137,7 @@ export const Salaires: React.FC = () => {
                                             <td className="p-4 text-right">
                                                 {!payroll ? (
                                                     <button
-                                                        onClick={() => handleGeneratePayroll(personnel.id, 150000)}
+                                                        onClick={() => handleGeneratePayroll(personnel.id)}
                                                         className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors"
                                                     >
                                                         <FileText className="w-4 h-4" /> Générer fiche
