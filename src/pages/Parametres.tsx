@@ -536,7 +536,7 @@ export const Parametres: React.FC = () => {
                                     value={t.nom}
                                     onChange={(e) => {
                                         const updated = [...localTranches];
-                                        updated[idx].nom = e.value;
+                                        updated[idx].nom = e.target.value;
                                         setLocalTranches(updated);
                                     }}
                                     placeholder="Nom (ex: Tranche 1)"
@@ -841,7 +841,7 @@ export const Parametres: React.FC = () => {
             )}
             
             {/* 💳 PASSERELLES DE PAIEMENT (Réservé Directeur Général / Admin) */}
-            {isDirector && (
+            {(user?.role === 'directeur_general' || user?.role === 'directeur' || user?.role === 'admin') && (
               <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800">
                 <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3 mb-6">
                   <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">

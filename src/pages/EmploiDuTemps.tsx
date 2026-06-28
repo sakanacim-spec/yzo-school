@@ -54,7 +54,7 @@ export const EmploiDuTemps: React.FC = () => {
     const handleSaveSeance = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedClasse || !selectedAssignation || !form.jour || !form.heureDebut || !form.heureFin) {
-            notificationService.error("Veuillez remplir tous les champs obligatoires.");
+            alert("Veuillez remplir tous les champs obligatoires.");
             return;
         }
 
@@ -76,13 +76,13 @@ export const EmploiDuTemps: React.FC = () => {
         addSeance(newSeance);
         setIsModalOpen(false);
         playSuccessSound();
-        notificationService.success("Séance ajoutée avec succès !");
+        alert("Séance ajoutée avec succès !");
     };
 
     const handleDelete = (id: string) => {
         if (window.confirm("Voulez-vous vraiment supprimer cette séance ?")) {
             deleteSeance(id);
-            notificationService.success("Séance supprimée.");
+            alert("Séance supprimée.");
         }
     };
 

@@ -7,7 +7,8 @@ import {
   LayoutDashboard, Users, CreditCard, Settings, FileText, 
   ScanLine, IdCard, ShieldCheck, Activity, Database, Megaphone, Calendar, Wallet,
   LogOut, Menu, X, CheckCircle2, MessageCircle, BookOpen, Edit3, UserCheck, FileSpreadsheet, BarChart3, Target, GraduationCap, Medal,
-  Bell, ChevronRight, ChevronLeft, MessageSquare, PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield, Languages, Smartphone
+  Bell, ChevronRight, ChevronLeft, MessageSquare, PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield, Languages, Smartphone, Award,
+  Moon, Sun
 } from 'lucide-react';
 
 import { SupportModal } from './SupportModal';

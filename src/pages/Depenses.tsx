@@ -31,7 +31,7 @@ export const Depenses: React.FC = () => {
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
         if (!form.titre || !form.montant || !form.categorie || !form.date) {
-            notificationService.error("Veuillez remplir les champs obligatoires.");
+            alert("Veuillez remplir les champs obligatoires.");
             return;
         }
 
@@ -50,14 +50,14 @@ export const Depenses: React.FC = () => {
         addExpense(newExpense);
         setIsModalOpen(false);
         playSuccessSound();
-        notificationService.success("Dépense enregistrée avec succès.");
+        alert("Dépense enregistrée avec succès.");
         setForm({ ...form, titre: '', montant: 0, beneficiaire: '', reference: '', commentaire: '' });
     };
 
     const handleDelete = (id: string) => {
         if (window.confirm("Êtes-vous sûr de vouloir supprimer cette dépense ? Cette action impactera le bilan financier.")) {
             deleteExpense(id);
-            notificationService.success("Dépense supprimée.");
+            alert("Dépense supprimée.");
         }
     };
 

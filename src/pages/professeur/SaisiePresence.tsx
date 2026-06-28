@@ -101,7 +101,7 @@ export const SaisiePresence: React.FC = () => {
         
         // Notifications
         playSuccessSound();
-        notificationService.success(`L'appel pour la classe ${selectedClasse} a été enregistré avec succès !`);
+        alert(`L'appel pour la classe ${selectedClasse} a été enregistré avec succès !`);
 
         // TODO: Déclencher des SMS ou Push WhatsApp aux parents des élèves marqués "absent" si nécessaire.
 
