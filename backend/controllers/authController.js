@@ -240,11 +240,29 @@ async function registerSchool(req, res) {
             role: 'directeur'
         };
 
-        const { data: adminUser, error: adminErr } = await supabase
-            .from(`profiles_${cleanSlug}`)
-            .insert(adminPayload)
-            .select()
-            .single();
+        let adminUser = null;
+        let adminErr = null;
+
+        // Boucle de réessai pour laisser le temps au cache PostgREST de se rafraîchir
+        for (let i = 0; i < 5; i++) {
+            const { data, error } = await supabase
+                .from(`profiles_${cleanSlug}`)
+                .insert(adminPayload)
+                .select()
+                .single();
+
+            if (!error) {
+                adminUser = data;
+                adminErr = null;
+                break;
+            } else if (error.message && error.message.includes('schema cache')) {
+                adminErr = error;
+                await new Promise(r => setTimeout(r, 1500)); // Attendre 1.5s supplémentaires
+            } else {
+                adminErr = error;
+                break;
+            }
+        }
 
         if (adminErr) throw adminErr;
 
