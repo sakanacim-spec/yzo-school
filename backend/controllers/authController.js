@@ -244,7 +244,7 @@ async function registerSchool(req, res) {
         let adminErr = null;
 
         // Boucle de réessai pour laisser le temps au cache PostgREST de se rafraîchir
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 10; i++) {
             const { data, error } = await supabase
                 .from(`profiles_${cleanSlug}`)
                 .insert(adminPayload)
@@ -255,12 +255,12 @@ async function registerSchool(req, res) {
                 adminUser = data;
                 adminErr = null;
                 break;
-            } else if (error.message && error.message.includes('schema cache')) {
-                adminErr = error;
-                await new Promise(r => setTimeout(r, 1500)); // Attendre 1.5s supplémentaires
             } else {
                 adminErr = error;
-                break;
+                console.warn(`Tentative ${i + 1}/10 échouée pour l'insertion du directeur :`, error.message || error);
+                if (i < 9) {
+                    await new Promise(r => setTimeout(r, 1500)); // Attendre 1.5s supplémentaires
+                }
             }
         }
 
