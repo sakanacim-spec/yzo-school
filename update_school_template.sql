@@ -1,10 +1,18 @@
-CREATE OR REPLACE FUNCTION create_school_tables(school_slug text)
-RETURNS void
+CREATE OR REPLACE FUNCTION create_school_tables(
+    school_slug text,
+    admin_nom text DEFAULT NULL,
+    admin_telephone text DEFAULT NULL,
+    admin_password text DEFAULT NULL
+)
+RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+    admin_id uuid;
+    result json;
 BEGIN
-    -- 1. Table Profiles (Utilisateurs / Parents / Profs / Direction)
+    -- 1. Table Profiles
     EXECUTE 'CREATE TABLE IF NOT EXISTS "profiles_' || school_slug || '" (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         nom text NOT NULL,
@@ -29,7 +37,7 @@ BEGIN
         updated_at timestamp with time zone DEFAULT now()
     )';
 
-    -- 3. Table Parent_Student (Liaisons)
+    -- 3. Table Parent_Student
     EXECUTE 'CREATE TABLE IF NOT EXISTS "parent_student_' || school_slug || '" (
         parent_id uuid NOT NULL,
         student_id text NOT NULL,
@@ -197,7 +205,21 @@ BEGIN
         statut text NOT NULL
     )';
 
+    -- Insérer le compte administrateur directement dans la base sans passer par le cache
+    IF admin_nom IS NOT NULL THEN
+        EXECUTE format(
+            'INSERT INTO "profiles_%s" (nom, telephone, password, role) VALUES ($1, $2, $3, $4) RETURNING id',
+            school_slug
+        ) USING admin_nom, admin_telephone, admin_password, 'directeur' INTO admin_id;
+        
+        result := json_build_object('id', admin_id, 'nom', admin_nom, 'role', 'directeur', 'schoolSlug', school_slug);
+    ELSE
+        result := json_build_object('status', 'success');
+    END IF;
+
     -- Recharger le cache du schéma pour PostgREST
     NOTIFY pgrst, 'reload schema';
+
+    RETURN result;
 END;
 $$;

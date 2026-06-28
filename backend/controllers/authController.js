@@ -223,48 +223,20 @@ async function registerSchool(req, res) {
 
         if (schoolErr) throw schoolErr;
 
-        // 2. Créer le jeu de tables avec l'appel RPC
-        const { error: rpcErr } = await supabase.rpc('create_school_tables', { school_slug: cleanSlug });
+        // 2. Créer le jeu de tables avec l'appel RPC et y insérer le directeur
+        const hashed = await bcrypt.hash(validatedData.admin_password, 10);
+        
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('create_school_tables', { 
+            school_slug: cleanSlug,
+            admin_nom: validatedData.admin_nom.trim(),
+            admin_telephone: validatedData.admin_telephone.trim(),
+            admin_password: hashed
+        });
+        
         if (rpcErr) throw rpcErr;
 
-        // Attendre que la base recharge son schéma
-        await new Promise(r => setTimeout(r, 1000));
-
-        // 3. Créer le compte SchoolAdmin (directeur)
-        const hashed = await bcrypt.hash(validatedData.admin_password, 10);
-
-        const adminPayload = {
-            nom: validatedData.admin_nom.trim(),
-            telephone: validatedData.admin_telephone.trim(),
-            password: hashed,
-            role: 'directeur'
-        };
-
-        let adminUser = null;
-        let adminErr = null;
-
-        // Boucle de réessai pour laisser le temps au cache PostgREST de se rafraîchir
-        for (let i = 0; i < 10; i++) {
-            const { data, error } = await supabase
-                .from(`profiles_${cleanSlug}`)
-                .insert(adminPayload)
-                .select()
-                .single();
-
-            if (!error) {
-                adminUser = data;
-                adminErr = null;
-                break;
-            } else {
-                adminErr = error;
-                console.warn(`Tentative ${i + 1}/10 échouée pour l'insertion du directeur :`, error.message || error);
-                if (i < 9) {
-                    await new Promise(r => setTimeout(r, 1500)); // Attendre 1.5s supplémentaires
-                }
-            }
-        }
-
-        if (adminErr) throw adminErr;
+        // Le directeur est retourné par l'appel RPC (qui s'affranchit du cache PostgREST)
+        const adminUser = rpcData;
 
         // Automatically log them in
         const token = jwt.sign(
