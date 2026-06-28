@@ -44,6 +44,9 @@ const Annonces = lazy(() => import('./pages/Annonces').then(m => ({ default: m.A
 const Communication = lazy(() => import('./pages/Communication').then(m => ({ default: m.Communication })));
 const GestionPersonnel = lazy(() => import('./pages/GestionPersonnel').then(m => ({ default: m.GestionPersonnel })));
 const ProfesseurDashboard = lazy(() => import('./pages/professeur/ProfesseurDashboard').then(m => ({ default: m.ProfesseurDashboard })));
+const ProfRessources = lazy(() => import('./pages/professeur/ProfRessources').then(m => ({ default: m.ProfRessources })));
+const ParentRessources = lazy(() => import('./pages/parent/ParentRessources').then(m => ({ default: m.ParentRessources })));
+const Salaires = lazy(() => import('./pages/Salaires').then(m => ({ default: m.Salaires })));
 const CahierTextes = lazy(() => import('./pages/professeur/CahierTextes').then(m => ({ default: m.CahierTextes })));
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
 
@@ -117,6 +120,9 @@ const PageContent: React.FC = () => {
     case 'gestion_personnel': return <GestionPersonnel />;
     case 'prof_dashboard': return <ProfesseurDashboard />;
     case 'cahier_textes': return <CahierTextes />;
+    case 'prof_ressources': return <ProfRessources />;
+    case 'parent_ressources': return <ParentRessources />;
+    case 'salaires': return <Salaires />;
     case 'superadmin_dashboard':
     case 'superadmin_schools':
     case 'superadmin_billing':

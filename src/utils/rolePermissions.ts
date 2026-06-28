@@ -15,19 +15,19 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
-        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires'
     ],
     admin: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
-        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires'
     ],
     directeur: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
-        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires'
     ],
     comptable: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
@@ -48,11 +48,11 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
         'gestion_academique', 'saisie_notes', 'bulletins'
     ],
     professeur: [
-        'prof_dashboard', 'saisie_notes'
+        'prof_dashboard', 'saisie_notes', 'emploi_du_temps', 'saisie_presence', 'prof_ressources'
     ],
     parent: [
         'parent_dashboard', 'parent_historique', 'parent_recus',
-        'parent_badges', 'parent_messages', 'chat', 'annonces', 'parent_notes', 'parent_devoirs_presence'
+        'parent_badges', 'parent_messages', 'chat', 'annonces', 'parent_notes', 'parent_devoirs_presence', 'parent_ressources'
     ],
     secretaire: [
         'dashboard', 'eleves', 'paiements', 'scan_information', 'scan_presence', 'scan_sortie',

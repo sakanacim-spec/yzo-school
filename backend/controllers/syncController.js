@@ -13,7 +13,7 @@ async function syncFromFrontend(req, res) {
         return res.status(401).json({ error: 'Authentification requise.' });
     }
 
-    const { students = [], presences = [], devoirs = [], activityLogs = [], appSettings = null, replace = false, matieres = [], classeMatieres = [], notes = [] } = req.body;
+    const { students = [], presences = [], devoirs = [], activityLogs = [], appSettings = null, replace = false, matieres = [], classeMatieres = [], notes = [], seances = [], expenses = [], resources = [], payrolls = [], personnels = [] } = req.body;
     const { role, schoolSlug } = req.user;
 
     if (!['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur', 'professeur'].includes(role)) {
@@ -357,7 +357,28 @@ async function syncFromFrontend(req, res) {
             }
         }
 
-        console.log(`🎉 [Sync] Completed: ${students.length} students, etc.`);
+        const syncBasicArray = async (arr, tableName) => {
+            if (arr && arr.length > 0) {
+                try {
+                    const chunkSize = 500;
+                    for (let i = 0; i < arr.length; i += chunkSize) {
+                        const chunk = arr.slice(i, i + chunkSize);
+                        await supabase.from(tbl(tableName)).upsert(chunk, { onConflict: 'id' });
+                    }
+                    console.log(`✅ [Sync POST] ${arr.length} ${tableName} sync.`);
+                } catch (e) {
+                    console.error(`❌ [Sync POST] Erreur ${tableName}:`, e.message);
+                }
+            }
+        };
+
+        await syncBasicArray(seances, 'seances');
+        await syncBasicArray(expenses, 'expenses');
+        await syncBasicArray(resources, 'resources');
+        await syncBasicArray(payrolls, 'payrolls');
+        await syncBasicArray(personnels, 'personnels');
+
+        console.log(`🚀 [Sync] Completed: ${students.length} students, etc.`);
         return res.json({ 
             message: 'Synchronisation cloud réussie.',
             count: students.length,
@@ -411,6 +432,11 @@ async function syncToFrontend(req, res) {
         const dbClasseMatieres = await fetchTable('classe_matieres');
         const dbNotes = await fetchTable('notes');
         const announcementReads = await fetchTable('announcement_reads');
+        const dbSeances = await fetchTable('seances', 'date');
+        const dbExpenses = await fetchTable('expenses', 'date');
+        const dbResources = await fetchTable('resources', 'created_at');
+        const dbPayrolls = await fetchTable('payrolls', 'mois');
+        const dbPersonnels = await fetchTable('personnels', 'nom');
         
         const { data: appSettings, error: settingsError } = await supabase.from(tbl('app_settings')).select('*').single();
         
@@ -499,7 +525,8 @@ async function syncToFrontend(req, res) {
                 schoolPhone: appSettings?.school_phone || schoolData?.phone || null,
                 schoolSlogan: appSettings?.school_slogan || schoolData?.slogan || null,
                 schoolMinistry: appSettings?.school_ministry || schoolData?.ministry || null,
-                schoolCountry: appSettings?.school_country || schoolData?.country || null
+                schoolCountry: appSettings?.school_country || schoolData?.country || null,
+                settings: appSettings?.settings || null
             },
             announcements: (announcements || []).map(a => ({
                 id: a.id,

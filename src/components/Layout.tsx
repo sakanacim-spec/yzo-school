@@ -41,6 +41,7 @@ const NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'annonces',             label: 'Annonces',          icon: <Megaphone className="w-[18px] h-[18px]" /> },
   { id: 'communication',        label: 'Communication',     icon: <Smartphone className="w-[18px] h-[18px]" /> },
   { id: 'gestion_personnel',    label: 'Personnel',         icon: <Users className="w-[18px] h-[18px]" /> },
+  { id: 'salaires',             label: 'Salaires',          icon: <Wallet className="w-[18px] h-[18px]" /> },
   { id: 'import_export',        label: 'Base de données',   icon: <Database className="w-[18px] h-[18px]" /> },
   { id: 'parametres',           label: 'Paramètres',        icon: <Settings className="w-[18px] h-[18px]" /> },
 ];
@@ -52,6 +53,7 @@ const PARENT_NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'parent_badges',     label: 'Mes badges',          icon: <Award className="w-[18px] h-[18px]" /> },
   { id: 'parent_notes',      label: 'Notes & Bulletins',   icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { id: 'parent_devoirs_presence', label: 'Devoirs & Présences', icon: <Calendar className="w-[18px] h-[18px]" /> },
+  { id: 'parent_ressources', label: 'E-Learning',          icon: <FileText className="w-[18px] h-[18px]" /> },
   { id: 'chat',              label: 'Messagerie',          icon: <MessageSquare className="w-[18px] h-[18px]" /> },
   { id: 'annonces',          label: 'Annonces',            icon: <Megaphone className="w-[18px] h-[18px]" /> },
 ];
@@ -61,6 +63,7 @@ const PROF_NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'saisie_notes',      label: 'Saisie Notes',      icon: <Edit3 className="w-[18px] h-[18px]" /> },
   { id: 'saisie_presence',   label: 'Appel en classe',   icon: <UserCheck className="w-[18px] h-[18px]" /> },
   { id: 'emploi_du_temps',   label: 'Mon Emploi',        icon: <Calendar className="w-[18px] h-[18px]" /> },
+  { id: 'prof_ressources',   label: 'Ressources',        icon: <BookOpen className="w-[18px] h-[18px]" /> },
 ];
 
 const NAV_GROUPS: Record<string, string> = {
@@ -88,6 +91,7 @@ const NAV_GROUPS: Record<string, string> = {
   annonces: 'Communication',
   communication: 'Communication',
   gestion_personnel: 'Administration',
+  salaires: 'Administration',
   import_export: 'Administration',
   parametres: 'Administration',
 };

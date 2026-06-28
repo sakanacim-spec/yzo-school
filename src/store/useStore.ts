@@ -3,7 +3,7 @@
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory } from '../types';
+import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory, Resource, Payroll } from '../types';
 import { API_BASE_URL } from '../config';
 import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
@@ -139,6 +139,16 @@ export interface AppState {
   addExpense: (expense: Expense) => void;
   updateExpense: (id: string, expense: Partial<Expense>) => void;
   deleteExpense: (id: string) => void;
+
+  // E-Learning & Ressources
+  resources: Resource[];
+  addResource: (resource: Resource) => void;
+  deleteResource: (id: string) => void;
+
+  // Salaires
+  payrolls: Payroll[];
+  addPayroll: (payroll: Payroll) => void;
+  paySalary: (id: string) => void;
 
   // Logs d'activité
   activityLogs: ActivityLog[];
@@ -478,9 +488,9 @@ export const useStore = create<AppState>()(
 
             set({
               students: [],
-              parents: [],
-              presences: [], devoirs: [], seances: [], expenses: [],
-              activityLogs: [],
+            parents: [],
+            presences: [], devoirs: [], seances: [], expenses: [], resources: [], payrolls: [],
+            activityLogs: [],
               links: [],
               announcements: [],
               announcementReads: savedReads, // Restaurer les lectures locales
@@ -870,7 +880,45 @@ export const useStore = create<AppState>()(
         set({ expenses: get().expenses.filter(e => e.id !== id) });
       },
 
-      // ── Horaires par cycle ──────────────────────────────────
+      // --- E-Learning & Ressources ---
+      resources: [],
+      addResource: (resource) => {
+        set({ resources: [resource, ...get().resources] });
+      },
+      deleteResource: (id) => {
+        set({ resources: get().resources.filter(r => r.id !== id) });
+      },
+
+      // --- Salaires ---
+      payrolls: [],
+      addPayroll: (payroll) => {
+        set({ payrolls: [payroll, ...get().payrolls] });
+      },
+      paySalary: (id) => {
+        const payroll = get().payrolls.find(p => p.id === id);
+        if (!payroll) return;
+        
+        // Mettre à jour le statut
+        const updatedPayrolls = get().payrolls.map(p => 
+          p.id === id ? { ...p, statut: 'Payé' as const, datePaiement: new Date().toISOString() } : p
+        );
+        set({ payrolls: updatedPayrolls });
+
+        // Ajouter automatiquement une dépense liée
+        const expense: Expense = {
+          id: uuid(),
+          titre: `Paiement Salaire - Personnel ID: ${payroll.personnelId} (${payroll.mois})`,
+          montant: payroll.netAPayer,
+          categorie: 'Salaires',
+          date: new Date().toISOString().split('T')[0],
+          beneficiaire: payroll.personnelId,
+          reference: `SAL-${payroll.mois}-${payroll.personnelId}`,
+          enregistrePar: get().user?.nom || 'Système',
+        };
+        get().addExpense(expense);
+      },
+
+      // ⏱️ Horaires par cycle ⏱️──────────────────────────────────
       // Vide par défaut — les cycles actifs sont dérivés des classes configurées
       cycleSchedules: [],
       setCycleSchedules: (schedules) => {

@@ -32,6 +32,11 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
     if (store.parents !== undefined) payload.parents = store.parents;
     if (store.presences !== undefined) payload.presences = store.presences;
     if (store.devoirs !== undefined) payload.devoirs = store.devoirs;
+    if (store.seances !== undefined) payload.seances = store.seances;
+    if (store.expenses !== undefined) payload.expenses = store.expenses;
+    if (store.resources !== undefined) payload.resources = store.resources;
+    if (store.payrolls !== undefined) payload.payrolls = store.payrolls;
+    if (store.personnels !== undefined) payload.personnels = store.personnels;
     if (store.activityLogs !== undefined) payload.activityLogs = store.activityLogs;
     if (store.announcements !== undefined) payload.announcements = store.announcements;
     if (store.announcementReads !== undefined) payload.announcementReads = store.announcementReads;

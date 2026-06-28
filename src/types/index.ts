@@ -63,6 +63,34 @@ export interface Payment {
   methode?: string;
 }
 
+export type ResourceType = 'pdf' | 'video' | 'link' | 'document';
+
+export interface Resource {
+  id: string;
+  titre: string;
+  description: string;
+  type: ResourceType;
+  url: string; // Base64 data URL for files, or standard URL for links
+  classe: string;
+  matiere: string;
+  professeurId: string;
+  professeurNom: string;
+  createdAt: string;
+}
+
+export interface Payroll {
+  id: string;
+  personnelId: string;
+  mois: string; // YYYY-MM
+  salaireBase: number;
+  primes: number;
+  deductions: number;
+  netAPayer: number;
+  statut: 'Payé' | 'En attente';
+  datePaiement?: string;
+  referencePaiement?: string;
+}
+
 export interface ClassConfig {
   name: string;
   cycle: Cycle;
@@ -339,6 +367,9 @@ export type AppPage =
   | 'gestion_personnel'
   | 'cahier_textes'
   | 'prof_dashboard'
+  | 'prof_ressources'
+  | 'parent_ressources'
+  | 'salaires'
   // ── Pages SuperAdmin (propriétaire SaaS) ──
   | 'superadmin_dashboard'
   | 'superadmin_schools'
