@@ -3,7 +3,7 @@
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory, Resource, Payroll } from '../types';
+import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory, Resource, Payroll, Personnel } from '../types';
 import { API_BASE_URL } from '../config';
 import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
@@ -144,6 +144,9 @@ export interface AppState {
   resources: Resource[];
   addResource: (resource: Resource) => void;
   deleteResource: (id: string) => void;
+
+  // Personnels
+  personnels: Personnel[];
 
   // Salaires
   payrolls: Payroll[];
@@ -489,7 +492,7 @@ export const useStore = create<AppState>()(
             set({
               students: [],
             parents: [],
-            presences: [], devoirs: [], seances: [], expenses: [], resources: [], payrolls: [],
+            presences: [], devoirs: [], seances: [], expenses: [], resources: [], personnels: [], payrolls: [],
             activityLogs: [],
               links: [],
               announcements: [],
@@ -888,6 +891,9 @@ export const useStore = create<AppState>()(
       deleteResource: (id) => {
         set({ resources: get().resources.filter(r => r.id !== id) });
       },
+
+      // --- Personnels ---
+      personnels: [],
 
       // --- Salaires ---
       payrolls: [],

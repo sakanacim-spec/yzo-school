@@ -208,6 +208,7 @@ export interface User {
   username: string; // phone number for parents
   role: UserRole;
   nom: string;
+  prenom?: string;
   telephone?: string;
   schoolSlug?: string; // lié à une école (null pour superadmin)
   schoolName?: string; // nom de l'école pour affichage
@@ -404,5 +405,15 @@ export interface Note {
   noteClasse: number | null; // ex: Interrogations (sur 20)
   noteDevoir: number | null; // ex: Devoirs surveillés
   noteCompo: number | null;  // ex: Composition
+}
+
+
+export interface Personnel {
+  id: string;
+  nom: string;
+  prenom: string;
+  role: string;
+  telephone?: string;
+  email?: string;
 }
 
