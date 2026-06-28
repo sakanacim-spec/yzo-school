@@ -36,6 +36,20 @@ export interface Student {
   updatedAt: string;
 }
 
+export type ExpenseCategory = 'Salaires' | 'Électricité & Eau' | 'Loyer' | 'Fournitures' | 'Entretien' | 'Autre';
+
+export interface Expense {
+  id: string;
+  titre: string;
+  montant: number;
+  categorie: ExpenseCategory;
+  date: string; // YYYY-MM-DD
+  beneficiaire?: string;
+  reference?: string;
+  commentaire?: string;
+  enregistrePar: string;
+}
+
 export interface Payment {
   id: string;
   studentId: string;
@@ -115,6 +129,11 @@ export interface AppSettings extends AdminSettings {
   bulletinShowRank?: boolean;
   bulletinShowClassAverage?: boolean;
   bulletinShowAppreciation?: boolean;
+
+  // Configuration des passerelles de paiement
+  paymentGateway?: 'fedapay' | 'paystack' | 'stripe' | 'none';
+  paymentPublicKey?: string | null;
+  paymentSecretKey?: string | null;
 
   tranches?: Tranche[];
   classes?: ClassConfig[]; // Configuration personnalisée des classes et écolages
@@ -210,6 +229,18 @@ export interface Presence {
   type?: 'ENTREE' | 'SORTIE';
 }
 
+export interface Seance {
+  id: string;
+  classe: string;
+  jour: 'Lundi' | 'Mardi' | 'Mercredi' | 'Jeudi' | 'Vendredi' | 'Samedi' | 'Dimanche';
+  heureDebut: string; // HH:mm
+  heureFin: string;   // HH:mm
+  matiereId: string;
+  professeur: string;
+  salle?: string;
+  couleur?: string;
+}
+
 export interface Devoir {
   id: string;
   dateDonnee: string; // YYYY-MM-DD
@@ -281,6 +312,7 @@ export type AppPage =
   | 'documents'
   | 'parametres'
   | 'recouvrement'
+  | 'depenses'
   | 'scan_presence'
   | 'scan_sortie'
   | 'scan_information'
@@ -291,6 +323,8 @@ export type AppPage =
   | 'communication'
   | 'gestion_academique'
   | 'saisie_notes'
+  | 'saisie_presence'
+  | 'emploi_du_temps'
   | 'bulletins'
   | 'parent_dashboard'
   | 'parent_historique'

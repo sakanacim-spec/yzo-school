@@ -32,6 +32,10 @@ export const ProfesseurDashboard: React.FC = () => {
         setCurrentPage('saisie_notes');
     };
 
+    const handleSaisiePresence = () => {
+        setCurrentPage('saisie_presence');
+    };
+
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
             {/* EN-TÊTE */}
@@ -161,12 +165,20 @@ export const ProfesseurDashboard: React.FC = () => {
                                 Saisissez les devoirs à la maison et faites l'appel de présence pour vos classes.
                             </p>
                             
-                            <button 
-                                onClick={() => setCurrentPage('cahier_textes')}
-                                className="w-full py-4 bg-white text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-colors shadow-lg"
-                            >
-                                Ouvrir le cahier
-                            </button>
+                            <div className="flex flex-col gap-3">
+                                <button 
+                                    onClick={() => setCurrentPage('cahier_textes')}
+                                    className="w-full py-3 bg-white text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-colors shadow-lg"
+                                >
+                                    Ouvrir le cahier
+                                </button>
+                                <button 
+                                    onClick={handleSaisiePresence}
+                                    className="w-full py-3 bg-emerald-800 text-white border border-emerald-400/50 rounded-xl font-bold hover:bg-emerald-900 transition-colors shadow-lg"
+                                >
+                                    Faire l'appel
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

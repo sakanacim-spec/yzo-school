@@ -3,7 +3,7 @@
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir } from '../types';
+import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory } from '../types';
 import { API_BASE_URL } from '../config';
 import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
@@ -106,7 +106,10 @@ export interface AppState {
     bulletinShowPhoto?: boolean,
     bulletinShowRank?: boolean,
     bulletinShowClassAverage?: boolean,
-    bulletinShowAppreciation?: boolean
+    bulletinShowAppreciation?: boolean,
+    paymentGateway?: 'fedapay' | 'paystack' | 'stripe' | 'none',
+    paymentPublicKey?: string | null,
+    paymentSecretKey?: string | null
   }) => Promise<void>;
   settings: AppSettings;
   updateSettings: (settings: AppSettings) => void;
@@ -114,6 +117,7 @@ export interface AppState {
   // Présences
   presences: Presence[];
   addPresence: (presence: Presence) => void;
+  savePresencesBatch: (presences: Presence[]) => void;
   getPresencesToday: () => Presence[];
   getSortiesToday: () => Presence[];
   isAlreadyPresent: (eleveId: string) => boolean;
@@ -123,6 +127,18 @@ export interface AppState {
   devoirs: Devoir[];
   addDevoir: (devoir: Devoir) => void;
   deleteDevoir: (id: string) => void;
+
+  // Emploi du Temps
+  seances: Seance[];
+  addSeance: (seance: Seance) => void;
+  updateSeance: (id: string, seance: Partial<Seance>) => void;
+  deleteSeance: (id: string) => void;
+
+  // Dépenses
+  expenses: Expense[];
+  addExpense: (expense: Expense) => void;
+  updateExpense: (id: string, expense: Partial<Expense>) => void;
+  deleteExpense: (id: string) => void;
 
   // Logs d'activité
   activityLogs: ActivityLog[];
@@ -463,7 +479,7 @@ export const useStore = create<AppState>()(
             set({
               students: [],
               parents: [],
-              presences: [], devoirs: [],
+              presences: [], devoirs: [], seances: [], expenses: [],
               activityLogs: [],
               links: [],
               announcements: [],
@@ -511,7 +527,7 @@ export const useStore = create<AppState>()(
           currentPage: 'dashboard',
           students: [],
           parents: [],
-          presences: [], devoirs: [],
+          presences: [], devoirs: [], seances: [], expenses: [],
           activityLogs: [],
           links: [],
           announcements: [],
@@ -717,7 +733,8 @@ export const useStore = create<AppState>()(
         set((state) => {
           const { 
             bulletinTemplate, bulletinShowPhoto, bulletinShowRank, 
-            bulletinShowClassAverage, bulletinShowAppreciation, 
+            bulletinShowClassAverage, bulletinShowAppreciation,
+            paymentGateway, paymentPublicKey, paymentSecretKey,
             ...rootSettings 
           } = newSettings as any;
           
@@ -729,7 +746,10 @@ export const useStore = create<AppState>()(
               ...(bulletinShowPhoto !== undefined && { bulletinShowPhoto }),
               ...(bulletinShowRank !== undefined && { bulletinShowRank }),
               ...(bulletinShowClassAverage !== undefined && { bulletinShowClassAverage }),
-              ...(bulletinShowAppreciation !== undefined && { bulletinShowAppreciation })
+              ...(bulletinShowAppreciation !== undefined && { bulletinShowAppreciation }),
+              ...(paymentGateway !== undefined && { paymentGateway }),
+              ...(paymentPublicKey !== undefined && { paymentPublicKey }),
+              ...(paymentSecretKey !== undefined && { paymentSecretKey })
             }
           };
         });
@@ -764,15 +784,31 @@ export const useStore = create<AppState>()(
         bulletinShowPhoto: true,
         bulletinShowRank: true,
         bulletinShowClassAverage: true,
-        bulletinShowAppreciation: true
+        bulletinShowAppreciation: true,
+        paymentGateway: 'none',
+        paymentPublicKey: null,
+        paymentSecretKey: null
       },
       updateSettings: (newSettings) => set({ settings: newSettings }),
 
       // ── Présences ─────────────────────────────────────────
-      presences: [], devoirs: [],
+      presences: [], devoirs: [], seances: [], expenses: [],
       addPresence: (presence) => {
         set({ presences: [presence, ...get().presences] });
         // Background sync
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({
+            students: get().students,
+            presences: get().presences, devoirs: get().devoirs,
+            activityLogs: get().activityLogs
+          }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
+      },
+      savePresencesBatch: (newPresences) => {
+        const currentPresences = get().presences;
+        const newKeys = new Set(newPresences.map(p => `${p.eleveId}-${p.date}`));
+        const filteredPresences = currentPresences.filter(p => !newKeys.has(`${p.eleveId}-${p.date}`));
+        set({ presences: [...newPresences, ...filteredPresences] });
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend({
             students: get().students,
@@ -810,6 +846,28 @@ export const useStore = create<AppState>()(
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend({ devoirs: get().devoirs }).then(() => set({ lastSyncTimestamp: Date.now() }));
         });
+      },
+
+      // --- Emploi du Temps ---
+      addSeance: (seance) => {
+        set({ seances: [...get().seances, seance] });
+      },
+      updateSeance: (id, newSeance) => {
+        set({ seances: get().seances.map(s => s.id === id ? { ...s, ...newSeance } : s) });
+      },
+      deleteSeance: (id) => {
+        set({ seances: get().seances.filter(s => s.id !== id) });
+      },
+
+      // --- Dépenses ---
+      addExpense: (expense) => {
+        set({ expenses: [expense, ...get().expenses] });
+      },
+      updateExpense: (id, newExpense) => {
+        set({ expenses: get().expenses.map(e => e.id === id ? { ...e, ...newExpense } : e) });
+      },
+      deleteExpense: (id) => {
+        set({ expenses: get().expenses.filter(e => e.id !== id) });
       },
 
       // ── Horaires par cycle ──────────────────────────────────

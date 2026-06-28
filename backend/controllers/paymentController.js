@@ -28,6 +28,26 @@ async function createTransaction(req, res) {
 
         if (!student) return res.status(404).json({ error: "Élève introuvable." });
 
+        // 1.5 Récupérer la configuration de paiement de l'établissement
+        const { data: appSettings } = await supabase
+            .from(`app_settings_${schoolSlug}`)
+            .select('payment_gateway, payment_secret_key')
+            .eq('id', 'global_settings')
+            .single();
+
+        let secretKey = process.env.FEDAPAY_SECRET_KEY || 'sk_sandbox_default';
+        let isLive = process.env.FEDAPAY_ENVIRONMENT === 'live';
+
+        if (appSettings && appSettings.payment_gateway === 'fedapay' && appSettings.payment_secret_key) {
+            secretKey = appSettings.payment_secret_key;
+            isLive = secretKey.startsWith('sk_live');
+        } else if (appSettings && appSettings.payment_gateway && appSettings.payment_gateway !== 'fedapay' && appSettings.payment_gateway !== 'none') {
+             return res.status(400).json({ error: "Ce portail n'utilise pas FedaPay. L'intégration de la passerelle sélectionnée est en cours de développement." });
+        }
+
+        FedaPay.setApiKey(secretKey);
+        FedaPay.setEnvironment(isLive ? 'live' : 'sandbox');
+
         // 2. Créer la transaction sur FedaPay
         const transaction = await Transaction.create({
             description: `Paiement scolarité pour ${student.nom} ${student.prenom}`,

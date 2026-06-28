@@ -247,7 +247,7 @@ async function syncFromFrontend(req, res) {
 
                 if (schoolUpdateErr) console.error('❌ [Sync POST] Erreur MAJ schools:', schoolUpdateErr.message);
 
-                const { error: settingsErr } = await supabase.from(tbl('app_settings')).upsert({
+                const settingsPayload = {
                     id: 'global_settings',
                     app_name: appSettings.appName,
                     school_name: appSettings.schoolName,
@@ -257,10 +257,26 @@ async function syncFromFrontend(req, res) {
                     message_remerciement: appSettings.messageRemerciement,
                     message_rappel: appSettings.messageRappel,
                     tranches: appSettings.tranches || [],
+                    payment_gateway: appSettings.paymentGateway || 'none',
+                    payment_public_key: appSettings.paymentPublicKey || null,
+                    payment_secret_key: appSettings.paymentSecretKey || null,
                     updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
+                };
+
+                const { error: settingsErr } = await supabase.from(tbl('app_settings')).upsert(settingsPayload, { onConflict: 'id' });
+                
                 if (settingsErr) {
-                    console.error('❌ [Sync POST] Erreur sauvegarde appSettings:', settingsErr.message);
+                    if (settingsErr.code === 'PGRST204' || settingsErr.message?.includes('payment_gateway')) {
+                        console.warn('⚠️ [Sync POST] Colonnes de paiement manquantes. Fallback sans les clés de paiement. Veuillez exécuter migration_payment.sql !');
+                        delete settingsPayload.payment_gateway;
+                        delete settingsPayload.payment_public_key;
+                        delete settingsPayload.payment_secret_key;
+                        const { error: fallbackErr } = await supabase.from(tbl('app_settings')).upsert(settingsPayload, { onConflict: 'id' });
+                        if (fallbackErr) console.error('❌ [Sync POST] Erreur sauvegarde appSettings (Fallback):', fallbackErr.message);
+                        else console.log('✅ [Sync POST] appSettings (Fallback) sauvegardés avec succès !');
+                    } else {
+                        console.error('❌ [Sync POST] Erreur sauvegarde appSettings:', settingsErr.message);
+                    }
                 } else {
                     console.log('✅ [Sync POST] appSettings sauvegardés avec succès !');
                 }
@@ -475,6 +491,9 @@ async function syncToFrontend(req, res) {
                 messageRemerciement: appSettings?.message_remerciement || null,
                 messageRappel: appSettings?.message_rappel || null,
                 tranches: appSettings?.tranches || [],
+                paymentGateway: appSettings?.payment_gateway || 'none',
+                paymentPublicKey: appSettings?.payment_public_key || null,
+                paymentSecretKey: appSettings?.payment_secret_key || null,
                 // Identity fields — primary source: app_settings, fallback: schools table
                 schoolAddress: appSettings?.school_address || schoolData?.address || null,
                 schoolPhone: appSettings?.school_phone || schoolData?.phone || null,

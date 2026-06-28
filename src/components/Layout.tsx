@@ -3,13 +3,11 @@ import { parseResponse, getAuthHeaders } from '../services/apiHelpers';
 import { useStore } from '../store/useStore';
 import { AppPage } from '../types';
 import { getFilteredNavItems, isAdminRole } from '../utils/rolePermissions';
-import {
-  GraduationCap, LayoutDashboard, Users, CreditCard,
-  BarChart3, FileText, Settings, LogOut, Menu, X,
-  Bell, ChevronRight, ChevronLeft, Target, Award, MessageSquare,
-  ScanLine, IdCard, ShieldCheck, Activity, Database, Megaphone, Calendar,
-  BookOpen, Edit3, FileSpreadsheet, Sun, Moon, Clock,
-  PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield, Languages, Smartphone
+import { 
+  LayoutDashboard, Users, CreditCard, Settings, FileText, 
+  ScanLine, IdCard, ShieldCheck, Activity, Database, Megaphone, Calendar, Wallet,
+  LogOut, Menu, X, CheckCircle2, MessageCircle, BookOpen, Edit3, UserCheck, FileSpreadsheet, BarChart3, Target, GraduationCap, Medal,
+  Bell, ChevronRight, ChevronLeft, MessageSquare, PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield, Languages, Smartphone
 } from 'lucide-react';
 
 import { SupportModal } from './SupportModal';
@@ -24,12 +22,15 @@ const NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'parents_list',         label: 'Parents',           icon: <Users className="w-[18px] h-[18px]" /> },
   { id: 'paiements',            label: 'Paiements',         icon: <CreditCard className="w-[18px] h-[18px]" /> },
   { id: 'recouvrement',         label: 'Recouvrement',      icon: <Target className="w-[18px] h-[18px]" /> },
+  { id: 'depenses',             label: 'Dépenses',          icon: <Wallet className="w-[18px] h-[18px]" /> },
   { id: 'scan_presence',        label: 'Scan Présence',     icon: <ScanLine className="w-[18px] h-[18px]" /> },
   { id: 'scan_sortie',          label: 'Scan Sortie',       icon: <ScanLine className="w-[18px] h-[18px]" /> },
   { id: 'scan_information',     label: 'Scan Information',  icon: <ScanLine className="w-[18px] h-[18px]" /> },
   { id: 'carte_scolaire',       label: 'Cartes Scolaires',  icon: <IdCard className="w-[18px] h-[18px]" /> },
   { id: 'gestion_academique',   label: 'Académique',        icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { id: 'saisie_notes',         label: 'Saisie Notes',      icon: <Edit3 className="w-[18px] h-[18px]" /> },
+  { id: 'saisie_presence',      label: 'Appel en classe',   icon: <UserCheck className="w-[18px] h-[18px]" /> },
+  { id: 'emploi_du_temps',      label: 'Emploi du Temps',   icon: <Calendar className="w-[18px] h-[18px]" /> },
   { id: 'bulletins',            label: 'Bulletins',         icon: <FileSpreadsheet className="w-[18px] h-[18px]" /> },
   { id: 'verification_recu',    label: 'Vérif. Reçus',      icon: <ShieldCheck className="w-[18px] h-[18px]" /> },
   { id: 'analyses',             label: 'Analyses',          icon: <BarChart3 className="w-[18px] h-[18px]" /> },
@@ -57,6 +58,8 @@ const PARENT_NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
 const PROF_NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'prof_dashboard',    label: 'Tableau de bord',   icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
   { id: 'saisie_notes',      label: 'Saisie Notes',      icon: <Edit3 className="w-[18px] h-[18px]" /> },
+  { id: 'saisie_presence',   label: 'Appel en classe',   icon: <UserCheck className="w-[18px] h-[18px]" /> },
+  { id: 'emploi_du_temps',   label: 'Mon Emploi',        icon: <Calendar className="w-[18px] h-[18px]" /> },
 ];
 
 const NAV_GROUPS: Record<string, string> = {
@@ -66,6 +69,7 @@ const NAV_GROUPS: Record<string, string> = {
   parents_list: 'Gestion',
   paiements: 'Finance',
   recouvrement: 'Finance',
+  depenses: 'Finance',
   scan_presence: 'Sécurité & Accès',
   scan_sortie: 'Sécurité & Accès',
   scan_information: 'Sécurité & Accès',
@@ -73,6 +77,8 @@ const NAV_GROUPS: Record<string, string> = {
   verification_recu: 'Sécurité & Accès',
   gestion_academique: 'Académique',
   saisie_notes: 'Académique',
+  saisie_presence: 'Académique',
+  emploi_du_temps: 'Académique',
   bulletins: 'Académique',
   analyses: 'Outils',
   documents: 'Outils',
