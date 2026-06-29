@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Yziow</string>
+    <string name="title_activity_main">Yziow</string>
+    <string name="package_name">com.yziow.app</string>
+    <string name="custom_url_scheme">com.yziow.app</string>
+</resources>
