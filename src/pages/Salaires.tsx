@@ -14,10 +14,11 @@ export const Salaires: React.FC = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredPersonnels = personnels.filter(p => 
-        p.nom.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.prenom.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredPersonnels = personnels.filter(p => {
+        const nomMatch = p.nom ? p.nom.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+        const prenomMatch = p.prenom ? p.prenom.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+        return nomMatch || prenomMatch;
+    });
 
     const getPayrollForPersonnel = (personnelId: string, month: string) => {
         return payrolls.find(p => p.personnelId === personnelId && p.mois === month);

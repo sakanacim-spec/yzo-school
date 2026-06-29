@@ -1315,6 +1315,12 @@ export const useStore = create<AppState>()(
             console.log(`📝 [Sync] Notes: ${cloudNotes.length} notes synchronisées depuis le cloud.`);
           }
 
+          if (Array.isArray(data.seances)) set({ seances: data.seances });
+          if (Array.isArray(data.expenses)) set({ expenses: data.expenses });
+          if (Array.isArray(data.resources)) set({ resources: data.resources });
+          if (Array.isArray(data.personnels)) set({ personnels: data.personnels });
+          if (Array.isArray(data.payrolls)) set({ payrolls: data.payrolls });
+
           // Mise à jour du timestamp après succès
           set({ lastSyncTimestamp: Date.now() });
           console.log(`🏁 [Sync] Synchronisation complète terminée avec succès.`);
