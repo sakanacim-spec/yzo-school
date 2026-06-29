@@ -489,6 +489,18 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         Fait à {city}, le {getDateFr()}
                     </p>
                 </div>
+
+                {/* ──────────── SIGNATURE YZIOW (discrète) ──────────── */}
+                <div className="mt-1 pt-1 border-t border-gray-200 flex items-center justify-center gap-1 opacity-50">
+                    <img
+                        src="/images/yziow-logo.png"
+                        alt="Yziow"
+                        style={{ height: '8mm', width: 'auto', objectFit: 'contain' }}
+                    />
+                    <p className="text-[7px] text-gray-400 italic">
+                        Généré via <span className="font-bold">yziow.com</span> — Plateforme de Gestion Scolaire
+                    </p>
+                </div>
             </div>
         </div>
     );
