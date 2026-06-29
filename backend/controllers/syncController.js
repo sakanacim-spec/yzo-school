@@ -417,7 +417,7 @@ async function syncToFrontend(req, res) {
             let q = supabase.from(tbl(name)).select('*');
             if (orderField) q = q.order(orderField, { ascending });
             const { data, error } = await q;
-            if (error && error.code !== '42P01') throw error;
+            if (error && error.code !== '42P01' && error.code !== 'PGRST205') throw error;
             return data || [];
         };
 
@@ -627,7 +627,7 @@ async function clearStudents(req, res) {
     try {
         const safeDelete = async (table, filterCol, filterVal) => {
             const { error } = await supabase.from(`${table}_${schoolSlug}`).delete().neq(filterCol, filterVal);
-            if (error && error.code !== '42P01') throw error;
+            if (error && error.code !== '42P01' && error.code !== 'PGRST205') throw error;
         };
 
         await safeDelete('parent_student', 'student_id', '00000000-0000-0000-0000-000000000000');
