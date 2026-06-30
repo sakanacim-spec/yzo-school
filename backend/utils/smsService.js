@@ -72,9 +72,18 @@ async function sendAbsenceSMS(to, studentName, date, schoolName) {
     return sendSMS(to, message, schoolName);
 }
 
+/**
+ * Envoie un SMS contenant le code OTP de réinitialisation du mot de passe
+ */
+async function sendPasswordResetSMS(to, otp) {
+    const message = `Votre code de réinitialisation Yziow est : ${otp}. Ce code est valide 15 minutes. Ne le partagez avec personne.`;
+    return sendSMS(to, message, 'Yziow');
+}
+
 module.exports = {
     sendSMS,
     sendWelcomeSMS,
     sendPaymentReminderSMS,
-    sendAbsenceSMS
+    sendAbsenceSMS,
+    sendPasswordResetSMS
 };

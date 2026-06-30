@@ -13,9 +13,12 @@ import bgImage1 from '../assets/login-bg1.jpg';
 import bgImage2 from '../assets/login-bg2.jpg';
 import bgImage3 from '../assets/login-bg3.jpg';
 import bgImage4 from '../assets/login-bg4.jpg';
-import { PrivacyPolicyModal } from './PrivacyPolicyModal';
+import { SchoolLogo } from './SchoolLogo';
 import { Register } from './Register';
 import { ParentRegister } from './ParentRegister';
+import { ForgotPassword } from './ForgotPassword';
+import { LinkStudent } from './LinkStudent';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import { getTranslations } from '../i18n';
 
 const BG_IMAGES = [bgImage1, bgImage2, bgImage3, bgImage4];
@@ -65,7 +68,7 @@ export const Login: React.FC = () => {
   const appName = "Yziow";
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [view, setView] = useState<'login' | 'register' | 'parent-register' | 'link'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'parent-register' | 'link' | 'forgot-password'>('login');
 
   
   // Auth Form States
@@ -172,6 +175,16 @@ export const Login: React.FC = () => {
     );
   }
 
+  if (isMobile && view === 'forgot-password') {
+    return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
+                <ForgotPassword onBack={() => setView('login')} />
+            </div>
+        </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center font-['Poppins'] overflow-hidden bg-white relative">
       <style>{`
@@ -268,7 +281,7 @@ export const Login: React.FC = () => {
 
       {/* --- DESKTOP VIEW --- */}
       {!isMobile && (
-        <div className={`auth-container ${view === 'register' || view === 'parent-register' ? 'right-panel-active' : ''}`}>
+        <div className={`auth-container ${view === 'register' || view === 'parent-register' || view === 'forgot-password' ? 'right-panel-active' : ''}`}>
 
           {/* Sign Up Panel */}
           <div className="form-container sign-up-container bg-slate-900 overflow-y-auto custom-scrollbar">
@@ -280,6 +293,8 @@ export const Login: React.FC = () => {
                        window.location.reload();
                      }} 
                    />
+                 ) : view === 'forgot-password' ? (
+                   <ForgotPassword onBack={() => setView('login')} />
                  ) : (
                    <ParentRegister 
                      schools={schools}
@@ -309,7 +324,7 @@ export const Login: React.FC = () => {
               <input type="text" placeholder={T.login.phonePlaceholder} className="auth-input max-w-sm mx-auto" value={username} onChange={(e) => setUsername(e.target.value)} required />
               <input type="password" placeholder={T.login.passwordPlaceholder} className="auth-input max-w-sm mx-auto" value={password} onChange={(e) => setPassword(e.target.value)} required />
               <div className="flex items-center justify-between w-full max-w-sm mx-auto mt-2 text-xs px-1">
-                <button type="button" onClick={() => alert("Veuillez contacter l'administrateur pour réinitialiser votre mot de passe.")} className="text-slate-400 hover:text-amber-600">{T.login.forgotPassword}</button>
+                <button type="button" onClick={() => setView('forgot-password')} className="text-slate-400 hover:text-amber-600">{T.login.forgotPassword}</button>
 
                 <button 
                   type="button" 
@@ -412,7 +427,7 @@ export const Login: React.FC = () => {
 
                       <div className="flex justify-between items-center px-1 text-[11px] mt-1">
 
-                        <button type="button" onClick={() => alert("Veuillez contacter l'administrateur pour réinitialiser votre mot de passe.")} className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</button>
+                        <button type="button" onClick={() => setView('forgot-password')} className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</button>
                         <button 
                           type="button" 
                           onClick={() => setIsPrivacyOpen(true)}

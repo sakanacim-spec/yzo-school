@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../utils/supabase');
 const { JWT_SECRET, JWT_EXPIRES } = require('../config');
-const { sendWelcomeSMS } = require('../utils/smsService');
+const { sendWelcomeSMS, sendPasswordResetSMS } = require('../utils/smsService');
 const Joi = require('joi');
 const crypto = require('crypto');
 
@@ -482,11 +482,121 @@ async function updateProfile(req, res) {
     }
 }
 
+// ----------------------------------------------------
+// MOT DE PASSE OUBLIÉ (Génération OTP)
+// ----------------------------------------------------
+const forgotPassword = async (req, res) => {
+    try {
+        const { phone } = req.body;
+        if (!phone) return res.status(400).json({ error: 'Le numéro de téléphone est requis.' });
+
+        // Vérifier si l'utilisateur existe
+        const { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('id, name')
+            .eq('phone', phone)
+            .single();
+
+        if (fetchError || !user) {
+            return res.status(404).json({ error: 'Aucun compte trouvé avec ce numéro.' });
+        }
+
+        // Générer un OTP à 6 chiffres
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        // Expiration dans 15 minutes
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+        // Sauvegarder l'OTP en DB
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({ 
+                reset_otp: otp,
+                reset_otp_expires_at: expiresAt.toISOString()
+            })
+            .eq('id', user.id);
+
+        if (updateError) {
+            console.error('Update OTP error:', updateError);
+            return res.status(500).json({ error: 'Erreur lors de la génération du code.' });
+        }
+
+        // Envoyer le SMS
+        await sendPasswordResetSMS(phone, otp);
+
+        return res.json({ message: 'Code de réinitialisation envoyé par SMS.' });
+    } catch (err) {
+        console.error('Forgot Password Error:', err.message);
+        return res.status(500).json({ error: 'Erreur serveur.' });
+    }
+}
+
+// ----------------------------------------------------
+// RÉINITIALISATION DU MOT DE PASSE (Vérification OTP)
+// ----------------------------------------------------
+const resetPassword = async (req, res) => {
+    try {
+        const { phone, otp, newPassword } = req.body;
+        
+        if (!phone || !otp || !newPassword) {
+            return res.status(400).json({ error: 'Tous les champs sont requis.' });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'Le mot de passe doit faire au moins 6 caractères.' });
+        }
+
+        // Vérifier l'utilisateur et l'OTP
+        const { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('id, reset_otp, reset_otp_expires_at')
+            .eq('phone', phone)
+            .single();
+
+        if (fetchError || !user) {
+            return res.status(404).json({ error: 'Utilisateur introuvable.' });
+        }
+
+        if (!user.reset_otp || user.reset_otp !== otp) {
+            return res.status(400).json({ error: 'Code de réinitialisation invalide.' });
+        }
+
+        if (new Date(user.reset_otp_expires_at) < new Date()) {
+            return res.status(400).json({ error: 'Le code de réinitialisation a expiré.' });
+        }
+
+        // Hacher le nouveau mot de passe
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // Mettre à jour le mot de passe et nettoyer l'OTP
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({
+                password_hash: hashedPassword,
+                reset_otp: null,
+                reset_otp_expires_at: null
+            })
+            .eq('id', user.id);
+
+        if (updateError) {
+            console.error('Reset Password Update Error:', updateError);
+            return res.status(500).json({ error: 'Erreur lors de la mise à jour du mot de passe.' });
+        }
+
+        return res.json({ message: 'Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.' });
+    } catch (err) {
+        console.error('Reset Password Error:', err.message);
+        return res.status(500).json({ error: 'Erreur serveur.' });
+    }
+}
+
 module.exports = {
     register,
     registerSchool,
     login,
     deleteSelfAccount,
     updatePushToken,
-    updateProfile
+    updateProfile,
+    forgotPassword,
+    resetPassword
 };
