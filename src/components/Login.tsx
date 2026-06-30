@@ -225,7 +225,7 @@ export const Login: React.FC = () => {
         .auth-container.right-panel-active .overlay-container { transform: translateX(-100%); }
 
         .overlay {
-          background: linear-gradient(135deg, #fbbf24 0%, #eab308 100%);
+          background: radial-gradient(circle at 100% 0%, #fcd34d 0%, #fbbf24 50%, #d97706 100%);
           color: #FFFFFF; position: relative; left: -100%; height: 100%; width: 200%;
           transform: translateX(0); transition: transform 0.6s cubic-bezier(0.7, 0, 0.3, 1);
         }
@@ -365,24 +365,33 @@ export const Login: React.FC = () => {
               </div>
 
               <div className="overlay-panel overlay-right">
-                <h2 className="text-3xl font-black mb-4 tracking-tighter">Bonjour, Parent ! 🌟</h2>
-                <p className="text-sm font-medium opacity-90 mb-8 leading-relaxed max-w-[280px]">
+                <h2 className="text-4xl font-black mb-4 tracking-tighter drop-shadow-md">Bonjour, Parent ! 🌟</h2>
+                <p className="text-sm font-semibold opacity-95 mb-8 leading-relaxed max-w-[280px]">
                   Plongez au cœur de l'éducation de votre enfant. Suivez chaque instant de sa réussite avec nous.
                 </p>
-                <div className="text-left text-xs space-y-3 mb-8 bg-white/10 p-5 rounded-2xl backdrop-blur-sm border border-white/20">
-                   <p className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-white rounded-full"></div> Suivi des notes en temps réel</p>
-                   <p className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-white rounded-full"></div> Notifications de présence</p>
-                   <p className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-white rounded-full"></div> Communication école-famille</p>
+                <div className="text-left text-sm space-y-4 mb-8 bg-white/20 p-6 rounded-3xl backdrop-blur-md border border-white/40 shadow-[0_8px_32px_0_rgba(255,255,255,0.15)] w-full max-w-[300px]">
+                   <p className="flex items-center gap-3 font-semibold text-white drop-shadow-sm">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/30 shadow-sm"><div className="w-2 h-2 bg-white rounded-full"></div></div> 
+                      Suivi des notes en temps réel
+                   </p>
+                   <p className="flex items-center gap-3 font-semibold text-white drop-shadow-sm">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/30 shadow-sm"><div className="w-2 h-2 bg-white rounded-full"></div></div> 
+                      Notifications de présence
+                   </p>
+                   <p className="flex items-center gap-3 font-semibold text-white drop-shadow-sm">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/30 shadow-sm"><div className="w-2 h-2 bg-white rounded-full"></div></div> 
+                      Communication école-famille
+                   </p>
                 </div>
                 <button 
-                  className="auth-button ghost mb-2"
+                  className="w-full max-w-[300px] py-3.5 bg-white text-amber-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-900/10 hover:shadow-2xl hover:-translate-y-1 active:scale-95 transition-all mb-4"
                   type="button" 
                   onClick={() => setView('parent-register')}
                 >
                   CRÉER MON COMPTE PARENT
                 </button>
                 <button 
-                  className="w-full py-2 text-amber-100 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors underline"
+                  className="w-full py-2 text-amber-50 text-[10px] font-black uppercase tracking-widest hover:text-white hover:scale-105 transition-all underline decoration-amber-300 underline-offset-4"
                   type="button" 
                   onClick={() => setView('register')}
                 >
