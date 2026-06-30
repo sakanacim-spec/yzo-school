@@ -54,7 +54,7 @@ const BackgroundSlideshow: React.FC = () => {
             style={{ backgroundImage: `url(${img})` }}
           />
         ))}
-        <div className="absolute inset-0 z-[1] bg-slate-900/40 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 z-[1] bg-slate-50/40 backdrop-blur-[2px]" />
       </div>
     );
 };
@@ -144,8 +144,8 @@ export const Login: React.FC = () => {
 
   if (isMobile && view === 'register') {
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
-            <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-3xl bg-slate-50/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
                 <Register 
                   onBack={() => setView('login')} 
                   onSuccess={(admin) => {
@@ -160,8 +160,8 @@ export const Login: React.FC = () => {
 
   if (isMobile && view === 'parent-register') {
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
-            <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-3xl bg-slate-50/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
                 <ParentRegister 
                   schools={schools}
                   onBack={() => setView('login')} 
@@ -177,8 +177,8 @@ export const Login: React.FC = () => {
 
   if (isMobile && view === 'forgot-password') {
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
-            <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-3xl bg-slate-50/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
                 <ForgotPassword schoolSlug={selectedSchool} onBack={() => setView('login')} />
             </div>
         </div>
@@ -187,201 +187,302 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center font-['Poppins'] overflow-hidden bg-white relative">
-      
+      <style>{`
+        /* ──── DESKTOP SLIDING OVERLAY ──── */
+        .auth-container {
+          background-color: #fff;
+          border-radius: 24px;
+          box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
+          position: relative;
+          overflow: hidden;
+          width: 950px;
+          max-width: 100%;
+          min-height: 600px;
+          z-index: 10;
+        }
+
+        .form-container {
+          position: absolute; top: 0; height: 100%; transition: all 0.6s ease-in-out;
+        }
+
+        .sign-in-container { left: 0; width: 50%; z-index: 2; }
+        .auth-container.right-panel-active .sign-in-container { transform: translateX(100%); }
+
+        .sign-up-container { left: 0; width: 50%; opacity: 0; z-index: 1; }
+        .auth-container.right-panel-active .sign-up-container {
+          transform: translateX(100%); opacity: 1; z-index: 5; animation: show 0.6s;
+        }
+
+        @keyframes show {
+          0%, 49.99% { opacity: 0; z-index: 1; }
+          50%, 100% { opacity: 1; z-index: 5; }
+        }
+
+        .overlay-container {
+          position: absolute; top: 0; left: 50%; width: 50%; height: 100%;
+          overflow: hidden; transition: transform 0.6s ease-in-out; z-index: 100;
+        }
+        .auth-container.right-panel-active .overlay-container { transform: translateX(-100%); }
+
+        .overlay {
+          background: #f97316;
+          color: #FFFFFF; position: relative; left: -100%; height: 100%; width: 200%;
+          transform: translateX(0); transition: transform 0.6s cubic-bezier(0.7, 0, 0.3, 1);
+        }
+        .auth-container.right-panel-active .overlay { transform: translateX(50%); }
+
+        .overlay-panel {
+          position: absolute; display: flex; align-items: center; justify-content: center;
+          flex-direction: column; padding: 0 50px; text-align: center; top: 0; height: 100%; width: 50%;
+          transform: translateX(0); transition: transform 0.6s cubic-bezier(0.7, 0, 0.3, 1);
+        }
+        .overlay-left { transform: translateX(-20%); }
+        .auth-container.right-panel-active .overlay-left { transform: translateX(0); }
+        .overlay-right { right: 0; transform: translateX(0); }
+        .auth-container.right-panel-active .overlay-right { transform: translateX(20%); }
+
+        .auth-form {
+          background-color: #FFFFFF; display: flex; align-items: center; justify-content: center;
+          flex-direction: column; padding: 0 50px; height: 100%; text-align: center;
+        }
+
+        .auth-input {
+          background-color: #f8fafc; border: 1px solid #f1f5f9; padding: 12px 15px; margin: 8px 0;
+          width: 100%; border-radius: 12px; font-size: 14px; focus:outline-none focus:ring-2 focus:ring-amber-400;
+        }
+
+        .auth-button {
+          border-radius: 12px; border: 1px solid #eab308; background-color: #eab308; color: #FFFFFF;
+          font-size: 12px; font-weight: bold; padding: 12px 45px; letter-spacing: 1px;
+          text-transform: uppercase; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; margin-top: 15px;
+        }
+        .auth-button:active { transform: scale(0.95); }
+        .auth-button.ghost { background-color: transparent; border-color: #FFFFFF; }
+
+        .social-container { margin: 15px 0; }
+        .social-container a {
+          border: 1px solid #e2e8f0; border-radius: 50%; display: inline-flex; justify-content: center;
+          align-items: center; margin: 0 5px; height: 38px; width: 38px; color: #1e293b; transition: all 0.3s;
+        }
+        .social-container a:hover { background: #f1f5f9; border-color: #eab308; color: #eab308; }
+
+        /* ──── MOBILE CARDS ──── */
+        .mobile-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            width: 90%;
+            max-width: 400px;
+            padding: 32px 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+      `}</style>
 
       {/* --- DESKTOP VIEW --- */}
       {!isMobile && (
-        <div className="flex w-full max-w-[1100px] h-[650px] bg-white rounded-[2rem] overflow-hidden shadow-2xl relative z-10 mx-4 border border-slate-100">
-          
-          {/* LEFT PANEL - FORM */}
-          <div className="w-1/2 h-full flex flex-col justify-center px-12 lg:px-20 relative bg-white">
-            {view === 'register' ? (
-                <Register onBack={() => setView('login')} onSuccess={() => setView('login')} />
-            ) : view === 'parent-register' ? (
-                <ParentRegister schools={schools} onBack={() => setView('login')} onSuccess={() => setView('login')} />
-            ) : view === 'forgot-password' ? (
-                <ForgotPassword schoolSlug={selectedSchool} onBack={() => setView('login')} />
-            ) : (
-                <div className="flex flex-col h-full py-8 justify-between">
-                    <div className="flex flex-col items-center">
-                        <SchoolLogo size="w-20 h-20" />
-                        <h1 className="text-4xl font-black text-[#1e293b] tracking-tight mt-3">yziow</h1>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1 mb-8">
-                            PLATEFORME DE GESTION SCOLAIRE
-                        </p>
+        <div className={`auth-container ${view === 'register' || view === 'parent-register' || view === 'forgot-password' ? 'right-panel-active' : ''}`}>
 
-                        <form onSubmit={handleAuth} className="w-full space-y-4">
-                            <div className="relative">
-                                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-                                <select 
-                                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                                    value={selectedSchool} 
-                                    onChange={(e) => setSelectedSchool(e.target.value)} 
-                                    required
-                                >
-                                    <option value="" disabled>-- Sélectionnez votre établissement --</option>
-                                    <option value="global">Accès Global (SuperAdmin)</option>
-                                    <option disabled>────── Établissements ──────</option>
-                                    {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
-                                </select>
-                            </div>
-                            
-                            <div className="relative">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-                                <input 
-                                    type="text" 
-                                    placeholder="Numéro de téléphone" 
-                                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                                    value={username} 
-                                    onChange={(e) => setUsername(e.target.value)} 
-                                    required 
-                                />
-                            </div>
-                            
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-                                <input 
-                                    type="password" 
-                                    placeholder="••••••" 
-                                    className="w-full pl-12 pr-12 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                                    value={password} 
-                                    onChange={(e) => setPassword(e.target.value)} 
-                                    required 
-                                />
-                                <EyeOff className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500 cursor-pointer opacity-70 hover:opacity-100" />
-                            </div>
-
-                            <div className="flex justify-between items-center px-1 pt-1 mb-4">
-                                <button type="button" onClick={() => setView('forgot-password')} className="text-[11px] text-slate-500 font-medium hover:text-orange-500">Mot de passe oublié ?</button>
-                                <button type="button" onClick={() => setIsPrivacyOpen(true)} className="text-[11px] text-orange-500 font-semibold hover:underline underline-offset-2">Confidentialité & Données</button>
-                            </div>
-
-                            {error && <div className="text-rose-500 text-xs italic text-center font-bold px-4 pb-2">{error}</div>}
-
-                            <button type="submit" disabled={loading} className="w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2">
-                                <Lock className="w-4 h-4" /> SE CONNECTER
-                            </button>
-                            
-                            <div className="flex items-center gap-4 my-6">
-                                <div className="h-px bg-slate-200 flex-1"></div>
-                                <span className="text-xs text-slate-400 font-medium">ou</span>
-                                <div className="h-px bg-slate-200 flex-1"></div>
-                            </div>
-                            
-                            <button type="button" onClick={() => setView('register')} className="w-full py-3.5 bg-white border-2 border-orange-200 text-orange-500 hover:bg-orange-50 rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2">
-                                <Building2 className="w-4 h-4" /> INSCRIRE MON ÉTABLISSEMENT
-                            </button>
-                        </form>
-                    </div>
-
-                    <div className="flex justify-center items-center gap-2 text-[10px] text-slate-400 font-medium mt-auto">
-                        <ShieldCheck className="w-3.5 h-3.5" /> Connexion sécurisée <span className="mx-1">|</span> Vos données sont protégées
-                    </div>
-                </div>
-            )}
+          {/* Sign Up Panel */}
+          <div className="form-container sign-up-container bg-slate-50 overflow-y-auto custom-scrollbar">
+             <div className="min-h-full w-full flex flex-col items-center justify-center p-4">
+                 {view === 'register' ? (
+                   <Register 
+                     onBack={() => setView('login')} 
+                     onSuccess={(admin) => {
+                       window.location.reload();
+                     }} 
+                   />
+                 ) : view === 'forgot-password' ? (
+                   <ForgotPassword schoolSlug={selectedSchool} onBack={() => setView('login')} />
+                 ) : (
+                   <ParentRegister 
+                     schools={schools}
+                     onBack={() => setView('login')} 
+                     onSuccess={(user) => {
+                       setView('login');
+                     }} 
+                   />
+                 )}
+             </div>
           </div>
 
-          {/* RIGHT PANEL - INFO */}
-          <div className="w-1/2 h-full bg-[#f97316] relative p-10 flex flex-col overflow-hidden">
-             
-             {/* Text Content */}
-             <div className="relative z-10 pt-4 flex-1">
-                <h2 className="text-4xl font-black text-white mb-2 tracking-tight">Bonjour, Parent ! <span className="inline-block animate-wave">👋</span></h2>
-                <h3 className="text-2xl font-bold text-[#431407] mb-1 leading-snug">Votre enfant grandit.</h3>
-                <h3 className="text-2xl font-bold text-[#431407] mb-6 leading-snug">Restez connecté à sa réussite scolaire.</h3>
-                
-                <p className="text-sm font-medium text-white leading-relaxed max-w-[420px] mb-8">
-                  Avec Yziow, consultez les informations importantes dès qu'elles sont disponibles et échangez facilement avec son établissement.
-                </p>
+          {/* Login Panel */}
+          <div className="form-container sign-in-container">
+              <form className="w-full h-full flex flex-col justify-center px-12 lg:px-16" onSubmit={handleAuth}>
+                <div className="flex flex-col items-center mb-8">
+                    <SchoolLogo size="w-16 h-16" />
+                    <h1 className="text-3xl font-black text-[#1e293b] tracking-tight mt-3">yziow</h1>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">
+                        PLATEFORME DE GESTION SCOLAIRE
+                    </p>
+                </div>
 
-                {/* 3 Cards */}
-                <div className="flex gap-4 mb-8">
-                    <div className="bg-white rounded-[20px] p-4 flex-1 text-center shadow-lg transform transition-transform hover:-translate-y-1">
-                        <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <BarChart2 className="w-6 h-6 text-orange-500" />
-                        </div>
-                        <h4 className="text-[11px] font-bold text-slate-800 mb-2 leading-tight">Notes et bulletins<br/>en temps réel</h4>
-                        <p className="text-[9px] text-slate-500 leading-snug">Consultez les résultats dès leur publication.</p>
+                <div className="w-full space-y-4">
+                    <div className="relative">
+                        <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                        <select 
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            value={selectedSchool} 
+                            onChange={(e) => setSelectedSchool(e.target.value)} 
+                            required
+                        >
+                            <option value="" disabled>-- Sélectionnez votre établissement --</option>
+                            <option value="global">Accès Global (SuperAdmin)</option>
+                            <option disabled>────── Établissements ──────</option>
+                            {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
+                        </select>
                     </div>
                     
-                    <div className="bg-white rounded-[20px] p-4 flex-1 text-center shadow-lg transform transition-transform hover:-translate-y-1">
-                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <MapPin className="w-6 h-6 text-orange-500" />
-                        </div>
-                        <h4 className="text-[11px] font-bold text-slate-800 mb-2 leading-tight">Présences et absences<br/>instantanées</h4>
-                        <p className="text-[9px] text-slate-500 leading-snug">Soyez informé des absences, retards et présences.</p>
+                    <div className="relative">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                        <input 
+                            type="text" 
+                            placeholder="Numéro de téléphone" 
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            value={username} 
+                            onChange={(e) => setUsername(e.target.value)} 
+                            required 
+                        />
                     </div>
-
-                    <div className="bg-white rounded-[20px] p-4 flex-1 text-center shadow-lg transform transition-transform hover:-translate-y-1">
-                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <MessageSquare className="w-6 h-6 text-orange-500" />
-                        </div>
-                        <h4 className="text-[11px] font-bold text-slate-800 mb-2 leading-tight">Échanges simples<br/>avec l'école</h4>
-                        <p className="text-[9px] text-slate-500 leading-snug">Communiquez facilement avec les enseignants et l'administration.</p>
-                    </div>
-                </div>
-
-                {/* Info Bar */}
-                <div className="bg-white rounded-xl py-3 px-4 flex justify-between items-center mb-10 shadow-sm">
-                    <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-5 h-5 text-orange-500" />
-                        <div>
-                            <p className="text-[10px] font-bold text-slate-800">Sécurisé</p>
-                            <p className="text-[8px] text-slate-500">Vos données sont protégées</p>
-                        </div>
-                    </div>
-                    <div className="w-px h-6 bg-slate-200"></div>
-                    <div className="flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5 text-orange-500" />
-                        <div>
-                            <p className="text-[10px] font-bold text-slate-800">Fiable</p>
-                            <p className="text-[8px] text-slate-500">Informations justes et en temps réel</p>
-                        </div>
-                    </div>
-                    <div className="w-px h-6 bg-slate-200"></div>
-                    <div className="flex items-center gap-2">
-                        <Globe className="w-5 h-5 text-orange-500" />
-                        <div>
-                            <p className="text-[10px] font-bold text-slate-800">Accessible partout</p>
-                            <p className="text-[8px] text-slate-500">Depuis votre mobile ou ordinateur</p>
-                        </div>
+                    
+                    <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                        <input 
+                            type="password" 
+                            placeholder="••••••" 
+                            className="w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            value={password} 
+                            onChange={(e) => setPassword(e.target.value)} 
+                            required 
+                        />
+                        <EyeOff className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500 cursor-pointer opacity-70 hover:opacity-100" />
                     </div>
                 </div>
 
-                {/* Call to action */}
-                <div className="flex flex-col items-center relative z-20">
-                    <button 
-                        type="button" 
-                        onClick={() => setView('parent-register')}
-                        className="w-[85%] py-4 border-2 border-white rounded-xl text-white font-black text-sm tracking-wide hover:bg-white hover:text-orange-500 transition-all flex items-center justify-center gap-2 shadow-lg"
-                    >
-                        <User className="w-4 h-4" /> CRÉER MON ESPACE PARENT <span className="ml-2 text-lg leading-none">&gt;</span>
-                    </button>
-                    <p className="text-[11px] text-[#431407] font-semibold mt-3">C'est rapide, gratuit et sécurisé.</p>
+                <div className="flex justify-between items-center w-full px-1 pt-1 mb-4 mt-2">
+                    <button type="button" onClick={() => setView('forgot-password')} className="text-[10px] text-slate-500 font-medium hover:text-orange-500">Mot de passe oublié ?</button>
+                    <button type="button" onClick={() => setIsPrivacyOpen(true)} className="text-[10px] text-orange-500 font-semibold hover:underline underline-offset-2">Confidentialité & Données</button>
                 </div>
-             </div>
 
-             {/* Footer Pill */}
-             <div className="relative z-10 w-full flex justify-center mt-auto pb-4">
-                <div className="bg-white/90 backdrop-blur-sm rounded-full py-2.5 px-6 flex items-center gap-2 text-[10px] font-bold text-[#431407] shadow-sm">
-                    <span className="text-rose-500">❤️</span> Parce que chaque enfant mérite le meilleur suivi pour réussir. <span className="text-amber-400">⭐</span>
+                {trialExpiredSchool && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-left text-xs mb-4">
+                        <p className="text-amber-800 font-bold">⚠️ Période d'essai expirée</p>
+                        <p className="text-amber-700 mt-1">"{trialExpiredSchool}" — Contactez l'administrateur.</p>
+                    </div>
+                )}
+                {error && <div className="text-rose-500 text-[10px] italic text-center font-bold px-4 pb-2">{error}</div>}
+
+                <button type="submit" disabled={loading} className="w-full py-3.5 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl font-bold text-xs tracking-wide shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2">
+                    <Lock className="w-4 h-4" /> SE CONNECTER
+                </button>
+                
+                <div className="flex items-center gap-4 my-5 w-full">
+                    <div className="h-px bg-slate-200 flex-1"></div>
+                    <span className="text-[10px] text-slate-400 font-medium">ou</span>
+                    <div className="h-px bg-slate-200 flex-1"></div>
                 </div>
-             </div>
-             
-             {/* Decorative Element / Doodles (replacing illustration) */}
-             <div className="absolute top-12 right-8 opacity-40">
-                <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M10 90 C 20 20, 80 10, 90 60" stroke="white" strokeWidth="2" strokeDasharray="6 6" fill="transparent"/>
-                    <circle cx="90" cy="60" r="5" fill="none" stroke="white" strokeWidth="2"/>
-                </svg>
-             </div>
-             <div className="absolute top-[80px] right-[20px] opacity-40 transform rotate-12">
-                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v14z"></path><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-             </div>
-          </div>
+                
+                <button type="button" onClick={() => setView('register')} className="w-full py-3 bg-white border border-orange-200 text-orange-500 hover:bg-orange-50 rounded-xl font-bold text-xs tracking-wide transition-all flex items-center justify-center gap-2">
+                    <Building2 className="w-4 h-4" /> INSCRIRE MON ÉTABLISSEMENT
+                </button>
+
+                <div className="flex justify-center items-center gap-2 text-[9px] text-slate-400 font-medium mt-6">
+                    <ShieldCheck className="w-3 h-3" /> Connexion sécurisée <span className="mx-1">|</span> Vos données sont protégées
+                </div>
+              </form>
+            </div>
+
+          {/* Overlay Panel */}
+          <div className="overlay-container">
+            <div className="overlay">
+              <div className="overlay-panel overlay-left">
+                <h2 className="text-3xl font-black mb-4 tracking-tighter">De retour ? 👋</h2>
+                <p className="text-sm font-medium opacity-90 mb-8 leading-relaxed max-w-[280px]">
+                  Connectez-vous pour accéder au tableau de bord et gérer votre établissement.
+                </p>
+                <button 
+                  className="auth-button ghost"
+                  type="button" 
+                  onClick={() => setView('login')}
+                >
+                  SE CONNECTER
+                </button>
+              </div>
+
+              <div className="overlay-panel overlay-right p-8 flex flex-col justify-between">
+                  <div className="text-left w-full mt-4 flex-1">
+                      <h2 className="text-3xl font-black text-white mb-2 tracking-tight drop-shadow-sm">Bonjour, Parent ! <span className="inline-block animate-wave">👋</span></h2>
+                      <h3 className="text-lg font-bold text-white mb-1 drop-shadow-sm">Votre enfant grandit.</h3>
+                      <h3 className="text-lg font-bold text-white mb-6 drop-shadow-sm">Restez connecté à sa réussite scolaire.</h3>
+                      
+                      <p className="text-xs font-medium text-white/95 leading-relaxed max-w-[360px] mb-8 drop-shadow-sm">
+                        Avec Yziow, consultez les informations importantes dès qu'elles sont disponibles et échangez facilement avec son établissement.
+                      </p>
+
+                      <div className="flex gap-3 mb-8 w-full max-w-[400px]">
+                          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 flex-1 text-center border border-white/20">
+                              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                  <BarChart2 className="w-5 h-5 text-white" />
+                              </div>
+                              <h4 className="text-[9px] font-bold text-white mb-1 leading-tight drop-shadow-sm">Notes et bulletins</h4>
+                          </div>
+                          
+                          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 flex-1 text-center border border-white/20">
+                              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                  <MapPin className="w-5 h-5 text-white" />
+                              </div>
+                              <h4 className="text-[9px] font-bold text-white mb-1 leading-tight drop-shadow-sm">Présences et absences</h4>
+                          </div>
+
+                          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 flex-1 text-center border border-white/20">
+                              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                  <MessageSquare className="w-5 h-5 text-white" />
+                              </div>
+                              <h4 className="text-[9px] font-bold text-white mb-1 leading-tight drop-shadow-sm">Échanges simples</h4>
+                          </div>
+                      </div>
+
+                      <div className="bg-white/10 backdrop-blur-sm rounded-xl py-2 px-3 flex justify-between items-center mb-10 border border-white/20 w-full max-w-[400px]">
+                          <div className="flex flex-col items-center flex-1">
+                              <ShieldCheck className="w-4 h-4 text-white mb-1" />
+                              <p className="text-[8px] font-bold text-white drop-shadow-sm">Sécurisé</p>
+                          </div>
+                          <div className="w-px h-6 bg-white/20"></div>
+                          <div className="flex flex-col items-center flex-1">
+                              <CheckCircle className="w-4 h-4 text-white mb-1" />
+                              <p className="text-[8px] font-bold text-white drop-shadow-sm">Fiable</p>
+                          </div>
+                          <div className="w-px h-6 bg-white/20"></div>
+                          <div className="flex flex-col items-center flex-1">
+                              <Globe className="w-4 h-4 text-white mb-1" />
+                              <p className="text-[8px] font-bold text-white drop-shadow-sm">Accessible</p>
+                          </div>
+                      </div>
+
+                      <div className="flex flex-col items-center w-full max-w-[400px]">
+                          <button 
+                              type="button" 
+                              onClick={() => setView('parent-register')}
+                              className="w-[85%] py-3.5 border border-white bg-white/10 hover:bg-white text-white hover:text-orange-500 rounded-xl font-black text-xs tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm"
+                          >
+                              <User className="w-4 h-4" /> CRÉER MON ESPACE PARENT <span className="ml-2 text-lg leading-none">&gt;</span>
+                          </button>
+                          <p className="text-[10px] text-white/80 font-medium mt-3 drop-shadow-sm">C'est rapide, gratuit et sécurisé.</p>
+                      </div>
+                  </div>
+
+                  <div className="mt-auto w-full max-w-[400px]">
+                      <div className="bg-white/20 backdrop-blur-md rounded-full py-2 px-4 flex items-center justify-center gap-2 text-[9px] font-bold text-white shadow-sm border border-white/20">
+                          <span className="text-rose-400 drop-shadow-sm">❤️</span> Parce que chaque enfant mérite le meilleur <span className="text-amber-300 drop-shadow-sm">⭐</span>
+                      </div>
+                  </div>
+                </div>\n              </div>\n          </div>
         </div>
+
       )}
-\n      {/* --- MOBILE VIEW --- */}
+
+      {/* --- MOBILE VIEW --- */}
       {isMobile && (
         <>
             <BackgroundSlideshow />
