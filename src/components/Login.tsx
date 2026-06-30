@@ -309,7 +309,7 @@ export const Login: React.FC = () => {
               <input type="text" placeholder={T.login.phonePlaceholder} className="auth-input max-w-sm mx-auto" value={username} onChange={(e) => setUsername(e.target.value)} required />
               <input type="password" placeholder={T.login.passwordPlaceholder} className="auth-input max-w-sm mx-auto" value={password} onChange={(e) => setPassword(e.target.value)} required />
               <div className="flex items-center justify-between w-full max-w-sm mx-auto mt-2 text-xs px-1">
-                <button type="button" onClick={() => alert('Veuillez contacter l\\'administrateur pour réinitialiser votre mot de passe.')} className="text-slate-400 hover:text-amber-600">{T.login.forgotPassword}</button>
+                <button type="button" onClick={() => alert("Veuillez contacter l'administrateur pour réinitialiser votre mot de passe.")} className="text-slate-400 hover:text-amber-600">{T.login.forgotPassword}</button>
 
                 <button 
                   type="button" 
@@ -412,7 +412,7 @@ export const Login: React.FC = () => {
 
                       <div className="flex justify-between items-center px-1 text-[11px] mt-1">
 
-                        <button type="button" onClick={() => alert('Veuillez contacter l\\'administrateur pour réinitialiser votre mot de passe.')} className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</button>
+                        <button type="button" onClick={() => alert("Veuillez contacter l'administrateur pour réinitialiser votre mot de passe.")} className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</button>
                         <button 
                           type="button" 
                           onClick={() => setIsPrivacyOpen(true)}
