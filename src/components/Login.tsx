@@ -300,7 +300,7 @@ export const Login: React.FC = () => {
               <div className="social-container text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-2">{T.login.subtitle}</div>
               
               <select className="auth-input mb-4 font-bold text-slate-600 border border-slate-200" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)}>
-                  <option value="" disabled>-- Sélectionnez votre école --</option>
+                  <option value="" disabled>-- Sélectionnez votre établissement --</option>
                   <option value="global">Accès Global (SuperAdmin)</option>
                   <option disabled>────── Établissements ──────</option>
                   {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
@@ -309,7 +309,7 @@ export const Login: React.FC = () => {
               <input type="text" placeholder={T.login.phonePlaceholder} className="auth-input max-w-sm mx-auto" value={username} onChange={(e) => setUsername(e.target.value)} required />
               <input type="password" placeholder={T.login.passwordPlaceholder} className="auth-input max-w-sm mx-auto" value={password} onChange={(e) => setPassword(e.target.value)} required />
               <div className="flex items-center justify-between w-full max-w-sm mx-auto mt-2 text-xs px-1">
-                <a href="#" className="text-slate-400 hover:text-amber-600">{T.login.forgotPassword}</a>
+                <button type="button" onClick={() => alert('Veuillez contacter l\\'administrateur pour réinitialiser votre mot de passe.')} className="text-slate-400 hover:text-amber-600">{T.login.forgotPassword}</button>
 
                 <button 
                   type="button" 
@@ -397,19 +397,22 @@ export const Login: React.FC = () => {
 
                 <form onSubmit={handleAuth} className="space-y-4">
                         <div className="relative mb-2">
-
                             <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                            <select className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 appearance-none" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} required>
-                                <option value="" disabled>-- Sélectionnez votre école --</option>
+                            <select className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 appearance-none" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} required>
+                                <option value="" disabled>-- Sélectionnez votre établissement --</option>
                                 <option value="global">Accès Global (SuperAdmin)</option>
                                 <option disabled>────── Établissements ──────</option>
                                 {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
                             </select>
-                    </div>
+                        </div>
+                        
+                        <input type="text" placeholder={T.login.phonePlaceholder} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400" value={username} onChange={(e) => setUsername(e.target.value)} required />
+                        
+                        <input type="password" placeholder={T.login.passwordPlaceholder} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400" value={password} onChange={(e) => setPassword(e.target.value)} required />
 
                       <div className="flex justify-between items-center px-1 text-[11px] mt-1">
 
-                        <a href="#" className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</a>
+                        <button type="button" onClick={() => alert('Veuillez contacter l\\'administrateur pour réinitialiser votre mot de passe.')} className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</button>
                         <button 
                           type="button" 
                           onClick={() => setIsPrivacyOpen(true)}
