@@ -5,8 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { parentApi } from '../services/parentApi';
 import { LinkStudent } from './LinkStudent';
-import { Lock, User, Phone, CheckCircle, Store } from 'lucide-react';
-import yziowLogo from '../assets/yziow-logo.png';
+import { GraduationCap, Lock, User, Phone, CheckCircle, Store } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 
 // ── Images de fond (Mobile uniquement) ──
@@ -26,8 +25,8 @@ const SLIDE_DURATION = 5000;
 
 const SchoolLogo: React.FC<{ size?: string }> = ({ size = "w-16 h-16" }) => {
   return (
-    <div className={`${size} flex items-center justify-center mb-4`}>
-      <img src={yziowLogo} alt="Yziow" className="w-full h-full object-contain drop-shadow-xl" />
+    <div className={`${size} bg-amber-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-amber-500/20`}>
+      <GraduationCap className="w-1/2 h-1/2 text-white" />
     </div>
   );
 };
