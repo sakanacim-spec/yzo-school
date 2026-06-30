@@ -54,7 +54,7 @@ const BackgroundSlideshow: React.FC = () => {
             style={{ backgroundImage: `url(${img})` }}
           />
         ))}
-        <div className="absolute inset-0 z-[1] bg-slate-50/40 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 z-[1] bg-slate-900/40 backdrop-blur-[2px]" />
       </div>
     );
 };
@@ -144,8 +144,8 @@ export const Login: React.FC = () => {
 
   if (isMobile && view === 'register') {
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-8">
-            <div className="w-full max-w-3xl bg-slate-50/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
                 <Register 
                   onBack={() => setView('login')} 
                   onSuccess={(admin) => {
@@ -160,8 +160,8 @@ export const Login: React.FC = () => {
 
   if (isMobile && view === 'parent-register') {
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-8">
-            <div className="w-full max-w-3xl bg-slate-50/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
                 <ParentRegister 
                   schools={schools}
                   onBack={() => setView('login')} 
@@ -177,8 +177,8 @@ export const Login: React.FC = () => {
 
   if (isMobile && view === 'forgot-password') {
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-8">
-            <div className="w-full max-w-3xl bg-slate-50/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
                 <ForgotPassword schoolSlug={selectedSchool} onBack={() => setView('login')} />
             </div>
         </div>
@@ -284,7 +284,7 @@ export const Login: React.FC = () => {
         <div className={`auth-container ${view === 'register' || view === 'parent-register' || view === 'forgot-password' ? 'right-panel-active' : ''}`}>
 
           {/* Sign Up Panel */}
-          <div className="form-container sign-up-container bg-slate-50 overflow-y-auto custom-scrollbar">
+          <div className="form-container sign-up-container bg-slate-900 overflow-y-auto custom-scrollbar">
              <div className="min-h-full w-full flex flex-col items-center justify-center p-4">
                  {view === 'register' ? (
                    <Register 
