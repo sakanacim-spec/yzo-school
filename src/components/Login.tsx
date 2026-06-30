@@ -179,7 +179,7 @@ export const Login: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 sm:p-8">
             <div className="w-full max-w-3xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[32px] shadow-2xl p-6 sm:p-10 animate-in fade-in zoom-in duration-300 custom-scrollbar overflow-y-auto max-h-[90vh]">
-                <ForgotPassword onBack={() => setView('login')} />
+                <ForgotPassword schoolSlug={selectedSchool} onBack={() => setView('login')} />
             </div>
         </div>
     );
@@ -294,7 +294,7 @@ export const Login: React.FC = () => {
                      }} 
                    />
                  ) : view === 'forgot-password' ? (
-                   <ForgotPassword onBack={() => setView('login')} />
+                   <ForgotPassword schoolSlug={selectedSchool} onBack={() => setView('login')} />
                  ) : (
                    <ParentRegister 
                      schools={schools}

@@ -487,18 +487,31 @@ async function updateProfile(req, res) {
 // ----------------------------------------------------
 const forgotPassword = async (req, res) => {
     try {
-        const { phone } = req.body;
-        if (!phone) return res.status(400).json({ error: 'Le numéro de téléphone est requis.' });
+        const { phone, schoolSlug } = req.body;
+        if (!phone || !schoolSlug) return res.status(400).json({ error: 'Le numéro de téléphone et l\'établissement sont requis.' });
 
-        // Vérifier si l'utilisateur existe
-        const { data: user, error: fetchError } = await supabase
-            .from('users')
-            .select('id, name')
-            .eq('phone', phone)
-            .single();
+        let userFound = false;
 
-        if (fetchError || !user) {
-            return res.status(404).json({ error: 'Aucun compte trouvé avec ce numéro.' });
+        if (schoolSlug === 'global') {
+            // Check superadmins
+            const { data: superadmin } = await supabase
+                .from('superadmins')
+                .select('id')
+                .eq('username', phone.trim())
+                .single();
+            if (superadmin) userFound = true;
+        } else {
+            // Check profiles
+            const { data: profile } = await supabase
+                .from(`profiles_${schoolSlug}`)
+                .select('id')
+                .eq('telephone', phone.trim())
+                .single();
+            if (profile) userFound = true;
+        }
+
+        if (!userFound) {
+            return res.status(404).json({ error: 'Aucun compte trouvé avec ce numéro dans cet établissement.' });
         }
 
         // Générer un OTP à 6 chiffres
@@ -507,22 +520,23 @@ const forgotPassword = async (req, res) => {
         const expiresAt = new Date();
         expiresAt.setMinutes(expiresAt.getMinutes() + 15);
 
-        // Sauvegarder l'OTP en DB
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({ 
-                reset_otp: otp,
-                reset_otp_expires_at: expiresAt.toISOString()
-            })
-            .eq('id', user.id);
+        // Sauvegarder l'OTP en DB dans password_resets
+        const { error: insertError } = await supabase
+            .from('password_resets')
+            .insert({ 
+                phone: phone.trim(),
+                school_slug: schoolSlug,
+                otp: otp,
+                expires_at: expiresAt.toISOString()
+            });
 
-        if (updateError) {
-            console.error('Update OTP error:', updateError);
+        if (insertError) {
+            console.error('Insert OTP error:', insertError);
             return res.status(500).json({ error: 'Erreur lors de la génération du code.' });
         }
 
         // Envoyer le SMS
-        await sendPasswordResetSMS(phone, otp);
+        await sendPasswordResetSMS(phone.trim(), otp);
 
         return res.json({ message: 'Code de réinitialisation envoyé par SMS.' });
     } catch (err) {
@@ -536,31 +550,31 @@ const forgotPassword = async (req, res) => {
 // ----------------------------------------------------
 const resetPassword = async (req, res) => {
     try {
-        const { phone, otp, newPassword } = req.body;
+        const { phone, schoolSlug, otp, newPassword } = req.body;
         
-        if (!phone || !otp || !newPassword) {
+        if (!phone || !schoolSlug || !otp || !newPassword) {
             return res.status(400).json({ error: 'Tous les champs sont requis.' });
         }
         if (newPassword.length < 6) {
             return res.status(400).json({ error: 'Le mot de passe doit faire au moins 6 caractères.' });
         }
 
-        // Vérifier l'utilisateur et l'OTP
-        const { data: user, error: fetchError } = await supabase
-            .from('users')
-            .select('id, reset_otp, reset_otp_expires_at')
-            .eq('phone', phone)
+        // Vérifier l'OTP
+        const { data: resetRecord, error: fetchError } = await supabase
+            .from('password_resets')
+            .select('*')
+            .eq('phone', phone.trim())
+            .eq('school_slug', schoolSlug)
+            .eq('otp', otp)
+            .order('created_at', { ascending: false })
+            .limit(1)
             .single();
 
-        if (fetchError || !user) {
-            return res.status(404).json({ error: 'Utilisateur introuvable.' });
-        }
-
-        if (!user.reset_otp || user.reset_otp !== otp) {
+        if (fetchError || !resetRecord) {
             return res.status(400).json({ error: 'Code de réinitialisation invalide.' });
         }
 
-        if (new Date(user.reset_otp_expires_at) < new Date()) {
+        if (new Date(resetRecord.expires_at) < new Date()) {
             return res.status(400).json({ error: 'Le code de réinitialisation a expiré.' });
         }
 
@@ -568,20 +582,15 @@ const resetPassword = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-        // Mettre à jour le mot de passe et nettoyer l'OTP
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({
-                password_hash: hashedPassword,
-                reset_otp: null,
-                reset_otp_expires_at: null
-            })
-            .eq('id', user.id);
-
-        if (updateError) {
-            console.error('Reset Password Update Error:', updateError);
-            return res.status(500).json({ error: 'Erreur lors de la mise à jour du mot de passe.' });
+        // Mettre à jour le mot de passe
+        if (schoolSlug === 'global') {
+            await supabase.from('superadmins').update({ password: hashedPassword }).eq('username', phone.trim());
+        } else {
+            await supabase.from(`profiles_${schoolSlug}`).update({ password: hashedPassword }).eq('telephone', phone.trim());
         }
+
+        // Supprimer l'OTP
+        await supabase.from('password_resets').delete().eq('id', resetRecord.id);
 
         return res.json({ message: 'Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.' });
     } catch (err) {

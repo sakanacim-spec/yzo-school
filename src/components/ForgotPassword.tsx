@@ -3,10 +3,11 @@ import { useStore } from '../store';
 import { API_BASE_URL } from '../config';
 
 interface ForgotPasswordProps {
+    schoolSlug: string;
     onBack: () => void;
 }
 
-export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
+export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBack }) => {
     const language = useStore((s) => s.language);
     
     // States: 1 = Enter Phone, 2 = Enter OTP & New Password
@@ -31,7 +32,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
             const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone })
+                body: JSON.stringify({ phone, schoolSlug })
             });
             const data = await res.json();
 
@@ -62,7 +63,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
             const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, otp, newPassword })
+                body: JSON.stringify({ phone, schoolSlug, otp, newPassword })
             });
             const data = await res.json();
 
