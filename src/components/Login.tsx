@@ -192,14 +192,15 @@ export const Login: React.FC = () => {
         /* ──── DESKTOP SLIDING OVERLAY ──── */
         .auth-container {
           background-color: #fff;
-          border-radius: 24px;
-          box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
+          border-radius: 2rem;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
           position: relative;
           overflow: hidden;
-          width: 950px;
+          width: 1100px;
           max-width: 100%;
-          min-height: 600px;
+          min-height: 650px;
           z-index: 10;
+          border: 1px solid #f1f5f9;
         }
 
         .form-container {
@@ -234,38 +235,13 @@ export const Login: React.FC = () => {
 
         .overlay-panel {
           position: absolute; display: flex; align-items: center; justify-content: center;
-          flex-direction: column; padding: 0 50px; text-align: center; top: 0; height: 100%; width: 50%;
+          flex-direction: column; padding: 0 40px; text-align: center; top: 0; height: 100%; width: 50%;
           transform: translateX(0); transition: transform 0.6s cubic-bezier(0.7, 0, 0.3, 1);
         }
         .overlay-left { transform: translateX(-20%); }
         .auth-container.right-panel-active .overlay-left { transform: translateX(0); }
         .overlay-right { right: 0; transform: translateX(0); }
         .auth-container.right-panel-active .overlay-right { transform: translateX(20%); }
-
-        .auth-form {
-          background-color: #FFFFFF; display: flex; align-items: center; justify-content: center;
-          flex-direction: column; padding: 0 50px; height: 100%; text-align: center;
-        }
-
-        .auth-input {
-          background-color: #f8fafc; border: 1px solid #f1f5f9; padding: 12px 15px; margin: 8px 0;
-          width: 100%; border-radius: 12px; font-size: 14px; focus:outline-none focus:ring-2 focus:ring-amber-400;
-        }
-
-        .auth-button {
-          border-radius: 12px; border: 1px solid #eab308; background-color: #eab308; color: #FFFFFF;
-          font-size: 12px; font-weight: bold; padding: 12px 45px; letter-spacing: 1px;
-          text-transform: uppercase; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; margin-top: 15px;
-        }
-        .auth-button:active { transform: scale(0.95); }
-        .auth-button.ghost { background-color: transparent; border-color: #FFFFFF; }
-
-        .social-container { margin: 15px 0; }
-        .social-container a {
-          border: 1px solid #e2e8f0; border-radius: 50%; display: inline-flex; justify-content: center;
-          align-items: center; margin: 0 5px; height: 38px; width: 38px; color: #1e293b; transition: all 0.3s;
-        }
-        .social-container a:hover { background: #f1f5f9; border-color: #eab308; color: #eab308; }
 
         /* ──── MOBILE CARDS ──── */
         .mobile-card {
@@ -309,11 +285,13 @@ export const Login: React.FC = () => {
           </div>
 
           {/* Login Panel */}
-          <div className="form-container sign-in-container">
-              <form className="w-full h-full flex flex-col justify-center px-12 lg:px-16" onSubmit={handleAuth}>
+          <div className="form-container sign-in-container bg-white">
+              <form className="w-full h-full flex flex-col justify-center px-12 lg:px-20" onSubmit={handleAuth}>
                 <div className="flex flex-col items-center mb-8">
-                    <SchoolLogo size="w-16 h-16" />
-                    <h1 className="text-3xl font-black text-[#1e293b] tracking-tight mt-3">yziow</h1>
+                    <div className="w-16 h-16 bg-[#f97316] rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-orange-500/20">
+                      <GraduationCap className="w-10 h-10 text-white" />
+                    </div>
+                    <h1 className="text-4xl font-black text-[#1e293b] tracking-tight">yziow</h1>
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">
                         PLATEFORME DE GESTION SCOLAIRE
                     </p>
@@ -323,7 +301,7 @@ export const Login: React.FC = () => {
                     <div className="relative">
                         <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
                         <select 
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full pl-11 pr-10 py-3.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={selectedSchool} 
                             onChange={(e) => setSelectedSchool(e.target.value)} 
                             required
@@ -333,14 +311,17 @@ export const Login: React.FC = () => {
                             <option disabled>────── Établissements ──────</option>
                             {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
                         </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
                     </div>
                     
                     <div className="relative">
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
                         <input 
                             type="text" 
-                            placeholder="Numéro de téléphone" 
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            placeholder="99999999" 
+                            className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={username} 
                             onChange={(e) => setUsername(e.target.value)} 
                             required 
@@ -352,7 +333,7 @@ export const Login: React.FC = () => {
                         <input 
                             type="password" 
                             placeholder="••••••" 
-                            className="w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full pl-11 pr-11 py-3.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={password} 
                             onChange={(e) => setPassword(e.target.value)} 
                             required 
@@ -361,9 +342,9 @@ export const Login: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex justify-between items-center w-full px-1 pt-1 mb-4 mt-2">
-                    <button type="button" onClick={() => setView('forgot-password')} className="text-[10px] text-slate-500 font-medium hover:text-orange-500">Mot de passe oublié ?</button>
-                    <button type="button" onClick={() => setIsPrivacyOpen(true)} className="text-[10px] text-orange-500 font-semibold hover:underline underline-offset-2">Confidentialité & Données</button>
+                <div className="flex justify-between items-center w-full px-1 pt-1 mb-6 mt-3">
+                    <button type="button" onClick={() => setView('forgot-password')} className="text-[11px] text-slate-500 font-medium hover:text-orange-500">Mot de passe oublié ?</button>
+                    <button type="button" onClick={() => setIsPrivacyOpen(true)} className="text-[11px] text-orange-500 font-semibold hover:underline underline-offset-2">Confidentialité & Données</button>
                 </div>
 
                 {trialExpiredSchool && (
@@ -374,7 +355,7 @@ export const Login: React.FC = () => {
                 )}
                 {error && <div className="text-rose-500 text-[10px] italic text-center font-bold px-4 pb-2">{error}</div>}
 
-                <button type="submit" disabled={loading} className="w-full py-3.5 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl font-bold text-xs tracking-wide shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2">
+                <button type="submit" disabled={loading} className="w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl font-bold text-xs tracking-wide shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2">
                     <Lock className="w-4 h-4" /> SE CONNECTER
                 </button>
                 
@@ -384,7 +365,7 @@ export const Login: React.FC = () => {
                     <div className="h-px bg-slate-200 flex-1"></div>
                 </div>
                 
-                <button type="button" onClick={() => setView('register')} className="w-full py-3 bg-white border border-orange-200 text-orange-500 hover:bg-orange-50 rounded-xl font-bold text-xs tracking-wide transition-all flex items-center justify-center gap-2">
+                <button type="button" onClick={() => setView('register')} className="w-full py-3.5 bg-white border border-orange-200 text-orange-500 hover:bg-orange-50 rounded-xl font-bold text-xs tracking-wide transition-all flex items-center justify-center gap-2">
                     <Building2 className="w-4 h-4" /> INSCRIRE MON ÉTABLISSEMENT
                 </button>
 
@@ -411,81 +392,107 @@ export const Login: React.FC = () => {
                 </button>
               </div>
 
-              <div className="overlay-panel overlay-right p-8 flex flex-col justify-between">
-                  <div className="text-left w-full mt-4 flex-1">
-                      <h2 className="text-3xl font-black text-white mb-2 tracking-tight drop-shadow-sm">Bonjour, Parent ! <span className="inline-block animate-wave">👋</span></h2>
-                      <h3 className="text-lg font-bold text-white mb-1 drop-shadow-sm">Votre enfant grandit.</h3>
-                      <h3 className="text-lg font-bold text-white mb-6 drop-shadow-sm">Restez connecté à sa réussite scolaire.</h3>
+              <div className="overlay-panel overlay-right p-10 flex flex-col justify-between text-left relative overflow-hidden bg-[#f97316]">
+                  
+                  {/* Top content */}
+                  <div className="w-full flex-1 pr-6 relative z-10">
+                      <h2 className="text-4xl font-black text-white mb-2 tracking-tight flex items-center gap-2">
+                        Bonjour, Parent ! <span className="inline-block animate-wave">👋</span>
+                      </h2>
+                      <h3 className="text-2xl font-black text-[#431407] leading-tight">Votre enfant grandit.</h3>
+                      <h3 className="text-2xl font-black text-[#431407] mb-4 leading-tight">Restez connecté à sa réussite scolaire.</h3>
                       
-                      <p className="text-xs font-medium text-white/95 leading-relaxed max-w-[360px] mb-8 drop-shadow-sm">
+                      <p className="text-xs font-semibold text-white/95 leading-relaxed max-w-[420px] mb-6">
                         Avec Yziow, consultez les informations importantes dès qu'elles sont disponibles et échangez facilement avec son établissement.
                       </p>
 
-                      <div className="flex gap-3 mb-8 w-full max-w-[400px]">
-                          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 flex-1 text-center border border-white/20">
-                              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                                  <BarChart2 className="w-5 h-5 text-white" />
+                      {/* 3 cards side-by-side */}
+                      <div className="flex gap-4 mb-6">
+                          {/* Notes */}
+                          <div className="bg-white rounded-3xl p-4 flex-1 shadow-md hover:-translate-y-1 transition-transform duration-300">
+                              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mb-2">
+                                  <BarChart2 className="w-5 h-5 text-[#f97316]" />
                               </div>
-                              <h4 className="text-[9px] font-bold text-white mb-1 leading-tight drop-shadow-sm">Notes et bulletins</h4>
+                              <h4 className="text-[10px] font-black text-slate-800 leading-tight mb-1">Notes et bulletins en temps réel</h4>
+                              <p className="text-[8px] text-slate-400 font-semibold leading-tight">Consultez les résultats dès leur publication.</p>
                           </div>
                           
-                          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 flex-1 text-center border border-white/20">
-                              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                                  <MapPin className="w-5 h-5 text-white" />
+                          {/* Présences */}
+                          <div className="bg-white rounded-3xl p-4 flex-1 shadow-md hover:-translate-y-1 transition-transform duration-300">
+                              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mb-2">
+                                  <MapPin className="w-5 h-5 text-[#f97316]" />
                               </div>
-                              <h4 className="text-[9px] font-bold text-white mb-1 leading-tight drop-shadow-sm">Présences et absences</h4>
+                              <h4 className="text-[10px] font-black text-slate-800 leading-tight mb-1">Présences et absences instantanées</h4>
+                              <p className="text-[8px] text-slate-400 font-semibold leading-tight">Soyez informé des absences, retards et présences.</p>
                           </div>
 
-                          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 flex-1 text-center border border-white/20">
-                              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                                  <MessageSquare className="w-5 h-5 text-white" />
+                          {/* Échanges */}
+                          <div className="bg-white rounded-3xl p-4 flex-1 shadow-md hover:-translate-y-1 transition-transform duration-300">
+                              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mb-2">
+                                  <MessageSquare className="w-5 h-5 text-[#f97316]" />
                               </div>
-                              <h4 className="text-[9px] font-bold text-white mb-1 leading-tight drop-shadow-sm">Échanges simples</h4>
+                              <h4 className="text-[10px] font-black text-slate-800 leading-tight mb-1">Échanges simples avec l'école</h4>
+                              <p className="text-[8px] text-slate-400 font-semibold leading-tight">Communiquez facilement avec les enseignants et l'administration.</p>
                           </div>
                       </div>
 
-                      <div className="bg-white/10 backdrop-blur-sm rounded-xl py-2 px-3 flex justify-between items-center mb-10 border border-white/20 w-full max-w-[400px]">
-                          <div className="flex flex-col items-center flex-1">
-                              <ShieldCheck className="w-4 h-4 text-white mb-1" />
-                              <p className="text-[8px] font-bold text-white drop-shadow-sm">Sécurisé</p>
+                      {/* Security details banner */}
+                      <div className="bg-[#fff7ed] border border-orange-100/50 rounded-2xl p-3 flex justify-between items-center mb-6 max-w-[420px]">
+                          <div className="flex items-center gap-2">
+                              <ShieldCheck className="w-5 h-5 text-[#f97316]" />
+                              <div>
+                                  <h5 className="text-[9px] font-bold text-slate-800">Sécurisé</h5>
+                                  <p className="text-[8px] text-slate-400">Vos données sont protégées</p>
+                              </div>
                           </div>
-                          <div className="w-px h-6 bg-white/20"></div>
-                          <div className="flex flex-col items-center flex-1">
-                              <CheckCircle className="w-4 h-4 text-white mb-1" />
-                              <p className="text-[8px] font-bold text-white drop-shadow-sm">Fiable</p>
+                          <div className="w-px h-6 bg-orange-100"></div>
+                          <div className="flex items-center gap-2">
+                              <CheckCircle className="w-5 h-5 text-[#f97316]" />
+                              <div>
+                                  <h5 className="text-[9px] font-bold text-slate-800">Fiable</h5>
+                                  <p className="text-[8px] text-slate-400">Informations en temps réel</p>
+                              </div>
                           </div>
-                          <div className="w-px h-6 bg-white/20"></div>
-                          <div className="flex flex-col items-center flex-1">
-                              <Globe className="w-4 h-4 text-white mb-1" />
-                              <p className="text-[8px] font-bold text-white drop-shadow-sm">Accessible</p>
+                          <div className="w-px h-6 bg-orange-100"></div>
+                          <div className="flex items-center gap-2">
+                              <Globe className="w-5 h-5 text-[#f97316]" />
+                              <div>
+                                  <h5 className="text-[9px] font-bold text-slate-800">Accessible partout</h5>
+                                  <p className="text-[8px] text-slate-400">Mobile ou ordinateur</p>
+                              </div>
                           </div>
                       </div>
 
-                      <div className="flex flex-col items-center w-full max-w-[400px]">
-                          <button 
-                              type="button" 
-                              onClick={() => setView('parent-register')}
-                              className="w-[85%] py-3.5 border border-white bg-white/10 hover:bg-white text-white hover:text-orange-500 rounded-xl font-black text-xs tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm"
-                          >
-                              <User className="w-4 h-4" /> CRÉER MON ESPACE PARENT <span className="ml-2 text-lg leading-none">&gt;</span>
-                          </button>
-                          <p className="text-[10px] text-white/80 font-medium mt-3 drop-shadow-sm">C'est rapide, gratuit et sécurisé.</p>
+                      {/* Action and family layout */}
+                      <div className="flex items-center justify-between w-full relative min-h-[140px]">
+                          <div className="flex flex-col w-[60%] z-10">
+                              <button 
+                                  type="button" 
+                                  onClick={() => setView('parent-register')}
+                                  className="w-full py-4 border border-white bg-white/10 hover:bg-white text-white hover:text-[#f97316] rounded-xl font-black text-xs tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm"
+                              >
+                                  <User className="w-4 h-4" /> CRÉER MON ESPACE PARENT <span className="ml-2 text-md font-bold">&gt;</span>
+                              </button>
+                              <p className="text-[10px] text-[#431407] font-semibold mt-2 pl-2">C'est rapide, gratuit et sécurisé.</p>
+                          </div>
+
+                          {/* Family photo position overlay */}
+                          <img 
+                              src={familyIllustration} 
+                              alt="Famille" 
+                              className="absolute bottom-[-10px] right-[-20px] w-[210px] h-[160px] object-contain z-0 pointer-events-none select-none"
+                          />
                       </div>
                   </div>
 
-                  <div className="mt-auto w-full max-w-[400px]">
-                      <div className="bg-white/20 backdrop-blur-md rounded-full py-2 px-4 flex items-center justify-center gap-2 text-[9px] font-bold text-white shadow-sm border border-white/20">
-                          <span className="text-rose-400 drop-shadow-sm">❤️</span> Parce que chaque enfant mérite le meilleur <span className="text-amber-300 drop-shadow-sm">⭐</span>
+                  {/* Footer Pill */}
+                  <div className="w-full mt-4 relative z-10">
+                      <div className="bg-[#ffedd5] rounded-2xl py-2.5 px-4 flex items-center justify-center gap-2 text-[10px] font-bold text-[#431407] border border-orange-100">
+                          <span className="text-rose-500">❤️</span> Parce que chaque enfant mérite le meilleur suivi pour réussir. <span className="text-amber-500">⭐</span>
                       </div>
                   </div>
-                
-                  {/* Family Illustration */}
-                  <img 
-                      src={familyIllustration} 
-                      alt="Famille Yziow" 
-                      className="absolute -bottom-4 -right-4 w-[180px] md:w-[220px] h-auto object-contain z-0 pointer-events-none select-none"
-                  />
-                  </div>
+
+                </div>
               </div>
           </div>
         </div>
