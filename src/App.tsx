@@ -73,7 +73,7 @@ const PageContent: React.FC = () => {
 
   // Sécurité — Empêcher un parent de voir une page admin même si le store est désynchronisé
   if (user?.role === 'parent') {
-    const parentPages = ['parent_dashboard', 'parent_historique', 'parent_recus', 'parent_badges', 'chat', 'annonces', 'parent_notes', 'parent_devoirs_presence'];
+    const parentPages = ['parent_dashboard', 'parent_historique', 'parent_recus', 'parent_badges', 'chat', 'annonces', 'parent_notes', 'parent_devoirs_presence', 'parent_ressources'];
     if (!parentPages.includes(currentPage as any)) {
       return <ParentDashboard />;
     }

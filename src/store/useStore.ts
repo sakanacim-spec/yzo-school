@@ -442,7 +442,7 @@ export const useStore = create<AppState>()(
             throw new Error(`TRIAL_EXPIRED:${result.school_name || 'votre école'}`);
           }
           if (!res.ok) {
-            throw new Error(result.error || 'Identifiants incorrects.');
+            throw new Error(result.error || 'Erreur du serveur (sans message précis).');
           }
 
           if (res.ok && result.token) {
@@ -1180,6 +1180,7 @@ export const useStore = create<AppState>()(
             if (Array.isArray(data.classeMatieres)) set({ classeMatieres: data.classeMatieres });
             if (Array.isArray(data.devoirs)) set({ devoirs: data.devoirs });
             if (Array.isArray(data.presences)) set({ presences: data.presences });
+            if (Array.isArray(data.resources)) set({ resources: data.resources });
             
             // 🏅 Badges
             if (Array.isArray(data.badges)) {

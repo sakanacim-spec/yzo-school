@@ -112,7 +112,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
 
     try {
         const ok = await login(username, password, selectedSchool);
-        if (!ok) setError(T.errors.loginFailed || 'Identifiants incorrects.');
+        if (!ok) setError(T.errors.loginFailed || 'Erreur inconnue.');
 
     } catch (err: any) {
         const msg: string = err?.message || err?.error || "Une erreur est survenue.";

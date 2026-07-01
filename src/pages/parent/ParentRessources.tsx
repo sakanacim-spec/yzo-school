@@ -8,10 +8,9 @@ export const ParentRessources: React.FC = () => {
     const students = useStore(s => s.students);
     const resources = useStore(s => s.resources);
     
-    // Si connecté en tant que parent, on récupère les classes de ses enfants
-    // Si connecté en tant qu'élève (le parent dashboard gère les deux), on récupère la classe de l'élève
-    const parentStudents = students.filter(s => s.parentId === user?.id || s.id === user?.id);
-    const studentClasses = Array.from(new Set(parentStudents.map(s => s.classe)));
+    // Pour le parent, 'students' dans le store contient déjà uniquement ses enfants
+    const parentStudents = students;
+    const studentClasses = Array.from(new Set(parentStudents.map(s => s.classe).filter(Boolean)));
 
     // Seules les ressources des classes des enfants sont visibles
     const availableResources = resources.filter(r => studentClasses.includes(r.classe));

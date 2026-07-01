@@ -252,7 +252,8 @@ export const fr = {
     schoolTypeRequired: "Veuillez sélectionner un type d'établissement.",
     countryRequired: 'Veuillez sélectionner votre pays.',
     genericError: 'Une erreur est survenue. Veuillez réessayer.',
-    loginFailed: 'Identifiants incorrects.',
+    loginFailed: 'Erreur inconnue lors de la connexion.',
+    registerFailed: 'L\'inscription a échoué.',
     networkError: 'Problème de connexion réseau.',
   },
 };

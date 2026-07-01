@@ -335,26 +335,26 @@ async function getParentData(req, res) {
 
         const { data: schoolInfo } = await supabase
             .from('schools')
-            .select('country, address, phone, slogan, ministry, email')
+            .select('name, country, address, phone, slogan, ministry, email')
             .eq('slug', schoolSlug)
             .single();
         
-        const appSettings = dbSettings ? {
-            appName: dbSettings.app_name,
-            schoolName: dbSettings.school_name,
-            schoolYear: dbSettings.school_year,
-            schoolLogo: dbSettings.school_logo,
-            schoolStamp: dbSettings.school_stamp,
-            messageRemerciement: dbSettings.message_remerciement,
-            messageRappel: dbSettings.message_rappel,
-            tranches: dbSettings.tranches || [],
-            schoolCountry: schoolInfo?.country || null,
-            schoolAddress: schoolInfo?.address || null,
-            schoolPhone: schoolInfo?.phone || null,
-            schoolSlogan: schoolInfo?.slogan || null,
-            schoolMinistry: schoolInfo?.ministry || null,
+        const appSettings = {
+            appName: dbSettings?.app_name || schoolInfo?.name || null,
+            schoolName: dbSettings?.school_name || schoolInfo?.name || null,
+            schoolYear: dbSettings?.school_year || null,
+            schoolLogo: dbSettings?.school_logo || null,
+            schoolStamp: dbSettings?.school_stamp || null,
+            messageRemerciement: dbSettings?.message_remerciement || null,
+            messageRappel: dbSettings?.message_rappel || null,
+            tranches: dbSettings?.tranches || [],
+            schoolCountry: dbSettings?.school_country || schoolInfo?.country || null,
+            schoolAddress: dbSettings?.school_address || schoolInfo?.address || null,
+            schoolPhone: dbSettings?.school_phone || schoolInfo?.phone || null,
+            schoolSlogan: dbSettings?.school_slogan || schoolInfo?.slogan || null,
+            schoolMinistry: dbSettings?.school_ministry || schoolInfo?.ministry || null,
             schoolEmail: schoolInfo?.email || null
-        } : null;
+        };
 
         // 5. Détails des élèves (enfants)
         let students = [];
@@ -496,6 +496,30 @@ async function getParentData(req, res) {
             console.warn('[getParentData] Badge retrieval failed:', err.message);
         }
 
+        // 9. E-Learning / Ressources pour les parents
+        let resources = [];
+        try {
+            const studentClasses = Array.from(new Set(students.map(s => s.classe).filter(Boolean)));
+            if (studentClasses.length > 0) {
+                const { data: dbResources } = await supabase
+                    .from(`resources_${schoolSlug}`)
+                    .select('*')
+                    .in('classe', studentClasses);
+                resources = (dbResources || []).map(r => ({
+                    id: r.id,
+                    titre: r.titre,
+                    type: r.type,
+                    url: r.url,
+                    classe: r.classe,
+                    matiere: r.matiere,
+                    createdBy: r.created_by,
+                    createdAt: r.created_at
+                }));
+            }
+        } catch (err) {
+            console.warn('[getParentData] E-Learning retrieval failed:', err.message);
+        }
+
         return res.json({
             announcements: announcements || [],
             announcementReads: (announcementReads || []).map(r => ({
@@ -512,7 +536,8 @@ async function getParentData(req, res) {
             classeMatieres,
             badges,
             devoirs,
-            presences
+            presences,
+            resources
         });
     } catch (err) {
         console.error('[getParentData] Error:', err.message);
