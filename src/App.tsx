@@ -187,8 +187,13 @@ export function App() {
     return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
   }, []);
 
+  const [showLogin, setShowLogin] = React.useState(false);
+
   if (!isAuthenticated) {
-    return <Login />;
+    if (!showLogin) {
+      return <LandingPage onLogin={() => setShowLogin(true)} />;
+    }
+    return <Login onBackToLanding={() => setShowLogin(false)} />;
   }
 
   return (
