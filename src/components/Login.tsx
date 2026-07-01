@@ -522,22 +522,56 @@ export const Login: React.FC = () => {
                 </div>
 
                 <form onSubmit={handleAuth} className="space-y-4">
-                        <div className="relative mb-2">
-                            <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
-                            <select className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 appearance-none" value={selectedSchool} onChange={(e) => setSelectedSchool(e.target.value)} required>
+                        <div className="relative">
+                            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                            <select 
+                                className="w-full h-[52px] pl-12 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                value={selectedSchool} 
+                                onChange={(e) => setSelectedSchool(e.target.value)} 
+                                required
+                            >
                                 <option value="" disabled>-- Sélectionnez votre établissement --</option>
                                 <option value="global">Accès Global (SuperAdmin)</option>
                                 <option disabled>────── Établissements ──────</option>
                                 {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
                             </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
                         </div>
                         
-                        <input type="text" placeholder={T.login.phonePlaceholder} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400" value={username} onChange={(e) => setUsername(e.target.value)} required />
+                        <div className="relative">
+                            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                            <input 
+                                type="text" 
+                                placeholder="+33 6 12 34 56 78" 
+                                className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                value={username} 
+                                onChange={(e) => setUsername(e.target.value)} 
+                                required 
+                            />
+                        </div>
                         
-                        <input type="password" placeholder={T.login.passwordPlaceholder} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                        <div className="relative">
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                            <input 
+                                type={showPassword ? "text" : "password"} 
+                                placeholder="••••••" 
+                                className="w-full h-[52px] pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                value={password} 
+                                onChange={(e) => setPassword(e.target.value)} 
+                                required 
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-500 cursor-pointer opacity-70 hover:opacity-100 flex items-center justify-center"
+                            >
+                                {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                            </button>
+                        </div>
 
                       <div className="flex justify-between items-center px-1 text-[11px] mt-1">
-
                         <button type="button" onClick={() => setView('forgot-password')} className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</button>
                         <button 
                           type="button" 
@@ -556,15 +590,15 @@ export const Login: React.FC = () => {
                     )}
                     {error && <div className="text-rose-500 text-xs italic text-center font-bold px-4">{error}</div>}
 
-                    <button type="submit" disabled={loading} className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-500/30 active:scale-95 transition-transform flex items-center justify-center gap-2 mt-4">
+                    <button type="submit" disabled={loading} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-orange-500/30 active:scale-95 transition-transform flex items-center justify-center gap-2 mt-4">
                         {loading ? T.login.loggingIn : T.login.loginButton}
                     </button>
                     
-                    <button type="button" onClick={() => setView('parent-register')} className="w-full py-3 text-blue-600 bg-blue-50 border border-blue-100 text-[10px] font-black uppercase tracking-widest mt-2 rounded-2xl hover:bg-blue-100 transition-colors shadow-sm">
+                    <button type="button" onClick={() => setView('parent-register')} className="w-full py-3 text-orange-600 bg-orange-50 border border-orange-100 text-[10px] font-black uppercase tracking-widest mt-2 rounded-2xl hover:bg-orange-100 transition-colors shadow-sm">
                         Je suis parent, Créer mon compte
                     </button>
                     
-                    <button type="button" onClick={() => setView('register')} className="w-full py-2 text-amber-600 text-[10px] font-black uppercase tracking-widest mt-2">
+                    <button type="button" onClick={() => setView('register')} className="w-full py-2 text-orange-600 text-[10px] font-black uppercase tracking-widest mt-2">
                         {T.login.noAccount} {T.login.registerSchool}
                     </button>
                 </form>
