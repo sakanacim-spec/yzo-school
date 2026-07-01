@@ -19,6 +19,7 @@ import { ParentRegister } from './ParentRegister';
 import { ForgotPassword } from './ForgotPassword';
 
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
+import familyIllustration from '../assets/family_illustration.png';
 import { getTranslations } from '../i18n';
 
 const BG_IMAGES = [bgImage1, bgImage2, bgImage3, bgImage4];
@@ -477,7 +478,9 @@ export const Login: React.FC = () => {
                           <span className="text-rose-400 drop-shadow-sm">❤️</span> Parce que chaque enfant mérite le meilleur <span className="text-amber-300 drop-shadow-sm">⭐</span>
                       </div>
                   </div>
-                </div>\n              </div>\n          </div>
+                </div>
+              </div>
+          </div>
         </div>
 
       )}
