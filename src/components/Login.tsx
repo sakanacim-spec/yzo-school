@@ -73,6 +73,7 @@ export const Login: React.FC = () => {
 
   
   // Auth Form States
+  const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [trialExpiredSchool, setTrialExpiredSchool] = useState<string | null>(null);
@@ -299,9 +300,9 @@ export const Login: React.FC = () => {
 
                 <div className="w-full space-y-4">
                     <div className="relative">
-                        <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                        <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <select 
-                            className="w-full pl-11 pr-10 py-3.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] pl-12 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={selectedSchool} 
                             onChange={(e) => setSelectedSchool(e.target.value)} 
                             required
@@ -317,11 +318,11 @@ export const Login: React.FC = () => {
                     </div>
                     
                     <div className="relative">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <input 
                             type="text" 
-                            placeholder="99999999" 
-                            className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            placeholder="+33 6 12 34 56 78" 
+                            className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={username} 
                             onChange={(e) => setUsername(e.target.value)} 
                             required 
@@ -329,16 +330,22 @@ export const Login: React.FC = () => {
                     </div>
                     
                     <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <input 
-                            type="password" 
+                            type={showPassword ? "text" : "password"} 
                             placeholder="••••••" 
-                            className="w-full pl-11 pr-11 py-3.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={password} 
                             onChange={(e) => setPassword(e.target.value)} 
                             required 
                         />
-                        <EyeOff className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500 cursor-pointer opacity-70 hover:opacity-100" />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-500 cursor-pointer opacity-70 hover:opacity-100 flex items-center justify-center"
+                        >
+                            {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                        </button>
                     </div>
                 </div>
 
