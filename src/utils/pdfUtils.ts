@@ -38,11 +38,11 @@ export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, sch
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   if (settings.schoolMinistry) {
-    // Gérer les retours à la ligne pour le ministère
-    const ministryLines = settings.schoolMinistry.split('\n');
+    const maxWidth = (pageWidth / 2) - 14;
+    const ministryLines = doc.splitTextToSize(settings.schoolMinistry.toUpperCase(), maxWidth);
     let ministryY = 12;
     ministryLines.forEach(line => {
-      doc.text(line.trim().toUpperCase(), 14, ministryY);
+      doc.text(line.trim(), 14, ministryY);
       ministryY += 5;
     });
   }
@@ -956,12 +956,12 @@ export const generateGradeReport = (
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   
-  doc.text('MATIÈRE', 18, y + 5.5);
-  doc.text('COEF', 90, y + 5.5, { align: 'center' });
-  doc.text('DEV/INTERRO', 112, y + 5.5, { align: 'center' });
-  doc.text('COMPOSITION', 140, y + 5.5, { align: 'center' });
-  doc.text('MOY / 20', 165, y + 5.5, { align: 'center' });
-  doc.text('APPRÉCIATION', 190, y + 5.5, { align: 'center' });
+  doc.text('MATIÈRE', 16, y + 5.5);
+  doc.text('COEF', 85, y + 5.5, { align: 'center' });
+  doc.text('DEV/INTERRO', 108, y + 5.5, { align: 'center' });
+  doc.text('COMPOSITION', 135, y + 5.5, { align: 'center' });
+  doc.text('MOY / 20', 160, y + 5.5, { align: 'center' });
+  doc.text('APPRÉCIATION', 184, y + 5.5, { align: 'center' });
   
   y += 8;
   
@@ -1005,23 +1005,23 @@ export const generateGradeReport = (
     }
     
     doc.setFont('helvetica', 'bold');
-    doc.text(matiere.nom, 18, y + 5.5);
+    doc.text(matiere.nom, 16, y + 5.5);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${coef}`, 90, y + 5.5, { align: 'center' });
-    doc.text(hasMoy ? moyClasseMat.toFixed(2) : '--', 112, y + 5.5, { align: 'center' });
-    doc.text(hasCompo ? compo.toFixed(2) : '--', 140, y + 5.5, { align: 'center' });
+    doc.text(`${coef}`, 85, y + 5.5, { align: 'center' });
+    doc.text(hasMoy ? moyClasseMat.toFixed(2) : '--', 108, y + 5.5, { align: 'center' });
+    doc.text(hasCompo ? compo.toFixed(2) : '--', 135, y + 5.5, { align: 'center' });
     
     if (finalAvg !== null) {
       doc.setFont('helvetica', 'bold');
       if (finalAvg < 10) doc.setTextColor(...COLORS.danger);
       else doc.setTextColor(...COLORS.success);
-      doc.text(finalAvg.toFixed(2), 165, y + 5.5, { align: 'center' });
+      doc.text(finalAvg.toFixed(2), 160, y + 5.5, { align: 'center' });
       doc.setTextColor(...COLORS.dark);
       doc.setFont('helvetica', 'normal');
-      doc.text(getAppreciationLocal(finalAvg), 190, y + 5.5, { align: 'center' });
+      doc.text(getAppreciationLocal(finalAvg), 184, y + 5.5, { align: 'center' });
     } else {
-      doc.text('--', 165, y + 5.5, { align: 'center' });
-      doc.text('--', 190, y + 5.5, { align: 'center' });
+      doc.text('--', 160, y + 5.5, { align: 'center' });
+      doc.text('--', 184, y + 5.5, { align: 'center' });
     }
     
     // Border bottom cell
@@ -1038,11 +1038,11 @@ export const generateGradeReport = (
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
-  doc.text('TOTAL', 18, y + 6);
-  doc.text(`${totalCoef}`, 90, y + 6, { align: 'center' });
+  doc.text('TOTAL', 16, y + 6);
+  doc.text(`${totalCoef}`, 85, y + 6, { align: 'center' });
   
   const totalGenAvg = totalCoef > 0 ? totalPoints / totalCoef : 0;
-  doc.text(`Points: ${totalPoints.toFixed(2)}`, 125, y + 6, { align: 'center' });
+  doc.text(`Points: ${totalPoints.toFixed(2)}`, 120, y + 6, { align: 'center' });
   
   if (totalCoef > 0) {
     if (totalGenAvg < 10) doc.setTextColor(...COLORS.danger);
