@@ -332,6 +332,12 @@ async function getParentData(req, res) {
             .from(`app_settings_${schoolSlug}`)
             .select('*')
             .single();
+
+        const { data: schoolInfo } = await supabase
+            .from('schools')
+            .select('country, address, phone, slogan, ministry, email')
+            .eq('slug', schoolSlug)
+            .single();
         
         const appSettings = dbSettings ? {
             appName: dbSettings.app_name,
@@ -341,7 +347,13 @@ async function getParentData(req, res) {
             schoolStamp: dbSettings.school_stamp,
             messageRemerciement: dbSettings.message_remerciement,
             messageRappel: dbSettings.message_rappel,
-            tranches: dbSettings.tranches || []
+            tranches: dbSettings.tranches || [],
+            schoolCountry: schoolInfo?.country || null,
+            schoolAddress: schoolInfo?.address || null,
+            schoolPhone: schoolInfo?.phone || null,
+            schoolSlogan: schoolInfo?.slogan || null,
+            schoolMinistry: schoolInfo?.ministry || null,
+            schoolEmail: schoolInfo?.email || null
         } : null;
 
         // 5. Détails des élèves (enfants)

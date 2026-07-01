@@ -1122,7 +1122,21 @@ export const useStore = create<AppState>()(
                 messageRemerciement: appSettings.messageRemerciement || '',
                 messageRappel: appSettings.messageRappel || '',
                 tranches: appSettings.tranches || [],
-                classes: appSettings.classes || CLASS_CONFIG
+                classes: appSettings.classes || CLASS_CONFIG,
+                settings: {
+                  ...get().settings,
+                  appName: appSettings.appName || 'YZIOW',
+                  schoolName: appSettings.schoolName || '',
+                  schoolYear: appSettings.schoolYear || '',
+                  schoolLogo: appSettings.schoolLogo || null,
+                  schoolStamp: appSettings.schoolStamp || null,
+                  schoolMinistry: appSettings.schoolMinistry || '',
+                  schoolAddress: appSettings.schoolAddress || '',
+                  schoolPhone: appSettings.schoolPhone || '',
+                  schoolEmail: appSettings.schoolEmail || '',
+                  schoolCountry: appSettings.schoolCountry || '',
+                  academicYear: appSettings.schoolYear || '',
+                }
               });
               console.log(`🎨 [Sync Parent] Paramètres appliqués ! Logo: ${!!appSettings.schoolLogo}`);
             }

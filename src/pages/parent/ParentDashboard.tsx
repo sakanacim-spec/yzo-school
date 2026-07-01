@@ -58,6 +58,7 @@ const IMP_STYLES = {
 export const ParentDashboard: React.FC = () => {
     const user = useStore((s) => s.user);
     const children = useStore((s) => s.students).slice().sort((a, b) => a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom));
+    const settings = useStore((s) => s.settings);
     const [loading, setLoading] = useState(false);
     const [loadingPayment, setLoadingPayment] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');

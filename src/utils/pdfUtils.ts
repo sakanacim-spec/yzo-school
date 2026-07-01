@@ -62,7 +62,7 @@ export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, sch
     doc.text(getCountryName(settings.schoolCountry).toUpperCase(), pageWidth - 14, 24, { align: 'right' });
   }
   
-  const contact2 = [settings.schoolEmail || settings.email ? `Email: ${settings.schoolEmail || settings.email}` : '', `Année scolaire: ${settings.academicYear || settings.schoolYear || settings.anneScolaire || ''}`].filter(Boolean).join(' | ');
+  const contact2 = [settings.schoolEmail || settings.email ? `Email : ${settings.schoolEmail || settings.email}` : '', `Année scolaire : ${settings.academicYear || settings.schoolYear || settings.anneScolaire || ''}`].filter(Boolean).join(' | ');
   if (contact2) doc.text(contact2, pageWidth - 14, 30, { align: 'right' });
 
   // Logo au centre
@@ -939,12 +939,12 @@ export const generateGradeReport = (
   doc.setFont('helvetica', 'bold');
   doc.text('Matricule :', 110, y + 8);
   doc.setFont('helvetica', 'normal');
-  doc.text(child.adsn || 'N/A', 135, y + 8);
+  doc.text(child.adsn || 'N/A', 132, y + 8);
   
   doc.setFont('helvetica', 'bold');
   doc.text('Année Scolaire :', 110, y + 16);
   doc.setFont('helvetica', 'normal');
-  doc.text(settings.schoolYear || '', 135, y + 16);
+  doc.text(settings.schoolYear || '', 142, y + 16);
   
   y += 32;
   
@@ -1048,7 +1048,7 @@ export const generateGradeReport = (
     if (totalGenAvg < 10) doc.setTextColor(...COLORS.danger);
     else doc.setTextColor(...COLORS.success);
     doc.setFontSize(9.5);
-    doc.text(`Moyenne Générale: ${totalGenAvg.toFixed(2)} / 20`, 180, y + 6, { align: 'center' });
+    doc.text(`Moyenne Générale: ${totalGenAvg.toFixed(2)} / 20`, pageWidth - 18, y + 6, { align: 'right' });
   }
   
   doc.setTextColor(...COLORS.dark);
