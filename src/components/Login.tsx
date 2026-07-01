@@ -302,7 +302,7 @@ export const Login: React.FC = () => {
                     <div className="relative">
                         <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <select 
-                            className="w-full h-[52px] pl-14 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] pl-12 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={selectedSchool} 
                             onChange={(e) => setSelectedSchool(e.target.value)} 
                             required
@@ -322,7 +322,7 @@ export const Login: React.FC = () => {
                         <input 
                             type="text" 
                             placeholder="+33 6 12 34 56 78" 
-                            className="w-full h-[52px] pl-14 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={username} 
                             onChange={(e) => setUsername(e.target.value)} 
                             required 
@@ -334,7 +334,7 @@ export const Login: React.FC = () => {
                         <input 
                             type={showPassword ? "text" : "password"} 
                             placeholder="••••••" 
-                            className="w-full h-[52px] pl-14 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={password} 
                             onChange={(e) => setPassword(e.target.value)} 
                             required 
@@ -526,7 +526,7 @@ export const Login: React.FC = () => {
                         <div className="relative">
                             <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                             <select 
-                                className="w-full h-[52px] pl-14 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                className="w-full h-[52px] pl-12 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={selectedSchool} 
                                 onChange={(e) => setSelectedSchool(e.target.value)} 
                                 required
@@ -546,7 +546,7 @@ export const Login: React.FC = () => {
                             <input 
                                 type="text" 
                                 placeholder="+33 6 12 34 56 78" 
-                                className="w-full h-[52px] pl-14 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={username} 
                                 onChange={(e) => setUsername(e.target.value)} 
                                 required 
@@ -558,7 +558,7 @@ export const Login: React.FC = () => {
                             <input 
                                 type={showPassword ? "text" : "password"} 
                                 placeholder="••••••" 
-                                className="w-full h-[52px] pl-14 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                className="w-full h-[52px] pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={password} 
                                 onChange={(e) => setPassword(e.target.value)} 
                                 required 
