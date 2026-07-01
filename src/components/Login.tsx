@@ -478,7 +478,14 @@ export const Login: React.FC = () => {
                           <span className="text-rose-400 drop-shadow-sm">❤️</span> Parce que chaque enfant mérite le meilleur <span className="text-amber-300 drop-shadow-sm">⭐</span>
                       </div>
                   </div>
-                </div>
+                
+                  {/* Family Illustration */}
+                  <img 
+                      src={familyIllustration} 
+                      alt="Famille Yziow" 
+                      className="absolute -bottom-4 -right-4 w-[180px] md:w-[220px] h-auto object-contain z-0 pointer-events-none select-none"
+                  />
+                  </div>
               </div>
           </div>
         </div>
