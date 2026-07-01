@@ -3,8 +3,9 @@ import { useStore } from '../../store/useStore';
 import { parentApi } from '../../services/parentApi';
 import {
     CreditCard, Wallet, TrendingUp, Loader2, AlertCircle, UserPlus,
-    Search, GraduationCap, X, Megaphone, AlertTriangle, Info, Bell, MessageSquare
+    Search, GraduationCap, X, Megaphone, AlertTriangle, Info, Bell, MessageSquare, Download
 } from 'lucide-react';
+import { generateStudentInvoice } from '../../utils/pdfUtils';
 import { LinkStudentModal } from '../../components/LinkStudentModal';
 import { SupportModal } from '../../components/SupportModal';
 import { chatApi } from '../../services/chatApi';
@@ -413,17 +414,35 @@ export const ParentDashboard: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">{totalRestant.toLocaleString()} {useStore.getState().currency}</p>
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs text-rose-400 dark:text-rose-500 font-bold uppercase tracking-wide">Délai Règlement à respecter</p>
-                                {totalRestant > 0 && children.length > 0 && (
-                                    <button 
-                                        onClick={() => handlePayerEnLigne(children[0]?.id, totalRestant)}
-                                        disabled={loadingPayment}
-                                        className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors shadow-sm disabled:opacity-50"
-                                    >
-                                        {loadingPayment ? '...' : 'Payer en Ligne'}
-                                    </button>
-                                )}
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs text-rose-400 dark:text-rose-500 font-bold uppercase tracking-wide">Règlement à respecter</p>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    {children.length > 0 && (
+                                        <button 
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await parentApi.getPayments(children[0].id);
+                                                    generateStudentInvoice(children[0], res.payments || [], settings);
+                                                } catch (err) {
+                                                    console.error(err);
+                                                    generateStudentInvoice(children[0], [], settings);
+                                                }
+                                            }}
+                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors shadow-sm cursor-pointer border-none"
+                                        >
+                                            Facture
+                                        </button>
+                                    )}
+                                    {totalRestant > 0 && children.length > 0 && (
+                                        <button 
+                                            onClick={() => handlePayerEnLigne(children[0]?.id, totalRestant)}
+                                            disabled={loadingPayment}
+                                            className="px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors shadow-sm disabled:opacity-50 cursor-pointer border-none"
+                                        >
+                                            {loadingPayment ? '...' : 'Payer'}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -560,10 +579,25 @@ export const ParentDashboard: React.FC = () => {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5 text-right">
+                                            <td className="px-6 py-5 text-right flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const res = await parentApi.getPayments(child.id);
+                                                            generateStudentInvoice(child, res.payments || [], settings);
+                                                        } catch (err) {
+                                                            console.error(err);
+                                                            generateStudentInvoice(child, [], settings);
+                                                        }
+                                                    }}
+                                                    className="p-2 text-slate-400 hover:text-[#f97316] hover:bg-orange-50 rounded-xl transition-all border-none bg-transparent cursor-pointer"
+                                                    title="Télécharger l'état de compte / Facture"
+                                                >
+                                                    <Download className="w-4 h-4" />
+                                                </button>
                                                 <button
                                                     onClick={() => handleUnlink(child.id, `${child.prenom} ${child.nom}`)}
-                                                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border-none bg-transparent cursor-pointer"
                                                     title="Retirer cet enfant"
                                                 >
                                                     <X className="w-4 h-4" />

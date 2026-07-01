@@ -4,12 +4,13 @@ import { parentApi } from '../../services/parentApi';
 import { 
     GraduationCap, BookOpen, Clock, FileText, 
     ChevronRight, AlertCircle, Loader2, Search,
-    Filter, Calendar
+    Filter, Calendar, Download
 } from 'lucide-react';
+import { generateGradeReport } from '../../utils/pdfUtils';
 import { PeriodeType } from '../../types';
 
 export const ParentNotes: React.FC = () => {
-    const { notes, matieres, classeMatieres, students: children } = useStore();
+    const { notes, matieres, classeMatieres, students: children, settings } = useStore();
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -35,7 +36,7 @@ export const ParentNotes: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="bg-gradient-to-br from-amber-600 to-orange-500 rounded-[32px] p-8 text-white shadow-lg relative overflow-hidden">
+            <div className="bg-gradient-to-br from-[#f97316] to-[#ea580c] rounded-[32px] p-8 text-white shadow-lg relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                 <div className="relative z-10">
                     <div className="flex items-center gap-4 mb-2">
@@ -56,8 +57,8 @@ export const ParentNotes: React.FC = () => {
                         onClick={() => setSelectedChildId(child.id)}
                         className={`px-6 py-4 rounded-2xl font-bold transition-all flex items-center gap-3 shadow-sm border ${
                             selectedChildId === child.id 
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200' 
-                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-blue-300'
+                            ? 'bg-[#f97316] text-white border-[#f97316] shadow-orange-100' 
+                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800 hover:border-orange-300'
                         }`}
                     >
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${selectedChildId === child.id ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
@@ -90,9 +91,19 @@ export const ParentNotes: React.FC = () => {
                             <section key={periode} className="animate-fadeIn">
                                 <div className="flex items-center gap-4 mb-6">
                                     <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
-                                    <div className="flex items-center gap-2 px-6 py-2 bg-slate-100 dark:bg-slate-800 rounded-full">
-                                        <Calendar className="w-4 h-4 text-slate-500" />
-                                        <h3 className="text-sm font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">{periode}</h3>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2 px-6 py-2 bg-slate-100 dark:bg-slate-800 rounded-full">
+                                            <Calendar className="w-4 h-4 text-slate-500" />
+                                            <h3 className="text-sm font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">{periode}</h3>
+                                        </div>
+                                        {hasNotes && (
+                                            <button
+                                                onClick={() => generateGradeReport(selectedChild, periode, notes, matieres, classeMatieres, settings)}
+                                                className="flex items-center gap-2 px-4 py-2 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-full text-xs font-bold shadow-sm transition-all active:scale-95 border-none cursor-pointer"
+                                            >
+                                                <Download className="w-3.5 h-3.5" /> Relevé PDF
+                                            </button>
+                                        )}
                                     </div>
                                     <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
                                 </div>
@@ -123,12 +134,12 @@ export const ParentNotes: React.FC = () => {
 
                                             return (
                                                 <div key={cm.id} className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-100 dark:border-slate-800 p-6 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
-                                                    <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 dark:bg-slate-800/50 rounded-full -mr-12 -mt-12 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-colors"></div>
+                                                    <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 dark:bg-slate-800/50 rounded-full -mr-12 -mt-12 group-hover:bg-orange-50 dark:group-hover:bg-blue-900/20 transition-colors"></div>
                                                     
                                                     <div className="relative z-10">
                                                         <div className="flex items-start justify-between mb-4">
                                                             <div className="flex-1">
-                                                                <h4 className="font-black text-slate-900 dark:text-white text-lg leading-tight group-hover:text-blue-600 transition-colors">{matiere.nom}</h4>
+                                                                <h4 className="font-black text-slate-900 dark:text-white text-lg leading-tight group-hover:text-[#f97316] transition-colors">{matiere.nom}</h4>
                                                                 <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Coeff: {cm.coefficient} • {cm.professeur || 'Prof. non défini'}</p>
                                                             </div>
                                                             <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center shrink-0">

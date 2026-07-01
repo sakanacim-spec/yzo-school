@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { formatMontant } from '../../utils/helpers';
+import { generatePaymentReceipt } from '../../utils/pdfUtils';
 import { useStore } from '../../store/useStore';
 
 export const ParentHistorique: React.FC = () => {
@@ -74,7 +75,7 @@ export const ParentHistorique: React.FC = () => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
+                <Loader2 className="w-10 h-10 animate-spin text-[#f97316] mb-4" />
                 <p>Chargement de votre historique...</p>
             </div>
         );
@@ -84,21 +85,21 @@ export const ParentHistorique: React.FC = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <Clock className="w-6 h-6 text-blue-600" />
+                    <Clock className="w-6 h-6 text-[#f97316]" />
                     <h2 className="text-2xl font-bold text-slate-800">Historique complet</h2>
                 </div>
 
                 <div className="flex bg-slate-100 p-1 rounded-xl">
                     <button
                         onClick={() => setActiveTab('payments')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'payments' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'payments' ? 'bg-white text-[#f97316] shadow-sm' : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         <CreditCard className="w-4 h-4" /> Paiements
                     </button>
                     <button
                         onClick={() => setActiveTab('presences')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'presences' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'presences' ? 'bg-white text-[#f97316] shadow-sm' : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         <UserCheck className="w-4 h-4" /> Présences
@@ -141,7 +142,7 @@ export const ParentHistorique: React.FC = () => {
                                                 {formatMontant(p.montant, useStore.getState().currency)}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button onClick={() => downloadReceipt(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl">
+                                                <button onClick={() => downloadReceipt(p)} className="p-2 text-[#f97316] hover:bg-blue-50 rounded-xl">
                                                     <Download className="w-5 h-5" />
                                                 </button>
                                             </td>

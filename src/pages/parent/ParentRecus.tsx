@@ -53,7 +53,7 @@ export const ParentRecus: React.FC = () => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
+                <Loader2 className="w-10 h-10 animate-spin text-[#f97316] mb-4" />
                 <p>Chargement de vos reçus...</p>
             </div>
         );
@@ -62,7 +62,7 @@ export const ParentRecus: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-3">
-                <FileText className="w-6 h-6 text-blue-600" />
+                <FileText className="w-6 h-6 text-[#f97316]" />
                 <h2 className="text-2xl font-bold text-slate-800">Mes reçus</h2>
             </div>
 
