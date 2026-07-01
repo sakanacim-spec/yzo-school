@@ -302,7 +302,7 @@ export const Login: React.FC = () => {
                     <div className="relative">
                         <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <select 
-                            className="w-full h-[52px] pl-12 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] pl-14 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={selectedSchool} 
                             onChange={(e) => setSelectedSchool(e.target.value)} 
                             required
@@ -322,7 +322,7 @@ export const Login: React.FC = () => {
                         <input 
                             type="text" 
                             placeholder="+33 6 12 34 56 78" 
-                            className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] pl-14 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={username} 
                             onChange={(e) => setUsername(e.target.value)} 
                             required 
@@ -334,7 +334,7 @@ export const Login: React.FC = () => {
                         <input 
                             type={showPassword ? "text" : "password"} 
                             placeholder="••••••" 
-                            className="w-full h-[52px] pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] pl-14 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={password} 
                             onChange={(e) => setPassword(e.target.value)} 
                             required 
@@ -403,14 +403,15 @@ export const Login: React.FC = () => {
                   
                   {/* Top content */}
                   <div className="w-full flex-1 pr-6 relative z-10">
-                      <h2 className="text-4xl font-black text-white mb-2 tracking-tight flex items-center gap-2">
-                        Ravis de vous revoir ! ✨
+                      <h2 className="text-4xl font-black text-white leading-tight">
+                        Ensemble,
                       </h2>
-                      <h3 className="text-2xl font-black text-[#431407] leading-tight">Votre enfant grandit.</h3>
-                      <h3 className="text-2xl font-black text-[#431407] mb-4 leading-tight">Restez connecté à sa réussite scolaire.</h3>
+                      <h3 className="text-2xl font-black text-[#431407] mb-4 leading-tight">
+                        pour la réussite de chaque élève.
+                      </h3>
                       
                       <p className="text-xs font-semibold text-white/95 leading-relaxed max-w-[420px] mb-6">
-                        Avec Yziow, consultez les informations importantes dès qu'elles sont disponibles et échangez facilement avec son établissement.
+                        Yziow connecte les parents, les élèves, les enseignants, et les établissements pour une communication fluide et un suivi scolaire en temps réel.
                       </p>
 
                       {/* 3 cards side-by-side */}
@@ -525,7 +526,7 @@ export const Login: React.FC = () => {
                         <div className="relative">
                             <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                             <select 
-                                className="w-full h-[52px] pl-12 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                className="w-full h-[52px] pl-14 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={selectedSchool} 
                                 onChange={(e) => setSelectedSchool(e.target.value)} 
                                 required
@@ -545,7 +546,7 @@ export const Login: React.FC = () => {
                             <input 
                                 type="text" 
                                 placeholder="+33 6 12 34 56 78" 
-                                className="w-full h-[52px] pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                className="w-full h-[52px] pl-14 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={username} 
                                 onChange={(e) => setUsername(e.target.value)} 
                                 required 
@@ -557,7 +558,7 @@ export const Login: React.FC = () => {
                             <input 
                                 type={showPassword ? "text" : "password"} 
                                 placeholder="••••••" 
-                                className="w-full h-[52px] pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                className="w-full h-[52px] pl-14 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={password} 
                                 onChange={(e) => setPassword(e.target.value)} 
                                 required 
