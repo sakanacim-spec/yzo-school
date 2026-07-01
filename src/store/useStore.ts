@@ -441,8 +441,8 @@ export const useStore = create<AppState>()(
           if (res.status === 402 && result.error === 'trial_expired') {
             throw new Error(`TRIAL_EXPIRED:${result.school_name || 'votre école'}`);
           }
-          if (res.status === 403) {
-            throw new Error(result.error || 'Accès refusé.');
+          if (!res.ok) {
+            throw new Error(result.error || 'Identifiants incorrects.');
           }
 
           if (res.ok && result.token) {
@@ -517,16 +517,9 @@ export const useStore = create<AppState>()(
             return true;
           }
         } catch (err: any) {
-          // Re-lancer les erreurs spécifiques pour les afficher à l'utilisateur
-          if (err.message?.startsWith('TRIAL_EXPIRED:') || err.message?.includes('suspendu') || err.message?.includes('Accès')) {
-            throw err;
-          }
-          console.error("Erreur login backend, essai local...", err);
+          console.error("Erreur login backend:", err);
+          throw err;
         }
-
-        // ⛔ Fallback local supprimé pour la sécurité SaaS multi-tenant.
-        // Toute authentification doit passer par le backend API.
-        return false;
       },
       logout: () => {
         const u = get().user;

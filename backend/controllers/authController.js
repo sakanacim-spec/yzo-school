@@ -317,13 +317,35 @@ async function login(req, res) {
         }
 
         // ── 3. Chercher l'utilisateur dans la table de l'établissement ──
-        const { data: user, error } = await supabase
+        let { data: user, error } = await supabase
             .from(`profiles_${schoolSlug}`)
             .select('*')
             .eq('telephone', telephone.trim())
             .single();
 
-        if (error || !user) {
+        if (!user) {
+            // Comparaison souple pour tolérer les formats (espaces, tirets, indicatifs)
+            const cleanPhone = (phone) => phone ? phone.replace(/\D/g, '') : '';
+            const targetClean = cleanPhone(telephone);
+            if (targetClean) {
+                const { data: allProfiles } = await supabase
+                    .from(`profiles_${schoolSlug}`)
+                    .select('*');
+                
+                const matchedUser = (allProfiles || []).find(p => {
+                    const dbClean = cleanPhone(p.telephone);
+                    if (!dbClean) return false;
+                    return dbClean === targetClean || 
+                           (dbClean.length >= 8 && targetClean.length >= 8 && 
+                            (dbClean.endsWith(targetClean) || targetClean.endsWith(dbClean)));
+                });
+                if (matchedUser) {
+                    user = matchedUser;
+                }
+            }
+        }
+
+        if (!user) {
             return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
         }
 
