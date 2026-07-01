@@ -397,7 +397,7 @@ export const Login: React.FC = () => {
                   {/* Top content */}
                   <div className="w-full flex-1 pr-6 relative z-10">
                       <h2 className="text-4xl font-black text-white mb-2 tracking-tight flex items-center gap-2">
-                        Bonjour, Parent ! <span className="inline-block animate-wave">👋</span>
+                        Ravis de vous revoir ! ✨
                       </h2>
                       <h3 className="text-2xl font-black text-[#431407] leading-tight">Votre enfant grandit.</h3>
                       <h3 className="text-2xl font-black text-[#431407] mb-4 leading-tight">Restez connecté à sa réussite scolaire.</h3>
