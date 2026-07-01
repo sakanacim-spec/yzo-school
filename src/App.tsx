@@ -4,6 +4,7 @@
 import React, { Suspense, lazy } from 'react';
 import { useStore } from './store/useStore';
 import { Login } from './components/Login';
+import { LandingPage } from './components/LandingPage';
 import { Layout } from './components/Layout';
 import { AnnouncementPopup } from './components/AnnouncementPopup';
 import { webPushService } from './services/webPushService';

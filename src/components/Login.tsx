@@ -62,7 +62,11 @@ const BackgroundSlideshow: React.FC = () => {
 
 // ── COMPOSANT PRINCIPAL ──────────────────────────────────────
 
-export const Login: React.FC = () => {
+interface LoginProps {
+  onBackToLanding?: () => void;
+}
+
+export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
   const login = useStore((s) => s.login);
   const language = useStore((s) => s.language);
   const T = getTranslations(language);
@@ -288,6 +292,15 @@ export const Login: React.FC = () => {
           {/* Login Panel */}
           <div className="form-container sign-in-container bg-white">
               <form className="w-full h-full flex flex-col justify-center px-12 lg:px-20" onSubmit={handleAuth}>
+                {onBackToLanding && (
+                    <button 
+                        type="button" 
+                        onClick={onBackToLanding}
+                        className="self-start text-xs font-bold text-slate-400 hover:text-orange-500 mb-6 flex items-center gap-1.5 transition-colors"
+                    >
+                        ← Retour à l'accueil
+                    </button>
+                )}
                 <div className="flex flex-col items-center mb-8">
                     <div className="w-16 h-16 bg-[#f97316] rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-orange-500/20">
                       <GraduationCap className="w-10 h-10 text-white" />
@@ -512,6 +525,15 @@ export const Login: React.FC = () => {
         <>
             <BackgroundSlideshow />
             <div className="mobile-card">
+                {onBackToLanding && (
+                    <button 
+                        type="button" 
+                        onClick={onBackToLanding}
+                        className="self-start text-xs font-bold text-slate-400 hover:text-orange-500 mb-4 flex items-center gap-1.5 transition-colors"
+                    >
+                        ← Retour à l'accueil
+                    </button>
+                )}
                 <div className="flex flex-col items-center">
                     <SchoolLogo size="w-20 h-20" />
                     <h1 className="text-3xl font-black text-slate-900 tracking-tighter text-center">
