@@ -168,6 +168,32 @@ export const SaisiePresence: React.FC = () => {
                         </span>
                     </div>
 
+                    <div className="bg-slate-50 dark:bg-slate-900/30 p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-4 justify-center sm:justify-start">
+                        {(() => {
+                            const stats = {
+                                present: classStudents.filter(s => (localPresences[s.id] || 'present') === 'present').length,
+                                absent: classStudents.filter(s => (localPresences[s.id] || 'present') === 'absent').length,
+                                retard: classStudents.filter(s => (localPresences[s.id] || 'present') === 'retard').length,
+                            };
+                            return (
+                                <>
+                                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100/50 text-emerald-800 rounded-xl font-bold text-sm">
+                                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                                        <span>{stats.present} Présent(s)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-4 py-2 bg-amber-100/50 text-amber-800 rounded-xl font-bold text-sm">
+                                        <AlertCircle className="w-4 h-4 text-amber-600" />
+                                        <span>{stats.retard} Retard(s)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-4 py-2 bg-rose-100/50 text-rose-800 rounded-xl font-bold text-sm">
+                                        <XCircle className="w-4 h-4 text-rose-600" />
+                                        <span>{stats.absent} Absent(s)</span>
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
+
                     <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
                         {classStudents.length > 0 ? (
                             classStudents.map((student) => {

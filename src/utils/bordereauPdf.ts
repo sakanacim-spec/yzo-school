@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { AppSettings } from '../types';
+import { AppSettings, EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
 import { drawHeader } from './pdfUtils';
 
 export interface BordereauStudent {
@@ -19,7 +19,8 @@ export const generateBordereauPDF = (
   professeur: string,
   students: BordereauStudent[],
   classAverage: string,
-  settings: AppSettings
+  settings: AppSettings,
+  evalConfigs?: EvalConfig[]
 ) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -43,28 +44,29 @@ export const generateBordereauPDF = (
   y += 12;
 
   // 3. Table des notes
+  const activeConfigs = (evalConfigs && evalConfigs.length > 0 ? evalConfigs : DEFAULT_EVAL_CONFIGS).filter(c => c.enabled);
+
   const tableData = students.map((s, index) => [
     index + 1,
     `${s.nom} ${s.prenom}`,
-    s.noteClasse,
-    s.noteDevoir,
-    s.noteCompo,
+    ...(activeConfigs.map(cfg => (s as any)[cfg.id] || '--')),
     s.moyenne
   ]);
 
+  const headers = ['N°', 'Nom & Prénom(s)', ...activeConfigs.map(c => c.label), 'Moyenne'];
+  const colWidths = activeConfigs.map(() => 25);
+
   (doc as any).autoTable({
     startY: y,
-    head: [['N°', 'Nom & Prénom(s)', 'Interro.', 'Devoir', 'Compo.', 'Moyenne']],
+    head: [headers],
     body: tableData,
     theme: 'grid',
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
     columnStyles: {
       0: { halign: 'center', cellWidth: 15 },
       1: { halign: 'left' },
-      2: { halign: 'center', cellWidth: 25 },
-      3: { halign: 'center', cellWidth: 25 },
-      4: { halign: 'center', cellWidth: 25 },
-      5: { halign: 'center', cellWidth: 25, fontStyle: 'bold', textColor: [220, 38, 38] }
+      ...Object.fromEntries(activeConfigs.map((_, i) => [i + 2, { halign: 'center', cellWidth: 25 }])),
+      [activeConfigs.length + 2]: { halign: 'center', cellWidth: 25, fontStyle: 'bold', textColor: [220, 38, 38] }
     },
     styles: { fontSize: 10, cellPadding: 3 },
     alternateRowStyles: { fillColor: [249, 250, 251] },

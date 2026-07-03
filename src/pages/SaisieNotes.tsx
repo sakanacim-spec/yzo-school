@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { Edit3, Save, CheckCircle2, Printer, Calculator, X } from 'lucide-react';
-import { Note, PeriodeType } from '../types';
+import { Note, PeriodeType, EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
 import { v4 as uuid } from '../utils/uuid';
 import { generateBordereauPDF } from '../utils/bordereauPdf';
 
@@ -12,6 +12,11 @@ export const SaisieNotes: React.FC = () => {
     const matieres = useStore((s) => s.matieres);
     const classeMatieres = useStore((s) => s.classeMatieres);
     const user = useStore((s) => s.user);
+    const storedEvalConfigs = useStore((s) => s.settings?.evalConfigs);
+    const evalConfigs: EvalConfig[] = (storedEvalConfigs && storedEvalConfigs.length > 0)
+        ? storedEvalConfigs
+        : DEFAULT_EVAL_CONFIGS;
+    const activeEvalConfigs = evalConfigs.filter(c => c.enabled);
 
     const periods: PeriodeType[] = ['TRIMESTRE 1', 'TRIMESTRE 2', 'TRIMESTRE 3', 'SEMESTRE 1', 'SEMESTRE 2'];
     
@@ -193,7 +198,11 @@ export const SaisieNotes: React.FC = () => {
     }, [draftNotes, classStudents]);
 
     // Keyboard navigation
+    const fields = ['noteClasse', 'noteDevoir', 'noteCompo'];
+    
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number, field: string) => {
+        const fieldIndex = fields.indexOf(field);
+        
         if (e.key === 'ArrowDown' || e.key === 'Enter') {
             e.preventDefault();
             const nextInput = document.getElementById(`input-${field}-${currentIndex + 1}`);
@@ -202,7 +211,30 @@ export const SaisieNotes: React.FC = () => {
             e.preventDefault();
             const prevInput = document.getElementById(`input-${field}-${currentIndex - 1}`);
             if (prevInput) prevInput.focus();
+        } else if (e.key === 'ArrowRight' && fieldIndex < fields.length - 1) {
+            e.preventDefault();
+            const nextInput = document.getElementById(`input-${fields[fieldIndex + 1]}-${currentIndex}`);
+            if (nextInput) nextInput.focus();
+        } else if (e.key === 'ArrowLeft' && fieldIndex > 0) {
+            e.preventDefault();
+            const prevInput = document.getElementById(`input-${fields[fieldIndex - 1]}-${currentIndex}`);
+            if (prevInput) prevInput.focus();
         }
+    };
+    
+    const getAppreciation = (avg: number | null) => {
+        if (avg === null) return '--';
+        if (avg >= 16) return 'Très Bien';
+        if (avg >= 14) return 'Bien';
+        if (avg >= 12) return 'Assez Bien';
+        if (avg >= 10) return 'Passable';
+        if (avg >= 8) return 'Insuffisant';
+        return 'Médiocre';
+    };
+    
+    const getColorClass = (val: number | null) => {
+        if (val === null) return 'text-gray-900';
+        return val >= 10 ? 'text-green-600' : 'text-red-600';
     };
 
     const handleDownloadBordereau = () => {
@@ -230,7 +262,8 @@ export const SaisieNotes: React.FC = () => {
             user?.nom || 'Professeur',
             studentsData,
             classAverage !== null ? classAverage.toFixed(2) : '--',
-            settings
+            settings,
+            evalConfigs
         );
     };
 
@@ -327,9 +360,19 @@ export const SaisieNotes: React.FC = () => {
                                 <tr className="bg-white border-b border-gray-200 text-sm">
                                     <th className="p-4 font-bold text-gray-600 w-16">N°</th>
                                     <th className="p-4 font-bold text-gray-600">Nom & Prénom(s)</th>
-                                    <th className="p-4 font-bold text-blue-600 w-32 text-center">Interro. (/20)</th>
-                                    <th className="p-4 font-bold text-indigo-600 w-32 text-center">Devoir (/20)</th>
-                                    <th className="p-4 font-bold text-purple-600 w-32 text-center">Compo. (/20)</th>
+                                    {activeEvalConfigs.map((cfg, ci) => {
+                                        const colors = ['text-blue-600', 'text-indigo-600', 'text-purple-600'];
+                                        return (
+                                            <th key={cfg.id} className={`p-4 font-bold ${colors[ci] || 'text-gray-600'} w-36 text-center`}>
+                                                {cfg.label} (/20)
+                                                {cfg.nbNotes > 1 && (
+                                                    <div className="text-[10px] font-normal text-gray-400 mt-0.5">
+                                                        ({cfg.nbNotes} notes → moy.)
+                                                    </div>
+                                                )}
+                                            </th>
+                                        );
+                                    })}
                                     <th className="p-4 font-bold text-rose-600 w-32 text-center">Moyenne</th>
                                 </tr>
                             </thead>
@@ -340,111 +383,91 @@ export const SaisieNotes: React.FC = () => {
                                         <td className="p-4 font-bold text-gray-800">
                                             {student.nom} {student.prenom}
                                         </td>
-                                        <td className="p-4 text-center">
-                                            <div className="flex items-center justify-center gap-1 relative">
-                                                <input
-                                                    id={`input-noteClasse-${index}`}
-                                                    type="number"
-                                                    min="0" max="20" step="0.5"
-                                                    className="w-20 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold"
-                                                    value={draftNotes[student.id]?.noteClasse ?? ''}
-                                                    onChange={(e) => handleNoteChange(student.id, 'noteClasse', e.target.value)}
-                                                    onKeyDown={(e) => handleKeyDown(e, index, 'noteClasse')}
-                                                    placeholder="--"
-                                                />
-                                                <button 
-                                                    onClick={() => setActiveCalculator(activeCalculator === student.id ? null : student.id)}
-                                                    className={`p-1.5 rounded-lg transition-colors ${activeCalculator === student.id ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'}`}
-                                                    title="Calculatrice de moyenne d'interrogations"
-                                                >
-                                                    <Calculator className="w-4 h-4" />
-                                                </button>
-
-                                                {/* Calculator Popup */}
-                                                {activeCalculator === student.id && (
-                                                    <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 w-56 bg-white rounded-xl shadow-xl border border-gray-200 p-3 animate-fade-in">
-                                                        <div className="flex justify-between items-center mb-2">
-                                                            <span className="text-xs font-bold text-gray-500 uppercase">Calculatrice</span>
-                                                            <button onClick={() => setActiveCalculator(null)} className="text-gray-400 hover:text-gray-700">
-                                                                <X className="w-4 h-4" />
+                                        {activeEvalConfigs.map((cfg, ci) => {
+                                            const ringColors = ['focus:ring-blue-500', 'focus:ring-indigo-500', 'focus:ring-purple-500'];
+                                            const calcId = `calc-open-${cfg.id}-${student.id}`;
+                                            return (
+                                                <td key={cfg.id} className="p-4 text-center">
+                                                    <div className="flex items-center justify-center gap-1 relative">
+                                                        <input
+                                                            id={`input-${cfg.id}-${index}`}
+                                                            type="number"
+                                                            min="0" max="20" step="0.5"
+                                                            className={`w-20 px-3 py-2 text-center border border-gray-300 rounded-lg ${ringColors[ci] || 'focus:ring-2'} focus:ring-2 font-bold ${draftNotes[student.id]?.[cfg.id] ? getColorClass(parseFloat(draftNotes[student.id][cfg.id])) : ''}`}
+                                                            value={draftNotes[student.id]?.[cfg.id] ?? ''}
+                                                            onChange={(e) => handleNoteChange(student.id, cfg.id as any, e.target.value)}
+                                                            onKeyDown={(e) => handleKeyDown(e, index, cfg.id)}
+                                                            placeholder="--"
+                                                        />
+                                                        {cfg.nbNotes > 1 && (
+                                                            <button
+                                                                onClick={() => setActiveCalculator(activeCalculator === calcId ? null : calcId)}
+                                                                className={`p-1.5 rounded-lg transition-colors ${activeCalculator === calcId ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'}`}
+                                                                title={`Calculatrice pour ${cfg.label}`}
+                                                            >
+                                                                <Calculator className="w-4 h-4" />
                                                             </button>
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            {[1, 2, 3, 4, 5].map(num => (
-                                                                <div key={num} className="flex items-center gap-2">
-                                                                    <span className="text-xs font-semibold text-gray-500 w-12">Note {num}</span>
-                                                                    <input 
-                                                                        type="number" min="0" max="20" step="0.5"
-                                                                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                                                                        id={`calc-${student.id}-${num}`}
-                                                                        onChange={() => {
-                                                                            // Calculate average instantly
-                                                                            let sum = 0;
-                                                                            let count = 0;
-                                                                            for(let i=1; i<=5; i++) {
-                                                                                const val = (document.getElementById(`calc-${student.id}-${i}`) as HTMLInputElement)?.value;
-                                                                                if (val) {
-                                                                                    sum += parseFloat(val);
-                                                                                    count++;
-                                                                                }
-                                                                            }
-                                                                            if (count > 0) {
-                                                                                const avg = (sum / count).toFixed(2);
-                                                                                handleNoteChange(student.id, 'noteClasse', avg);
-                                                                            } else {
-                                                                                handleNoteChange(student.id, 'noteClasse', '');
-                                                                            }
-                                                                        }}
-                                                                    />
+                                                        )}
+                                                        {/* Calculator Popup */}
+                                                        {activeCalculator === calcId && (
+                                                            <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 w-56 bg-white rounded-xl shadow-xl border border-gray-200 p-3 animate-fade-in">
+                                                                <div className="flex justify-between items-center mb-2">
+                                                                    <span className="text-xs font-bold text-gray-500 uppercase">{cfg.label}</span>
+                                                                    <button onClick={() => setActiveCalculator(null)} className="text-gray-400 hover:text-gray-700">
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
                                                                 </div>
-                                                            ))}
-                                                        </div>
-                                                        <div className="mt-3 pt-2 border-t border-gray-100 text-center">
-                                                            <span className="text-xs text-gray-500">Moyenne générée :</span>
-                                                            <div className="font-black text-blue-600 text-lg">
-                                                                {draftNotes[student.id]?.noteClasse || '--'}
+                                                                <div className="space-y-2">
+                                                                    {Array.from({ length: cfg.nbNotes }, (_, i) => i + 1).map(num => (
+                                                                        <div key={num} className="flex items-center gap-2">
+                                                                            <span className="text-xs font-semibold text-gray-500 w-12">Note {num}</span>
+                                                                            <input
+                                                                                type="number" min="0" max="20" step="0.5"
+                                                                                className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                                                                                id={`calc-${student.id}-${cfg.id}-${num}`}
+                                                                                onChange={() => {
+                                                                                    let sum = 0; let count = 0;
+                                                                                    for (let i = 1; i <= cfg.nbNotes; i++) {
+                                                                                        const val = (document.getElementById(`calc-${student.id}-${cfg.id}-${i}`) as HTMLInputElement)?.value;
+                                                                                        if (val) { sum += parseFloat(val); count++; }
+                                                                                    }
+                                                                                    if (count > 0) {
+                                                                                        handleNoteChange(student.id, cfg.id as any, (sum / count).toFixed(2));
+                                                                                    } else {
+                                                                                        handleNoteChange(student.id, cfg.id as any, '');
+                                                                                    }
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                                <div className="mt-3 pt-2 border-t border-gray-100 text-center">
+                                                                    <span className="text-xs text-gray-500">Moyenne générée :</span>
+                                                                    <div className="font-black text-blue-600 text-lg">
+                                                                        {draftNotes[student.id]?.[cfg.id] || '--'}
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        </td>
+                                                </td>
+                                            );
+                                        })}
                                         <td className="p-4 text-center">
-                                            <input
-                                                id={`input-noteDevoir-${index}`}
-                                                type="number"
-                                                min="0" max="20" step="0.5"
-                                                className="w-20 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold"
-                                                value={draftNotes[student.id]?.noteDevoir ?? ''}
-                                                onChange={(e) => handleNoteChange(student.id, 'noteDevoir', e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, 'noteDevoir')}
-                                                placeholder="--"
-                                            />
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <input
-                                                id={`input-noteCompo-${index}`}
-                                                type="number"
-                                                min="0" max="20" step="0.5"
-                                                className="w-20 px-3 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-semibold"
-                                                value={draftNotes[student.id]?.noteCompo ?? ''}
-                                                onChange={(e) => handleNoteChange(student.id, 'noteCompo', e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, 'noteCompo')}
-                                                placeholder="--"
-                                            />
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <div className="w-20 mx-auto px-3 py-2 bg-rose-50 text-rose-700 rounded-lg font-black text-center">
-                                                {calculateStudentAverage(student.id) !== null 
-                                                    ? calculateStudentAverage(student.id)!.toFixed(2) 
+                                            <div className={`w-24 mx-auto px-2 py-1 rounded-lg font-black text-center text-lg shadow-sm border ${calculateStudentAverage(student.id) !== null ? (calculateStudentAverage(student.id)! >= 10 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200') : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                                                {calculateStudentAverage(student.id) !== null
+                                                    ? calculateStudentAverage(student.id)!.toFixed(2)
                                                     : '--'}
+                                            </div>
+                                            <div className={`text-xs font-bold mt-1.5 uppercase ${getColorClass(calculateStudentAverage(student.id))}`}>
+                                                {getAppreciation(calculateStudentAverage(student.id))}
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
                                 {classStudents.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="p-8 text-center text-gray-500 font-semibold">
+                                        <td colSpan={2 + activeEvalConfigs.length + 1} className="p-8 text-center text-gray-500 font-semibold">
                                             Aucun élève trouvé dans cette classe.
                                         </td>
                                     </tr>
@@ -453,7 +476,7 @@ export const SaisieNotes: React.FC = () => {
                             {classStudents.length > 0 && classAverage !== null && (
                                 <tfoot>
                                     <tr className="bg-rose-50/50 border-t-2 border-rose-100">
-                                        <td colSpan={5} className="p-4 font-black text-rose-700 text-right">
+                                        <td colSpan={2 + activeEvalConfigs.length} className="p-4 font-black text-rose-700 text-right">
                                             Moyenne Générale de la Classe :
                                         </td>
                                         <td className="p-4 text-center font-black text-rose-700 text-lg">
@@ -465,6 +488,7 @@ export const SaisieNotes: React.FC = () => {
                         </table>
                     </div>
                 </div>
+
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
                     <Edit3 className="w-16 h-16 text-gray-200 mb-4" />

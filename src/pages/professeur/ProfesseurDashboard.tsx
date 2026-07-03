@@ -162,7 +162,7 @@ export const ProfesseurDashboard: React.FC = () => {
                             
                             <h3 className="text-2xl font-black mb-2">Cahier de Textes</h3>
                             <p className="text-emerald-100 font-medium mb-8 flex-1">
-                                Saisissez les devoirs à la maison et faites l'appel de présence pour vos classes.
+                                Gérez les leçons du jour et les devoirs à la maison de vos classes.
                             </p>
                             
                             <div className="flex flex-col gap-3">

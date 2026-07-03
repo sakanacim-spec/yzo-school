@@ -166,6 +166,7 @@ export interface AppSettings extends AdminSettings {
   tranches?: Tranche[];
   classes?: ClassConfig[]; // Configuration personnalisée des classes et écolages
   cycleSchedules?: CycleSchedule[]; // Horaires
+  evalConfigs?: EvalConfig[]; // Configuration des types d'évaluations
 }
 
 export interface GlobalStats {
@@ -396,6 +397,20 @@ export interface ClasseMatiere {
   professeur: string;
   coefficient: number;
 }
+
+// ── CONFIG DES TYPES D'ÉVALUATIONS ─────────────────────────
+export interface EvalConfig {
+  id: 'noteClasse' | 'noteDevoir' | 'noteCompo';
+  label: string;      // Nom affiché (ex: "Interrogations", "CC1", "Composition")
+  nbNotes: number;    // Nombre de sous-notes saisies (1 à 5), la moyenne = la note stockée
+  enabled: boolean;   // Si false, la colonne est masquée dans la saisie
+}
+
+export const DEFAULT_EVAL_CONFIGS: EvalConfig[] = [
+  { id: 'noteClasse', label: 'Interrogations', nbNotes: 2, enabled: true },
+  { id: 'noteDevoir', label: 'Devoirs',        nbNotes: 1, enabled: true },
+  { id: 'noteCompo',  label: 'Composition',   nbNotes: 1, enabled: true },
+];
 
 export interface Note {
   id: string;

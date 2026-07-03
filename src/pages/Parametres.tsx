@@ -2,10 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, School, MessageSquare, Shield, Info,
-  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe
+  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { GestionPersonnel } from '../components/GestionPersonnel';
 import { BACKEND_URL } from '../config';
+import { EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
 
 export const Parametres: React.FC = () => {
   const schoolName = useStore((s) => s.schoolName);
@@ -55,6 +56,22 @@ export const Parametres: React.FC = () => {
   const [localPaymentSecretKey, setLocalPaymentSecretKey] = useState(paymentSecretKey || '');
 
   const [saved, setSaved] = useState(false);
+
+  // ── Config évaluations ────────────────────────────────
+  const storedEvalConfigs = useStore((s) => s.settings?.evalConfigs);
+  const [localEvalConfigs, setLocalEvalConfigs] = useState<EvalConfig[]>(
+    storedEvalConfigs && storedEvalConfigs.length > 0 ? storedEvalConfigs : DEFAULT_EVAL_CONFIGS
+  );
+
+  useEffect(() => {
+    if (storedEvalConfigs && storedEvalConfigs.length > 0) {
+      setLocalEvalConfigs(storedEvalConfigs);
+    }
+  }, [storedEvalConfigs]);
+
+  const updateEvalConfig = (id: EvalConfig['id'], field: keyof EvalConfig, value: any) => {
+    setLocalEvalConfigs(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+  };
 
   useEffect(() => {
     setLocalSchool(schoolName || '');
@@ -253,7 +270,8 @@ export const Parametres: React.FC = () => {
       bulletinShowAppreciation: localBulletinShowAppreciation,
       paymentGateway: localPaymentGateway,
       paymentPublicKey: localPaymentPublicKey,
-      paymentSecretKey: localPaymentSecretKey
+      paymentSecretKey: localPaymentSecretKey,
+      evalConfigs: localEvalConfigs
     });
 
     try {
@@ -973,6 +991,104 @@ export const Parametres: React.FC = () => {
                         {scheduleSaved ? 'Enregistré' : 'Enregistrer'}
                     </button>
                 </div>
+            )}
+
+            {/* ── CONFIG DES ÉVALUATIONS ────────────────────────────── */}
+            {(user?.role === 'directeur' || user?.role === 'directeur_general' || user?.role === 'admin') && (
+              <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800">
+                <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl">
+                    <GraduationCap className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  Configuration des Évaluations
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+                  Définissez les noms et le nombre de sous-notes pour chaque type d'évaluation.
+                  Ces libellés s'afficheront dans la saisie des notes et sur les PDF.
+                </p>
+
+                <div className="space-y-4">
+                  {localEvalConfigs.map((cfg, idx) => (
+                    <div key={cfg.id} className={`p-4 rounded-2xl border transition-all ${
+                      cfg.enabled
+                        ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                        : 'bg-slate-50 dark:bg-slate-900/50 border-dashed border-slate-200 dark:border-slate-700 opacity-60'
+                    }`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          Évaluation {idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateEvalConfig(cfg.id, 'enabled', !cfg.enabled)}
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                            cfg.enabled
+                              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                          }`}
+                        >
+                          {cfg.enabled
+                            ? <><ToggleRight className="w-3.5 h-3.5" /> Activée</>
+                            : <><ToggleLeft className="w-3.5 h-3.5" /> Désactivée</>}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                            Nom de l'évaluation
+                          </label>
+                          <input
+                            type="text"
+                            value={cfg.label}
+                            onChange={(e) => updateEvalConfig(cfg.id, 'label', e.target.value)}
+                            disabled={!cfg.enabled}
+                            placeholder="Ex: CC1, Test, Composition..."
+                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                            Nombre de sous-notes (1 à 5)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min={1} max={5} step={1}
+                              value={cfg.nbNotes}
+                              disabled={!cfg.enabled}
+                              onChange={(e) => updateEvalConfig(cfg.id, 'nbNotes', parseInt(e.target.value))}
+                              className="flex-1 accent-emerald-500 disabled:opacity-50"
+                            />
+                            <span className="w-8 h-8 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-xl font-black text-sm shrink-0">
+                              {cfg.nbNotes}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {cfg.nbNotes === 1
+                              ? 'Une seule note saisie directement'
+                              : `${cfg.nbNotes} notes saisies → leur moyenne = note finale`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-100 dark:border-amber-500/20">
+                  <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                    ⚠️ Modifier ces réglages affecte l'affichage de la saisie et des PDF. Les notes déjà enregistrées ne sont pas perdues.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSave as any}
+                  className="mt-4 w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all active:scale-95"
+                >
+                  <Save className="w-4 h-4" /> Enregistrer la configuration
+                </button>
+              </div>
             )}
 
             {/* ── COMPTE UTILISATEUR ────────────────────────────── */}

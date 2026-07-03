@@ -3,7 +3,7 @@
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory, Resource, Payroll, Personnel } from '../types';
+import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory, Resource, Payroll, Personnel, EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
 import { API_BASE_URL } from '../config';
 import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
@@ -109,7 +109,8 @@ export interface AppState {
     bulletinShowAppreciation?: boolean,
     paymentGateway?: 'fedapay' | 'paystack' | 'stripe' | 'none',
     paymentPublicKey?: string | null,
-    paymentSecretKey?: string | null
+    paymentSecretKey?: string | null,
+    evalConfigs?: EvalConfig[]
   }) => Promise<void>;
   settings: AppSettings;
   updateSettings: (settings: AppSettings) => void;
@@ -793,7 +794,8 @@ export const useStore = create<AppState>()(
         bulletinShowAppreciation: true,
         paymentGateway: 'none',
         paymentPublicKey: null,
-        paymentSecretKey: null
+        paymentSecretKey: null,
+        evalConfigs: DEFAULT_EVAL_CONFIGS,
       },
       updateSettings: (newSettings) => set({ settings: newSettings }),
 

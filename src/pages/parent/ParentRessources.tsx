@@ -1,45 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { ResourceType } from '../../types';
-import { FileText, Video, Link as LinkIcon, File, Search, Filter, Download, ExternalLink } from 'lucide-react';
+import {
+    FileText, Video, Link as LinkIcon, File, Search,
+    Download, ExternalLink, BookOpen, Layers, GraduationCap,
+    Filter, Clock, User, ChevronRight, Zap
+} from 'lucide-react';
+
+// ── Catégorisation des ressources ────────────────────────────
+type ResourceCategory = 'all' | 'cours' | 'exercices' | 'autre';
+
+const getCategoryFromResource = (res: any): ResourceCategory => {
+    const titre = (res.titre || '').toLowerCase();
+    const desc = (res.description || '').toLowerCase();
+    if (titre.includes('cours') || titre.includes('leçon') || titre.includes('chapitre') || desc.includes('cours')) return 'cours';
+    if (titre.includes('exercice') || titre.includes('devoir') || titre.includes('tp') || titre.includes('travail') || desc.includes('exercice')) return 'exercices';
+    return 'autre';
+};
+
+const CATEGORY_CONFIG = {
+    all: { label: 'Tout', icon: <Layers className="w-4 h-4" />, color: 'bg-slate-700 text-white' },
+    cours: { label: 'Cours', icon: <BookOpen className="w-4 h-4" />, color: 'bg-blue-600 text-white' },
+    exercices: { label: 'Exercices', icon: <GraduationCap className="w-4 h-4" />, color: 'bg-indigo-600 text-white' },
+    autre: { label: 'Autre', icon: <File className="w-4 h-4" />, color: 'bg-slate-500 text-white' },
+};
+
+const TYPE_CONFIG: Record<ResourceType | string, { icon: React.ReactNode; badge: string; badgeColor: string }> = {
+    pdf: { icon: <FileText className="w-6 h-6 text-red-500" />, badge: 'PDF', badgeColor: 'bg-red-100 text-red-700' },
+    video: { icon: <Video className="w-6 h-6 text-blue-500" />, badge: 'Vidéo', badgeColor: 'bg-blue-100 text-blue-700' },
+    link: { icon: <LinkIcon className="w-6 h-6 text-green-500" />, badge: 'Lien', badgeColor: 'bg-green-100 text-green-700' },
+    default: { icon: <File className="w-6 h-6 text-slate-400" />, badge: 'Fichier', badgeColor: 'bg-slate-100 text-slate-600' },
+};
 
 export const ParentRessources: React.FC = () => {
-    const user = useStore(s => s.user);
     const students = useStore(s => s.students);
     const resources = useStore(s => s.resources);
-    
-    // Pour le parent, 'students' dans le store contient déjà uniquement ses enfants
-    const parentStudents = students;
-    const studentClasses = Array.from(new Set(parentStudents.map(s => s.classe).filter(Boolean)));
 
-    // Seules les ressources des classes des enfants sont visibles
-    const availableResources = resources.filter(r => studentClasses.includes(r.classe));
+    const studentClasses = useMemo(
+        () => Array.from(new Set(students.map(s => s.classe).filter(Boolean))),
+        [students]
+    );
+
+    const availableResources = useMemo(
+        () => resources.filter(r => studentClasses.includes(r.classe)),
+        [resources, studentClasses]
+    );
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterClass, setFilterClass] = useState(studentClasses.length === 1 ? studentClasses[0] : '');
+    const [activeCategory, setActiveCategory] = useState<ResourceCategory>('all');
 
-    const filteredResources = availableResources.filter(r => 
-        (filterClass === '' || r.classe === filterClass) &&
-        (r.titre.toLowerCase().includes(searchTerm.toLowerCase()) || r.matiere.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const categoryCounts = useMemo(() => {
+        const counts: Record<ResourceCategory, number> = { all: 0, cours: 0, exercices: 0, autre: 0 };
+        availableResources.forEach(r => {
+            const cat = getCategoryFromResource(r);
+            counts[cat]++;
+            counts.all++;
+        });
+        return counts;
+    }, [availableResources]);
 
-    const getIcon = (type: ResourceType) => {
-        switch(type) {
-            case 'pdf': return <FileText className="text-red-500 w-6 h-6" />;
-            case 'video': return <Video className="text-blue-500 w-6 h-6" />;
-            case 'link': return <LinkIcon className="text-green-500 w-6 h-6" />;
-            default: return <File className="text-slate-500 w-6 h-6" />;
-        }
-    };
+    const filteredResources = useMemo(() => {
+        return availableResources.filter(r => {
+            const matchClass = filterClass === '' || r.classe === filterClass;
+            const matchSearch = searchTerm === '' ||
+                r.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                r.matiere.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchCategory = activeCategory === 'all' || getCategoryFromResource(r) === activeCategory;
+            return matchClass && matchSearch && matchCategory;
+        });
+    }, [availableResources, filterClass, searchTerm, activeCategory]);
 
     const handleAction = (res: typeof resources[0]) => {
         if (res.type === 'link' || res.type === 'video') {
-            window.open(res.url, '_blank');
+            window.open(res.url, '_blank', 'noopener,noreferrer');
         } else {
-            // Pour les fichiers en base64, on déclenche un téléchargement
             const a = document.createElement('a');
             a.href = res.url;
-            a.download = `${res.titre}.${res.type === 'pdf' ? 'pdf' : 'docx'}`; // Simplification
+            a.download = `${res.titre}.${res.type === 'pdf' ? 'pdf' : 'docx'}`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -47,32 +85,54 @@ export const ParentRessources: React.FC = () => {
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-900 dark:text-white">Ressources & Cours (E-Learning)</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Consultez les cours et exercices partagés par les professeurs.</p>
+        <div className="space-y-6 pb-20">
+            {/* ── Header ── */}
+            <div className="bg-gradient-to-br from-teal-600 to-emerald-700 rounded-[32px] p-8 text-white shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30">
+                            <Zap className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black tracking-tight">E-Learning</h2>
+                            <p className="text-teal-100 font-medium text-sm mt-0.5">Cours, exercices et ressources partagés par les professeurs</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="bg-white/20 px-5 py-3 rounded-2xl">
+                            <p className="text-white font-black text-2xl leading-none">{availableResources.length}</p>
+                            <p className="text-teal-100 text-[10px] font-bold uppercase tracking-widest">Ressource{availableResources.length > 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="bg-white/20 px-5 py-3 rounded-2xl">
+                            <p className="text-white font-black text-2xl leading-none">{studentClasses.length}</p>
+                            <p className="text-teal-100 text-[10px] font-bold uppercase tracking-widest">Classe{studentClasses.length > 1 ? 's' : ''}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-6">
+            {/* ── Filtres ── */}
+            <div className="flex flex-col md:flex-row gap-4">
+                {/* Recherche */}
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Rechercher un cours..."
+                        placeholder="Rechercher un cours, une matière..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                        onChange={e => setSearchTerm(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none font-medium text-slate-700 dark:text-slate-300"
                     />
                 </div>
+                {/* Filtre classe */}
                 {studentClasses.length > 1 && (
-                    <div className="relative w-full md:w-64">
-                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <div className="relative w-full md:w-52">
+                        <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <select
                             value={filterClass}
-                            onChange={(e) => setFilterClass(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                            onChange={e => setFilterClass(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none appearance-none font-bold text-slate-700 dark:text-slate-300"
                         >
                             <option value="">Toutes les classes</option>
                             {studentClasses.map(c => <option key={c} value={c}>{c}</option>)}
@@ -81,52 +141,107 @@ export const ParentRessources: React.FC = () => {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredResources.length === 0 ? (
-                    <div className="col-span-full py-12 text-center text-slate-500 bg-white/50 dark:bg-slate-800/50 rounded-3xl border border-slate-200 dark:border-slate-700">
-                        Aucun cours disponible pour le moment.
-                    </div>
-                ) : (
-                    filteredResources.map(res => (
-                        <div key={res.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all flex flex-col h-full">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
-                                    {getIcon(res.type)}
-                                </div>
-                                <span className="text-xs font-medium px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-md">
-                                    {new Date(res.createdAt).toLocaleDateString()}
-                                </span>
-                            </div>
-                            <h3 className="font-bold text-slate-900 dark:text-white text-lg line-clamp-1">{res.titre}</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4 line-clamp-2 flex-grow">{res.description || "Aucune description"}</p>
-                            
-                            <div className="flex items-center gap-2 mb-4 text-xs font-medium">
-                                <span className="px-2 py-1 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 rounded-md">
-                                    {res.matiere}
-                                </span>
-                                <span className="px-2 py-1 bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 rounded-md">
-                                    Classe: {res.classe}
-                                </span>
-                            </div>
-
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">
-                                Ajouté par: {res.professeurNom}
-                            </p>
-
-                            <button
-                                onClick={() => handleAction(res)}
-                                className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 py-2.5 rounded-xl font-bold transition-all mt-auto"
-                            >
-                                {res.type === 'link' || res.type === 'video' ? (
-                                    <>Ouvrir le lien <ExternalLink className="w-4 h-4" /></>
-                                ) : (
-                                    <>Télécharger <Download className="w-4 h-4" /></>
-                                )}
-                            </button>
-                        </div>
-                    ))
-                )}
+            {/* ── Catégories ── */}
+            <div className="flex flex-wrap gap-2">
+                {(Object.keys(CATEGORY_CONFIG) as ResourceCategory[]).map(cat => {
+                    const cfg = CATEGORY_CONFIG[cat];
+                    const count = categoryCounts[cat];
+                    const isActive = activeCategory === cat;
+                    return (
+                        <button
+                            key={cat}
+                            onClick={() => setActiveCategory(cat)}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all border ${
+                                isActive
+                                    ? `${cfg.color} border-transparent shadow-md scale-105`
+                                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-300'
+                            }`}
+                        >
+                            {cfg.icon}
+                            {cfg.label}
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${isActive ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                {count}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
+
+            {/* ── Grille ressources ── */}
+            {filteredResources.length === 0 ? (
+                <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-200 dark:border-slate-700">
+                    <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <BookOpen className="w-8 h-8 text-slate-200" />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">Aucune ressource</h3>
+                    <p className="text-sm text-slate-400 max-w-sm mx-auto">
+                        {availableResources.length === 0
+                            ? "Les professeurs n'ont pas encore partagé de cours pour vos classes."
+                            : "Aucune ressource ne correspond à vos filtres."}
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {filteredResources.map(res => {
+                        const typeCfg = TYPE_CONFIG[res.type] || TYPE_CONFIG.default;
+                        const category = getCategoryFromResource(res);
+                        const catCfg = CATEGORY_CONFIG[category];
+                        const isDownloadable = res.type !== 'link' && res.type !== 'video';
+
+                        return (
+                            <div
+                                key={res.id}
+                                className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all group flex flex-col overflow-hidden"
+                            >
+                                {/* Barre catégorie */}
+                                <div className={`h-1.5 w-full ${category === 'cours' ? 'bg-blue-500' : category === 'exercices' ? 'bg-indigo-500' : 'bg-slate-300'}`} />
+
+                                <div className="p-6 flex flex-col flex-1">
+                                    {/* Header card */}
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl group-hover:scale-110 transition-transform">
+                                            {typeCfg.icon}
+                                        </div>
+                                        <div className="flex gap-2 items-center">
+                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black ${typeCfg.badgeColor}`}>{typeCfg.badge}</span>
+                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black ${catCfg.color}`}>{catCfg.label}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Titre & Description */}
+                                    <h3 className="font-black text-slate-900 dark:text-white text-lg line-clamp-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-snug mb-2">{res.titre}</h3>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 flex-grow">{res.description || 'Aucune description'}</p>
+
+                                    {/* Badges matière / classe */}
+                                    <div className="flex flex-wrap gap-2 mt-4">
+                                        <span className="px-2.5 py-1 bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 rounded-xl text-[10px] font-black">{res.matiere}</span>
+                                        <span className="px-2.5 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-[10px] font-black">{res.classe}</span>
+                                    </div>
+
+                                    {/* Méta */}
+                                    <div className="flex items-center gap-3 mt-3 text-[10px] text-slate-400">
+                                        <span className="flex items-center gap-1"><User className="w-3 h-3" /> {res.professeurNom}</span>
+                                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(res.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                                    </div>
+
+                                    {/* Bouton action */}
+                                    <button
+                                        onClick={() => handleAction(res)}
+                                        className="mt-5 w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-sm shadow-teal-600/20"
+                                    >
+                                        {isDownloadable ? (
+                                            <><Download className="w-4 h-4" /> Télécharger</>
+                                        ) : (
+                                            <><ExternalLink className="w-4 h-4" /> Ouvrir</>
+                                        )}
+                                        <ChevronRight className="w-4 h-4 ml-auto" />
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };

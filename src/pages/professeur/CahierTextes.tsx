@@ -13,15 +13,11 @@ const safeFormatDate = (dateStr: string | undefined, fmt: string) => {
 };
 
 export const CahierTextes: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'devoirs' | 'appel'>('devoirs');
-  
   const user = useStore(s => s.user);
   const students = useStore(s => s.students);
   const devoirs = useStore(s => s.devoirs);
   const addDevoir = useStore(s => s.addDevoir);
   const deleteDevoir = useStore(s => s.deleteDevoir);
-  const presences = useStore(s => s.presences);
-  const addPresence = useStore(s => s.addPresence);
   const matieres = useStore(s => s.matieres);
   
   const classeMatieres = useStore(s => s.classeMatieres) || [];
@@ -44,8 +40,6 @@ export const CahierTextes: React.FC = () => {
   const [desc, setDesc] = useState('');
   const [dateRendu, setDateRendu] = useState(new Date().toISOString().split('T')[0]);
 
-  // Appel state
-  const [appelDate, setAppelDate] = useState(new Date().toISOString().split('T')[0]);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -86,45 +80,6 @@ export const CahierTextes: React.FC = () => {
     setFile(null);
   };
 
-  const markPresence = async (studentId: string, statut: 'present' | 'absent' | 'retard') => {
-    const student = classStudents.find(s => s.id === studentId);
-    if (!student) return;
-
-    const existing = (presences || []).find(p => p.eleveId === studentId && p.date === appelDate);
-    if (existing) {
-      alert("Ce pointage a déjà été enregistré pour aujourd'hui.");
-      return; 
-    }
-
-    if (statut === 'absent' || statut === 'retard') {
-      const confirmMsg = `Voulez-vous notifier les parents que ${student.nom} ${student.prenom} est ${statut} aujourd'hui ?`;
-      if (!window.confirm(confirmMsg)) {
-          return; // Annuler si le prof ne confirme pas
-      }
-    }
-
-    addPresence({
-      id: crypto.randomUUID(),
-      eleveId: studentId,
-      eleveNom: student.nom,
-      elevePrenom: student.prenom,
-      eleveClasse: student.classe,
-      date: appelDate,
-      heure: new Date().toTimeString().split(' ')[0],
-      statut,
-      type: 'ENTREE'
-    });
-
-    if (statut === 'absent' || statut === 'retard') {
-      const title = statut === 'absent' ? 'Alerte Absence' : 'Alerte Retard';
-      const msg = `Votre enfant ${student.nom} ${student.prenom} a été marqué ${statut.toUpperCase()} ce ${new Date(appelDate).toLocaleDateString('fr-FR')}.`;
-      const success = await notificationService.notifyParents(student.id, msg, 'presence', title);
-      
-      if (success) {
-          alert(`Notification envoyée avec succès aux parents de ${student.nom}.`);
-      }
-    }
-  };
 
   if (!user || user.role !== 'professeur') {
     return <div className="p-8 text-center">Accès restreint.</div>;
@@ -141,8 +96,8 @@ export const CahierTextes: React.FC = () => {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 dark:text-white">Cahier de Textes & Présences</h1>
-          <p className="text-slate-500">Gérez les devoirs et faites l'appel de vos classes.</p>
+          <h1 className="text-2xl font-black text-slate-800 dark:text-white">Cahier de Textes & Devoirs</h1>
+          <p className="text-slate-500">Gérez les leçons du jour et les devoirs de vos classes.</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -167,25 +122,7 @@ export const CahierTextes: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-4 border-b border-slate-200 dark:border-slate-700 pb-px">
-        <button
-          onClick={() => setActiveTab('devoirs')}
-          className={`pb-4 px-4 font-bold text-sm transition-colors border-b-2 ${activeTab === 'devoirs' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-        >
-          <BookOpen className="w-4 h-4 inline-block mr-2" />
-          Devoirs & Leçons
-        </button>
-        <button
-          onClick={() => setActiveTab('appel')}
-          className={`pb-4 px-4 font-bold text-sm transition-colors border-b-2 ${activeTab === 'appel' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-        >
-          <UserCheck className="w-4 h-4 inline-block mr-2" />
-          Appel de la classe
-        </button>
-      </div>
-
-      {activeTab === 'devoirs' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 h-fit">
             <h2 className="text-lg font-black mb-4">Ajouter un devoir</h2>
             <form onSubmit={handleAddDevoir} className="space-y-4">
@@ -235,59 +172,6 @@ export const CahierTextes: React.FC = () => {
             )}
           </div>
         </div>
-      )}
-
-      {activeTab === 'appel' && (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-black">Faire l'appel</h2>
-            <input type="date" value={appelDate} onChange={e => setAppelDate(e.target.value)} className="px-4 py-2 border rounded-xl font-bold bg-slate-50 dark:bg-slate-900 dark:border-slate-700" />
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b-2 border-slate-100 dark:border-slate-700 text-sm font-bold text-slate-400 uppercase">
-                  <th className="py-4">Elève</th>
-                  <th className="py-4 text-center">Pointage du jour</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
-                {classStudents.map(student => {
-                  const p = (presences || []).find(x => x.eleveId === student.id && x.date === appelDate);
-                  return (
-                    <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
-                      <td className="py-3">
-                        <div className="font-bold text-slate-800 dark:text-white">{student.nom}</div>
-                        <div className="text-sm text-slate-500">{student.prenom}</div>
-                      </td>
-                      <td className="py-3 text-center">
-                        {p ? (
-                          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${
-                            p.statut === 'present' ? 'bg-emerald-100 text-emerald-700' : 
-                            p.statut === 'absent' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                          }`}>
-                            {p.statut === 'present' && <CheckCircle2 className="w-4 h-4" />}
-                            {p.statut === 'absent' && <XCircle className="w-4 h-4" />}
-                            {p.statut === 'retard' && <Clock className="w-4 h-4" />}
-                            {p.statut.toUpperCase()}
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => markPresence(student.id, 'present')} className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-xl transition-colors"><CheckCircle2 className="w-5 h-5" /></button>
-                            <button onClick={() => markPresence(student.id, 'retard')} className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white rounded-xl transition-colors"><Clock className="w-5 h-5" /></button>
-                            <button onClick={() => markPresence(student.id, 'absent')} className="p-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl transition-colors"><XCircle className="w-5 h-5" /></button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
