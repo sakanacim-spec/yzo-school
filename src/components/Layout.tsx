@@ -441,6 +441,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     { id: (isParent ? 'annonces' : 'parametres') as AppPage, label: isParent ? 'Annonces' : 'Config', icon: isParent ? <Megaphone className="w-5 h-5" /> : <Settings className="w-5 h-5" /> },
   ];
 
+  const allowedBottomNavItems = getFilteredNavItems(user?.role, bottomNavItems);
+
   return (
     <div className={`min-h-screen flex ${theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
       
@@ -562,7 +564,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       {/* ── Bottom Nav Mobile ── */}
       <nav className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-3xl border-t border-slate-200 dark:border-slate-800 pb-[env(safe-area-inset-bottom)] transition-transform duration-300 ${sidebarOpen ? 'translate-y-full' : 'translate-y-0'}`}>
         <div className="flex items-center justify-around h-[72px] px-2">
-          {bottomNavItems.map((item) => {
+          {allowedBottomNavItems.map((item) => {
             const active = currentPage === item.id;
             return (
               <button
