@@ -455,11 +455,13 @@ async function getParentData(req, res) {
                 
             presences = (dbPresences || []).map(p => ({
                 id: p.id,
-                studentId: p.student_id,
+                eleveId: p.student_id,
+                eleveNom: p.eleve_nom,
+                elevePrenom: p.eleve_prenom,
+                eleveClasse: p.eleve_classe,
                 date: p.date,
-                status: p.status,
-                motif: p.motif,
-                type: p.type
+                heure: p.heure,
+                statut: p.statut
             }));
         }
 
