@@ -2,6 +2,7 @@
 // LANDING PAGE — Page d'accueil publique de Yziow
 // ============================================================
 import React, { useState } from 'react';
+import { useStore } from '../store/useStore';
 import { 
   GraduationCap, BookOpen, MapPin, MessageSquare, ShieldCheck, 
   Globe, CheckCircle, Mail, Phone, ArrowRight, Lock, 
@@ -13,6 +14,7 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
+  const { language, setLanguage } = useStore();
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactMessage, setContactMessage] = useState('');
@@ -55,12 +57,41 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             <a href="#contact" className="text-sm font-semibold text-slate-600 hover:text-[#f97316] transition-colors">Contact</a>
           </nav>
 
-          <button 
-            onClick={onLogin}
-            className="px-6 py-2.5 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-xs font-bold tracking-wider shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center gap-2"
-          >
-            <Lock className="w-4 h-4" /> ACCÉDER À MON ESPACE
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 border border-slate-100 rounded-xl px-2 py-1 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setLanguage('fr')}
+                className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black transition-all ${
+                  language === 'fr' 
+                    ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <span className="mr-1">🇫🇷</span>
+                <span>Français</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black transition-all ${
+                  language === 'en' 
+                    ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <span className="mr-1">🇬🇧</span>
+                <span>English</span>
+              </button>
+            </div>
+
+            <button 
+              onClick={onLogin}
+              className="px-6 py-2.5 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-xs font-bold tracking-wider shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center gap-2"
+            >
+              <Lock className="w-4 h-4" /> ACCÉDER À MON ESPACE
+            </button>
+          </div>
         </div>
       </header>
 

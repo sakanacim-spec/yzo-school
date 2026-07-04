@@ -535,15 +535,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 </button>
               )}
 
-              {/* Language Toggle */}
-              <button
-                onClick={() => setLanguage(language === 'fr' ? 'en' : 'fr')}
-                className="w-10 h-10 rounded-[16px] bg-white dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-blue-500 transition-all duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.04)] active:scale-[0.95] font-black text-xs"
-                title={language === 'fr' ? 'Switch to English' : 'Passer en Français'}
-              >
-                {language === 'fr' ? '🇬🇧' : '🇫🇷'}
-              </button>
-
               <button
                 onClick={toggleTheme}
                 className="w-10 h-10 rounded-[16px] bg-white dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-amber-500 transition-all duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.04)] active:scale-[0.95]"

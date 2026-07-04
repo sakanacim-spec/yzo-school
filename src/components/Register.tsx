@@ -123,15 +123,6 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
           </button>
           <h2 className="text-lg font-semibold text-white">{T.register.title}</h2>
         </div>
-        {/* Bouton bascule langue */}
-        <button
-          type="button"
-          onClick={() => setLanguage(language === 'fr' ? 'en' : 'fr')}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-xs text-white font-semibold transition"
-        >
-          <Languages className="w-3.5 h-3.5" />
-          {language === 'fr' ? '🇬🇧 EN' : '🇫🇷 FR'}
-        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
