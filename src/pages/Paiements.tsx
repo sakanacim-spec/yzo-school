@@ -37,7 +37,19 @@ const PaymentModal: React.FC<{ student: Student; onClose: () => void }> = ({ stu
     addPayment(student.id, { montant, recu: form.recu, note: form.note, date: form.date });
 
     if (student.parentId) {
-      const msg = `Nous avons bien reçu votre paiement de ${formatMontant(montant, currency)} pour ${student.prenom} ${student.nom}.`;
+      const isSolde = student.restant - montant <= 0;
+      const template = isSolde ? messageRemerciement : messageRappel;
+      
+      let customMsg = null;
+      if (template) {
+        customMsg = template
+          .replace(/{nom_eleve}/g, `${student.prenom} ${student.nom}`)
+          .replace(/{reste_a_payer}/g, formatMontant(student.restant - montant, currency))
+          .replace(/{classe}/g, student.classe)
+          .replace(/{montant_paye}/g, formatMontant(montant, currency));
+      }
+
+      const msg = customMsg || `Nous avons bien reçu votre paiement de ${formatMontant(montant, currency)} pour ${student.prenom} ${student.nom}.`;
       await notificationService.notifyParents(student.id, msg, 'payment', 'Paiement enregistré');
     }
 

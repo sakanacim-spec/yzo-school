@@ -41,8 +41,8 @@ async function sendNotification(req, res) {
         const notifTitle = title || (type === 'presence' ? 'Pointage élève' : type === 'payment' ? 'Nouveau paiement' : 'Notification');
 
         for (const parentId of parentIds) {
-            // 1. Créer/update la conversation + ajouter un message dans la messagerie UNIQUEMENT si type === 'message'
-            if (type === 'message') {
+            // 1. Créer/update la conversation + ajouter un message dans la messagerie si type === 'message' ou 'payment'
+            if (type === 'message' || type === 'payment') {
                 let convId;
                 const { data: existing, error: findErr } = await supabase
                     .from(`conversations_${schoolSlug}`)

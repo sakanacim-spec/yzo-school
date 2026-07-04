@@ -124,19 +124,79 @@ async function syncFromFrontend(req, res) {
                     const { data: existingPayments } = await supabase.from(tbl('payments')).select('id').in('id', paymentIds);
                     const existingIds = new Set((existingPayments || []).map(p => p.id));
 
+                    // Charger les templates personnalisés des paramètres
+                    const { data: dbSettings } = await supabase.from(tbl('app_settings')).select('message_remerciement, message_rappel').eq('id', 'global_settings').maybeSingle();
+                    const templateRem = appSettings?.messageRemerciement || dbSettings?.message_remerciement;
+                    const templateRap = appSettings?.messageRappel || dbSettings?.message_rappel;
+
                     for (const s of students) {
                         if (Array.isArray(s.historiquesPaiements) && s.historiquesPaiements.length > 0) {
                             // On ne notifie que si le dernier paiement est NOUVEAU
                             const lastP = s.historiquesPaiements[s.historiquesPaiements.length - 1];
                             if (existingIds.has(lastP.id)) continue; 
 
+                            const isSolde = s.restant <= 0;
+                            const template = isSolde ? templateRem : templateRap;
+                            
+                            let customMsg = null;
+                            if (template) {
+                                customMsg = template
+                                    .replace(/{nom_eleve}/g, `${s.prenom} ${s.nom}`)
+                                    .replace(/{reste_a_payer}/g, `${s.restant.toLocaleString()} FCFA`)
+                                    .replace(/{classe}/g, s.classe)
+                                    .replace(/{montant_paye}/g, `${lastP.montant.toLocaleString()} FCFA`);
+                            }
+
                             const studentName = (s.prenom || s.nom || 'votre enfant').split(' ')[0];
-                            const msg = `💰 Paiement reçu : ${lastP.montant.toLocaleString()} FCFA pour ${studentName}. Nouveau reste : ${s.restant.toLocaleString()} FCFA. Merci !`;
+                            const msg = customMsg || `💰 Paiement reçu : ${lastP.montant.toLocaleString()} FCFA pour ${studentName}. Nouveau reste : ${s.restant.toLocaleString()} FCFA. Merci !`;
                             
                             const { data: links } = await supabase.from(tbl('parent_student')).select('parent_id').eq('student_id', s.id);
                             if (links && links.length > 0) {
                                 for (const link of links) {
-                                    sendPushNotification(link.parent_id, schoolSlug, '📦 Reçu de paiement', msg, 'payment').catch(() => {});
+                                    // 1. Enregistrer dans la messagerie
+                                    let convId;
+                                    const { data: existing } = await supabase
+                                        .from(tbl('conversations'))
+                                        .select('*')
+                                        .eq('parent_id', link.parent_id)
+                                        .eq('admin_role', 'administration');
+
+                                    if (existing && existing.length > 0) {
+                                        const { data: conv } = await supabase
+                                            .from(tbl('conversations'))
+                                            .update({
+                                                last_message: msg,
+                                                updated_at: new Date().toISOString()
+                                            })
+                                            .eq('id', existing[0].id)
+                                            .select()
+                                            .maybeSingle();
+                                        if (conv) convId = conv.id;
+                                    } else {
+                                        const { data: conv } = await supabase
+                                            .from(tbl('conversations'))
+                                            .insert({
+                                                parent_id: link.parent_id,
+                                                admin_role: 'administration',
+                                                last_message: msg,
+                                                updated_at: new Date().toISOString()
+                                            })
+                                            .select()
+                                            .maybeSingle();
+                                        if (conv) convId = conv.id;
+                                    }
+
+                                    if (convId) {
+                                        await supabase.from(tbl('messages')).insert({
+                                            conversation_id: convId,
+                                            sender_id: req.user.id,
+                                            message_text: msg,
+                                            read_status: false
+                                        });
+                                    }
+
+                                    // 2. Envoyer push
+                                    sendPushNotification(link.parent_id, schoolSlug, isSolde ? '🎉 Scolarité Soldée' : '💰 Reçu de paiement', msg, 'payment').catch(() => {});
                                 }
                             }
                         }

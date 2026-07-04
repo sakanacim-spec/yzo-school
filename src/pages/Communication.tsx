@@ -8,11 +8,12 @@ import { Student } from '../types';
 export const Communication: React.FC = () => {
     const students = useStore((s) => s.students);
     const settings = useStore((s) => s.settings);
+    const messageRappel = useStore((s) => s.messageRappel);
 
     const [activeTab, setActiveTab] = useState<'impayes' | 'tous'>('impayes');
     const [selectedClass, setSelectedClass] = useState<string>('Toutes');
     const [messageTemplate, setMessageTemplate] = useState<string>(
-        "Bonjour parent de {nom_eleve},\nSauf erreur, il reste à payer {reste_a_payer} pour la scolarité.\nMerci de régulariser.\nLa Direction."
+        messageRappel || "Bonjour parent de {nom_eleve},\nSauf erreur, il reste à payer {reste_a_payer} pour la scolarité.\nMerci de régulariser.\nLa Direction."
     );
     const [isSending, setIsSending] = useState(false);
     const [sendResult, setSendResult] = useState<{ success: boolean; count: number; error?: string } | null>(null);
