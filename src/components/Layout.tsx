@@ -429,6 +429,11 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     { id: 'scan_sortie'   as AppPage, label: 'Sortie', icon: <ScanLine className="w-5 h-5" /> },
     { id: 'scan_information' as AppPage, label: 'Info', icon: <ScanLine className="w-5 h-5" /> },
     { id: 'carte_scolaire'as AppPage, label: 'Cartes', icon: <IdCard className="w-5 h-5" /> },
+  ] : isProf ? [
+    { id: 'prof_dashboard' as AppPage, label: 'Accueil', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'saisie_notes' as AppPage, label: 'Notes', icon: <Edit3 className="w-5 h-5" /> },
+    { id: 'saisie_presence' as AppPage, label: 'Appel', icon: <UserCheck className="w-5 h-5" /> },
+    { id: 'emploi_du_temps' as AppPage, label: 'Emploi', icon: <Calendar className="w-5 h-5" /> },
   ] : [
     { id: (isParent ? 'parent_dashboard' : 'dashboard') as AppPage, label: 'Accueil', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: (isParent ? 'parent_historique' : 'eleves') as AppPage, label: isParent ? 'Paiements' : 'Élèves', icon: isParent ? <CreditCard className="w-5 h-5" /> : <Users className="w-5 h-5" /> },
