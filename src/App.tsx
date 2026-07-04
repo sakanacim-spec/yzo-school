@@ -102,7 +102,7 @@ const PageContent: React.FC = () => {
     case 'gestion_academique': return <GestionAcademique />;
     case 'saisie_notes': return <SaisieNotes />;
     case 'saisie_presence': return <SaisiePresence />;
-    case 'emploi_du_temps': return (user?.role === 'professeur') ? <ProfEmploiDuTemps /> : <EmploiDuTemps />;
+    case 'emploi_du_temps': return <EmploiDuTemps />;
     case 'bulletins': return <Bulletins />;
     case 'verification_recu': return <VerificationRecu />;
     case 'historique_activites': return <HistoriqueActivites />;
