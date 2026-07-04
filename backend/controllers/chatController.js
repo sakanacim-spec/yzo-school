@@ -237,23 +237,46 @@ async function getUnreadCount(req, res) {
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
     try {
-        let query = supabase
-            .from(`messages_${schoolSlug}`)
-            .select('*, conversations!inner(parent_id)', { count: 'exact', head: true })
-            .neq('sender_id', id)
-            .eq('read_status', false);
-
         if (role === 'parent') {
-            query = query.eq('conversations.parent_id', id);
+            const { data: convs, error: convErr } = await supabase
+                .from(`conversations_${schoolSlug}`)
+                .select('id')
+                .eq('parent_id', id);
+
+            if (convErr) throw convErr;
+            if (!convs || convs.length === 0) return res.json(0);
+
+            const convIds = convs.map(c => c.id);
+            const { count, error } = await supabase
+                .from(`messages_${schoolSlug}`)
+                .select('id', { count: 'exact', head: true })
+                .in('conversation_id', convIds)
+                .neq('sender_id', id)
+                .eq('read_status', false);
+
+            if (error) throw error;
+            return res.json(count || 0);
         } else {
-            // For admins, count messages in their conversations
-            query = query.eq('conversations.admin_role', role === 'comptable' ? 'comptabilite' : 'administration');
+            const targetRole = role === 'comptable' ? 'comptabilite' : 'administration';
+            const { data: convs, error: convErr } = await supabase
+                .from(`conversations_${schoolSlug}`)
+                .select('id')
+                .eq('admin_role', targetRole);
+
+            if (convErr) throw convErr;
+            if (!convs || convs.length === 0) return res.json(0);
+
+            const convIds = convs.map(c => c.id);
+            const { count, error } = await supabase
+                .from(`messages_${schoolSlug}`)
+                .select('id', { count: 'exact', head: true })
+                .in('conversation_id', convIds)
+                .neq('sender_id', id)
+                .eq('read_status', false);
+
+            if (error) throw error;
+            return res.json(count || 0);
         }
-
-        const { count, error } = await query;
-
-        if (error) throw error;
-        return res.json(count || 0);
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }

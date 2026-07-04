@@ -408,10 +408,8 @@ export const useStore = create<AppState>()(
       },
 
       fetchUnreadMessages: async () => {
-        // Désactivé temporairement pour le compte parent car l'API retourne 500 
-        // et pollue la console.
         const user = get().user;
-        if (user?.role === 'parent') return;
+        if (!user) return;
 
         try {
           const { chatApi } = await import('../services/chatApi');
