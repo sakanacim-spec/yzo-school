@@ -15,6 +15,17 @@ import { SupportModal } from './SupportModal';
 import { chatApi } from '../services/chatApi';
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 
+// ── Hook pour détection taille fenêtre (réactif) ──
+const useIsDesktop = () => {
+  const [isDesktop, setIsDesktop] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
+  React.useEffect(() => {
+    const handler = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isDesktop;
+};
+
 interface NavItem { id: AppPage; label: string; icon: React.ReactNode; badge?: number }
 
 const NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
@@ -387,6 +398,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   }, [user?.role, fetchUnreadMessages]);
 
   const isSyncing = useStore((s) => s.isSyncing);
+  const isDesktop = useIsDesktop();
   const nonSoldes = students.filter((s) => s.status !== 'Soldé').length;
   const isParent = user?.role === 'parent';
   const isProf = user?.role === 'professeur';
@@ -453,10 +465,11 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
       {/* ── Main Content Container ── */}
       <div
-        className="flex-1 flex flex-col min-w-0 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-        style={{ paddingLeft: typeof window !== 'undefined' && window.innerWidth >= 1024 ? sidebarW : 0 }}
+        className="flex-1 flex flex-col min-w-0 transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        style={{ paddingLeft: isDesktop ? sidebarW : 0 }}
       >
         <div className="flex-1 flex flex-col min-w-0 p-2 lg:p-4 pb-24 lg:pb-4">
+
           
           {/* ── Premium Topbar ── */}
           <header className="sticky top-2 lg:top-4 z-40 mb-6 px-4 lg:px-6 h-[72px] flex items-center justify-between gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-[40px] border border-white/50 dark:border-slate-800/50 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]">

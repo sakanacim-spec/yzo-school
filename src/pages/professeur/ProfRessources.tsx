@@ -10,8 +10,24 @@ export const ProfRessources: React.FC = () => {
     const resources = useStore(s => s.resources);
     const addResource = useStore(s => s.addResource);
     const deleteResource = useStore(s => s.deleteResource);
-    const classes = useStore(s => s.classes);
     
+    const classeMatieres = useStore(s => s.classeMatieres);
+    const matieresStore = useStore(s => s.matieres);
+
+    const myAssignations = React.useMemo(() => {
+        if (!user) return [];
+        const userName = (user.nom || '').trim().toLowerCase();
+        const userUsername = (user.username || '').trim().toLowerCase();
+        return classeMatieres.filter((cm) => {
+            const profName = (cm.professeur || '').trim().toLowerCase();
+            return profName === userName || profName === userUsername;
+        });
+    }, [classeMatieres, user]);
+
+    const myClasses = React.useMemo(() => {
+        return Array.from(new Set(myAssignations.map(a => a.classe))).sort();
+    }, [myAssignations]);
+
     const myResources = resources.filter(r => r.professeurId === user?.id);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,6 +42,15 @@ export const ProfRessources: React.FC = () => {
         classe: '',
         matiere: ''
     });
+
+    const availableMatieres = React.useMemo(() => {
+        if (!form.classe) return [];
+        const assignsForClass = myAssignations.filter(a => a.classe === form.classe);
+        return assignsForClass.map(a => {
+            const m = matieresStore.find(mat => mat.id === a.matiereId);
+            return m?.nom || '';
+        }).filter(Boolean);
+    }, [form.classe, myAssignations, matieresStore]);
 
     const filteredResources = myResources.filter(r => 
         (filterClass === '' || r.classe === filterClass) &&
@@ -116,7 +141,7 @@ export const ProfRessources: React.FC = () => {
                         className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
                     >
                         <option value="">Toutes les classes</option>
-                        {classes.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                        {myClasses.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
             </div>
@@ -184,22 +209,25 @@ export const ProfRessources: React.FC = () => {
                                     <select
                                         required
                                         value={form.classe}
-                                        onChange={e => setForm({ ...form, classe: e.target.value })}
+                                        onChange={e => setForm({ ...form, classe: e.target.value, matiere: '' })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                     >
                                         <option value="">Sélectionner</option>
-                                        {classes.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                        {myClasses.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Matière *</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         required
                                         value={form.matiere}
                                         onChange={e => setForm({ ...form, matiere: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    />
+                                        disabled={!form.classe}
+                                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
+                                    >
+                                        <option value="">Sélectionner</option>
+                                        {availableMatieres.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
                                 </div>
                             </div>
 
