@@ -372,9 +372,58 @@ async function syncFromFrontend(req, res) {
             }
         };
 
-        await syncBasicArray(seances, 'seances');
+        // --- Sync Seances with proper mapping to avoid DB constraint violations ---
+        if (seances && seances.length > 0) {
+            try {
+                const seancesData = seances.map(s => ({
+                    id: s.id,
+                    classe: s.classe,
+                    date: s.jour || 'Lundi',
+                    heuredebut: s.heureDebut,
+                    heurefin: s.heureFin,
+                    matiere: s.matiereId || '',
+                    professeurid: s.professeur || '',
+                    professeurnom: s.couleur || 'bg-indigo-500',
+                    statut: s.salle || 'default'
+                }));
+                for (let i = 0; i < seancesData.length; i += CHUNK_SIZE) {
+                    const chunk = seancesData.slice(i, i + CHUNK_SIZE);
+                    const { error } = await supabase.from(tbl('seances')).upsert(chunk, { onConflict: 'id' });
+                    if (error) throw error;
+                }
+                console.log(`✅ [Sync POST] ${seances.length} seances sync.`);
+            } catch (e) {
+                console.error(`❌ [Sync POST] Erreur seances:`, e.message);
+            }
+        }
+
+        // --- Sync Resources with proper mapping to avoid DB constraint violations ---
+        if (resources && resources.length > 0) {
+            try {
+                const resourcesData = resources.map(r => ({
+                    id: r.id,
+                    titre: r.titre,
+                    description: r.description || '',
+                    type: r.type,
+                    url: r.url,
+                    classe: r.classe,
+                    matiere: r.matiere,
+                    professeurid: r.professeurId || r.professeurid || null,
+                    professeurnom: r.professeurNom || r.professeurnom || null,
+                    createdat: r.createdAt || r.createdat || null
+                }));
+                for (let i = 0; i < resourcesData.length; i += CHUNK_SIZE) {
+                    const chunk = resourcesData.slice(i, i + CHUNK_SIZE);
+                    const { error } = await supabase.from(tbl('resources')).upsert(chunk, { onConflict: 'id' });
+                    if (error) throw error;
+                }
+                console.log(`✅ [Sync POST] ${resources.length} resources sync.`);
+            } catch (e) {
+                console.error(`❌ [Sync POST] Erreur resources:`, e.message);
+            }
+        }
+
         await syncBasicArray(expenses, 'expenses');
-        await syncBasicArray(resources, 'resources');
         await syncBasicArray(payrolls, 'payrolls');
         await syncBasicArray(personnels, 'personnels');
 
@@ -580,9 +629,30 @@ async function syncToFrontend(req, res) {
                 readAt: r.read_at,
                 remindAt: r.remind_at || null
             })),
-            seances: dbSeances || [],
+            seances: (dbSeances || []).map(s => ({
+                id: s.id,
+                classe: s.classe,
+                jour: s.date || 'Lundi',
+                heureDebut: s.heureDebut || s.heuredebut || '',
+                heureFin: s.heureFin || s.heurefin || '',
+                matiereId: s.matiere || '',
+                professeur: s.professeurId || s.professeurid || '',
+                salle: (s.statut === 'default') ? '' : (s.statut || ''),
+                couleur: s.professeurNom || s.professeurnom || 'bg-indigo-500'
+            })),
             expenses: dbExpenses || [],
-            resources: dbResources || [],
+            resources: (dbResources || []).map(r => ({
+                id: r.id,
+                titre: r.titre,
+                description: r.description || '',
+                type: r.type,
+                url: r.url,
+                classe: r.classe,
+                matiere: r.matiere,
+                professeurId: r.professeurId || r.professeurid || '',
+                professeurNom: r.professeurNom || r.professeurnom || '',
+                createdAt: r.createdAt || r.createdat || ''
+            })),
             payrolls: dbPayrolls || [],
             personnels: (dbPersonnels || []).map(p => ({
                 id: p.id,
