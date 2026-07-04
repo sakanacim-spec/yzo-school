@@ -508,12 +508,14 @@ async function getParentData(req, res) {
                 resources = (dbResources || []).map(r => ({
                     id: r.id,
                     titre: r.titre,
+                    description: r.description || '',
                     type: r.type,
                     url: r.url,
                     classe: r.classe,
                     matiere: r.matiere,
-                    createdBy: r.created_by,
-                    createdAt: r.created_at
+                    professeurId: r.professeurId || r.professeurid || '',
+                    professeurNom: r.professeurNom || r.professeurnom || '',
+                    createdAt: r.createdAt || r.createdat || ''
                 }));
             }
         } catch (err) {

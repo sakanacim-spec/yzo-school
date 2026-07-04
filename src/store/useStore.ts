@@ -858,33 +858,65 @@ export const useStore = create<AppState>()(
 
       // --- Emploi du Temps ---
       addSeance: (seance) => {
-        set({ seances: [...get().seances, seance] });
+        const updated = [...get().seances, seance];
+        set({ seances: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ seances: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
       },
       updateSeance: (id, newSeance) => {
-        set({ seances: get().seances.map(s => s.id === id ? { ...s, ...newSeance } : s) });
+        const updated = get().seances.map(s => s.id === id ? { ...s, ...newSeance } : s);
+        set({ seances: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ seances: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
       },
       deleteSeance: (id) => {
-        set({ seances: get().seances.filter(s => s.id !== id) });
+        const updated = get().seances.filter(s => s.id !== id);
+        set({ seances: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ seances: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
       },
 
       // --- Dépenses ---
       addExpense: (expense) => {
-        set({ expenses: [expense, ...get().expenses] });
+        const updated = [expense, ...get().expenses];
+        set({ expenses: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ expenses: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
       },
       updateExpense: (id, newExpense) => {
-        set({ expenses: get().expenses.map(e => e.id === id ? { ...e, ...newExpense } : e) });
+        const updated = get().expenses.map(e => e.id === id ? { ...e, ...newExpense } : e);
+        set({ expenses: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ expenses: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
       },
       deleteExpense: (id) => {
-        set({ expenses: get().expenses.filter(e => e.id !== id) });
+        const updated = get().expenses.filter(e => e.id !== id);
+        set({ expenses: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ expenses: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
       },
 
       // --- E-Learning & Ressources ---
       resources: [],
       addResource: (resource) => {
-        set({ resources: [resource, ...get().resources] });
+        const updated = [resource, ...get().resources];
+        set({ resources: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ resources: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
       },
       deleteResource: (id) => {
-        set({ resources: get().resources.filter(r => r.id !== id) });
+        const updated = get().resources.filter(r => r.id !== id);
+        set({ resources: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({ resources: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+        });
       },
 
       // --- Personnels ---
