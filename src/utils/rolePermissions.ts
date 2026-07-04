@@ -15,19 +15,19 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
-        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires', 'emploi_du_temps'
     ],
     admin: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
-        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires', 'emploi_du_temps'
     ],
     directeur: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
         'parametres', 'recouvrement', 'scan_information',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
-        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires', 'emploi_du_temps'
     ],
     comptable: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
@@ -41,11 +41,11 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
     ],
     proviseur: [
         'dashboard', 'eleves', 'analyses', 'chat', 'scan_information',
-        'gestion_academique', 'saisie_notes', 'bulletins'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'emploi_du_temps'
     ],
     censeur: [
         'dashboard', 'eleves', 'analyses', 'chat', 'scan_information',
-        'gestion_academique', 'saisie_notes', 'bulletins'
+        'gestion_academique', 'saisie_notes', 'bulletins', 'emploi_du_temps'
     ],
     professeur: [
         'prof_dashboard', 'saisie_notes', 'emploi_du_temps', 'saisie_presence', 'prof_ressources'
