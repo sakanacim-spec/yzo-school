@@ -67,26 +67,59 @@ export const ChatWindow: React.FC = () => {
         try {
             const data = await chatApi.getConversations();
 
+            let finalConvs = data;
+            if (user?.role === 'parent') {
+                const hasAdmin = data.some((c: any) => c.admin_role === 'administration');
+                const hasCompta = data.some((c: any) => c.admin_role === 'comptabilite');
+                
+                const placeholders: Conversation[] = [];
+                if (!hasAdmin) {
+                    placeholders.push({
+                        id: 'new_administration',
+                        parent_id: user.id,
+                        admin_role: 'administration',
+                        last_message: 'Démarrer une discussion...',
+                        updated_at: ''
+                    });
+                }
+                if (!hasCompta) {
+                    placeholders.push({
+                        id: 'new_comptabilite',
+                        parent_id: user.id,
+                        admin_role: 'comptabilite',
+                        last_message: 'Démarrer une discussion...',
+                        updated_at: ''
+                    });
+                }
+                finalConvs = [...data, ...placeholders];
+            }
+
             // Gérer le cas où un admin clique sur "Contacter" depuis la liste des parents
             if (chatRecipientId) {
-                const existing = data.find((c: any) => c.parent_id === chatRecipientId);
+                const existing = finalConvs.find((c: any) => c.parent_id === chatRecipientId);
                 if (existing) {
                     setActiveConv(existing);
-                    setConversations(data);
+                    setConversations(finalConvs);
                 } else {
                     try {
                         const realConv = await chatApi.initiateConversation(chatRecipientId);
                         setActiveConv(realConv as any);
-                        setConversations([realConv as any, ...data]);
+                        setConversations([realConv as any, ...finalConvs]);
                     } catch (initErr) {
                         console.error("Erreur initiation: ", initErr);
-                        setConversations(data);
+                        setConversations(finalConvs);
                     }
                 }
                 // Nettoyer après usage
                 setChatRecipientId(null);
             } else {
-                setConversations(data);
+                if (activeConv?.id?.startsWith('new_')) {
+                    const matched = data.find((c: any) => c.admin_role === activeConv.admin_role);
+                    if (matched) {
+                        setActiveConv(matched);
+                    }
+                }
+                setConversations(finalConvs);
             }
         } catch (err) {
             console.error(err);
@@ -94,6 +127,10 @@ export const ChatWindow: React.FC = () => {
     };
 
     const loadMessages = async (convId: string) => {
+        if (convId.startsWith('new_')) {
+            setMessages([]);
+            return;
+        }
         try {
             const data = await chatApi.getMessages(convId);
             setMessages(data);
@@ -111,14 +148,15 @@ export const ChatWindow: React.FC = () => {
         setSending(true);
         try {
             await chatApi.sendMessage({
-                conversationId: activeConv?.id || undefined,
-                parentId: activeConv?.id ? undefined : activeConv?.parent_id,
+                conversationId: activeConv?.id?.startsWith('new_') ? undefined : activeConv?.id,
+                parentId: activeConv?.id?.startsWith('new_') ? undefined : activeConv?.parent_id,
                 text: inputText,
-                targetRole: activeConv?.id ? undefined : (user?.role === 'comptable' ? 'comptabilite' : 'administration')
+                targetRole: activeConv?.id?.startsWith('new_') ? activeConv.admin_role : undefined
             });
             setInputText('');
-            if (activeConv?.id) loadMessages(activeConv.id);
-            else {
+            if (activeConv?.id && !activeConv.id.startsWith('new_')) {
+                loadMessages(activeConv.id);
+            } else {
                 // Si c'était une initiation, on recharge tout pour récupérer le vrai ID
                 loadConversations();
             }
@@ -137,13 +175,16 @@ export const ChatWindow: React.FC = () => {
         try {
             const { imageUrl } = await chatApi.uploadImage(file);
             await chatApi.sendMessage({
-                conversationId: activeConv?.id || undefined,
-                parentId: activeConv?.id ? undefined : activeConv?.parent_id,
+                conversationId: activeConv?.id?.startsWith('new_') ? undefined : activeConv?.id,
+                parentId: activeConv?.id?.startsWith('new_') ? undefined : activeConv?.parent_id,
                 imageUrl,
-                targetRole: activeConv?.id ? undefined : (user?.role === 'comptable' ? 'comptabilite' : 'administration')
+                targetRole: activeConv?.id?.startsWith('new_') ? activeConv.admin_role : undefined
             });
-            if (activeConv?.id) loadMessages(activeConv.id);
-            else loadConversations();
+            if (activeConv?.id && !activeConv.id.startsWith('new_')) {
+                loadMessages(activeConv.id);
+            } else {
+                loadConversations();
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -187,6 +228,10 @@ export const ChatWindow: React.FC = () => {
     };
 
     const handleDeleteConversation = async (convId: string) => {
+        if (convId.startsWith('new_')) {
+            setActiveConv(null);
+            return;
+        }
         if (!window.confirm('Supprimer toute la conversation ? Cette action est irréversible.')) return;
         try {
             await chatApi.deleteConversation(convId);
