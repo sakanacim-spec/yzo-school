@@ -9,7 +9,8 @@ const {
     getAllParents,
     getParentById,
     adminDeleteAccount,
-    getParentData
+    getParentData,
+    toggleDevoirComplete
 } = require('../controllers/parentController');
 
 // Routes protégées
@@ -22,6 +23,7 @@ router.get('/presences/:studentId', getPresences);
 router.get('/badges', getBadges);
 router.get('/active-count', getActiveParentsCount);
 router.get('/list', getAllParents);
+router.post('/devoir/:devoirId/complete', toggleDevoirComplete);
 router.get('/:id', getParentById);
 router.delete('/:parentId', adminDeleteAccount);
 

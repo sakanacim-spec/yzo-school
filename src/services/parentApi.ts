@@ -203,6 +203,17 @@ export const parentApi = {
         return data; // { announcements: [...] }
     },
 
+    toggleDevoirComplete: async (devoirId: string, studentId: string, completed: boolean) => {
+        const res = await fetch(`${API_URL}/parent/devoir/${devoirId}/complete`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ studentId, completed })
+        });
+        const data = await parseResponse(res);
+        if (!res.ok) throw data;
+        return data;
+    },
+
     logout: () => {
         localStorage.removeItem('parent_token');
     }

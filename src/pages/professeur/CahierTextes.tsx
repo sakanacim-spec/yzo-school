@@ -12,6 +12,17 @@ const safeFormatDate = (dateStr: string | undefined, fmt: string) => {
   return isValid(d) ? format(d, fmt, { locale: fr }) : 'Date invalide';
 };
 
+const parseDevoirDescription = (desc: string) => {
+  if (!desc) return { cleanDesc: '', completedIds: [] as string[] };
+  const marker = '\n[COMPLETED_STUDENTS]:';
+  const idx = desc.indexOf(marker);
+  if (idx === -1) return { cleanDesc: desc, completedIds: [] as string[] };
+  const cleanDesc = desc.substring(0, idx);
+  const listStr = desc.substring(idx + marker.length);
+  const completedIds = listStr ? listStr.split(',').filter(Boolean) : [];
+  return { cleanDesc, completedIds };
+};
+
 export const CahierTextes: React.FC = () => {
   const user = useStore(s => s.user);
   const students = useStore(s => s.students);
@@ -145,28 +156,56 @@ export const CahierTextes: React.FC = () => {
           </div>
 
           <div className="lg:col-span-2 space-y-4">
-            {myDevoirs.map(d => (
-              <div key={d.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col gap-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-black">{d.matiere}</span>
-                    <span className="text-xs font-bold text-slate-400">Donné le {safeFormatDate(d.dateDonnee, 'dd MMM yyyy')}</span>
+            {myDevoirs.map(d => {
+              const { cleanDesc, completedIds } = parseDevoirDescription(d.description);
+              return (
+                <div key={d.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col gap-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-black">{d.matiere}</span>
+                      <span className="text-xs font-bold text-slate-400">Donné le {safeFormatDate(d.dateDonnee, 'dd MMM yyyy')}</span>
+                    </div>
+                    <button onClick={() => deleteDevoir(d.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                   </div>
-                  <button onClick={() => deleteDevoir(d.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                </div>
-                <p className="text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap">{d.description}</p>
-                {d.fichierUrl && (
-                  <div className="mt-2">
-                    <a href={d.fichierUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-lg text-sm font-bold transition-colors">
-                      <BookOpen className="w-4 h-4" /> Voir la pièce jointe
-                    </a>
+                  <p className="text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap">{cleanDesc}</p>
+                  {d.fichierUrl && (
+                    <div className="mt-2">
+                      <a href={d.fichierUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-lg text-sm font-bold transition-colors">
+                        <BookOpen className="w-4 h-4" /> Voir la pièce jointe
+                      </a>
+                    </div>
+                  )}
+                  <div className="mt-2 text-sm font-bold flex items-center gap-1 text-amber-600">
+                    <Calendar className="w-4 h-4" /> À rendre pour le {safeFormatDate(d.dateRendu, 'EEEE dd MMMM yyyy')}
                   </div>
-                )}
-                <div className="mt-2 text-sm font-bold flex items-center gap-1 text-amber-600">
-                  <Calendar className="w-4 h-4" /> À rendre pour le {safeFormatDate(d.dateRendu, 'EEEE dd MMMM yyyy')}
+                  
+                  {/* Suivi des devoirs */}
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50">
+                    <p className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Suivi de l'avancement : {completedIds.length} / {classStudents.length} fait
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {classStudents.map(student => {
+                        const isCompleted = completedIds.includes(student.id);
+                        return (
+                          <span 
+                            key={student.id} 
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-all ${
+                              isCompleted 
+                                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/30' 
+                                : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                            {student.prenom} {student.nom}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {myDevoirs.length === 0 && (
               <div className="p-8 text-center text-slate-500 font-medium">Aucun devoir enregistré.</div>
             )}

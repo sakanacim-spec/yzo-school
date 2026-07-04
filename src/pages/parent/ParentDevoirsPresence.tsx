@@ -3,15 +3,27 @@ import { useStore } from '../../store/useStore';
 import {
     BookOpen, UserCheck, Calendar, Clock,
     CheckCircle2, XCircle, AlertCircle,
-    ChevronRight, FileDown
+    ChevronRight, FileDown, CheckSquare, Square
 } from 'lucide-react';
 import { format, isValid, parseISO, isPast, isToday, isTomorrow, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { parentApi } from '../../services/parentApi';
 
 const safeFormatDate = (dateStr: string | undefined, fmt: string) => {
     if (!dateStr) return 'Date non précisée';
     const d = new Date(dateStr);
     return isValid(d) ? format(d, fmt, { locale: fr }) : 'Date invalide';
+};
+
+const parseDevoirDescription = (desc: string) => {
+    if (!desc) return { cleanDesc: '', completedIds: [] as string[] };
+    const marker = '\n[COMPLETED_STUDENTS]:';
+    const idx = desc.indexOf(marker);
+    if (idx === -1) return { cleanDesc: desc, completedIds: [] as string[] };
+    const cleanDesc = desc.substring(0, idx);
+    const listStr = desc.substring(idx + marker.length);
+    const completedIds = listStr ? listStr.split(',').filter(Boolean) : [];
+    return { cleanDesc, completedIds };
 };
 
 const getDueDateLabel = (dateStr?: string) => {
@@ -79,6 +91,20 @@ export const ParentDevoirsPresence: React.FC = () => {
         const dObj = new Date(d.dateRendu);
         return isValid(dObj) && (isToday(dObj) || isTomorrow(dObj) || isPast(dObj));
     }).length;
+
+    const handleToggleComplete = async (devoirId: string, completed: boolean) => {
+        if (!selectedChildId) return;
+        try {
+            const res = await parentApi.toggleDevoirComplete(devoirId, selectedChildId, completed);
+            if (res.success && res.description !== undefined) {
+                const updatedDevoirs = devoirs.map(d => d.id === devoirId ? { ...d, description: res.description } : d);
+                useStore.setState({ devoirs: updatedDevoirs });
+            }
+        } catch (err) {
+            console.error("Erreur toggle complete devoir:", err);
+            alert("Impossible de mettre à jour le statut du devoir.");
+        }
+    };
 
     if (!user || user.role !== 'parent') {
         return <div className="p-8 text-center text-slate-500">Accès réservé aux parents.</div>;
@@ -177,9 +203,11 @@ export const ParentDevoirsPresence: React.FC = () => {
                         childDevoirs.map(d => {
                             const dueDateInfo = getDueDateLabel(d.dateRendu);
                             const donneeDate = d.dateDonnee ? new Date(d.dateDonnee) : null;
+                            const { cleanDesc, completedIds } = parseDevoirDescription(d.description);
+                            const isDone = selectedChildId ? completedIds.includes(selectedChildId) : false;
 
                             return (
-                                <div key={d.id} className={`bg-white dark:bg-slate-900 p-6 rounded-[28px] shadow-sm border transition-all hover:shadow-lg ${dueDateInfo?.urgent ? 'border-rose-100 dark:border-rose-900/30' : 'border-slate-100 dark:border-slate-800'}`}>
+                                <div key={d.id} className={`bg-white dark:bg-slate-900 p-6 rounded-[28px] shadow-sm border transition-all hover:shadow-lg ${isDone ? 'border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/5' : dueDateInfo?.urgent ? 'border-rose-100 dark:border-rose-900/30' : 'border-slate-100 dark:border-slate-800'}`}>
                                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                                         <div className="flex-1 min-w-0">
                                             {/* Matière + Professeur */}
@@ -193,9 +221,14 @@ export const ParentDevoirsPresence: React.FC = () => {
                                                         <Calendar className="w-3 h-3" /> Donné le {format(donneeDate, 'dd MMM', { locale: fr })}
                                                     </span>
                                                 )}
+                                                {isDone && (
+                                                    <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                                                        <CheckCircle2 className="w-3 h-3" /> Fait
+                                                    </span>
+                                                )}
                                             </div>
                                             {/* Description */}
-                                            <p className="text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap leading-relaxed">{d.description}</p>
+                                            <p className="text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap leading-relaxed">{cleanDesc}</p>
                                             {/* Pièce jointe */}
                                             {d.fichierUrl && (
                                                 <a
@@ -210,7 +243,7 @@ export const ParentDevoirsPresence: React.FC = () => {
                                         </div>
                                         {/* Badge date de rendu */}
                                         {dueDateInfo && (
-                                            <div className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-black border ${dueDateInfo.color} ${dueDateInfo.urgent ? 'animate-pulse' : ''}`}>
+                                            <div className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-black border ${dueDateInfo.color} ${dueDateInfo.urgent && !isDone ? 'animate-pulse' : ''}`}>
                                                 <Clock className="w-4 h-4" />
                                                 <div>
                                                     <div>{dueDateInfo.label}</div>
@@ -220,6 +253,21 @@ export const ParentDevoirsPresence: React.FC = () => {
                                                 </div>
                                             </div>
                                         )}
+                                    </div>
+                                    
+                                    {/* Actions parent */}
+                                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                                        <button
+                                            onClick={() => handleToggleComplete(d.id, !isDone)}
+                                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+                                                isDone
+                                                    ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50'
+                                                    : 'bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-300'
+                                            }`}
+                                        >
+                                            {isDone ? <CheckSquare className="w-4 h-4 text-emerald-600" /> : <Square className="w-4 h-4" />}
+                                            {isDone ? 'Marqué comme fait' : "Marquer comme fait par l'enfant"}
+                                        </button>
                                     </div>
                                 </div>
                             );

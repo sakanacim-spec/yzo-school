@@ -595,6 +595,78 @@ async function _autoAssignBadgesSync(parentId, studentId, schoolSlug) {
     } catch (e) { /* ignore silent failure during sync */ }
 }
 
+async function toggleDevoirComplete(req, res) {
+    const { devoirId } = req.params;
+    const { studentId, completed } = req.body;
+    const parentId = req.user.id;
+    const { schoolSlug } = req.user;
+
+    if (!devoirId || !studentId) {
+        return res.status(400).json({ error: 'Paramètres manquants.' });
+    }
+
+    try {
+        const tbl = (name) => `${name}_${schoolSlug}`;
+
+        // 1. Vérifier que le parent a bien l'élève dans ses enfants
+        const { data: link, error: linkErr } = await supabase
+            .from(tbl('parent_student'))
+            .select('*')
+            .eq('parent_id', parentId)
+            .eq('student_id', studentId)
+            .single();
+
+        if (linkErr || !link) {
+            return res.status(403).json({ error: 'Accès refusé pour cet élève.' });
+        }
+
+        // 2. Récupérer le devoir
+        const { data: devoir, error: devoirErr } = await supabase
+            .from(tbl('devoirs'))
+            .select('*')
+            .eq('id', devoirId)
+            .single();
+
+        if (devoirErr || !devoir) {
+            return res.status(404).json({ error: 'Devoir non trouvé.' });
+        }
+
+        // 3. Parser et modifier la description
+        let desc = devoir.description || '';
+        const marker = '\n[COMPLETED_STUDENTS]:';
+        const idx = desc.indexOf(marker);
+        
+        let cleanDesc = idx !== -1 ? desc.substring(0, idx) : desc;
+        let listStr = idx !== -1 ? desc.substring(idx + marker.length) : '';
+        let completedIds = listStr ? listStr.split(',').filter(Boolean) : [];
+
+        if (completed) {
+            if (!completedIds.includes(studentId)) {
+                completedIds.push(studentId);
+            }
+        } else {
+            completedIds = completedIds.filter(id => id !== studentId);
+        }
+
+        const newDesc = completedIds.length > 0 
+            ? `${cleanDesc}${marker}${completedIds.join(',')}` 
+            : cleanDesc;
+
+        // 4. Mettre à jour dans la base
+        const { error: updateErr } = await supabase
+            .from(tbl('devoirs'))
+            .update({ description: newDesc })
+            .eq('id', devoirId);
+
+        if (updateErr) throw updateErr;
+
+        return res.json({ success: true, description: newDesc });
+    } catch (err) {
+        console.error('Error toggling devoir completion:', err.message);
+        return res.status(500).json({ error: 'Erreur serveur: ' + err.message });
+    }
+}
+
 module.exports = {
     getDashboard,
     getPayments,
@@ -604,5 +676,6 @@ module.exports = {
     getAllParents,
     getParentById,
     adminDeleteAccount,
-    getParentData
+    getParentData,
+    toggleDevoirComplete
 };
