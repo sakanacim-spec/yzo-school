@@ -41,9 +41,22 @@ const StudentCard: React.FC<{ student: Student; schoolName: string; schoolYear: 
 }) => {
   const taux = Math.round((student.dejaPaye / student.ecolage) * 100);
   const phone = (student.telephone || '').replace(/\D/g, '');
-  const waMsg = student.restant <= 0
+
+  const template = student.restant <= 0 ? msgRem : msgRap;
+  let customMsg = null;
+  if (template) {
+    customMsg = template
+      .replace(/{nom_eleve}/g, `${student.prenom} ${student.nom}`)
+      .replace(/{reste_a_payer}/g, fmtMoney(student.restant))
+      .replace(/{classe}/g, student.classe)
+      .replace(/{montant_paye}/g, fmtMoney(student.dejaPaye));
+  }
+
+  const defaultMsg = student.restant <= 0
     ? `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). ${msgRem} — ${schoolName}`
     : `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Restant : ${fmtMoney(student.restant)}. ${msgRap} — ${schoolName}`;
+
+  const waMsg = customMsg || defaultMsg;
 
   return (
     <div className="group relative bg-white/50 dark:bg-slate-800/30 backdrop-blur-md rounded-[2rem] border border-slate-100 dark:border-slate-800/60 p-6 transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 hover:border-slate-200 dark:hover:border-slate-700 flex flex-col h-full overflow-hidden">

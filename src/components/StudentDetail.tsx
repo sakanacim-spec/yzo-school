@@ -33,9 +33,23 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
   const isPartiel = !isSolde && taux >= 70;
 
   const phone  = (student.telephone || '').replace(/\D/g, '');
-  const waMsg  = isSolde
+  const currency = useStore.getState().currency;
+
+  const template = isSolde ? messageRemerciement : messageRappel;
+  let customMsg = null;
+  if (template) {
+    customMsg = template
+      .replace(/{nom_eleve}/g, `${student.prenom} ${student.nom}`)
+      .replace(/{reste_a_payer}/g, formatMontant(student.restant, currency))
+      .replace(/{classe}/g, student.classe)
+      .replace(/{montant_paye}/g, formatMontant(student.dejaPaye, currency));
+  }
+
+  const defaultMsg = isSolde
     ? `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). ${messageRemerciement} — ${schoolName}`
-    : `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Restant : ${formatMontant(student.restant, useStore.getState().currency)}. ${messageRappel} — ${schoolName}`;
+    : `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Restant : ${formatMontant(student.restant, currency)}. ${messageRappel} — ${schoolName}`;
+
+  const waMsg = customMsg || defaultMsg;
 
   const handleCameraClick = () => {
     fileInputRef.current?.click();

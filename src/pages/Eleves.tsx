@@ -266,11 +266,25 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
 // ── Bouton WhatsApp ──────────────────────────────────────────
 const WhatsAppBtn: React.FC<{ student: Student; schoolName: string }> = ({ student, schoolName }) => {
   const currency = useStore(s => s.currency);
+  const messageRemerciement = useStore(s => s.messageRemerciement);
+  const messageRappel = useStore(s => s.messageRappel);
   const taux = Math.round((student.dejaPaye / student.ecolage) * 100);
-  const msg = student.restant <= 0
+
+  const template = student.restant <= 0 ? messageRemerciement : messageRappel;
+  let customMsg = null;
+  if (template) {
+    customMsg = template
+      .replace(/{nom_eleve}/g, `${student.prenom} ${student.nom}`)
+      .replace(/{reste_a_payer}/g, formatMontant(student.restant, currency))
+      .replace(/{classe}/g, student.classe)
+      .replace(/{montant_paye}/g, formatMontant(student.dejaPaye, currency));
+  }
+
+  const defaultMsg = student.restant <= 0
     ? `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Nous vous felicitons d'avoir solde la scolarite (${formatMontant(student.ecolage, currency)}). Merci ! — ${schoolName}`
     : `Bonjour, parent de ${student.prenom} ${student.nom} (${student.classe}). Solde restant : ${formatMontant(student.restant, currency)} (paye : ${taux}%). Merci de regulariser. — ${schoolName}`;
 
+  const msg = customMsg || defaultMsg;
   const phone = (student.telephone || '').replace(/\D/g, '');
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
 

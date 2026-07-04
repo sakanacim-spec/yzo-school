@@ -489,7 +489,16 @@ export const generateRecuPDF = (
   y = drawStatusBadge(doc, student, y);
 
   // Message institutionnel adapté au statut
-  const message = student.restant <= 0 ? messageRemerciement : messageRappel;
+  const template = student.restant <= 0 ? messageRemerciement : messageRappel;
+  const currency = useStore.getState().currency;
+  let message = template || '';
+  if (template) {
+    message = template
+      .replace(/{nom_eleve}/g, `${student.prenom} ${student.nom}`)
+      .replace(/{reste_a_payer}/g, formatMontant(student.restant, currency))
+      .replace(/{classe}/g, student.classe)
+      .replace(/{montant_paye}/g, formatMontant(student.dejaPaye, currency));
+  }
   y = drawMessage(doc, student, message, y);
 
   // Zone signatures (fixée en bas si assez de place, sinon positionnée dynamiquement)
