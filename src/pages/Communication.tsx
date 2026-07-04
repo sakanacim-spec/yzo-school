@@ -85,7 +85,7 @@ export const Communication: React.FC = () => {
             const success = await notificationService.notifyParents(
                 student.id,
                 message,
-                'general',
+                'message',
                 activeTab === 'impayes' ? '🚨 Relance de Paiement' : '📢 Message de l\'École'
             );
             if (success) sentCount++;

@@ -81,18 +81,43 @@ async function sendMessage(req, res) {
 
         // Si parent initie sans conversationId
         if (!convId && role === 'parent') {
-            const { data: conv, error: convErr } = await supabase
+            const adminRole = targetRole || 'administration';
+            const { data: existing, error: findErr } = await supabase
                 .from(`conversations_${schoolSlug}`)
-                .upsert({
-                    parent_id: id,
-                    admin_role: targetRole || 'administration',
-                    last_message: text || 'Photo'
-                }, { onConflict: 'parent_id, admin_role' })
-                .select()
-                .single();
+                .select('*')
+                .eq('parent_id', id)
+                .eq('admin_role', adminRole);
 
-            if (convErr) throw convErr;
-            convId = conv.id;
+            if (findErr) throw findErr;
+
+            if (existing && existing.length > 0) {
+                const { data: conv, error: upErr } = await supabase
+                    .from(`conversations_${schoolSlug}`)
+                    .update({
+                        last_message: text || 'Photo',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', existing[0].id)
+                    .select()
+                    .single();
+
+                if (upErr) throw upErr;
+                convId = conv.id;
+            } else {
+                const { data: conv, error: insErr } = await supabase
+                    .from(`conversations_${schoolSlug}`)
+                    .insert({
+                        parent_id: id,
+                        admin_role: adminRole,
+                        last_message: text || 'Photo',
+                        updated_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (insErr) throw insErr;
+                convId = conv.id;
+            }
         }
 
         // Si admin initie sans conversationId (via bouton Contacter)
@@ -106,18 +131,43 @@ async function sendMessage(req, res) {
             const { parentId, adminRole } = req.body;
             if (!parentId) return res.status(400).json({ error: "parentId manquant pour l'initiation." });
 
-            const { data: conv, error: convErr } = await supabase
+            const targetAdminRole = adminRole || (role === 'comptable' ? 'comptabilite' : 'administration');
+            const { data: existing, error: findErr } = await supabase
                 .from(`conversations_${schoolSlug}`)
-                .upsert({
-                    parent_id: parentId,
-                    admin_role: adminRole || (role === 'comptable' ? 'comptabilite' : 'administration'),
-                    last_message: text || 'Photo'
-                }, { onConflict: 'parent_id, admin_role' })
-                .select()
-                .single();
+                .select('*')
+                .eq('parent_id', parentId)
+                .eq('admin_role', targetAdminRole);
 
-            if (convErr) throw convErr;
-            convId = conv.id;
+            if (findErr) throw findErr;
+
+            if (existing && existing.length > 0) {
+                const { data: conv, error: upErr } = await supabase
+                    .from(`conversations_${schoolSlug}`)
+                    .update({
+                        last_message: text || 'Photo',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', existing[0].id)
+                    .select()
+                    .single();
+
+                if (upErr) throw upErr;
+                convId = conv.id;
+            } else {
+                const { data: conv, error: insErr } = await supabase
+                    .from(`conversations_${schoolSlug}`)
+                    .insert({
+                        parent_id: parentId,
+                        admin_role: targetAdminRole,
+                        last_message: text || 'Photo',
+                        updated_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (insErr) throw insErr;
+                convId = conv.id;
+            }
         }
 
         const { data: message, error } = await supabase

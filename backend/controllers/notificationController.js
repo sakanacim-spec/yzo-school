@@ -43,20 +43,47 @@ async function sendNotification(req, res) {
         for (const parentId of parentIds) {
             // 1. Créer/update la conversation + ajouter un message dans la messagerie UNIQUEMENT si type === 'message'
             if (type === 'message') {
-                const { data: conv, error: cErr } = await supabase
+                let convId;
+                const { data: existing, error: findErr } = await supabase
                     .from(`conversations_${schoolSlug}`)
-                    .upsert({
-                        parent_id: parentId,
-                        admin_role: 'administration',
-                        last_message: message,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'parent_id, admin_role' })
-                    .select()
-                    .single();
+                    .select('*')
+                    .eq('parent_id', parentId)
+                    .eq('admin_role', 'administration');
 
-                if (!cErr && conv) {
+                if (!findErr) {
+                    if (existing && existing.length > 0) {
+                        const { data: conv, error: upErr } = await supabase
+                            .from(`conversations_${schoolSlug}`)
+                            .update({
+                                last_message: message,
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', existing[0].id)
+                            .select()
+                            .single();
+                        if (!upErr && conv) {
+                            convId = conv.id;
+                        }
+                    } else {
+                        const { data: conv, error: insErr } = await supabase
+                            .from(`conversations_${schoolSlug}`)
+                            .insert({
+                                parent_id: parentId,
+                                admin_role: 'administration',
+                                last_message: message,
+                                updated_at: new Date().toISOString()
+                            })
+                            .select()
+                            .single();
+                        if (!insErr && conv) {
+                            convId = conv.id;
+                        }
+                    }
+                }
+
+                if (convId) {
                     await supabase.from(`messages_${schoolSlug}`).insert({
-                        conversation_id: conv.id,
+                        conversation_id: convId,
                         sender_id: senderId,
                         message_text: message,
                         read_status: false
