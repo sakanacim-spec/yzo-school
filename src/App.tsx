@@ -137,17 +137,16 @@ const PageContent: React.FC = () => {
 
 export function App() {
   const isAuthenticated = useStore((s) => s.isAuthenticated);
-  const initializeSupabaseAuth = useStore((s) => s.initializeSupabaseAuth);
   const fetchAllFromBackend = useStore((s) => s.fetchAllFromBackend);
-  const setSchoolInfoFromMetadata = useStore((s) => s.setSchoolInfoFromMetadata);
 
+  // ── Chargement des paramètres publics (Logo, Nom App) ────────
   React.useEffect(() => {
-    initializeSupabaseAuth();
-  }, [initializeSupabaseAuth]);
+    useStore.getState().fetchPublicSettings();
+  }, []);
 
+  // ── Initialisation Web Push (Uniquement pour les Parents ou Web) ──
   React.useEffect(() => {
     if (isAuthenticated) {
-      setSchoolInfoFromMetadata();
       webPushService.init();
     }
   }, [isAuthenticated]);
