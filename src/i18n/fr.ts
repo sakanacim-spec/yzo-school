@@ -280,4 +280,4 @@ export const fr = {
     registerFailed: 'L\'inscription a échoué.',
     networkError: 'Problème de connexion réseau.',
   },
-};
+\n  support: {\n    title: 'Nouvelle discussion',\n    subtitle: 'Choisissez le service à contacter',\n    adminTitle: 'Administration',\n    adminDesc: 'Questions générales, documents, inscriptions et vie scolaire.',\n    comptaTitle: 'Comptabilité',\n    comptaDesc: 'Paiements de scolarité, reçus, restes à payer et facturation.',\n    secureMsg: 'Votre messagerie est cryptée et sécurisée. Une réponse vous sera apportée dans les plus brefs délais par nos équipes.'\n  },\n};

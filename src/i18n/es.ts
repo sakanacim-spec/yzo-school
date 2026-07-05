@@ -277,4 +277,4 @@ export const es = {
     registerFailed: 'El registro ha fallado.',
     networkError: 'Problema de conexión de red.',
   },
-};
+\n  support: {\n    title: 'Nueva Discusión',\n    subtitle: 'Elija el departamento a contactar',\n    adminTitle: 'Administración',\n    adminDesc: 'Preguntas generales, documentos, inscripciones y vida escolar.',\n    comptaTitle: 'Contabilidad',\n    comptaDesc: 'Pagos de colegiatura, recibos, saldos pendientes y facturación.',\n    secureMsg: 'Sus mensajes están encriptados y son seguros. Nuestro equipo responderá lo antes posible.'\n  },\n};

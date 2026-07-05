@@ -1,4 +1,6 @@
 import React from 'react';
+import { useStore } from '../store/useStore';
+import { t, Language } from '../i18n';
 import { 
     X, MessageSquare, ShieldCheck, CreditCard, 
     ArrowRight, Headset, Building2, Wallet
@@ -11,6 +13,8 @@ interface SupportModalProps {
 }
 
 export const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose, onSelect }) => {
+    const language = useStore((s) => s.language as Language);
+
     if (!isOpen) return null;
 
     return (
@@ -27,8 +31,8 @@ export const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose, onS
                                 <MessageSquare className="w-6 h-6" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black tracking-tight">Nouvelle discussion</h3>
-                                <p className="text-blue-100 text-xs font-medium opacity-80 mt-1">Choisissez le service à contacter</p>
+                                <h3 className="text-xl font-black tracking-tight">{t(language, 'support.title') || 'Nouvelle discussion'}</h3>
+                                <p className="text-blue-100 text-xs font-medium opacity-80 mt-1">{t(language, 'support.subtitle') || 'Choisissez le service à contacter'}</p>
                             </div>
                         </div>
                         <button 
@@ -50,8 +54,8 @@ export const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose, onS
                             <Building2 className="w-7 h-7" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h4 className="font-black text-slate-800 dark:text-white text-lg mb-1 group-hover:text-blue-600 transition-colors">Administration</h4>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug">Questions générales, documents, inscriptions et vie scolaire.</p>
+                            <h4 className="font-black text-slate-800 dark:text-white text-lg mb-1 group-hover:text-blue-600 transition-colors">{t(language, 'support.adminTitle') || 'Administration'}</h4>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug">{t(language, 'support.adminDesc') || 'Questions générales, documents, inscriptions et vie scolaire.'}</p>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 group-hover:text-blue-600 group-hover:border-blue-200 transition-all">
                             <ArrowRight className="w-5 h-5" />
@@ -66,8 +70,8 @@ export const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose, onS
                             <Wallet className="w-7 h-7" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h4 className="font-black text-slate-800 dark:text-white text-lg mb-1 group-hover:text-emerald-600 transition-colors">Comptabilité</h4>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug">Paiements de scolarité, reçus, restes à payer et facturation.</p>
+                            <h4 className="font-black text-slate-800 dark:text-white text-lg mb-1 group-hover:text-emerald-600 transition-colors">{t(language, 'support.comptaTitle') || 'Comptabilité'}</h4>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug">{t(language, 'support.comptaDesc') || 'Paiements de scolarité, reçus, restes à payer et facturation.'}</p>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-300 group-hover:text-emerald-600 group-hover:border-emerald-200 transition-all">
                             <ArrowRight className="w-5 h-5" />
@@ -81,7 +85,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose, onS
                         <ShieldCheck className="w-5 h-5 text-emerald-500" />
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                        Votre messagerie est cryptée et sécurisée. Une réponse vous sera apportée dans les plus brefs délais par nos équipes.
+                        {t(language, 'support.secureMsg') || 'Votre messagerie est cryptée et sécurisée. Une réponse vous sera apportée dans les plus brefs délais par nos équipes.'}
                     </p>
                 </div>
             </div>

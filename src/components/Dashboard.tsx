@@ -1,4 +1,5 @@
 import { useStore } from '../store/useStore';
+import { t, Language } from '../i18n';
 import { calculateDashboardStats, calculateClassStats, formatMontant } from '../utils/helpers';
 import { 
   Users, 
@@ -24,18 +25,19 @@ import {
 
 export const Dashboard = () => {
   const students = useStore((state) => state.students);
+  const language = useStore((state) => state.language as Language);
   const stats = calculateDashboardStats(students);
   const classStats = calculateClassStats(students);
 
   const cycleData = [
-    { name: 'Primaire', value: stats.totalPrimaire, color: '#22c55e' },
-    { name: 'Collège', value: stats.totalCollege, color: '#3b82f6' },
-    { name: 'Lycée', value: stats.totalLycee, color: '#1e3a5f' }
+    { name: t(language, 'dashboard.cycles.primaire') || 'Primaire', value: stats.totalPrimaire, color: '#22c55e' },
+    { name: t(language, 'dashboard.cycles.college') || 'Collège', value: stats.totalCollege, color: '#3b82f6' },
+    { name: t(language, 'dashboard.cycles.lycee') || 'Lycée', value: stats.totalLycee, color: '#1e3a5f' }
   ].filter(d => (d.value || 0) > 0);
 
   const statusData = [
-    { name: 'Soldés', value: stats.elevesSoldes, color: '#22c55e' },
-    { name: 'Non Soldés', value: stats.elevesNonSoldes, color: '#ef4444' }
+    { name: t(language, 'dashboard.status.soldes') || 'Soldés', value: stats.elevesSoldes, color: '#22c55e' },
+    { name: t(language, 'dashboard.status.non_soldes') || 'Non Soldés', value: stats.elevesNonSoldes, color: '#ef4444' }
   ];
 
   const topClasses = [...classStats]
@@ -47,8 +49,8 @@ export const Dashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Tableau de bord</h1>
-          <p className="text-gray-500">Vue d'ensemble de la gestion financière</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t(language, 'dashboard.title') || 'Tableau de bord'}</h1>
+          <p className="text-gray-500">{t(language, 'dashboard.subtitle') || "Vue d'ensemble de la gestion financière"}</p>
         </div>
       </div>
 
@@ -56,30 +58,30 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
         <StatCard
           icon={Users}
-          label="Total Élèves"
+          label={t(language, 'dashboard.stats.totalStudents') || 'Total Élèves'}
           value={stats.totalEleves.toString()}
-          subtext={`P:${stats.totalPrimaire} | C:${stats.totalCollege} | L:${stats.totalLycee}`}
+          subtext={(t(language, 'dashboard.stats.cyclesFormat') || 'P:{p} | C:{c} | L:{l}').replace('{p}', stats.totalPrimaire.toString()).replace('{c}', stats.totalCollege.toString()).replace('{l}', stats.totalLycee.toString())}
           color="blue"
         />
         <StatCard
           icon={Wallet}
-          label="Écolage Attendu"
+          label={t(language, 'dashboard.stats.expectedTuition') || 'Écolage Attendu'}
           value={formatMontant(stats.totalEcolageAttendu)}
-          subtext="Total des frais de scolarité"
+          subtext={t(language, 'dashboard.stats.totalTuitionDesc') || 'Total des frais de scolarité'}
           color="slate"
         />
         <StatCard
           icon={CheckCircle2}
-          label="Montant Payé"
+          label={t(language, 'dashboard.stats.amountPaid') || 'Montant Payé'}
           value={formatMontant(stats.totalDejaPaye)}
-          subtext={`${stats.elevesSoldes} élèves soldés`}
+          subtext={(t(language, 'dashboard.stats.studentsPaid') || '{count} élèves soldés').replace('{count}', stats.elevesSoldes.toString())}
           color="green"
         />
         <StatCard
           icon={TrendingUp}
-          label="Taux de Recouvrement"
+          label={t(language, 'dashboard.stats.recoveryRate') || 'Taux de Recouvrement'}
           value={`${stats.tauxRecouvrement}%`}
-          subtext={`Reste: ${formatMontant(stats.totalRestant)}`}
+          subtext={(t(language, 'dashboard.stats.remaining') || 'Reste : {amount}').replace('{amount}', formatMontant(stats.totalRestant))}
           color="emerald"
         />
       </div>
@@ -90,7 +92,7 @@ export const Dashboard = () => {
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-shadow">
           <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <BookOpen className="w-5 h-5" />
-            Taux de recouvrement par classe
+            {t(language, 'dashboard.charts.recoveryByClass') || 'Taux de recouvrement par classe'}
           </h3>
           {topClasses.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -99,7 +101,7 @@ export const Dashboard = () => {
                 <XAxis dataKey="classe" tick={{ fontSize: 11 }} />
                 <YAxis unit="%" />
                 <Tooltip 
-                  formatter={(value) => [`${value}%`, 'Taux']}
+                  formatter={(value) => [`${value}%`, t(language, 'dashboard.charts.rate') || 'Taux']}
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
                 <Bar dataKey="tauxRecouvrement" fill="#1e3a5f" radius={[4, 4, 0, 0]} />
@@ -107,7 +109,7 @@ export const Dashboard = () => {
             </ResponsiveContainer>
           ) : (
             <div className="h-[300px] flex items-center justify-center text-gray-400">
-              <p>Aucune donnée disponible</p>
+              <p>{t(language, 'dashboard.charts.noData') || 'Aucune donnée disponible'}</p>
             </div>
           )}
         </div>
@@ -118,7 +120,7 @@ export const Dashboard = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-shadow">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <GraduationCap className="w-5 h-5" />
-              Par cycle
+              {t(language, 'dashboard.charts.byCycle') || 'Par cycle'}
             </h3>
             {cycleData.length > 0 ? (
               <ResponsiveContainer width="100%" height={150}>
@@ -142,7 +144,7 @@ export const Dashboard = () => {
               </ResponsiveContainer>
             ) : (
               <div className="h-[150px] flex items-center justify-center text-gray-400 text-sm">
-                Aucune donnée
+                {t(language, 'dashboard.charts.noData') || 'Aucune donnée'}
               </div>
             )}
           </div>
@@ -151,7 +153,7 @@ export const Dashboard = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-shadow">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <AlertCircle className="w-5 h-5" />
-              Statut paiements
+              {t(language, 'dashboard.charts.paymentStatus') || 'Statut paiements'}
             </h3>
             {stats.totalEleves > 0 ? (
               <ResponsiveContainer width="100%" height={150}>
@@ -175,7 +177,7 @@ export const Dashboard = () => {
               </ResponsiveContainer>
             ) : (
               <div className="h-[150px] flex items-center justify-center text-gray-400 text-sm">
-                Aucune donnée
+                {t(language, 'dashboard.charts.noData') || 'Aucune donnée'}
               </div>
             )}
           </div>
@@ -185,21 +187,21 @@ export const Dashboard = () => {
       {/* Class Rankings */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-shadow overflow-hidden">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Classement des classes (par taux de recouvrement)
+          {t(language, 'dashboard.table.rankingTitle') || 'Classement des classes (par taux de recouvrement)'}
         </h3>
         {classStats.length > 0 ? (
           <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 -mx-4 sm:-mx-6 sm:mx-0">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Rang</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Classe</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Cycle</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-600">Effectif</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Attendu</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Payé</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Restant</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-600">Taux</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-600">{t(language, 'dashboard.table.rank') || 'Rang'}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-600">{t(language, 'dashboard.table.class') || 'Classe'}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-600">{t(language, 'dashboard.table.cycle') || 'Cycle'}</th>
+                  <th className="text-center py-3 px-4 font-semibold text-gray-600">{t(language, 'dashboard.table.count') || 'Effectif'}</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-600">{t(language, 'dashboard.table.expected') || 'Attendu'}</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-600">{t(language, 'dashboard.table.paid') || 'Payé'}</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-600">{t(language, 'dashboard.table.remaining') || 'Restant'}</th>
+                  <th className="text-center py-3 px-4 font-semibold text-gray-600">{t(language, 'dashboard.table.rate') || 'Taux'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -253,7 +255,7 @@ export const Dashboard = () => {
           </div>
         ) : (
           <p className="text-gray-400 text-center py-8">
-            Aucun élève enregistré. Importez des données pour voir les statistiques.
+            {t(language, 'dashboard.table.noData') || 'Aucun élève enregistré. Importez des données pour voir les statistiques.'}
           </p>
         )}
       </div>

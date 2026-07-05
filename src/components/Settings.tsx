@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
+import { t, Language } from '../i18n';
 import { Save, School, FileText, Bell, Percent } from 'lucide-react';
 
 export const Settings = () => {
-  const { settings, updateSettings, user, currency } = useStore();
+  const { settings, updateSettings, user, currency, language } = useStore();
   const [formData, setFormData] = useState(settings);
   const [saved, setSaved] = useState(false);
 
@@ -23,8 +24,8 @@ export const Settings = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
-          <h2 className="text-lg sm:text-xl font-semibold text-red-600">Accès refusé</h2>
-          <p className="text-gray-500 text-sm sm:text-base mt-2">Seuls les administrateurs peuvent accéder aux paramètres.</p>
+          <h2 className="text-lg sm:text-xl font-semibold text-red-600">{t(language as Language, 'settings.accessDeniedTitle') || 'Accès refusé'}</h2>
+          <p className="text-gray-500 text-sm sm:text-base mt-2">{t(language as Language, 'settings.accessDeniedMessage') || 'Seuls les administrateurs peuvent accéder aux paramètres.'}</p>
         </div>
       </div>
     );
@@ -33,8 +34,8 @@ export const Settings = () => {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="page-header">
-        <h1>Paramètres</h1>
-        <p className="text-gray-500 text-sm sm:text-base">Configuration de l'application</p>
+        <h1>{t(language as Language, 'settings.title') || 'Paramètres'}</h1>
+        <p className="text-gray-500 text-sm sm:text-base">{t(language as Language, 'settings.subtitle') || 'Configuration de l\\'application'}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
@@ -43,14 +44,14 @@ export const Settings = () => {
           <div className="card-header">
             <h2 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <School className="w-5 h-5 text-blue-600" />
-              Informations de l'école
+              {t(language as Language, 'settings.schoolInfo') || 'Informations de l\\'école'}
             </h2>
           </div>
           <div className="card-body">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Nom de l'école
+                  {t(language as Language, 'settings.schoolName') || 'Nom de l\\'école'}
                 </label>
                 <input
                   type="text"
@@ -61,7 +62,7 @@ export const Settings = () => {
               </div>
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Année scolaire
+                  {t(language as Language, 'settings.schoolYear') || 'Année scolaire'}
                 </label>
                 <input
                   type="text"
@@ -73,7 +74,7 @@ export const Settings = () => {
               </div>
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Adresse
+                  {t(language as Language, 'settings.address') || 'Adresse'}
                 </label>
                 <input
                   type="text"
@@ -84,7 +85,7 @@ export const Settings = () => {
               </div>
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Téléphone
+                  {t(language as Language, 'settings.phone') || 'Téléphone'}
                 </label>
                 <input
                   type="tel"
@@ -95,7 +96,7 @@ export const Settings = () => {
               </div>
               <div className="md:col-span-2 form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Email
+                  {t(language as Language, 'settings.email') || 'Email'}
                 </label>
                 <input
                   type="email"
@@ -113,7 +114,7 @@ export const Settings = () => {
           <div className="card-header">
             <h2 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <FileText className="w-5 h-5 text-green-600" />
-              Messages personnalisés pour PDF
+              {t(language as Language, 'settings.customMessages') || 'Messages personnalisés pour PDF'}
             </h2>
           </div>
           <div className="card-body space-y-4 sm:space-y-6">
@@ -121,7 +122,7 @@ export const Settings = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  Message de remerciement (élèves soldés)
+                  {t(language as Language, 'settings.thanksMessage') || 'Message de remerciement (élèves soldés)'}
                 </span>
               </label>
               <textarea
@@ -135,7 +136,7 @@ export const Settings = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                  Message de rappel (élèves non soldés)
+                  {t(language as Language, 'settings.reminderMessage') || 'Message de rappel (élèves non soldés)'}
                 </span>
               </label>
               <textarea
@@ -153,16 +154,16 @@ export const Settings = () => {
           <div className="card-header">
             <h2 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <Percent className="w-5 h-5 text-purple-600" />
-              Paramètres de paiement
+              {t(language as Language, 'settings.paymentSettings') || 'Paramètres de paiement'}
             </h2>
           </div>
           <div className="card-body">
             <div className="max-w-md">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Seuil de validation 2ème tranche (%)
+                {t(language as Language, 'settings.secondTrancheThreshold') || 'Seuil de validation 2ème tranche (%)'}
               </label>
               <p className="text-xs text-gray-500 mb-3">
-                Pourcentage minimum payé pour valider la 2ème tranche
+                {t(language as Language, 'settings.secondTrancheDesc') || 'Pourcentage minimum payé pour valider la 2ème tranche'}
               </p>
               <div className="flex items-center gap-4 mb-4">
                 <input
@@ -179,8 +180,7 @@ export const Settings = () => {
               </div>
               <div className="p-3 sm:p-4 bg-purple-50 border border-purple-100 rounded-lg">
                 <p className="text-xs sm:text-sm text-purple-800">
-                  <strong>Règle actuelle:</strong> Un élève ayant payé ≥{formData.seuilDeuxiemeTranche}% de son écolage
-                  obtient le badge "2ème Tranche Validée" sur son reçu.
+                  <strong>{t(language as Language, 'settings.currentRule') || 'Règle actuelle:'}</strong> {(t(language as Language, 'settings.ruleDescription') || 'Un élève ayant payé ≥{seuil}% de son écolage obtient le badge "2ème Tranche Validée" sur son reçu.').replace('{seuil}', formData.seuilDeuxiemeTranche.toString())}
                 </p>
               </div>
             </div>
@@ -192,27 +192,27 @@ export const Settings = () => {
           <div className="card-header">
             <h2 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <Bell className="w-5 h-5 text-orange-600" />
-              Informations sur les tarifs
+              {t(language as Language, 'settings.feesInfo') || 'Informations sur les tarifs'}
             </h2>
           </div>
           <div className="card-body">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <div className="bg-green-50 border border-green-100 p-3 sm:p-4 rounded-lg">
-                <h3 className="font-semibold text-green-800 mb-2 text-sm sm:text-base">Primaire</h3>
+                <h3 className="font-semibold text-green-800 mb-2 text-sm sm:text-base">{t(language as Language, 'dashboard.cycles.primaire') || 'Primaire'}</h3>
                 <ul className="text-xs sm:text-sm text-green-700 space-y-1">
                   <li>CP1, CP2, CE1, CE2, CM1: <strong>50 000 {currency}</strong></li>
                   <li>CI, CI 1, CI 2, CM2: <strong>55 000 {currency}</strong></li>
                 </ul>
               </div>
               <div className="bg-blue-50 border border-blue-100 p-3 sm:p-4 rounded-lg">
-                <h3 className="font-semibold text-blue-800 mb-2 text-sm sm:text-base">Collège</h3>
+                <h3 className="font-semibold text-blue-800 mb-2 text-sm sm:text-base">{t(language as Language, 'dashboard.cycles.college') || 'Collège'}</h3>
                 <ul className="text-xs sm:text-sm text-blue-700 space-y-1">
                   <li>6EME, 5EME, 4EME: <strong>60 000 {currency}</strong></li>
                   <li>3EME: <strong>70 000 {currency}</strong></li>
                 </ul>
               </div>
               <div className="bg-purple-50 border border-purple-100 p-3 sm:p-4 rounded-lg">
-                <h3 className="font-semibold text-purple-800 mb-2 text-sm sm:text-base">Lycée</h3>
+                <h3 className="font-semibold text-purple-800 mb-2 text-sm sm:text-base">{t(language as Language, 'dashboard.cycles.lycee') || 'Lycée'}</h3>
                 <ul className="text-xs sm:text-sm text-purple-700 space-y-1">
                   <li>2nde S, 2nde A4: <strong>75 000 {currency}</strong></li>
                   <li>1er A4, 1er D: <strong>85 000 {currency}</strong></li>
@@ -230,7 +230,7 @@ export const Settings = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              Paramètres enregistrés !
+              {t(language as Language, 'settings.saved') || 'Paramètres enregistrés !'}
             </div>
           )}
           <button
@@ -238,7 +238,7 @@ export const Settings = () => {
             className="btn-primary flex items-center justify-center gap-2 whitespace-nowrap"
           >
             <Save className="w-4 h-4" />
-            Enregistrer les paramètres
+            {t(language as Language, 'settings.saveBtn') || 'Enregistrer les paramètres'}
           </button>
         </div>
       </form>
