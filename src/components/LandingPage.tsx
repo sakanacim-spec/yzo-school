@@ -308,7 +308,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
               <ul className="space-y-4">
                 <li><button onClick={() => onNavigate('about')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.about}</button></li>
                 <li><button onClick={() => onNavigate('contact')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.contact}</button></li>
-                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.careers}</a></li>
+                <li><button onClick={() => onNavigate('careers')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.careers}</button></li>
               </ul>
             </div>
 

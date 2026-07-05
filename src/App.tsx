@@ -10,6 +10,7 @@ import { AnnouncementPopup } from './components/AnnouncementPopup';
 import { webPushService } from './services/webPushService';
 import { About } from './pages/public/About';
 import { Contact } from './pages/public/Contact';
+import { Careers } from './pages/public/Careers';
 import { LegalPage, LegalPageType } from './pages/public/LegalPage';
 
 // Lazy loading for pages to reduce initial bundle size
@@ -200,7 +201,7 @@ export function App() {
     return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
   }, []);
 
-  const [publicPage, setPublicPage] = React.useState<'landing' | 'about' | 'contact' | 'login' | 'cgu' | 'privacy' | 'legal'>('landing');
+  const [publicPage, setPublicPage] = React.useState<'landing' | 'about' | 'contact' | 'login' | 'cgu' | 'privacy' | 'legal' | 'careers'>('landing');
 
   if (!isAuthenticated) {
     if (publicPage === 'login') {
@@ -211,6 +212,9 @@ export function App() {
     }
     if (publicPage === 'contact') {
       return <Contact onBack={() => setPublicPage('landing')} />;
+    }
+    if (publicPage === 'careers') {
+      return <Careers onBack={() => setPublicPage('landing')} />;
     }
     if (['cgu', 'privacy', 'legal'].includes(publicPage)) {
       return <LegalPage type={publicPage as LegalPageType} onBack={() => setPublicPage('landing')} />;
