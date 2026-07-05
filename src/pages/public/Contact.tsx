@@ -7,6 +7,7 @@ interface ContactProps {
 
 export const Contact: React.FC<ContactProps> = ({ onBack }) => {
   const [contactName, setContactName] = useState('');
+  const [contactCountry, setContactCountry] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactMessage, setContactMessage] = useState('');
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -19,10 +20,11 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
     e.preventDefault();
     if (!contactName || !contactEmail || !contactMessage) return;
     
-    console.log("Contact submission:", { contactName, contactEmail, contactMessage });
+    console.log("Contact submission:", { contactName, contactCountry, contactEmail, contactMessage });
     setFormSubmitted(true);
     setTimeout(() => {
       setContactName('');
+      setContactCountry('');
       setContactEmail('');
       setContactMessage('');
       setFormSubmitted(false);
@@ -109,6 +111,17 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
                     onChange={(e) => setContactName(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium"
                     placeholder="Jean Dupont"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">Pays de résidence</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={contactCountry}
+                    onChange={(e) => setContactCountry(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium"
+                    placeholder="Ex: Bénin, Togo, France..."
                   />
                 </div>
                 <div>
