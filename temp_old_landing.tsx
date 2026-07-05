@@ -12,52 +12,20 @@ interface LandingPageProps {
 }
 
 const LANGUAGES = [
-  { code: 'fr', name: 'Français', flagUrl: 'https://flagcdn.com/w40/fr.png' },
-  { code: 'en', name: 'English', flagUrl: 'https://flagcdn.com/w40/gb.png' },
-  { code: 'es', name: 'Español', flagUrl: 'https://flagcdn.com/w40/es.png' },
-  { code: 'ar', name: 'العربية', flagUrl: 'https://flagcdn.com/w40/sa.png' }
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'ar', name: 'العربية', flag: '🇸🇦' }
 ];
-
-const LANDING_I18N: Record<string, any> = {
-  fr: {
-    nav: { features: "Nos Solutions", partners: "Partenaires", login: "ACCÉDER À MON ESPACE", loginMobile: "CONNEXION" },
-    hero: { badge: "LA PLATEFORME ÉDUCATIVE DE RÉFÉRENCE", title1: "L'excellence", title2: "au cœur de l'école.", desc: "Une solution complète pour la gestion scolaire, connectant parents, élèves et administration dans un écosystème sécurisé, moderne et intuitif.", cta: "Accéder à mon espace", boxTitle: "100% Sécurisé & Fiable", boxDesc: "Paiements certifiés, données chiffrées de bout en bout et hébergement souverain pour une tranquillité d'esprit absolue.", schools: "Écoles partenaires", parents: "Parents connectés" },
-    sponsors: { subtitle: "Nos Partenaires Premium", title: "Ils propulsent l'éducation de demain" },
-    features: { subtitle: "Nos Solutions", title: "Tout le suivi scolaire regroupé sur une plateforme unique", f1_title: "Bulletins & Notes", f1_desc: "Visualisez les notes dès leur saisie. Téléchargez et vérifiez les bulletins officiels en format PDF sécurisé.", f2_title: "Présences & Absences", f2_desc: "Suivez en temps réel l'assiduité. Soyez immédiatement notifié en cas d'absence ou de retard.", f3_title: "Espaces Établissements", f3_desc: "Interface complète pour directeurs et secrétaires : gestion des inscriptions et de la facturation." },
-    footer: { desc: "La plateforme moderne qui connecte l'école, les parents et les élèves pour une réussite scolaire assurée.", company: "Entreprise", about: "Qui sommes-nous", contact: "Contact & Assistance", careers: "Carrières", legal: "Légal", cgu: "Conditions générales d'utilisation", privacy: "Politique de confidentialité", mentions: "Mentions légales", partner_title: "Devenir Partenaire", partner_desc: "Associez l'image de votre entreprise à l'éducation de demain. Louez nos espaces publicitaires premium.", partner_btn: "Nous contacter", rights: "© 2026 Yziow. Tous droits réservés.", madeIn: "Fait avec passion au Bénin 🇧🇯" }
-  },
-  en: {
-    nav: { features: "Our Solutions", partners: "Partners", login: "GO TO MY SPACE", loginMobile: "LOGIN" },
-    hero: { badge: "THE LEADING EDUCATIONAL PLATFORM", title1: "Excellence", title2: "at the heart of the school.", desc: "A complete solution for school management, connecting parents, students, and administration in a secure, modern, and intuitive ecosystem.", cta: "Go to my space", boxTitle: "100% Secure & Reliable", boxDesc: "Certified payments, end-to-end encrypted data, and sovereign hosting for absolute peace of mind.", schools: "Partner schools", parents: "Connected parents" },
-    sponsors: { subtitle: "Our Premium Partners", title: "Propelling the education of tomorrow" },
-    features: { subtitle: "Our Solutions", title: "All school tracking gathered on a single platform", f1_title: "Report Cards & Grades", f1_desc: "View grades as soon as they are entered. Download and verify official report cards in a secure PDF format.", f2_title: "Attendance & Absences", f2_desc: "Track attendance in real-time. Get instantly notified in case of an absence or delay.", f3_title: "School Workspaces", f3_desc: "Complete interface for principals and secretaries: manage enrollments and billing." },
-    footer: { desc: "The modern platform connecting the school, parents, and students for guaranteed academic success.", company: "Company", about: "About us", contact: "Contact & Support", careers: "Careers", legal: "Legal", cgu: "Terms of Service", privacy: "Privacy Policy", mentions: "Legal Mentions", partner_title: "Become a Partner", partner_desc: "Associate your company's image with the education of tomorrow. Rent our premium advertising spaces.", partner_btn: "Contact us", rights: "© 2026 Yziow. All rights reserved.", madeIn: "Made with passion in Benin 🇧🇯" }
-  },
-  es: {
-    nav: { features: "Nuestras Soluciones", partners: "Socios", login: "ACCEDER A MI ESPACIO", loginMobile: "ACCEDER" },
-    hero: { badge: "LA PLATAFORMA EDUCATIVA DE REFERENCIA", title1: "La excelencia", title2: "en el corazón de la escuela.", desc: "Una solución completa para la gestión escolar, conectando padres, estudiantes y administración en un ecosistema seguro, moderno e intuitivo.", cta: "Acceder a mi espacio", boxTitle: "100% Seguro y Confiable", boxDesc: "Pagos certificados, datos encriptados de extremo a extremo y alojamiento soberano para una tranquilidad absoluta.", schools: "Escuelas asociadas", parents: "Padres conectados" },
-    sponsors: { subtitle: "Nuestros Socios Premium", title: "Impulsando la educación del mañana" },
-    features: { subtitle: "Nuestras Soluciones", title: "Todo el seguimiento escolar en una plataforma única", f1_title: "Boletines y Notas", f1_desc: "Visualice las notas apenas se ingresan. Descargue y verifique los boletines oficiales en PDF seguro.", f2_title: "Asistencias y Ausencias", f2_desc: "Haga seguimiento de la asistencia en tiempo real. Sea notificado de inmediato en caso de ausencia.", f3_title: "Espacios para Escuelas", f3_desc: "Interfaz completa para directores y secretarias: gestión de inscripciones y facturación." },
-    footer: { desc: "La plataforma moderna que conecta a la escuela, padres y estudiantes para un éxito escolar asegurado.", company: "Empresa", about: "Quiénes somos", contact: "Contacto y Soporte", careers: "Carreras", legal: "Legal", cgu: "Términos de Servicio", privacy: "Política de Privacidad", mentions: "Avisos legales", partner_title: "Convertirse en Socio", partner_desc: "Asocie la imagen de su empresa a la educación del mañana. Alquile nuestros espacios premium.", partner_btn: "Contáctenos", rights: "© 2026 Yziow. Todos los derechos reservados.", madeIn: "Hecho con pasión en Benín 🇧🇯" }
-  },
-  ar: {
-    nav: { features: "حلولنا", partners: "الشركاء", login: "تسجيل الدخول", loginMobile: "دخول" },
-    hero: { badge: "المنصة التعليمية الرائدة", title1: "التميز", title2: "في قلب المدرسة.", desc: "حل شامل للإدارة المدرسية، يربط بين الآباء والطلاب والإدارة في نظام بيئي آمن وحديث وبديهي.", cta: "تسجيل الدخول", boxTitle: "آمن وموثوق 100%", boxDesc: "مدفوعات معتمدة، بيانات مشفرة من البداية للنهاية، واستضافة سيادية لراحة بال مطلقة.", schools: "مدارس شريكة", parents: "آباء متصلون" },
-    sponsors: { subtitle: "شركاؤنا المميزون", title: "دفع عجلة التعليم نحو المستقبل" },
-    features: { subtitle: "حلولنا", title: "كل التتبع المدرسي مجموع في منصة واحدة", f1_title: "النتائج والدرجات", f1_desc: "شاهد الدرجات بمجرد إدخالها. قم بتنزيل والتحقق من النتائج الرسمية بصيغة PDF آمنة.", f2_title: "الحضور والغياب", f2_desc: "تتبع الحضور في الوقت الفعلي. احصل على إشعار فوري في حالة الغياب أو التأخير.", f3_title: "مساحات المؤسسات", f3_desc: "واجهة كاملة للمديرين والسكرتارية: إدارة التسجيل والفوترة." },
-    footer: { desc: "المنصة الحديثة التي تربط بين المدرسة والآباء والطلاب لنجاح دراسي مضمون.", company: "الشركة", about: "من نحن", contact: "الاتصال والدعم", careers: "وظائف", legal: "قانوني", cgu: "شروط الاستخدام", privacy: "سياسة الخصوصية", mentions: "ملاحظات قانونية", partner_title: "كن شريكاً", partner_desc: "اربط صورة شركتك بتعليم المستقبل. استأجر مساحاتنا الإعلانية المميزة.", partner_btn: "اتصل بنا", rights: "© 2026 Yziow. جميع الحقوق محفوظة.", madeIn: "صنع بشغف في بنين 🇧🇯" }
-  }
-};
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate }) => {
   const { language, setLanguage } = useStore();
   const [langOpen, setLangOpen] = useState(false);
   
   const currentLang = LANGUAGES.find(l => l.code === language) || LANGUAGES[0];
-  const t = LANDING_I18N[language] || LANDING_I18N.fr;
 
   return (
-    <div className={`min-h-screen bg-[#fafcff] font-['Poppins'] text-slate-800 selection:bg-orange-500 selection:text-white scroll-smooth flex flex-col ${language === 'ar' ? 'dir-rtl' : ''}`}>
+    <div className="min-h-screen bg-[#fafcff] font-['Poppins'] text-slate-800 selection:bg-orange-500 selection:text-white scroll-smooth flex flex-col">
       
       {/* ──── EN-TÊTE / NAVBAR PREMIUM ──── */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_2px_20px_rgb(0,0,0,0.02)] transition-all duration-300">
@@ -70,8 +38,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
           </div>
 
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm font-bold text-slate-600 hover:text-[#f97316] transition-colors">{t.nav.features}</a>
-            <a href="#sponsors" className="text-sm font-bold text-slate-600 hover:text-[#f97316] transition-colors">{t.nav.partners}</a>
+            <a href="#features" className="text-sm font-bold text-slate-600 hover:text-[#f97316] transition-colors">Fonctionnalités</a>
+            <a href="#sponsors" className="text-sm font-bold text-slate-600 hover:text-[#f97316] transition-colors">Partenaires</a>
           </nav>
 
           <div className="flex items-center gap-3 sm:gap-6">
@@ -81,7 +49,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
                 onClick={() => setLangOpen(!langOpen)}
                 className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all"
               >
-                <img src={currentLang.flagUrl} alt={currentLang.name} className="w-5 h-auto rounded-sm shadow-sm" />
+                <span className="text-base">{currentLang.flag}</span>
                 <span className="text-xs font-black hidden sm:block">{currentLang.name}</span>
                 <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform ${langOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -101,7 +69,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
                           language === lang.code ? 'bg-orange-50 text-[#f97316] font-black' : 'text-slate-600 hover:bg-slate-50 font-bold text-sm'
                         }`}
                       >
-                        <img src={lang.flagUrl} alt={lang.name} className="w-5 h-auto rounded-sm shadow-sm" />
+                        <span className="text-lg">{lang.flag}</span>
                         <span>{lang.name}</span>
                         {language === lang.code && <CheckCircle className="w-4 h-4 ml-auto" />}
                       </button>
@@ -115,7 +83,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
               onClick={onLogin}
               className="px-5 sm:px-8 py-2.5 bg-gradient-to-r from-[#f97316] to-[#ea580c] hover:from-[#ea580c] hover:to-[#c2410c] text-white rounded-xl text-xs font-black tracking-wider shadow-xl shadow-orange-500/20 active:scale-95 transition-all flex items-center gap-2 border border-orange-500/50"
             >
-              <Lock className="w-4 h-4" /> <span className="hidden sm:inline">{t.nav.login}</span><span className="sm:hidden">{t.nav.loginMobile}</span>
+              <Lock className="w-4 h-4" /> <span className="hidden sm:inline">ACCÉDER À MON ESPACE</span><span className="sm:hidden">CONNEXION</span>
             </button>
           </div>
         </div>
@@ -134,16 +102,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
               </span>
-              {t.hero.badge}
+              LA PLATEFORME ÉDUCATIVE DE RÉFÉRENCE
             </div>
             
             <h1 className="text-5xl lg:text-7xl font-black text-slate-900 tracking-tight leading-[1.1]">
-              {t.hero.title1}<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#f97316] to-[#ea580c]">{t.hero.title2}</span>
+              L'excellence<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#f97316] to-[#ea580c]">au cœur de l'école.</span>
             </h1>
             
             <p className="text-lg text-slate-600 font-medium leading-relaxed max-w-[600px] mx-auto lg:mx-0">
-              {t.hero.desc}
+              Une solution complète pour la gestion scolaire, connectant parents, élèves et administration dans un écosystème sécurisé, moderne et intuitif.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
@@ -151,7 +119,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
                 onClick={onLogin}
                 className="w-full sm:w-auto px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-sm font-black tracking-wide shadow-2xl hover:shadow-slate-900/30 hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
               >
-                {t.hero.cta} <ArrowRight className={`w-4 h-4 ${language === 'ar' ? 'rotate-180' : ''}`} />
+                Accéder à mon espace <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -162,18 +130,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
                 <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-6">
                   <ShieldCheck className="w-8 h-8 text-emerald-500" />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900">{t.hero.boxTitle}</h3>
+                <h3 className="text-2xl font-black text-slate-900">100% Sécurisé & Fiable</h3>
                 <p className="text-sm font-medium text-slate-500 leading-relaxed">
-                  {t.hero.boxDesc}
+                  Paiements certifiés, données chiffrées de bout en bout et hébergement souverain pour une tranquillité d'esprit absolue.
                 </p>
                 <div className="pt-6 grid grid-cols-2 gap-4">
                   <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-left">
                     <h4 className="text-xl font-black text-[#f97316]">500+</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.hero.schools}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Écoles partenaires</p>
                   </div>
                   <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-left">
                     <h4 className="text-xl font-black text-[#f97316]">2M+</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.hero.parents}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parents connectés</p>
                   </div>
                 </div>
               </div>
@@ -186,8 +154,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
       <section id="sponsors" className="py-20 bg-white border-y border-slate-100 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="text-center space-y-2 mb-12">
-            <h2 className="text-xs font-black text-slate-400 tracking-[0.2em] uppercase">{t.sponsors.subtitle}</h2>
-            <p className="text-slate-900 font-black text-2xl">{t.sponsors.title}</p>
+            <h2 className="text-xs font-black text-slate-400 tracking-[0.2em] uppercase">Nos Partenaires Premium</h2>
+            <p className="text-slate-900 font-black text-2xl">Ils propulsent l'éducation de demain</p>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-center opacity-70 hover:opacity-100 transition-opacity duration-500">
@@ -241,9 +209,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
       <section id="features" className="py-24 bg-slate-50 relative flex-1">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-20">
-            <h2 className="text-sm font-black text-[#f97316] tracking-widest uppercase">{t.features.subtitle}</h2>
+            <h2 className="text-sm font-black text-[#f97316] tracking-widest uppercase">Fonctionnalités clés</h2>
             <h3 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
-              {t.features.title}
+              Tout le suivi scolaire regroupé sur une seule interface
             </h3>
           </div>
 
@@ -252,9 +220,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
               <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <BookOpen className="w-7 h-7 text-[#f97316]" />
               </div>
-              <h4 className="text-xl font-black text-slate-800 mb-3">{t.features.f1_title}</h4>
+              <h4 className="text-xl font-black text-slate-800 mb-3">Bulletins & Notes</h4>
               <p className="text-sm font-medium text-slate-500 leading-relaxed">
-                {t.features.f1_desc}
+                Visualisez les notes dès leur saisie. Téléchargez et vérifiez les bulletins officiels en format PDF sécurisé.
               </p>
             </div>
 
@@ -262,9 +230,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
               <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <MapPin className="w-7 h-7 text-[#f97316]" />
               </div>
-              <h4 className="text-xl font-black text-slate-800 mb-3">{t.features.f2_title}</h4>
+              <h4 className="text-xl font-black text-slate-800 mb-3">Présences & Absences</h4>
               <p className="text-sm font-medium text-slate-500 leading-relaxed">
-                {t.features.f2_desc}
+                Suivez en temps réel l'assiduité. Soyez immédiatement notifié en cas d'absence ou de retard.
               </p>
             </div>
 
@@ -272,9 +240,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
               <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Building2 className="w-7 h-7 text-[#f97316]" />
               </div>
-              <h4 className="text-xl font-black text-slate-800 mb-3">{t.features.f3_title}</h4>
+              <h4 className="text-xl font-black text-slate-800 mb-3">Espaces Établissements</h4>
               <p className="text-sm font-medium text-slate-500 leading-relaxed">
-                {t.features.f3_desc}
+                Interface complète pour directeurs et secrétaires : gestion des inscriptions et de la facturation.
               </p>
             </div>
           </div>
@@ -293,7 +261,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
                 <span className="text-2xl font-black text-white tracking-tight">yziow</span>
               </div>
               <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-xs">
-                {t.footer.desc}
+                La plateforme moderne qui connecte l'école, les parents et les élèves pour une réussite scolaire assurée.
               </p>
               <div className="flex gap-4">
                 <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#f97316] transition-colors"><Facebook size={18} /></a>
@@ -304,40 +272,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
             </div>
 
             <div>
-              <h4 className="text-white font-black text-lg mb-6">{t.footer.company}</h4>
+              <h4 className="text-white font-black text-lg mb-6">Entreprise</h4>
               <ul className="space-y-4">
-                <li><button onClick={() => onNavigate('about')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.about}</button></li>
-                <li><button onClick={() => onNavigate('contact')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.contact}</button></li>
-                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.careers}</a></li>
+                <li><button onClick={() => onNavigate('about')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">Qui sommes-nous</button></li>
+                <li><button onClick={() => onNavigate('contact')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">Contact & Assistance</button></li>
+                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">Carrières</a></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-white font-black text-lg mb-6">{t.footer.legal}</h4>
+              <h4 className="text-white font-black text-lg mb-6">Légal</h4>
               <ul className="space-y-4">
-                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.cgu}</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.privacy}</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.mentions}</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">Conditions générales d'utilisation</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">Politique de confidentialité</a></li>
+                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">Mentions légales</a></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-white font-black text-lg mb-6">{t.footer.partner_title}</h4>
+              <h4 className="text-white font-black text-lg mb-6">Devenir Partenaire</h4>
               <p className="text-slate-400 text-sm font-medium leading-relaxed mb-6">
-                {t.footer.partner_desc}
+                Associez l'image de votre entreprise à l'éducation de demain. Louez nos espaces publicitaires premium.
               </p>
               <button 
                 onClick={() => onNavigate('contact')}
                 className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-bold transition-all border border-slate-700 hover:border-slate-600"
               >
-                {t.footer.partner_btn}
+                Nous contacter
               </button>
             </div>
           </div>
 
           <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-slate-500 text-xs font-medium">{t.footer.rights}</p>
-            <p className="text-slate-500 text-xs font-medium">{t.footer.madeIn}</p>
+            <p className="text-slate-500 text-xs font-medium">© 2026 Yziow. Tous droits réservés.</p>
+            <p className="text-slate-500 text-xs font-medium">Fait avec passion au Bénin 🇧🇯</p>
           </div>
         </div>
       </footer>

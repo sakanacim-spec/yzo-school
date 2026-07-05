@@ -3,17 +3,19 @@
 // ============================================================
 import { fr } from './fr';
 import { en } from './en';
+import { es } from './es';
+import { ar } from './ar';
 
-export type Language = 'fr' | 'en';
+export type Language = 'fr' | 'en' | 'es' | 'ar';
 export type Translations = typeof fr;
 
-const translations: Record<Language, Translations> = { fr, en };
+const translations: Record<Language, Translations> = { fr, en, es, ar };
 
 // Récupère la langue sauvegardée ou le français par défaut
 export function getStoredLanguage(): Language {
   try {
-    const stored = localStorage.getItem('app_language');
-    if (stored === 'en' || stored === 'fr') return stored;
+    const stored = localStorage.getItem('app_language') as Language;
+    if (stored === 'en' || stored === 'fr' || stored === 'es' || stored === 'ar') return stored;
   } catch {}
   return 'fr';
 }
@@ -53,4 +55,4 @@ export function t(lang: Language, path: string, vars?: Record<string, string | n
   return value;
 }
 
-export { fr, en };
+export { fr, en, es, ar };

@@ -302,33 +302,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                           ← Retour à l'accueil
                       </button>
                   ) : <div />}
-                  
-                  <div className="flex items-center gap-2 border border-slate-100 rounded-xl px-2 py-1 bg-slate-50/50">
-                      <button
-                          type="button"
-                          onClick={() => setLanguage('fr')}
-                          className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black transition-all ${
-                              language === 'fr' 
-                              ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' 
-                              : 'text-slate-400 hover:text-slate-600'
-                          }`}
-                      >
-                          <span className="mr-1">🇫🇷</span>
-                          <span>Français</span>
-                      </button>
-                      <button
-                          type="button"
-                          onClick={() => setLanguage('en')}
-                          className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black transition-all ${
-                              language === 'en' 
-                              ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' 
-                              : 'text-slate-400 hover:text-slate-600'
-                          }`}
-                      >
-                          <span className="mr-1">🇬🇧</span>
-                          <span>English</span>
-                      </button>
-                  </div>
+
                 </div>
                 <div className="flex flex-col items-center mb-8">
                     <div className="w-16 h-16 bg-[#f97316] rounded-2xl flex items-center justify-center mb-3 shadow-lg shadow-orange-500/20">
@@ -564,33 +538,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                           ← Retour à l'accueil
                       </button>
                   ) : <div />}
-                  
-                  <div className="flex items-center gap-2 border border-slate-100 rounded-xl px-2 py-1 bg-slate-50/50">
-                      <button
-                          type="button"
-                          onClick={() => setLanguage('fr')}
-                          className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black transition-all ${
-                              language === 'fr' 
-                              ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' 
-                              : 'text-slate-400 hover:text-slate-600'
-                          }`}
-                      >
-                          <span className="mr-1">🇫🇷</span>
-                          <span>Français</span>
-                      </button>
-                      <button
-                          type="button"
-                          onClick={() => setLanguage('en')}
-                          className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black transition-all ${
-                              language === 'en' 
-                              ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' 
-                              : 'text-slate-400 hover:text-slate-600'
-                          }`}
-                      >
-                          <span className="mr-1">🇬🇧</span>
-                          <span>English</span>
-                      </button>
-                  </div>
+                  <div />
                 </div>
                 <div className="flex flex-col items-center">
                     <SchoolLogo size="w-20 h-20" />

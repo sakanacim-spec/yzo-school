@@ -221,8 +221,8 @@ export interface AppState {
   setPrivacyMode: (v: boolean) => void;
 
   // Langue (i18n)
-  language: 'fr' | 'en';
-  setLanguage: (lang: 'fr' | 'en') => void;
+  language: 'fr' | 'en' | 'es' | 'ar';
+  setLanguage: (lang: 'fr' | 'en' | 'es' | 'ar') => void;
 }
 
 // Authentification gérée par Supabase

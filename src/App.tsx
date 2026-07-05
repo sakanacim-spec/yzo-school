@@ -149,6 +149,16 @@ export function App() {
     }
   }, [isAuthenticated]);
 
+  const language = useStore((s) => s.language);
+  React.useEffect(() => {
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    if (language === 'ar') {
+      document.documentElement.classList.add('dir-rtl');
+    } else {
+      document.documentElement.classList.remove('dir-rtl');
+    }
+  }, [language]);
+
   React.useEffect(() => {
     // ── Synchronisation Manuelle Uniquement ──────────────────────
     // On ne fait qu'un fetch initial au chargement de l'app.
