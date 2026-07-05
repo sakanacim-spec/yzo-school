@@ -66,20 +66,43 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
     window.scrollTo(0, 0);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formCountry || !formEmail || !formMessage) return;
     
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      
+      const response = await fetch(`${apiUrl}/api/public/careers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          job_title: selectedJob,
+          name: formName,
+          country: formCountry,
+          email: formEmail,
+          cover_letter: formMessage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur réseau');
+      }
+
       setSelectedJob(null);
       setFormName('');
       setFormCountry('');
       setFormEmail('');
       setFormMessage('');
       alert("Votre candidature a bien été envoyée ! Nous vous contacterons très prochainement.");
-    }, 1500);
+    } catch (error) {
+      alert("Une erreur est survenue lors de l'envoi de la candidature. Veuillez réessayer.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

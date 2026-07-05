@@ -11,25 +11,48 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
   const [contactEmail, setContactEmail] = useState('');
   const [contactMessage, setContactMessage] = useState('');
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contactName || !contactEmail || !contactMessage) return;
+    if (!contactName || !contactCountry || !contactEmail || !contactMessage) return;
     
-    console.log("Contact submission:", { contactName, contactCountry, contactEmail, contactMessage });
-    setFormSubmitted(true);
-    setTimeout(() => {
+    setIsSubmitting(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      
+      const response = await fetch(`${apiUrl}/api/public/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: contactName,
+          country: contactCountry,
+          email: contactEmail,
+          message: contactMessage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur réseau');
+      }
+
+      setFormSubmitted(true);
       setContactName('');
       setContactCountry('');
       setContactEmail('');
       setContactMessage('');
-      setFormSubmitted(false);
       alert("Votre message a bien été envoyé ! Notre équipe vous contactera dans les plus brefs délais.");
-    }, 1500);
+    } catch (error) {
+      alert("Une erreur est survenue lors de l'envoi du message. Veuillez réessayer.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

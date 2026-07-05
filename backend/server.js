@@ -44,6 +44,7 @@ app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/personnel', require('./routes/personnel'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/superadmin', require('./routes/superAdmin')); // 👑 Routes propriétaire SaaS
+app.use('/api/public', require('./routes/public')); // 🌐 Routes publiques (Formulaires)
 
 // Route publique pour lister les écoles dans le login
 app.get('/api/schools', async (req, res) => {
