@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { ArrowLeft, Briefcase, Heart, Zap, Globe, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeft, Briefcase, Heart, Zap, Globe, ChevronRight, X, Send } from 'lucide-react';
 
 interface CareersProps {
   onBack: () => void;
@@ -55,12 +55,33 @@ const JOB_OPENINGS = [
 ];
 
 export const Careers: React.FC<CareersProps> = ({ onBack }) => {
+  const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formMessage, setFormMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formName || !formEmail || !formMessage) return;
+    
+    setIsSubmitting(true);
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setSelectedJob(null);
+      setFormName('');
+      setFormEmail('');
+      setFormMessage('');
+      alert("Votre candidature a bien été envoyée ! Nous vous contacterons très prochainement.");
+    }, 1500);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 font-['Poppins'] text-slate-800 selection:bg-orange-500 selection:text-white pb-24">
+    <div className="min-h-screen bg-slate-50 font-['Poppins'] text-slate-800 selection:bg-orange-500 selection:text-white pb-24 relative">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center">
@@ -129,12 +150,12 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
                     </div>
                   </div>
                   
-                  <a 
-                    href={`mailto:recrutement@yziow.com?subject=Candidature : ${job.title}`}
+                  <button 
+                    onClick={() => setSelectedJob(job.title)}
                     className="shrink-0 px-6 py-3 bg-slate-50 text-slate-700 hover:text-white hover:bg-[#f97316] font-bold text-sm rounded-xl transition-colors flex items-center gap-2 group-hover:bg-[#f97316] group-hover:text-white"
                   >
                     Postuler <ChevronRight className="w-4 h-4" />
-                  </a>
+                  </button>
                 </div>
               ))}
             </div>
@@ -146,17 +167,87 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
               <p className="text-slate-400 font-medium mb-8 max-w-xl mx-auto relative z-10">
                 Nous sommes toujours ouverts aux candidatures spontanées. Envoyez-nous votre CV et une courte présentation de vos motivations.
               </p>
-              <a 
-                href="mailto:recrutement@yziow.com?subject=Candidature spontanée"
+              <button 
+                onClick={() => setSelectedJob("Candidature Spontanée")}
                 className="inline-flex items-center justify-center px-8 py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-bold shadow-lg shadow-orange-500/20 active:scale-95 transition-all relative z-10"
               >
                 Envoyer une candidature spontanée
-              </a>
+              </button>
             </div>
 
           </div>
         </div>
       </section>
+
+      {/* Application Modal */}
+      {selectedJob && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedJob(null)}></div>
+          <div className="bg-white rounded-3xl w-full max-w-lg relative z-10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Postuler</h3>
+                <p className="text-sm font-medium text-[#f97316] mt-1">{selectedJob}</p>
+              </div>
+              <button 
+                onClick={() => setSelectedJob(null)}
+                className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all shadow-sm border border-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">Nom complet</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium"
+                    placeholder="Jean Dupont"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">Adresse email</label>
+                  <input 
+                    type="email" 
+                    required
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium"
+                    placeholder="jean@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">Votre message / Lettre de motivation</label>
+                  <textarea 
+                    required
+                    rows={4}
+                    value={formMessage}
+                    onChange={(e) => setFormMessage(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium resize-none"
+                    placeholder="Expliquez-nous pourquoi vous êtes le candidat idéal..."
+                  ></textarea>
+                </div>
+                <div className="pt-2">
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-bold tracking-wide shadow-lg shadow-orange-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                  >
+                    {isSubmitting ? 'Envoi en cours...' : (
+                      <>Envoyer ma candidature <Send className="w-4 h-4" /></>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
