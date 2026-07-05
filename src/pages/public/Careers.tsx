@@ -44,6 +44,13 @@ const JOB_OPENINGS = [
     type: "Temps plein",
     department: "Support",
     desc: "Accompagnez nos écoles partenaires dans le déploiement de la solution et répondez à leurs questions quotidiennes."
+  },
+  {
+    title: "Représentant(e) Commercial(e) International(e)",
+    location: "International (Autres Pays)",
+    type: "Indépendant / Temps plein",
+    department: "Ventes & Expansion",
+    desc: "Devenez l'ambassadeur de Yziow dans votre pays. Développez notre réseau d'écoles partenaires au-delà de l'Espagne et du Bénin."
   }
 ];
 
