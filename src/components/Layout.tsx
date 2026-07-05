@@ -535,6 +535,32 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 </button>
               )}
 
+              {/* Selecteur de langue */}
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-800 rounded-[16px] p-1 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                <button
+                  onClick={() => setLanguage('fr')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                    language === 'fr' 
+                      ? 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white' 
+                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <span className="text-base">🇫🇷</span>
+                  <span>Français</span>
+                </button>
+                <button
+                  onClick={() => setLanguage('en')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                    language === 'en' 
+                      ? 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white' 
+                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <span className="text-base">🇬🇧</span>
+                  <span>English</span>
+                </button>
+              </div>
+
               <button
                 onClick={toggleTheme}
                 className="w-10 h-10 rounded-[16px] bg-white dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-amber-500 transition-all duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.04)] active:scale-[0.95]"
