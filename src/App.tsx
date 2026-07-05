@@ -8,7 +8,8 @@ import { LandingPage } from './components/LandingPage';
 import { Layout } from './components/Layout';
 import { AnnouncementPopup } from './components/AnnouncementPopup';
 import { webPushService } from './services/webPushService';
-
+import { About } from './pages/public/About';
+import { Contact } from './pages/public/Contact';
 
 // Lazy loading for pages to reduce initial bundle size
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -187,13 +188,24 @@ export function App() {
     return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
   }, []);
 
-  const [showLogin, setShowLogin] = React.useState(false);
+  const [publicPage, setPublicPage] = React.useState<'landing' | 'about' | 'contact' | 'login'>('landing');
 
   if (!isAuthenticated) {
-    if (!showLogin) {
-      return <LandingPage onLogin={() => setShowLogin(true)} />;
+    if (publicPage === 'login') {
+      return <Login onBackToLanding={() => setPublicPage('landing')} />;
     }
-    return <Login onBackToLanding={() => setShowLogin(false)} />;
+    if (publicPage === 'about') {
+      return <About onBack={() => setPublicPage('landing')} />;
+    }
+    if (publicPage === 'contact') {
+      return <Contact onBack={() => setPublicPage('landing')} />;
+    }
+    return (
+      <LandingPage 
+        onLogin={() => setPublicPage('login')} 
+        onNavigate={(page) => setPublicPage(page)}
+      />
+    );
   }
 
   return (

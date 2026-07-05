@@ -1023,3 +1023,19 @@ select {
     color 200ms ease,
     box-shadow 250ms ease;
 }
+
+/* ============================================================
+   MARQUEE ANIMATION FOR SPONSORS
+   ============================================================ */
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
