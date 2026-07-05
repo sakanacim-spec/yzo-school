@@ -315,9 +315,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
             <div>
               <h4 className="text-white font-black text-lg mb-6">{t.footer.legal}</h4>
               <ul className="space-y-4">
-                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.cgu}</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.privacy}</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors">{t.footer.mentions}</a></li>
+                <li><button onClick={() => onNavigate('cgu')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors text-left">{t.footer.cgu}</button></li>
+                <li><button onClick={() => onNavigate('privacy')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors text-left">{t.footer.privacy}</button></li>
+                <li><button onClick={() => onNavigate('legal')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors text-left">{t.footer.mentions}</button></li>
               </ul>
             </div>
 

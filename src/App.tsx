@@ -10,6 +10,7 @@ import { AnnouncementPopup } from './components/AnnouncementPopup';
 import { webPushService } from './services/webPushService';
 import { About } from './pages/public/About';
 import { Contact } from './pages/public/Contact';
+import { LegalPage, LegalPageType } from './pages/public/LegalPage';
 
 // Lazy loading for pages to reduce initial bundle size
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -104,6 +105,7 @@ const PageContent: React.FC = () => {
     case 'saisie_notes': return <SaisieNotes />;
     case 'saisie_presence': return <SaisiePresence />;
     case 'emploi_du_temps': return <EmploiDuTemps />;
+    case 'prof_emploi_du_temps': return <ProfEmploiDuTemps />;
     case 'bulletins': return <Bulletins />;
     case 'verification_recu': return <VerificationRecu />;
     case 'historique_activites': return <HistoriqueActivites />;
@@ -135,16 +137,17 @@ const PageContent: React.FC = () => {
 
 export function App() {
   const isAuthenticated = useStore((s) => s.isAuthenticated);
+  const initializeSupabaseAuth = useStore((s) => s.initializeSupabaseAuth);
   const fetchAllFromBackend = useStore((s) => s.fetchAllFromBackend);
+  const setSchoolInfoFromMetadata = useStore((s) => s.setSchoolInfoFromMetadata);
 
-  // ── Chargement des paramètres publics (Logo, Nom App) ────────
   React.useEffect(() => {
-    useStore.getState().fetchPublicSettings();
-  }, []);
+    initializeSupabaseAuth();
+  }, [initializeSupabaseAuth]);
 
-  // ── Initialisation Web Push (Uniquement pour les Parents ou Web) ──
   React.useEffect(() => {
     if (isAuthenticated) {
+      setSchoolInfoFromMetadata();
       webPushService.init();
     }
   }, [isAuthenticated]);
@@ -198,7 +201,7 @@ export function App() {
     return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
   }, []);
 
-  const [publicPage, setPublicPage] = React.useState<'landing' | 'about' | 'contact' | 'login'>('landing');
+  const [publicPage, setPublicPage] = React.useState<'landing' | 'about' | 'contact' | 'login' | 'cgu' | 'privacy' | 'legal'>('landing');
 
   if (!isAuthenticated) {
     if (publicPage === 'login') {
@@ -210,10 +213,13 @@ export function App() {
     if (publicPage === 'contact') {
       return <Contact onBack={() => setPublicPage('landing')} />;
     }
+    if (['cgu', 'privacy', 'legal'].includes(publicPage)) {
+      return <LegalPage type={publicPage as LegalPageType} onBack={() => setPublicPage('landing')} />;
+    }
     return (
       <LandingPage 
         onLogin={() => setPublicPage('login')} 
-        onNavigate={(page) => setPublicPage(page)}
+        onNavigate={(page) => setPublicPage(page as any)}
       />
     );
   }
