@@ -80,7 +80,8 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
                 </div>
                 <div>
                   <h4 className="text-lg font-black text-slate-900 mb-1">Téléphone</h4>
-                  <p className="text-sm text-slate-500 font-medium">+229 00 00 00 00</p>
+                  <p className="text-sm text-slate-500 font-medium">+34 647 563 748</p>
+                  <p className="text-sm text-slate-500 font-medium">+229 01 97 76 99 91</p>
                   <p className="text-xs text-slate-400 mt-1">Lundi au Vendredi, 8h - 18h</p>
                 </div>
               </div>
