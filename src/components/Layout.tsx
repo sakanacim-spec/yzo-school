@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { parseResponse, getAuthHeaders } from '../services/apiHelpers';
 import { useStore } from '../store/useStore';
+import { t, Language } from '../i18n';
 import { AppPage } from '../types';
 import { getFilteredNavItems, isAdminRole } from '../utils/rolePermissions';
 import { 
@@ -108,14 +109,15 @@ const NAV_GROUPS: Record<string, string> = {
 };
 
 // ── Real-time clock ──
-const RealTimeClock: React.FC = () => {
+const RealTimeClock: React.FC<{ language: Language }> = ({ language }) => {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-  const lomeTime = time.toLocaleTimeString('fr-FR', { timeZone: 'Africa/Lome', hour: '2-digit', minute: '2-digit' });
-  const lomeDate = time.toLocaleDateString('fr-FR', { timeZone: 'Africa/Lome', weekday: 'short', day: 'numeric', month: 'short' });
+  const locale = language === 'en' ? 'en-US' : language === 'es' ? 'es-ES' : language === 'ar' ? 'ar-SA' : 'fr-FR';
+  const lomeTime = time.toLocaleTimeString(locale, { timeZone: 'Africa/Lome', hour: '2-digit', minute: '2-digit' });
+  const lomeDate = time.toLocaleDateString(locale, { timeZone: 'Africa/Lome', weekday: 'short', day: 'numeric', month: 'short' });
   return (
     <div className="hidden md:flex flex-col items-end gap-0 mr-4">
       <div className="flex items-center gap-1.5 text-sm font-black tabular-nums text-slate-800 dark:text-slate-100">
@@ -134,13 +136,15 @@ const SidebarNav: React.FC<{
   setSidebarOpen: (v: boolean) => void;
   collapsed: boolean;
   onOpenSupport: () => void;
-}> = ({ navItems, currentPage, setCurrentPage, setSidebarOpen, collapsed, onOpenSupport }) => {
+  language: Language;
+}> = ({ navItems, currentPage, setCurrentPage, setSidebarOpen, collapsed, onOpenSupport, language }) => {
   let lastGroup = '';
   return (
     <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1 custom-scrollbar">
       {navItems.map((item) => {
         const active = currentPage === item.id;
-        const group = NAV_GROUPS[item.id] || '';
+        const groupRaw = NAV_GROUPS[item.id] || '';
+        const group = groupRaw ? t(language, \`groups.\${groupRaw}\`) : '';
         const showGroupLabel = !collapsed && group && group !== lastGroup;
         if (group && group !== lastGroup) lastGroup = group;
 
@@ -156,7 +160,7 @@ const SidebarNav: React.FC<{
               className={`group relative flex items-center w-full rounded-[20px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98]
                 ${collapsed ? 'justify-center p-3 h-12' : 'px-4 py-3.5'}
                 ${active ? 'bg-amber-500/10 text-amber-500' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
-              title={item.label}
+              title={t(language, `nav.${item.id}`)}
             >
               {/* Active indicator bar */}
               {active && (
@@ -169,7 +173,7 @@ const SidebarNav: React.FC<{
               
               {!collapsed && (
                 <span className={`flex-1 text-left text-[13px] tracking-wide transition-all duration-300 ${active ? 'font-bold' : 'font-semibold'}`}>
-                  {item.label}
+                  {t(language, `nav.${item.id}`)}
                 </span>
               )}
               
@@ -192,7 +196,7 @@ const SidebarNav: React.FC<{
       {/* Support Section for Parents */}
       {navItems.some(i => i.id.startsWith('parent_')) && (
         <div className="mt-8 pt-4 border-t border-white/5">
-          {!collapsed && <div className="mb-2 ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/50">Assistance</div>}
+          {!collapsed && <div className="mb-2 ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/50">{t(language, 'header.support')}</div>}
           <button
             onClick={onOpenSupport}
             className={`group flex items-center w-full rounded-[20px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98]
@@ -202,7 +206,7 @@ const SidebarNav: React.FC<{
             <div className={`transition-transform duration-300 group-hover:scale-110 ${!collapsed && 'mr-3'}`}>
               <MessageSquare className="w-[18px] h-[18px]" />
             </div>
-            {!collapsed && <span className="text-[13px] font-bold tracking-wide">Contacter l'école</span>}
+            {!collapsed && <span className="text-[13px] font-bold tracking-wide">{t(language, 'nav.contact_school')}</span>}
           </button>
         </div>
       )}
@@ -227,7 +231,8 @@ const SidebarContent: React.FC<{
   onToggleCollapse?: () => void;
   onOpenSupport: () => void;
   onOpenPrivacy: () => void;
-}> = ({ currentPage, setCurrentPage, setSidebarOpen, navItems, schoolName, appName, schoolLogo, userName, userRole, connectedParentsCount, logout, collapsed, onToggleCollapse, onOpenSupport, onOpenPrivacy }) => (
+  language: Language;
+}> = ({ currentPage, setCurrentPage, setSidebarOpen, navItems, schoolName, appName, schoolLogo, userName, userRole, connectedParentsCount, logout, collapsed, onToggleCollapse, onOpenSupport, onOpenPrivacy, language }) => (
   <div className="flex flex-col h-full bg-slate-950/95 backdrop-blur-3xl overflow-hidden rounded-[32px] shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
     
     {/* Brand header */}
@@ -247,7 +252,7 @@ const SidebarContent: React.FC<{
               {schoolName}
             </p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5" title={appName}>
-              Géré par {appName}
+              {t(language, 'sidebar.managed_by')} {appName}
             </p>
         </div>
       )}
@@ -261,6 +266,7 @@ const SidebarContent: React.FC<{
       setSidebarOpen={setSidebarOpen}
       collapsed={collapsed}
       onOpenSupport={onOpenSupport}
+      language={language}
     />
 
     {/* Live parents count */}
@@ -276,7 +282,7 @@ const SidebarContent: React.FC<{
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </div>
             <span className="text-[12px] font-bold text-emerald-500">
-              {connectedParentsCount} parent{connectedParentsCount !== 1 ? 's' : ''}
+              {connectedParentsCount} {t(language, 'dashboard.parents_active')}
             </span>
           </div>
           <ChevronRight className="w-4 h-4 text-emerald-500/50 group-hover:text-emerald-500 transition-colors" />
@@ -301,19 +307,19 @@ const SidebarContent: React.FC<{
       <button
         onClick={onOpenPrivacy}
         className={`group w-full flex items-center ${collapsed ? 'justify-center p-3' : 'px-4 py-3.5'} gap-3 rounded-[20px] text-slate-400 hover:bg-white/5 hover:text-amber-500 transition-all duration-300 active:scale-[0.98] mb-1`}
-        title="Confidentialité"
+        title={t(language, 'header.privacy')}
       >
         <Shield className="w-[18px] h-[18px] group-hover:scale-110 transition-transform duration-300 text-amber-500" />
-        {!collapsed && <span className="text-[13px] font-bold tracking-wide">Confidentialité</span>}
+        {!collapsed && <span className="text-[13px] font-bold tracking-wide">{t(language, 'header.privacy')}</span>}
       </button>
 
       <button
         onClick={logout}
         className={`group w-full flex items-center ${collapsed ? 'justify-center p-3' : 'px-4 py-3.5'} gap-3 rounded-[20px] text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all duration-300 active:scale-[0.98]`}
-        title="Déconnexion"
+        title={t(language, 'header.logout')}
       >
         <LogOut className="w-[18px] h-[18px] group-hover:scale-110 transition-transform duration-300" />
-        {!collapsed && <span className="text-[13px] font-bold tracking-wide">Déconnexion</span>}
+        {!collapsed && <span className="text-[13px] font-bold tracking-wide">{t(language, 'header.logout')}</span>}
       </button>
     </div>
   </div>
@@ -412,7 +418,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
          : undefined,
   }));
 
-  const currentLabel = [...NAV_ITEMS, ...PARENT_NAV_ITEMS].find((n) => n.id === currentPage)?.label ?? '';
+  const currentLabel = t(language, \`nav.\${currentPage}\`);
   const sidebarW = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED;
 
   const sidebarProps = {
@@ -425,20 +431,20 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   };
 
   const bottomNavItems = (user?.role === 'superviseur' || user?.role === 'surveillant') ? [
-    { id: 'scan_presence' as AppPage, label: 'Entrée', icon: <ScanLine className="w-5 h-5" /> },
-    { id: 'scan_sortie'   as AppPage, label: 'Sortie', icon: <ScanLine className="w-5 h-5" /> },
-    { id: 'scan_information' as AppPage, label: 'Info', icon: <ScanLine className="w-5 h-5" /> },
-    { id: 'carte_scolaire'as AppPage, label: 'Cartes', icon: <IdCard className="w-5 h-5" /> },
+    { id: 'scan_presence' as AppPage, label: t(language, 'nav.scan_presence'), icon: <ScanLine className="w-5 h-5" /> },
+    { id: 'scan_sortie'   as AppPage, label: t(language, 'nav.scan_sortie'), icon: <ScanLine className="w-5 h-5" /> },
+    { id: 'scan_information' as AppPage, label: t(language, 'nav.scan_information'), icon: <ScanLine className="w-5 h-5" /> },
+    { id: 'carte_scolaire'as AppPage, label: t(language, 'nav.carte_scolaire'), icon: <IdCard className="w-5 h-5" /> },
   ] : isProf ? [
-    { id: 'prof_dashboard' as AppPage, label: 'Accueil', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'saisie_notes' as AppPage, label: 'Notes', icon: <Edit3 className="w-5 h-5" /> },
-    { id: 'saisie_presence' as AppPage, label: 'Appel', icon: <UserCheck className="w-5 h-5" /> },
-    { id: 'emploi_du_temps' as AppPage, label: 'Emploi', icon: <Calendar className="w-5 h-5" /> },
+    { id: 'prof_dashboard' as AppPage, label: t(language, 'nav.prof_dashboard'), icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'saisie_notes' as AppPage, label: t(language, 'nav.saisie_notes'), icon: <Edit3 className="w-5 h-5" /> },
+    { id: 'saisie_presence' as AppPage, label: t(language, 'nav.saisie_presence'), icon: <UserCheck className="w-5 h-5" /> },
+    { id: 'emploi_du_temps' as AppPage, label: t(language, 'nav.emploi_du_temps'), icon: <Calendar className="w-5 h-5" /> },
   ] : [
-    { id: (isParent ? 'parent_dashboard' : 'dashboard') as AppPage, label: 'Accueil', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: (isParent ? 'parent_historique' : 'eleves') as AppPage, label: isParent ? 'Paiements' : 'Élèves', icon: isParent ? <CreditCard className="w-5 h-5" /> : <Users className="w-5 h-5" /> },
-    { id: 'chat' as AppPage, label: 'Chat', icon: <MessageSquare className="w-5 h-5" />, badge: unreadMessages },
-    { id: (isParent ? 'annonces' : 'parametres') as AppPage, label: isParent ? 'Annonces' : 'Config', icon: isParent ? <Megaphone className="w-5 h-5" /> : <Settings className="w-5 h-5" /> },
+    { id: (isParent ? 'parent_dashboard' : 'dashboard') as AppPage, label: t(language, isParent ? 'nav.parent_dashboard' : 'nav.dashboard'), icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: (isParent ? 'parent_historique' : 'eleves') as AppPage, label: t(language, isParent ? 'nav.parent_historique' : 'nav.eleves'), icon: isParent ? <CreditCard className="w-5 h-5" /> : <Users className="w-5 h-5" /> },
+    { id: 'chat' as AppPage, label: t(language, 'nav.chat'), icon: <MessageSquare className="w-5 h-5" />, badge: unreadMessages },
+    { id: (isParent ? 'annonces' : 'parametres') as AppPage, label: t(language, isParent ? 'nav.annonces' : 'nav.parametres'), icon: isParent ? <Megaphone className="w-5 h-5" /> : <Settings className="w-5 h-5" /> },
   ];
 
   const allowedBottomNavItems = getFilteredNavItems(user?.role, bottomNavItems);
@@ -512,7 +518,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </div>
 
             <div className="flex items-center gap-3">
-              <RealTimeClock />
+              <RealTimeClock language={language} />
 
               {!isParent && (
                 <button
@@ -521,7 +527,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   className="hidden md:flex items-center gap-2 px-5 h-10 bg-white dark:bg-slate-800 rounded-[16px] text-[12px] font-bold text-slate-700 dark:text-slate-300 hover:text-amber-500 shadow-[0_2px_10px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_15px_rgba(245,158,11,0.15)] transition-all duration-300 active:scale-[0.98]"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                  {isSyncing ? 'Synchronisation...' : 'Actualiser'}
+                  {isSyncing ? t(language, 'header.syncing') || 'Synchronisation...' : t(language, 'header.refresh') || 'Actualiser'}
                 </button>
               )}
 
