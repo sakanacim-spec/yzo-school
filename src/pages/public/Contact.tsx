@@ -93,8 +93,8 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
                 <div>
                   <h4 className="text-lg font-black text-slate-900 mb-1">Bureaux</h4>
                   <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                    Cotonou, Bénin<br />
-                    Quartier Haie Vive
+                    Espagne<br />
+                    Cotonou, Bénin
                   </p>
                 </div>
               </div>

@@ -67,7 +67,7 @@ const CONTENT = {
     sections: [
       {
         title: "1. Éditeur de la plateforme",
-        content: "La plateforme Yziow est éditée par YZIOW CORP, une entreprise de technologies éducatives (EdTech).\n\nAdresse : Cotonou, Bénin\nEmail : contact@yziow.com\nTéléphone : +34 647 563 748 / +229 01 97 76 99 91"
+        content: "La plateforme Yziow est éditée par YZIOW CORP, une entreprise de technologies éducatives (EdTech).\n\nAdresses : Espagne & Bénin (Cotonou)\nEmail : contact@yziow.com\nTéléphone : +34 647 563 748 / +229 01 97 76 99 91"
       },
       {
         title: "2. Hébergement",
