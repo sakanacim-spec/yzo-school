@@ -57,6 +57,7 @@ const JOB_OPENINGS = [
 export const Careers: React.FC<CareersProps> = ({ onBack }) => {
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const [formName, setFormName] = useState('');
+  const [formCountry, setFormCountry] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formMessage, setFormMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,13 +68,14 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName || !formEmail || !formMessage) return;
+    if (!formName || !formCountry || !formEmail || !formMessage) return;
     
     setIsSubmitting(true);
     setTimeout(() => {
       setIsSubmitting(false);
       setSelectedJob(null);
       setFormName('');
+      setFormCountry('');
       setFormEmail('');
       setFormMessage('');
       alert("Votre candidature a bien été envoyée ! Nous vous contacterons très prochainement.");
@@ -208,6 +210,17 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
                     onChange={(e) => setFormName(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium"
                     placeholder="Jean Dupont"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">Pays de résidence</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={formCountry}
+                    onChange={(e) => setFormCountry(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium"
+                    placeholder="Ex: Bénin, Togo, France..."
                   />
                 </div>
                 <div>
