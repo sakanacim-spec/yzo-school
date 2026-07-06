@@ -52,7 +52,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
         }
     };
 
-    const inputClass = "w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-blue-200/50 focus:ring-2 focus:ring-blue-400 outline-none backdrop-blur-sm transition-all";
+    const inputClass = "w-full ps-10 pe-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-blue-200/50 focus:ring-2 focus:ring-blue-400 outline-none backdrop-blur-sm transition-all";
     const labelClass = "block text-sm font-semibold text-blue-100 mb-1.5";
 
     return (
@@ -78,7 +78,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                     <div>
                         <label className={labelClass}>{t(language as Language, 'auth.schoolCode') || "Code de l'école (School Slug)"}</label>
                         <div className="relative">
-                            <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                            <Building className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
                                 type="text"
                                 required
@@ -94,7 +94,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                     <div>
                         <label className={labelClass}>{t(language as Language, 'auth.fullNameParent') || 'Nom Complet (Parent)'}</label>
                         <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                            <User className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
                                 type="text"
                                 required
@@ -109,7 +109,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                     <div>
                         <label className={labelClass}>{t(language as Language, 'auth.phone') || 'Numéro de téléphone'}</label>
                         <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                            <Phone className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
                                 type="tel"
                                 required
@@ -126,7 +126,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                     <div>
                         <label className={labelClass}>{t(language as Language, 'auth.password') || 'Mot de passe'}</label>
                         <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                            <Lock className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
                                 type="password"
                                 required

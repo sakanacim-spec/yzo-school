@@ -106,8 +106,8 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
     }
   };
 
-  const inputClass = "w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm";
-  const selectClass = "w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none text-sm";
+  const inputClass = "w-full ps-10 pe-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm";
+  const selectClass = "w-full ps-10 pe-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none text-sm";
   const labelClass = "block text-xs font-semibold text-blue-200 mb-1 uppercase tracking-wide";
 
   return (
@@ -138,7 +138,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
           <div>
             <label className={labelClass}>{T.register.schoolName} <span className="text-red-400">*</span></label>
             <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+              <Building2 className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
               <input
                 type="text"
                 value={schoolName}
@@ -155,7 +155,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>{T.register.schoolType} <span className="text-red-400">*</span></label>
               <div className="relative">
-                <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <GraduationCap className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <select
                   value={schoolType}
                   onChange={(e) => setSchoolType(e.target.value)}
@@ -176,7 +176,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>{T.register.country} <span className="text-red-400">*</span></label>
               <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <Globe className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <select
                   value={countryCode}
                   onChange={(e) => handleCountryChange(e.target.value)}
@@ -199,7 +199,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>{T.register.city}</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <MapPin className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <input
                   type="text"
                   value={city}
@@ -212,7 +212,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>{T.register.address}</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <MapPin className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <input
                   type="text"
                   value={address}
@@ -229,7 +229,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>{T.register.schoolPhone}</label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <Phone className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <input
                   type="tel"
                   value={schoolPhone}
@@ -242,7 +242,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>{T.register.schoolEmail}</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <Mail className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <input
                   type="email"
                   value={schoolEmail}
@@ -281,7 +281,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>Ministère de tutelle</label>
               <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <Globe className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <input
                   type="text"
                   value={ministry}
@@ -294,7 +294,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>Slogan de l'établissement</label>
               <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <Globe className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <input
                   type="text"
                   value={slogan}
@@ -317,7 +317,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
           <div>
             <label className={labelClass}>{T.register.directorName} <span className="text-red-400">*</span></label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+              <User className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
               <input
                 type="text"
                 value={adminNom}
@@ -334,7 +334,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>{T.register.directorPhone} <span className="text-red-400">*</span></label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <Phone className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <input
                   type="tel"
                   value={adminTelephone}
@@ -350,7 +350,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>{T.register.directorPassword} <span className="text-red-400">*</span></label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <Lock className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                 <input
                   type="password"
                   value={adminPassword}

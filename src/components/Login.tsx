@@ -316,9 +316,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
 
                 <div className="w-full space-y-4">
                     <div className="relative">
-                        <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                        <Building2 className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <select 
-                            className="w-full h-[52px] !pl-12 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] !ps-12 pe-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={selectedSchool} 
                             onChange={(e) => setSelectedSchool(e.target.value)} 
                             required
@@ -328,17 +328,17 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                             <option disabled>────── {t(language as Language, 'auth.schoolsList') || 'Établissements'} ──────</option>
                             {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
                         </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <div className="absolute end-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
                     </div>
                     
                     <div className="relative">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                        <User className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <input 
                             type="text" 
                             placeholder={t(language as Language, 'auth.phoneEx') || "+33 6 12 34 56 78"} 
-                            className="w-full h-[52px] !pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={username} 
                             onChange={(e) => setUsername(e.target.value)} 
                             required 
@@ -346,11 +346,11 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                     </div>
                     
                     <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                        <Lock className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <input 
                             type={showPassword ? "text" : "password"} 
                             placeholder={t(language as Language, 'auth.passwordPlaceholderMobile') || "••••••"} 
-                            className="w-full h-[52px] !pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            className="w-full h-[52px] !ps-12 pe-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={password} 
                             onChange={(e) => setPassword(e.target.value)} 
                             required 
@@ -358,7 +358,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-500 cursor-pointer opacity-70 hover:opacity-100 flex items-center justify-center"
+                            className="absolute end-4 top-1/2 -translate-y-1/2 text-orange-500 cursor-pointer opacity-70 hover:opacity-100 flex items-center justify-center"
                         >
                             {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                         </button>
@@ -371,7 +371,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                 </div>
 
                 {trialExpiredSchool && (
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-left text-xs mb-4">
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-start text-xs mb-4">
                         <p className="text-amber-800 font-bold">{t(language as Language, 'auth.trialExpiredWarning') || "⚠️ Période d'essai expirée"}</p>
                         <p className="text-amber-700 mt-1">"{trialExpiredSchool}" — {t(language as Language, 'auth.contactAdmin') || "Contactez l'administrateur."}</p>
                     </div>
@@ -416,7 +416,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                 </button>
               </div>
 
-              <div className="overlay-panel overlay-right p-10 flex flex-col justify-between text-left relative overflow-hidden bg-[#f97316]">
+              <div className="overlay-panel overlay-right p-10 flex flex-col justify-between text-start relative overflow-hidden bg-[#f97316]">
                   
                   {/* Top content */}
                   <div className="w-full flex-1 pr-6 relative z-10">
@@ -496,9 +496,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                   onClick={() => setView('parent-register')}
                                   className="w-full py-4 border border-white bg-white/10 hover:bg-white text-white hover:text-[#f97316] rounded-xl font-black text-xs tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm"
                               >
-                                  <User className="w-4 h-4" /> {(t(language as Language, 'auth.iAmParentCreateAccount') || 'CRÉER MON ESPACE PARENT').toUpperCase()} <span className="ml-2 text-md font-bold">&gt;</span>
+                                  <User className="w-4 h-4" /> {(t(language as Language, 'auth.iAmParentCreateAccount') || 'CRÉER MON ESPACE PARENT').toUpperCase()} <span className="ms-2 text-md font-bold">&gt;</span>
                               </button>
-                              <p className="text-[10px] text-[#431407] font-semibold mt-2 pl-2">{t(language as Language, 'auth.fastFreeSecure') || "C'est rapide, gratuit et sécurisé."}</p>
+                              <p className="text-[10px] text-[#431407] font-semibold mt-2 ps-2">{t(language as Language, 'auth.fastFreeSecure') || "C'est rapide, gratuit et sécurisé."}</p>
                           </div>
 
                           {/* Family photo position overlay */}
@@ -553,9 +553,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
 
                 <form onSubmit={handleAuth} className="space-y-4">
                         <div className="relative">
-                            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                            <Building2 className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                             <select 
-                                className="w-full h-[52px] !pl-12 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                className="w-full h-[52px] !ps-12 pe-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={selectedSchool} 
                                 onChange={(e) => setSelectedSchool(e.target.value)} 
                                 required
@@ -565,17 +565,17 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                 <option disabled>────── {t(language as Language, 'auth.schoolsList') || 'Établissements'} ──────</option>
                                 {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
                             </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <div className="absolute end-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                             </div>
                         </div>
                         
                         <div className="relative">
-                            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                            <User className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                             <input 
                                 type="text" 
                                 placeholder={t(language as Language, 'auth.phoneEx') || "+33 6 12 34 56 78"} 
-                                className="w-full h-[52px] !pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={username} 
                                 onChange={(e) => setUsername(e.target.value)} 
                                 required 
@@ -583,11 +583,11 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         </div>
                         
                         <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                            <Lock className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                             <input 
                                 type={showPassword ? "text" : "password"} 
                                 placeholder={t(language as Language, 'auth.passwordPlaceholderMobile') || "••••••"} 
-                                className="w-full h-[52px] !pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                className="w-full h-[52px] !ps-12 pe-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={password} 
                                 onChange={(e) => setPassword(e.target.value)} 
                                 required 
@@ -595,7 +595,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-500 cursor-pointer opacity-70 hover:opacity-100 flex items-center justify-center"
+                                className="absolute end-4 top-1/2 -translate-y-1/2 text-orange-500 cursor-pointer opacity-70 hover:opacity-100 flex items-center justify-center"
                             >
                                 {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                             </button>
@@ -613,7 +613,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                       </div>
 
                     {trialExpiredSchool && (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-left">
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-start">
                             <p className="text-amber-800 font-bold text-xs">{t(language as Language, 'auth.trialExpiredWarning') || "⏰ Période d'essai expirée"}</p>
                             <p className="text-amber-700 text-xs mt-1">"{trialExpiredSchool}" — {t(language as Language, 'auth.contactAdminToPay') || "Contactez l'administrateur pour régler l'abonnement."}</p>
                         </div>
