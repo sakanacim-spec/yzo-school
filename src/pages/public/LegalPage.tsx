@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { ArrowLeft, Shield, FileText, Scale } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 export type LegalPageType = 'cgu' | 'privacy' | 'legal';
 

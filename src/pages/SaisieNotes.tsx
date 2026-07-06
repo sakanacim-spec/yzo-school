@@ -4,9 +4,8 @@ import { Edit3, Save, CheckCircle2, Printer, Calculator, X } from 'lucide-react'
 import { Note, PeriodeType, EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
 import { v4 as uuid } from '../utils/uuid';
 import { generateBordereauPDF } from '../utils/bordereauPdf';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 export const SaisieNotes: React.FC = () => {
     const { language } = useStore();

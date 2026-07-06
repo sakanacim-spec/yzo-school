@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Mail, Phone, MapPin, Send, ArrowLeft } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 interface ContactProps {
   onBack: () => void;

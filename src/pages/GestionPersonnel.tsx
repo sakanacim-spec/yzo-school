@@ -3,9 +3,8 @@ import { Users, Plus, Trash2, Shield, Loader2 } from 'lucide-react';
 import { personnelApi } from '../services/personnelApi';
 import { UserRole } from '../types';
 import { useStore } from '../store/useStore';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 interface Personnel {
     id: string;

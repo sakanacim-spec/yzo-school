@@ -3,9 +3,8 @@ import { useStore } from '../store/useStore';
 import { MatiereCategorie } from '../types';
 import { v4 as uuid } from '../utils/uuid';
 import { BookOpen, Plus, Trash2, Settings2, Users, Layers, Library } from 'lucide-react';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 export const GestionAcademique: React.FC = () => {
     const { language } = useStore();

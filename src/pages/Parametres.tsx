@@ -7,6 +7,8 @@ import {
 import { GestionPersonnel } from '../components/GestionPersonnel';
 import { BACKEND_URL } from '../config';
 import { EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
+import { t } from '../i18n';
+import type { Language } from '../i18n';
 
 export const Parametres: React.FC = () => {
   const schoolName = useStore((s) => s.schoolName);

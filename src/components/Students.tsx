@@ -490,7 +490,7 @@ export default function Students() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-800">
-                    {isEditing ? (t(lang, 'students.editStudent') || 'Modifier l\\'élève') : (t(lang, 'students.addNew') || 'Nouvel élève')}
+                    {isEditing ? (t(lang, 'students.editStudent') || 'Modifier l\'élève') : (t(lang, 'students.addNew') || 'Nouvel élève')}
                   </h2>
                   <p className="text-sm text-gray-500">Remplissez les informations ci-dessous</p>
                 </div>
@@ -782,7 +782,7 @@ export default function Students() {
                   <div className="text-center p-4 bg-white rounded-xl shadow-sm">
                     <p className="text-sm text-gray-500">{t(lang, 'students.remaining') || 'Restant'}</p>
                     <p className="text-xl font-bold text-red-600">
-                      {selectedStudent.restant === 0 ? \`✓ \${t(lang, 'students.statusPaid') || 'SOLDÉ'}\` : formatMoney(selectedStudent.restant)}
+                      {selectedStudent.restant === 0 ? `✓ ${t(lang, 'students.statusPaid') || 'SOLDÉ'}` : formatMoney(selectedStudent.restant)}
                     </p>
                   </div>
                 </div>

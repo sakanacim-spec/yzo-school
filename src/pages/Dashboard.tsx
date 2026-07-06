@@ -20,9 +20,8 @@ import { generateRapportMensuelPDF } from '@/utils/reportGenerator';
 import { DashboardSkeleton } from '../components/SkeletonLoaders';
 
 import { formatMontant } from '../utils/helpers';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 const PIE_COLORS = ['#f59e0b', '#10b981', '#f43f5e'];
 const BAR_COLORS = { paye: '#10b981', restant: '#f43f5e' };

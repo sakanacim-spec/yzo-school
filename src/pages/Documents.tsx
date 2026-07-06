@@ -8,9 +8,8 @@ import {
   CheckCircle, MessageCircle, BookOpen, Printer, FileDown,
   Layers, X
 } from 'lucide-react';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F';
 

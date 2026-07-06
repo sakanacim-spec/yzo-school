@@ -11,9 +11,8 @@ import { School } from '../../types';
 import { API_BASE_URL } from '../../config';
 import { useStore } from '../../store/useStore';
 import { COUNTRIES, getCountryName } from '../../data/countries';
-import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 // ── Helpers ──────────────────────────────────────────────────
 

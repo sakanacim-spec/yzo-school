@@ -9,9 +9,8 @@ import {
     LogIn, CreditCard, UserCog, FileText, UserCheck,
     Upload, ArrowDownToLine, MoreHorizontal
 } from 'lucide-react';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 const ACTION_ICONS: Record<string, React.ReactNode> = {
     connexion: <LogIn className="w-3.5 h-3.5" />,

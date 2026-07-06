@@ -10,9 +10,8 @@ import { v4 as uuid } from '../utils/uuid';
 import { playSuccessSound } from '../utils/audio';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 // ── Constantes configurables ─────────────────────────────────
 const JOURS_SEMAINE = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] as const;

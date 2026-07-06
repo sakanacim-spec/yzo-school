@@ -35,7 +35,7 @@ export const Settings = () => {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="page-header">
         <h1>{t(language as Language, 'settings.title') || 'Paramètres'}</h1>
-        <p className="text-gray-500 text-sm sm:text-base">{t(language as Language, 'settings.subtitle') || 'Configuration de l\\'application'}</p>
+        <p className="text-gray-500 text-sm sm:text-base">{t(language as Language, 'settings.subtitle') || 'Configuration de l\'pplication'}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
@@ -44,14 +44,14 @@ export const Settings = () => {
           <div className="card-header">
             <h2 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <School className="w-5 h-5 text-blue-600" />
-              {t(language as Language, 'settings.schoolInfo') || 'Informations de l\\'école'}
+              {t(language as Language, 'settings.schoolInfo') || 'Informations de l\'école'}
             </h2>
           </div>
           <div className="card-body">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {t(language as Language, 'settings.schoolName') || 'Nom de l\\'école'}
+                  {t(language as Language, 'settings.schoolName') || 'Nom de l\'école'}
                 </label>
                 <input
                   type="text"

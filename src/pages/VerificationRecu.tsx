@@ -4,9 +4,8 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { QRCodeSVG } from 'qrcode.react';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 import {
     ShieldCheck, Search, CheckCircle2, XCircle, FileText, AlertTriangle
 } from 'lucide-react';

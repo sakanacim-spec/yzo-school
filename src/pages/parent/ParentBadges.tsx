@@ -1,9 +1,8 @@
 import React from 'react';
 import { useStore } from '../../store/useStore';
 import { Award, ShieldCheck, Zap, Star, Loader2, AlertCircle, TrendingUp, Clock, Medal } from 'lucide-react';
-import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 export const ParentBadges: React.FC = () => {
     const { badges } = useStore();

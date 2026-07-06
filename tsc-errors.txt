@@ -1,0 +1,381 @@
+src/App.tsx(109,10): error TS2678: Type '"prof_emploi_du_temps"' is not comparable to type 'AppPage'.
+src/components/Dashboard.tsx(63,108): error TS18048: 'stats.totalPrimaire' is possibly 'undefined'.
+src/components/Dashboard.tsx(63,155): error TS18048: 'stats.totalCollege' is possibly 'undefined'.
+src/components/Dashboard.tsx(63,201): error TS18048: 'stats.totalLycee' is possibly 'undefined'.
+src/components/LandingPage.tsx(311,55): error TS2345: Argument of type '"careers"' is not assignable to parameter of type '"about" | "contact"'.
+src/components/LandingPage.tsx(318,55): error TS2345: Argument of type '"cgu"' is not assignable to parameter of type '"about" | "contact"'.
+src/components/LandingPage.tsx(319,55): error TS2345: Argument of type '"privacy"' is not assignable to parameter of type '"about" | "contact"'.
+src/components/LandingPage.tsx(320,55): error TS2345: Argument of type '"legal"' is not assignable to parameter of type '"about" | "contact"'.
+src/components/Layout.tsx(460,10): error TS2741: Property 'language' is missing in type '{ onToggleCollapse: () => void; currentPage: AppPage; setCurrentPage: (page: AppPage) => void; setSidebarOpen: Dispatch<SetStateAction<boolean>>; ... 10 more ...; onOpenPrivacy: () => void; }' but required in type '{ currentPage: AppPage; setCurrentPage: (p: AppPage) => void; setSidebarOpen: (v: boolean) => void; navItems: NavItem[]; schoolName: string; appName: string; schoolLogo: string | null; ... 8 more ...; language: Language; }'.
+src/components/Layout.tsx(474,14): error TS2741: Property 'language' is missing in type '{ collapsed: false; currentPage: AppPage; setCurrentPage: (page: AppPage) => void; setSidebarOpen: Dispatch<SetStateAction<boolean>>; ... 9 more ...; onOpenPrivacy: () => void; }' but required in type '{ currentPage: AppPage; setCurrentPage: (p: AppPage) => void; setSidebarOpen: (v: boolean) => void; navItems: NavItem[]; schoolName: string; appName: string; schoolLogo: string | null; ... 8 more ...; language: Language; }'.
+src/components/Layout.tsx(578,25): error TS2339: Property 'icon' does not exist on type '{ id: AppPage; }'.
+src/components/Layout.tsx(586,25): error TS2339: Property 'label' does not exist on type '{ id: AppPage; }'.
+src/components/Login.tsx(24,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/components/Register.tsx(23,60): error TS2345: Argument of type '"fr" | "en" | "es" | "ar"' is not assignable to parameter of type '"fr" | "en" | undefined'.
+  Type '"es"' is not assignable to type '"fr" | "en" | undefined'.
+src/components/Register.tsx(35,75): error TS2345: Argument of type '"fr" | "en" | "es" | "ar"' is not assignable to parameter of type '"fr" | "en" | (() => "fr" | "en")'.
+  Type '"es"' is not assignable to type '"fr" | "en" | (() => "fr" | "en")'.
+src/components/Students.tsx(360,19): error TS2304: Cannot find name 'resetForm'.
+src/i18n/index.ts(12,60): error TS2719: Type '{ nav: { dashboard: string; eleves: string; parents_list: string; paiements: string; recouvrement: string; depenses: string; scan_presence: string; scan_sortie: string; scan_information: string; ... 25 more ...; prof_ressources: string; }; ... 10 more ...; support: { ...; }; }' is not assignable to type '{ nav: { dashboard: string; eleves: string; parents_list: string; paiements: string; recouvrement: string; depenses: string; scan_presence: string; scan_sortie: string; scan_information: string; ... 25 more ...; prof_ressources: string; }; ... 10 more ...; support: { ...; }; }'. Two different types with this name exist, but they are unrelated.
+  Types of property 'errors' are incompatible.
+    Property 'registerFailed' is missing in type '{ required: string; invalidPhone: string; invalidEmail: string; invalidName: string; minPassword: string; termsRequired: string; privacyRequired: string; schoolTypeRequired: string; countryRequired: string; genericError: string; loginFailed: string; networkError: string; }' but required in type '{ required: string; invalidPhone: string; invalidEmail: string; invalidName: string; minPassword: string; termsRequired: string; privacyRequired: string; schoolTypeRequired: string; countryRequired: string; genericError: string; loginFailed: string; registerFailed: string; networkError: string; }'.
+src/pages/Analyses.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Analyses.tsx(10,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Analyses.tsx(12,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/Annonces.tsx(5,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Annonces.tsx(11,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Annonces.tsx(13,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/Bulletins.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Bulletins.tsx(7,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Bulletins.tsx(9,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/CarteScolaire.tsx(6,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/CarteScolaire.tsx(15,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/CarteScolaire.tsx(17,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/Communication.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Communication.tsx(7,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Communication.tsx(9,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/Dashboard.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Dashboard.tsx(23,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Dashboard.tsx(25,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/Depenses.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Depenses.tsx(10,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Depenses.tsx(12,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/Documents.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Documents.tsx(11,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Documents.tsx(13,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/Eleves.tsx(284,10): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(284,72): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(285,10): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(285,74): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(297,16): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(327,19): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(337,106): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(352,131): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(357,96): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(364,68): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(364,135): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(369,267): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(371,36): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(473,62): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(476,18): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(476,179): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(479,18): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(489,62): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(502,30): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(520,47): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(528,35): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(532,41): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(536,35): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(537,40): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(537,135): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(537,234): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(541,46): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(549,109): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(549,169): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(552,16): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(564,53): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(565,56): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(566,41): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(567,58): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(568,57): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(569,56): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(570,41): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(591,91): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(603,50): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(603,123): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(627,156): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(627,212): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(628,154): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(647,223): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(650,335): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(657,238): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(660,330): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(660,436): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(676,100): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(681,102): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(686,99): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(692,149): error TS2304: Cannot find name 'language'.
+src/pages/Eleves.tsx(696,143): error TS2304: Cannot find name 'language'.
+src/pages/EmploiDuTemps.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/EmploiDuTemps.tsx(13,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/EmploiDuTemps.tsx(15,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/GestionAcademique.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/GestionAcademique.tsx(6,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/GestionAcademique.tsx(8,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/GestionPersonnel.tsx(5,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/GestionPersonnel.tsx(6,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/GestionPersonnel.tsx(8,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/HistoriqueActivites.tsx(5,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/HistoriqueActivites.tsx(12,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/HistoriqueActivites.tsx(14,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/Parametres.tsx(164,20): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(164,34): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(168,20): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(168,34): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(206,21): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(206,35): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(210,21): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(210,35): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(319,53): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(319,67): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(322,16): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(322,30): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(322,184): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(322,198): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(325,16): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(325,30): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(340,18): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(340,32): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(348,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(348,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(352,169): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(352,183): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(357,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(357,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(368,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(368,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(379,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(379,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(390,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(390,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(401,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(401,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(412,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(412,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(426,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(426,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(444,69): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(444,83): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(453,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(453,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(471,69): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(471,83): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(481,84): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(481,98): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(485,109): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(485,123): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(494,109): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(494,123): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(516,35): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(516,49): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(516,95): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(516,109): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(531,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(531,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(541,63): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(541,77): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(548,78): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(548,92): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(561,64): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(607,34): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(607,48): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(632,47): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(632,61): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(632,107): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(632,121): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(646,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(646,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(653,34): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(653,48): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(659,46): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(659,60): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(664,34): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(664,48): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(671,59): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(671,73): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(672,60): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(672,74): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(674,73): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(674,87): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(685,105): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(685,119): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(694,105): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(694,119): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(703,105): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(703,119): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(712,105): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(712,119): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(727,39): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(727,53): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(727,99): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(727,113): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(742,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(742,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(748,78): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(748,92): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(753,63): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(753,77): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(760,78): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(760,92): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(773,50): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(773,64): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(785,50): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(785,64): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(845,46): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(845,60): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(845,106): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(845,120): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(869,20): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(869,34): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(876,26): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(876,40): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(883,47): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(883,61): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(884,50): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(884,64): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(885,51): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(885,65): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(886,49): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(886,63): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(895,69): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(895,83): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(896,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(896,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(903,32): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(903,46): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(916,32): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(916,46): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(936,53): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(936,67): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(950,26): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(950,40): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(955,78): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(955,92): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(992,43): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(992,57): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(992,103): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(992,117): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1004,20): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1004,34): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1007,20): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1007,34): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1019,28): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1019,42): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1031,74): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1031,88): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1032,73): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1032,87): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1039,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1039,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1046,42): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1046,56): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1052,30): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1052,44): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1069,34): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1069,48): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1070,51): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1070,65): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1080,22): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1080,36): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1089,49): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1089,63): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1100,22): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1100,36): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1104,108): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1104,122): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1108,108): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1108,122): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1112,108): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1112,122): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1127,26): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1127,40): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1132,52): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1132,66): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1134,56): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1134,70): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1139,187): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1139,201): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1144,52): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1144,66): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1146,56): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1146,70): error TS2304: Cannot find name 'Language'.
+src/pages/Parametres.tsx(1151,187): error TS2304: Cannot find name 't'.
+src/pages/Parametres.tsx(1151,201): error TS2304: Cannot find name 'Language'.
+src/pages/parent/ParentBadges.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentBadges.tsx(4,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentBadges.tsx(6,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/parent/ParentDashboard.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentDashboard.tsx(16,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentDashboard.tsx(18,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/parent/ParentDevoirsPresence.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentDevoirsPresence.tsx(11,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentDevoirsPresence.tsx(13,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/parent/ParentHistorique.tsx(9,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentHistorique.tsx(10,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentHistorique.tsx(12,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/parent/ParentMessages.tsx(6,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/parent/ParentNotes.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentNotes.tsx(11,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentNotes.tsx(13,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/parent/ParentRecus.tsx(8,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentRecus.tsx(9,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentRecus.tsx(11,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/parent/ParentRessources.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentRessources.tsx(9,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/parent/ParentRessources.tsx(11,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/ParentsList.tsx(3,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/ParentsList.tsx(6,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/ParentsList.tsx(8,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/professeur/CahierTextes.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/CahierTextes.tsx(7,10): error TS2300: Duplicate identifier 'notificationService'.
+src/pages/professeur/CahierTextes.tsx(8,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/CahierTextes.tsx(10,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/professeur/CahierTextes.tsx(11,10): error TS2300: Duplicate identifier 'notificationService'.
+src/pages/professeur/ProfEmploiDuTemps.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/ProfEmploiDuTemps.tsx(5,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/ProfEmploiDuTemps.tsx(7,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/professeur/ProfesseurDashboard.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/ProfesseurDashboard.tsx(4,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/ProfesseurDashboard.tsx(6,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/professeur/ProfRessources.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/ProfRessources.tsx(7,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/ProfRessources.tsx(9,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/professeur/SaisiePresence.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/SaisiePresence.tsx(8,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/professeur/SaisiePresence.tsx(10,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/public/About.tsx(5,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/public/Careers.tsx(5,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/public/Contact.tsx(5,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/public/LegalPage.tsx(5,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/Recouvrement.tsx(5,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Recouvrement.tsx(14,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Recouvrement.tsx(16,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/SaisieNotes.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/SaisieNotes.tsx(7,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/SaisieNotes.tsx(9,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/Salaires.tsx(2,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Salaires.tsx(7,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/Salaires.tsx(9,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/ScanInformation.tsx(5,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/ScanInformation.tsx(10,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/ScanInformation.tsx(12,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/ScanInformation.tsx(78,38): error TS2304: Cannot find name 'UserCircle'.
+src/pages/ScanInformation.tsx(84,96): error TS2304: Cannot find name 'AlertTriangle'.
+src/pages/ScanInformation.tsx(300,38): error TS2304: Cannot find name 'Camera'.
+src/pages/ScanInformation.tsx(346,54): error TS2304: Cannot find name 'AlertTriangle'.
+src/pages/ScanInformation.tsx(355,46): error TS2304: Cannot find name 'Camera'.
+src/pages/ScanInformation.tsx(364,38): error TS2304: Cannot find name 'AlertTriangle'.
+src/pages/ScanInformation.tsx(378,38): error TS2304: Cannot find name 'Search'.
+src/pages/ScanInformation.tsx(387,34): error TS2304: Cannot find name 'Search'.
+src/pages/ScanInformation.tsx(439,38): error TS2304: Cannot find name 'Search'.
+src/pages/ScanInformation.tsx(450,18): error TS2741: Property 'language' is missing in type '{ nom: any; prenom: any; classe: any; photoUrl: any; solde: any; statut: any; onClose: () => void; }' but required in type '{ nom: string; prenom: string; classe: string; photoUrl?: string | undefined; solde: number; statut: string; language: Language; onClose: () => void; }'.
+src/pages/ScanPresence.tsx(5,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/ScanPresence.tsx(16,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/ScanPresence.tsx(18,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/ScanPresence.tsx(383,18): error TS2741: Property 'language' is missing in type '{ schoolName: string; nom: string; prenom: string; classe: string; heure: string; date: string; dejaPresent: boolean; telephone?: string | undefined; statut?: "present" | "retard" | undefined; }' but required in type '{ nom: string; prenom: string; classe: string; heure: string; date: string; dejaPresent: boolean; telephone?: string | undefined; schoolName: string; statut?: "present" | "retard" | undefined; language: Language; }'.
+src/pages/ScanSortie.tsx(4,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/ScanSortie.tsx(15,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/ScanSortie.tsx(17,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/pages/ScanSortie.tsx(350,18): error TS2741: Property 'language' is missing in type '{ schoolName: string; nom: string; prenom: string; classe: string; heure: string; date: string; dejaSorti: boolean; telephone?: string | undefined; }' but required in type '{ nom: string; prenom: string; classe: string; heure: string; date: string; dejaSorti: boolean; telephone?: string | undefined; schoolName: string; language: Language; }'.
+src/pages/superadmin/SuperAdminDashboard.tsx(12,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/superadmin/SuperAdminDashboard.tsx(14,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/superadmin/SuperAdminDashboard.tsx(16,15): error TS2305: Module '"../../types"' has no exported member 'Language'.
+src/pages/VerificationRecu.tsx(5,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/VerificationRecu.tsx(7,10): error TS2300: Duplicate identifier 'useStore'.
+src/pages/VerificationRecu.tsx(9,15): error TS2305: Module '"../types"' has no exported member 'Language'.
+src/store/useStore.ts(422,7): error TS2322: Type '(username: string, password: string, schoolSlug: string | undefined) => Promise<true | undefined>' is not assignable to type '(username: string, password: string, schoolSlug?: string | undefined) => Promise<boolean>'.
+  Type 'Promise<true | undefined>' is not assignable to type 'Promise<boolean>'.
+    Type 'boolean | undefined' is not assignable to type 'boolean'.
+      Type 'undefined' is not assignable to type 'boolean'.
+src/store/useStore.ts(1160,19): error TS2353: Object literal may only specify known properties, and 'appName' does not exist in type 'AppSettings'.
+src/utils/pdfUtils.ts(45,27): error TS7006: Parameter 'line' implicitly has an 'any' type.

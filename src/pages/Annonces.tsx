@@ -8,9 +8,8 @@ import {
     AlertCircle, Info, AlertTriangle, Filter, CheckCircle
 } from 'lucide-react';
 import type { AnnouncementImportance, AnnouncementTarget } from '../types';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 const IMPORTANCE_LABELS: Record<AnnouncementImportance, { label: string; color: string; icon: React.ReactNode }> = {
     info:      { label: 'Information',   color: 'bg-blue-500/10 text-blue-700 border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]',    icon: <Info className="w-3.5 h-3.5" /> },

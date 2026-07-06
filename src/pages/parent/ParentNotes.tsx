@@ -8,9 +8,8 @@ import {
 } from 'lucide-react';
 import { generateGradeReport } from '../../utils/pdfUtils';
 import { PeriodeType, DEFAULT_EVAL_CONFIGS } from '../../types';
-import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 // ── Appréciation ─────────────────────────────────────────────
 const getAppreciation = (avg: number | null, language: Language): { label: string; color: string } => {

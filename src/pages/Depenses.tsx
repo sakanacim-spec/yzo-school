@@ -7,9 +7,8 @@ import { v4 as uuid } from '../utils/uuid';
 import { notificationService } from '../services/notificationService';
 import { playSuccessSound } from '../utils/audio';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 const CATEGORIES: ExpenseCategory[] = ['Salaires', 'Électricité & Eau', 'Loyer', 'Fournitures', 'Entretien', 'Autre'];
 const COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4'];

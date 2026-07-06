@@ -8,9 +8,8 @@ import {
 import { format, isValid, parseISO, isPast, isToday, isTomorrow, differenceInDays } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { parentApi } from '../../services/parentApi';
-import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 const safeFormatDate = (dateStr: string | undefined, fmt: string, language?: Language) => {
     if (!dateStr) return t(language as Language, 'parentDevoirs.noDate') || 'Date non précisée';

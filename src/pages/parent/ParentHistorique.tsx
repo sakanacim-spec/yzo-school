@@ -7,9 +7,8 @@ import { fr, enUS } from 'date-fns/locale';
 import { formatMontant } from '../../utils/helpers';
 import { generatePaymentReceipt } from '../../utils/pdfUtils';
 import { useStore } from '../../store/useStore';
-import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 export const ParentHistorique: React.FC = () => {
     const { language } = useStore();

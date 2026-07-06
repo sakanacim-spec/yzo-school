@@ -3,7 +3,7 @@ import { parentApi } from '../../services/parentApi';
 import { MessageSquare, Bell, Loader2, AlertCircle } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 export const ParentMessages: React.FC = () => {
     const { language } = useStore();

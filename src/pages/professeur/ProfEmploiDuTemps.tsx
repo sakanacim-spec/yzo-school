@@ -2,9 +2,8 @@ import React, { useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { Seance } from '../../types';
 import { Calendar as CalendarIcon, Clock, MapPin, Users } from 'lucide-react';
-import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] as const;
 const HEURES = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];

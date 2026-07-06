@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Briefcase, Heart, Zap, Globe, ChevronRight, X, Send } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 interface CareersProps {
   onBack: () => void;

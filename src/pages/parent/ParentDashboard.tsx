@@ -13,9 +13,8 @@ import { LinkStudentModal } from '../../components/LinkStudentModal';
 import { SupportModal } from '../../components/SupportModal';
 import { chatApi } from '../../services/chatApi';
 import { isToday, isTomorrow, isPast, isValid } from 'date-fns';
-import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 // ── Types ────────────────────────────────────────────────────
 interface Announcement {

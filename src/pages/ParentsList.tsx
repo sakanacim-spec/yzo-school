@@ -3,9 +3,8 @@ import { parentApi } from '../services/parentApi';
 import { useStore } from '../store/useStore';
 import { Users, Phone, Calendar, MessageSquare, Search, Loader2, UserCheck, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 export const ParentsList: React.FC = () => {
     const { language } = useStore();

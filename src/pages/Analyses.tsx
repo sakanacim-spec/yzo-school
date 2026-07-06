@@ -7,9 +7,8 @@ import {
 import { TrendingUp, AlertTriangle, Target, Award, Eye, EyeOff, Activity, ShieldAlert, BarChart2, GraduationCap, Medal, AlertCircle, BookOpen } from 'lucide-react';
 import { computeCycleComparison, computeAcademicAnalytics } from '../services/analyticsService';
 import { formatMontant } from '../utils/helpers';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number }[]; label?: string }) => {
   const { language } = useStore();

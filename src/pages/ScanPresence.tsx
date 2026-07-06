@@ -13,9 +13,8 @@ import {
     Camera, Search, CheckCircle2, AlertTriangle, UserCheck,
     Clock, Users, X
 } from 'lucide-react';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 
 // import { sendDirectNotification } from '../services/whatsappService'; // Non utilisé actuellement
 import { notificationService } from '../services/notificationService';

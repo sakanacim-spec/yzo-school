@@ -7,9 +7,8 @@ import { Html5Qrcode } from "html5-qrcode";
 import {
     X, Wallet, Info, ShieldCheck, ChevronRight, Scan, CreditCard
 } from 'lucide-react';
-import { useStore } from '../store/useStore';
 import { t } from '../i18n';
-import type { Language } from '../types';
+import type { Language } from '../i18n';
 import { playSuccessSound, playErrorSound, unlockAudio } from '../utils/audio';
 
 // ── Composant carte d'élève scanné (OVERLAY PREMIUM) ────────────────

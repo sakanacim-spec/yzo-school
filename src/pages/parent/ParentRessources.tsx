@@ -6,9 +6,8 @@ import {
     Download, ExternalLink, BookOpen, Layers, GraduationCap,
     Filter, Clock, User, ChevronRight, Zap
 } from 'lucide-react';
-import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 // ── Catégorisation des ressources ────────────────────────────
 type ResourceCategory = 'all' | 'cours' | 'exercices' | 'autre';

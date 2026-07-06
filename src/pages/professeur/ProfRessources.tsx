@@ -4,9 +4,8 @@ import { Resource, ResourceType } from '../../types';
 import { FileText, Video, Link as LinkIcon, File, Plus, X, Trash2, Search, Filter } from 'lucide-react';
 import { v4 as uuid } from '../../utils/uuid';
 import { playSuccessSound } from '../../utils/audio';
-import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
-import type { Language } from '../../types';
+import type { Language } from '../../i18n';
 
 export const ProfRessources: React.FC = () => {
     const { language } = useStore();

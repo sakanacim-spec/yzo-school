@@ -20,8 +20,8 @@ import { ForgotPassword } from './ForgotPassword';
 
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import familyIllustration from '../assets/family_illustration.png';
-import { getTranslations } from '../i18n';
-
+import { getTranslations, t } from '../i18n';
+import type { Language } from '../i18n';
 const BG_IMAGES = [bgImage1, bgImage2, bgImage3, bgImage4];
 const SLIDE_DURATION = 5000;
 
