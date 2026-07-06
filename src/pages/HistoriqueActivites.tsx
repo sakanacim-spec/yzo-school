@@ -9,8 +9,8 @@ import {
     LogIn, CreditCard, UserCog, FileText, UserCheck,
     Upload, ArrowDownToLine, MoreHorizontal
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 const ACTION_ICONS: Record<string, React.ReactNode> = {
@@ -26,7 +26,7 @@ const ACTION_ICONS: Record<string, React.ReactNode> = {
 };
 
 export const HistoriqueActivites: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const activityLogs = useStore((s) => s.activityLogs);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterAction, setFilterAction] = useState<string>('');

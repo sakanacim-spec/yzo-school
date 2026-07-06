@@ -5,12 +5,12 @@ import { Users, Calendar, CheckCircle, XCircle, AlertCircle, Save, Loader2 } fro
 import { v4 as uuid } from '../../utils/uuid';
 import { notificationService } from '../../services/notificationService';
 import { playSuccessSound } from '../../utils/audio';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 export const SaisiePresence: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const { 
         user, 
         students, 

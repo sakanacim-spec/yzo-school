@@ -5,10 +5,11 @@ import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import {
     Megaphone, Plus, Trash2, X, Send, Eye, EyeOff, Clock,
-import { AlertCircle, Info, AlertTriangle, Filter, CheckCircle } from 'lucide-react';
+    AlertCircle, Info, AlertTriangle, Filter, CheckCircle
+} from 'lucide-react';
 import type { AnnouncementImportance, AnnouncementTarget } from '../types';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 const IMPORTANCE_LABELS: Record<AnnouncementImportance, { label: string; color: string; icon: React.ReactNode }> = {
@@ -24,7 +25,7 @@ export const Annonces: React.FC = () => {
     const announcementReads = useStore(s => s.announcementReads);
     const addAnnouncement = useStore(s => s.addAnnouncement);
     const deleteAnnouncement = useStore(s => s.deleteAnnouncement);
-    const { language } = useLanguage();
+    const { language } = useStore();
 
     // Use a function to get localized importance labels so they update on language change
     const getImportanceLabels = (lang: Language) => ({

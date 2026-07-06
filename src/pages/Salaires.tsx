@@ -4,12 +4,12 @@ import { Payroll } from '../types';
 import { Wallet, Search, CheckCircle, Clock, FileText, ChevronDown, Plus, TrendingUp } from 'lucide-react';
 import { v4 as uuid } from '../utils/uuid';
 import { playSuccessSound } from '../utils/audio';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 export const Salaires: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const personnels = useStore(s => s.personnels || []);
     const payrolls = useStore(s => s.payrolls);
     const addPayroll = useStore(s => s.addPayroll);

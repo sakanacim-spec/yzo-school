@@ -2,15 +2,15 @@ import React, { useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { Seance } from '../../types';
 import { Calendar as CalendarIcon, Clock, MapPin, Users } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] as const;
 const HEURES = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
 
 export const ProfEmploiDuTemps: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const { user, seances, matieres } = useStore();
 
     // Séances filtrées pour le professeur connecté

@@ -4,8 +4,8 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { QRCodeSVG } from 'qrcode.react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 import {
     ShieldCheck, Search, CheckCircle2, XCircle, FileText, AlertTriangle
@@ -14,7 +14,7 @@ import {
 export const VerificationRecu: React.FC = () => {
     const students = useStore((s) => s.students);
     const schoolName = useStore((s) => s.schoolName);
-    const { language } = useLanguage();
+    const { language } = useStore();
 
     const [codeRecherche, setCodeRecherche] = useState('');
     const [resultat, setResultat] = useState<'authentique' | 'invalide' | null>(null);

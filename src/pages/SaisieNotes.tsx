@@ -4,12 +4,12 @@ import { Edit3, Save, CheckCircle2, Printer, Calculator, X } from 'lucide-react'
 import { Note, PeriodeType, EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
 import { v4 as uuid } from '../utils/uuid';
 import { generateBordereauPDF } from '../utils/bordereauPdf';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 export const SaisieNotes: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const currentPeriode = useStore((s) => s.currentPeriode);
     const setCurrentPeriode = useStore((s) => s.setCurrentPeriode);
     const students = useStore((s) => s.students);

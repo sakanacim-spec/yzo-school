@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { ArrowLeft, Shield, FileText, Scale } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 export type LegalPageType = 'cgu' | 'privacy' | 'legal';
@@ -12,7 +12,7 @@ interface LegalPageProps {
 }
 
 export const LegalPage: React.FC<LegalPageProps> = ({ type, onBack }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
 
   const CONTENT = {
     cgu: {

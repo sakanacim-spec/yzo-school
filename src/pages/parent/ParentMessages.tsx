@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { parentApi } from '../../services/parentApi';
 import { MessageSquare, Bell, Loader2, AlertCircle } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 export const ParentMessages: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const [messages, setMessages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');

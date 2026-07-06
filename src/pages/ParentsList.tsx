@@ -3,12 +3,12 @@ import { parentApi } from '../services/parentApi';
 import { useStore } from '../store/useStore';
 import { Users, Phone, Calendar, MessageSquare, Search, Loader2, UserCheck, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 export const ParentsList: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const parents = useStore((s) => s.parents);
     const setParents = useStore((s) => s.setParents);
     const [loading, setLoading] = useState(true);

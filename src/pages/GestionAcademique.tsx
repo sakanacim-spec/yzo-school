@@ -3,12 +3,12 @@ import { useStore } from '../store/useStore';
 import { MatiereCategorie } from '../types';
 import { v4 as uuid } from '../utils/uuid';
 import { BookOpen, Plus, Trash2, Settings2, Users, Layers, Library } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 export const GestionAcademique: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const { 
         matieres, addMatiere, deleteMatiere,
         classeMatieres, addClasseMatiere, deleteClasseMatiere,

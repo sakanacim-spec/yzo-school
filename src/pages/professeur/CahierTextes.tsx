@@ -5,8 +5,8 @@ import { format, isValid } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { uploadDevoirFile } from '../../services/backendSync';
 import { notificationService } from '../../services/notificationService';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 import { notificationService } from '../../services/notificationService';
 
@@ -28,7 +28,7 @@ const parseDevoirDescription = (desc: string) => {
 };
 
 export const CahierTextes: React.FC = () => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const user = useStore(s => s.user);
   const students = useStore(s => s.students);
   const devoirs = useStore(s => s.devoirs);

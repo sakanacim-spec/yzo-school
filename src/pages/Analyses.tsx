@@ -7,12 +7,12 @@ import {
 import { TrendingUp, AlertTriangle, Target, Award, Eye, EyeOff, Activity, ShieldAlert, BarChart2, GraduationCap, Medal, AlertCircle, BookOpen } from 'lucide-react';
 import { computeCycleComparison, computeAcademicAnalytics } from '../services/analyticsService';
 import { formatMontant } from '../utils/helpers';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number }[]; label?: string }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const privacyMode = useStore(s => s.privacyMode);
   const currency = useStore(s => s.currency);
   if (!active || !payload?.length) return null;
@@ -37,7 +37,7 @@ const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
 };
 
 const PieMoneyTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number }[] }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const privacyMode = useStore(s => s.privacyMode);
   const currency = useStore(s => s.currency);
   if (!active || !payload?.length) return null;
@@ -50,7 +50,7 @@ const PieMoneyTooltip = ({ active, payload }: { active?: boolean; payload?: { na
 };
 
 const SingleValueTooltip = ({ active, payload, isScore = false }: { active?: boolean; payload?: any[], isScore?: boolean }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const privacyMode = useStore(s => s.privacyMode);
   if (!active || !payload?.length) return null;
   return (
@@ -66,7 +66,7 @@ const SingleValueTooltip = ({ active, payload, isScore = false }: { active?: boo
 const COLORS = ['#1e40af', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
 
 export const Analyses: React.FC = () => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const students = useStore((s) => s.students);
   const classes = useStore((s) => s.classes) || [];
   const notes = useStore((s) => s.notes) || [];

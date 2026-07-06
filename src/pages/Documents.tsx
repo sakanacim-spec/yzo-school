@@ -8,15 +8,15 @@ import {
   CheckCircle, MessageCircle, BookOpen, Printer, FileDown,
   Layers, X
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 const fmtMoney = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F';
 
 // Badge dynamique
 const DynamicBadge: React.FC<{ student: Student }> = ({ student }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const taux = student.ecolage > 0 ? student.dejaPaye / student.ecolage : 0;
   if (student.restant <= 0) {
     return (
@@ -43,7 +43,7 @@ const DynamicBadge: React.FC<{ student: Student }> = ({ student }) => {
 const StudentCard: React.FC<{ student: Student; schoolName: string; schoolYear: string; msgRem: string; msgRap: string; schoolLogo?: string; schoolStamp?: string }> = ({
   student, schoolName, schoolYear, msgRem, msgRap, schoolLogo, schoolStamp
 }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const taux = Math.round((student.dejaPaye / student.ecolage) * 100);
   const phone = (student.telephone || '').replace(/\D/g, '');
 
@@ -131,7 +131,7 @@ const StudentCard: React.FC<{ student: Student; schoolName: string; schoolYear: 
 };
 
 export const Documents: React.FC = () => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const students            = useStore((s) => s.students);
   const schoolName          = useStore((s) => s.schoolName);
   const schoolYear          = useStore((s) => s.schoolYear);

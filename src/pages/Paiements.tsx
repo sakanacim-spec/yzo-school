@@ -354,6 +354,7 @@ export const Paiements: React.FC = () => {
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500 text-[10px] font-black text-white uppercase tracking-[0.2em] mb-4 shadow-[0_0_15px_rgba(16,185,129,0.4)]">
                 <CreditCard className="w-3.5 h-3.5" /> {t(language as Language, 'payments.studentFinance') || 'Finance Étudiante'}
             </div>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter mb-2">
               {t(language as Language, 'payments.paymentsAnd') || 'Paiements &'} <span className="text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-emerald-600">{t(language as Language, 'payments.recovery') || 'Recouvrement'}</span>
             </h2>
             <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">

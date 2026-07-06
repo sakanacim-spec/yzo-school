@@ -20,8 +20,8 @@ import { generateRapportMensuelPDF } from '@/utils/reportGenerator';
 import { DashboardSkeleton } from '../components/SkeletonLoaders';
 
 import { formatMontant } from '../utils/helpers';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 const PIE_COLORS = ['#f59e0b', '#10b981', '#f43f5e'];
@@ -62,7 +62,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, sub, icon, color, tre
 );
 
 const CustomTooltip: React.FC<{ active?: boolean; payload?: { name: string; value: number }[]; label?: string }> = ({ active, payload, label }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const privacyMode = useStore(s => s.privacyMode);
   const currency = useStore(s => s.currency);
   if (active && payload && payload.length) {
@@ -89,7 +89,7 @@ const CustomTooltip: React.FC<{ active?: boolean; payload?: { name: string; valu
 };
 
 export const Dashboard: React.FC = () => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const students = useStore((s) => s.students);
   const classes = useStore((s) => s.classes) || [];
   const user = useStore((s) => s.user);

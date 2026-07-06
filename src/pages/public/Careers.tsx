@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Briefcase, Heart, Zap, Globe, ChevronRight, X, Send } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 interface CareersProps {
@@ -9,7 +9,7 @@ interface CareersProps {
 }
 
 export const Careers: React.FC<CareersProps> = ({ onBack }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
 
   const VALUES = [

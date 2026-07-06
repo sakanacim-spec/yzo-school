@@ -4,8 +4,8 @@ import { Phone, MessageSquare, Send, Users, AlertCircle, Filter, CheckCircle2, B
 import { formatMontant, generateWhatsAppLink, sendBulkSMS } from '../utils/helpers';
 import { notificationService } from '../services/notificationService';
 import { Student } from '../types';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 export const Communication: React.FC = () => {
@@ -13,7 +13,7 @@ export const Communication: React.FC = () => {
     const settings = useStore((s) => s.settings);
     const messageRappel = useStore((s) => s.messageRappel);
 
-    const { language } = useLanguage();
+    const { language } = useStore();
     const defaultMsg = t(language as Language, 'communication.defaultMessage') || "Bonjour parent de {nom_eleve},\nSauf erreur, il reste à payer {reste_a_payer} pour la scolarité.\nMerci de régulariser.\nLa Direction.";
     
     const [activeTab, setActiveTab] = useState<'impayes' | 'tous'>('impayes');

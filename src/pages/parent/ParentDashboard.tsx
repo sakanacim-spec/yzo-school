@@ -13,8 +13,8 @@ import { LinkStudentModal } from '../../components/LinkStudentModal';
 import { SupportModal } from '../../components/SupportModal';
 import { chatApi } from '../../services/chatApi';
 import { isToday, isTomorrow, isPast, isValid } from 'date-fns';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 // ── Types ────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ const Avatar: React.FC<{ name: string; size?: 'xs' | 'sm' | 'md' | 'lg' }> = ({ 
 
 // ── Badge date devoir ────────────────────────────────────────
 const DueDateBadge: React.FC<{ dateStr?: string }> = ({ dateStr }) => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     if (!dateStr) return null;
     const d = new Date(dateStr);
     if (!isValid(d)) return null;
@@ -77,7 +77,7 @@ interface ChildCardProps {
 const ChildCard: React.FC<ChildCardProps> = ({
     child, devoirs, presences, currency, onPay, loadingPayment, paymentEnabled, onDownloadInvoice, onUnlink, settings
 }) => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const [expanded, setExpanded] = useState(true);
 
     const childDevoirs = useMemo(() => {
@@ -322,7 +322,7 @@ const ChildCard: React.FC<ChildCardProps> = ({
 // Composant principal
 // ══════════════════════════════════════════════════════════════
 export const ParentDashboard: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const user = useStore((s) => s.user);
     const children = useStore((s) => s.students).slice().sort((a, b) => a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom));
     const settings = useStore((s) => s.settings);

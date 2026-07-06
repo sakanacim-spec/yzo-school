@@ -8,8 +8,8 @@ import {
 } from 'lucide-react';
 import { generateGradeReport } from '../../utils/pdfUtils';
 import { PeriodeType, DEFAULT_EVAL_CONFIGS } from '../../types';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 // ── Appréciation ─────────────────────────────────────────────
@@ -25,7 +25,7 @@ const getAppreciation = (avg: number | null, language: Language): { label: strin
 };
 
 export const ParentNotes: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const { notes, matieres, classeMatieres, students: children, settings } = useStore();
     const storedEvalConfigs = useStore(s => s.settings?.evalConfigs);
     const evalConfigs = (storedEvalConfigs && storedEvalConfigs.length > 0) ? storedEvalConfigs : DEFAULT_EVAL_CONFIGS;

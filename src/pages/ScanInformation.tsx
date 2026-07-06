@@ -7,8 +7,8 @@ import { Html5Qrcode } from "html5-qrcode";
 import {
     X, Wallet, Info, ShieldCheck, ChevronRight, Scan, CreditCard
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 import { playSuccessSound, playErrorSound, unlockAudio } from '../utils/audio';
 
@@ -148,7 +148,7 @@ const InfoStudentScanned: React.FC<{
 // ── Page principale ──────────────────────────────────────────
 export const ScanInformation: React.FC = () => {
     const students = useStore((s) => s.students);
-    const { language } = useLanguage();
+    const { language } = useStore();
     const [searchQuery, setSearchQuery] = useState('');
     const [scannedStudent, setScannedStudent] = useState<any | null>(null);
     const [cameraActive, setCameraActive] = useState(false);

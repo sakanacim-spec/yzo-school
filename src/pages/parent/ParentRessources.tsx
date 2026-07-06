@@ -6,8 +6,8 @@ import {
     Download, ExternalLink, BookOpen, Layers, GraduationCap,
     Filter, Clock, User, ChevronRight, Zap
 } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 // ── Catégorisation des ressources ────────────────────────────
@@ -36,7 +36,7 @@ const getTypeConfig = (language: Language): Record<ResourceType | string, { icon
 });
 
 export const ParentRessources: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const students = useStore(s => s.students);
     const resources = useStore(s => s.resources);
 

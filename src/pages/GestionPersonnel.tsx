@@ -3,8 +3,8 @@ import { Users, Plus, Trash2, Shield, Loader2 } from 'lucide-react';
 import { personnelApi } from '../services/personnelApi';
 import { UserRole } from '../types';
 import { useStore } from '../store/useStore';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 interface Personnel {
@@ -15,7 +15,7 @@ interface Personnel {
 }
 
 export const GestionPersonnel: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const { user } = useStore();
     const [personnelList, setPersonnelList] = useState<Personnel[]>([]);
     const [isLoading, setIsLoading] = useState(true);

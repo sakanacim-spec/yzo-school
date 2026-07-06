@@ -472,6 +472,7 @@ export const Eleves: React.FC = () => {
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500 text-[10px] font-black text-white uppercase tracking-[0.2em] mb-4 shadow-[0_0_15px_rgba(245,158,11,0.4)]">
                 <GraduationCap className="w-3.5 h-3.5" /> {t(language as Language, 'students.headcount') || 'Effectif'}
             </div>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter mb-2">
               {t(language as Language, 'students.registerOf') || 'Registre des'} <span className="text-transparent bg-clip-text bg-gradient-to-br from-amber-400 to-amber-600">{t(language as Language, 'students.students') || 'Élèves'}</span>
             </h2>
             <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">

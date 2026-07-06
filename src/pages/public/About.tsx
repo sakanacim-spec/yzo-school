@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Users, CheckCircle, ArrowLeft } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 interface AboutProps {
@@ -9,7 +9,7 @@ interface AboutProps {
 }
 
 export const About: React.FC<AboutProps> = ({ onBack }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);

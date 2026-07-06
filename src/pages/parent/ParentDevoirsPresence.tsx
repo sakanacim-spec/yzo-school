@@ -8,8 +8,8 @@ import {
 import { format, isValid, parseISO, isPast, isToday, isTomorrow, differenceInDays } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { parentApi } from '../../services/parentApi';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 const safeFormatDate = (dateStr: string | undefined, fmt: string, language?: Language) => {
@@ -47,7 +47,7 @@ export const ParentDevoirsPresence: React.FC = () => {
     const students = useStore(s => s.students);
     const devoirs = useStore(s => s.devoirs) || [];
     const presences = useStore(s => s.presences) || [];
-    const { language } = useLanguage();
+    const { language } = useStore();
 
     // Filtre robuste : tous les enfants du store (déjà filtrés côté parent par le store)
     const myChildren = useMemo(() => students, [students]);

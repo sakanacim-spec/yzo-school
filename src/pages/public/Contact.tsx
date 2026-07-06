@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Phone, MapPin, Send, ArrowLeft } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 interface ContactProps {
@@ -9,7 +9,7 @@ interface ContactProps {
 }
 
 export const Contact: React.FC<ContactProps> = ({ onBack }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const [contactName, setContactName] = useState('');
   const [contactCountry, setContactCountry] = useState('');
   const [contactEmail, setContactEmail] = useState('');

@@ -12,8 +12,8 @@ import {
     CheckCircle, Loader2, ChevronDown, AlertCircle, User,
     Users, Info
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 // ============================================================
@@ -480,7 +480,7 @@ export const CarteScolaire: React.FC = () => {
     const schoolName = useStore(s => s.schoolName);
     const schoolYear = useStore(s => s.schoolYear);
     const schoolLogo = useStore(s => s.schoolLogo);
-    const { language } = useLanguage();
+    const { language } = useStore();
 
     const [search,          setSearch]          = useState('');
     const [selectedClasse,  setSelectedClasse]  = useState('');

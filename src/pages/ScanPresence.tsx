@@ -13,8 +13,8 @@ import {
     Camera, Search, CheckCircle2, AlertTriangle, UserCheck,
     Clock, Users, X
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { t } from '../utils/i18n';
+import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import type { Language } from '../types';
 
 // import { sendDirectNotification } from '../services/whatsappService'; // Non utilisé actuellement
@@ -71,7 +71,7 @@ export const ScanPresence: React.FC = () => {
     const addActivityLog = useStore((s) => s.addActivityLog);
     const user = useStore((s) => s.user);
     const schoolName = useStore((s) => s.schoolName);
-    const { language } = useLanguage();
+    const { language } = useStore();
     const getHeureLimite = useStore((s) => s.getHeureLimite);
 
     const [searchQuery, setSearchQuery] = useState('');

@@ -4,12 +4,12 @@ import { Resource, ResourceType } from '../../types';
 import { FileText, Video, Link as LinkIcon, File, Plus, X, Trash2, Search, Filter } from 'lucide-react';
 import { v4 as uuid } from '../../utils/uuid';
 import { playSuccessSound } from '../../utils/audio';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 export const ProfRessources: React.FC = () => {
-    const { language } = useLanguage();
+    const { language } = useStore();
     const user = useStore(s => s.user);
     const resources = useStore(s => s.resources);
     const addResource = useStore(s => s.addResource);

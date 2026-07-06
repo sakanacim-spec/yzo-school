@@ -1,13 +1,13 @@
 import React from 'react';
 import { useStore } from '../../store/useStore';
 import { Award, ShieldCheck, Zap, Star, Loader2, AlertCircle, TrendingUp, Clock, Medal } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 export const ParentBadges: React.FC = () => {
     const { badges } = useStore();
-    const { language } = useLanguage();
+    const { language } = useStore();
     const loading = false;
     const error = ''; 
 

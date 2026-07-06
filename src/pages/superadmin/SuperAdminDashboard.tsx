@@ -11,8 +11,8 @@ import { School } from '../../types';
 import { API_BASE_URL } from '../../config';
 import { useStore } from '../../store/useStore';
 import { COUNTRIES, getCountryName } from '../../data/countries';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { t } from '../../utils/i18n';
+import { useStore } from '../../store/useStore';
+import { t } from '../../i18n';
 import type { Language } from '../../types';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -70,7 +70,7 @@ interface CreateSchoolModalProps {
 }
 
 const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreated }) => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const [form, setForm] = useState({
     name: '', slug: '', country: '', city: '', address: '', phone: '', email: '',
     admin_nom: '', admin_telephone: '', admin_password: '',
@@ -282,7 +282,7 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
 
 // ── DASHBOARD PRINCIPAL ───────────────────────────────────────
 export const SuperAdminDashboard: React.FC = () => {
-  const { language } = useLanguage();
+  const { language } = useStore();
   const [schools, setSchools] = useState<SchoolWithStats[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState<GlobalStats | null>(null);
