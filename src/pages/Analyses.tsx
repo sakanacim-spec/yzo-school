@@ -7,8 +7,12 @@ import {
 import { TrendingUp, AlertTriangle, Target, Award, Eye, EyeOff, Activity, ShieldAlert, BarChart2, GraduationCap, Medal, AlertCircle, BookOpen } from 'lucide-react';
 import { computeCycleComparison, computeAcademicAnalytics } from '../services/analyticsService';
 import { formatMontant } from '../utils/helpers';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number }[]; label?: string }) => {
+  const { language } = useLanguage();
   const privacyMode = useStore(s => s.privacyMode);
   const currency = useStore(s => s.currency);
   if (!active || !payload?.length) return null;
@@ -20,7 +24,7 @@ const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
           <div key={i} className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.name === 'paye' || p.name === 'Payé' ? '#10b981' : '#f43f5e' }} />
-              <span className="font-bold text-slate-600 dark:text-slate-300 capitalize">{p.name}</span>
+              <span className="font-bold text-slate-600 dark:text-slate-300 capitalize">{p.name === 'paye' || p.name === 'Payé' ? (t(language as Language, 'analytics.paid') || 'Payé') : (t(language as Language, 'analytics.remains') || 'Restant')}</span>
             </div>
             <span className="font-black text-slate-900 dark:text-white">
               {privacyMode ? '•••••••' : formatMontant(p.value, currency)}
@@ -33,6 +37,7 @@ const MoneyTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
 };
 
 const PieMoneyTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number }[] }) => {
+  const { language } = useLanguage();
   const privacyMode = useStore(s => s.privacyMode);
   const currency = useStore(s => s.currency);
   if (!active || !payload?.length) return null;
@@ -45,6 +50,7 @@ const PieMoneyTooltip = ({ active, payload }: { active?: boolean; payload?: { na
 };
 
 const SingleValueTooltip = ({ active, payload, isScore = false }: { active?: boolean; payload?: any[], isScore?: boolean }) => {
+  const { language } = useLanguage();
   const privacyMode = useStore(s => s.privacyMode);
   if (!active || !payload?.length) return null;
   return (
@@ -60,6 +66,7 @@ const SingleValueTooltip = ({ active, payload, isScore = false }: { active?: boo
 const COLORS = ['#1e40af', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
 
 export const Analyses: React.FC = () => {
+  const { language } = useLanguage();
   const students = useStore((s) => s.students);
   const classes = useStore((s) => s.classes) || [];
   const notes = useStore((s) => s.notes) || [];
@@ -130,9 +137,9 @@ export const Analyses: React.FC = () => {
         <div className="w-32 h-32 bg-amber-500/10 dark:bg-amber-500/5 rounded-[2rem] flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
           <Activity className="w-16 h-16 text-amber-500 animate-pulse" />
         </div>
-        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">Aucune donnée à analyser</h2>
+        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">{t(language as Language, 'analytics.noDataToAnalyze') || 'Aucune donnée à analyser'}</h2>
         <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto px-4 text-base leading-relaxed">
-          Importez des élèves depuis la section Élèves pour activer les capacités d'analyse financière et académique.
+          {t(language as Language, 'analytics.importStudentsToActivate') || 'Importez des élèves depuis la section Élèves pour activer les capacités d\'analyse financière et académique.'}
         </p>
       </div>
     );
@@ -150,10 +157,10 @@ export const Analyses: React.FC = () => {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-xl">
             <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter mb-2">
-              Statistiques & <span className="text-transparent bg-clip-text bg-gradient-to-br from-amber-400 to-amber-600">Analyses</span>
+              {t(language as Language, 'analytics.statisticsAnd') || 'Statistiques &'} <span className="text-transparent bg-clip-text bg-gradient-to-br from-amber-400 to-amber-600">{t(language as Language, 'analytics.analyses') || 'Analyses'}</span>
             </h2>
             <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
-              Intelligence artificielle et modélisation des données de l'établissement
+              {t(language as Language, 'analytics.aiAndDataModeling') || 'Intelligence artificielle et modélisation des données de l\'établissement'}
             </p>
           </div>
           
@@ -167,7 +174,7 @@ export const Analyses: React.FC = () => {
                             : 'text-slate-500 hover:text-slate-700'
                     }`}
                 >
-                    <BarChart2 className="w-4 h-4" /> Finance
+                    <BarChart2 className="w-4 h-4" /> {t(language as Language, 'analytics.finance') || 'Finance'}
                 </button>
                 <button
                     onClick={() => setActiveTab('academie')}
@@ -177,7 +184,7 @@ export const Analyses: React.FC = () => {
                             : 'text-slate-500 hover:text-slate-700'
                     }`}
                 >
-                    <GraduationCap className="w-4 h-4" /> Académie
+                    <GraduationCap className="w-4 h-4" /> {t(language as Language, 'analytics.academy') || 'Académie'}
                 </button>
             </div>
 
@@ -188,7 +195,7 @@ export const Analyses: React.FC = () => {
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${privacyMode ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'bg-slate-100 dark:bg-slate-700'}`}>
                 {privacyMode ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                 </div>
-                CONFIDENTIEL
+                {t(language as Language, 'analytics.confidential') || 'CONFIDENTIEL'}
             </button>
           </div>
         </div>
@@ -199,14 +206,14 @@ export const Analyses: React.FC = () => {
             {/* ✨ KPIs FINANCE */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {[
-                { label: 'Revenus Encaissés', value: maskValue(formatMontant(totalPaye, currency)), colors: { text: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-500/20' }, icon: <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> },
-                { label: 'Dépenses Totales', value: maskValue(formatMontant(totalDepenses, currency)), colors: { text: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-500/20' }, icon: <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400" /> },
-                { label: 'Bénéfice Net', value: maskValue(formatMontant(beneficeNet, currency)), colors: { text: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-500/20' }, icon: <Award className="w-6 h-6 text-amber-600 dark:text-amber-400" /> },
-                { label: 'Taux Recouvrement', value: maskValue(`${tauxGlobal}%`), colors: { text: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-500/20' }, icon: <Target className="w-6 h-6 text-blue-600 dark:text-blue-400" /> },
-                { label: 'À Recouvrer', value: maskValue(formatMontant(totalRestant, currency)), colors: { text: 'text-fuchsia-700 dark:text-fuchsia-400', bg: 'bg-fuchsia-50 dark:bg-fuchsia-500/10', border: 'border-fuchsia-500/20' }, icon: <ShieldAlert className="w-6 h-6 text-fuchsia-600 dark:text-fuchsia-400" /> },
-                { label: 'Potentiel Total', value: maskValue(formatMontant(totalEcolage, currency)), colors: { text: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-500/10', border: 'border-violet-500/20' }, icon: <BarChart2 className="w-6 h-6 text-violet-600 dark:text-violet-400" /> },
+                { id: 'revenues', label: t(language as Language, 'analytics.revenuesCollected') || 'Revenus Encaissés', value: maskValue(formatMontant(totalPaye, currency)), colors: { text: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-500/20' }, icon: <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> },
+                { id: 'expenses', label: t(language as Language, 'analytics.totalExpenses') || 'Dépenses Totales', value: maskValue(formatMontant(totalDepenses, currency)), colors: { text: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-500/20' }, icon: <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400" /> },
+                { id: 'profit', label: t(language as Language, 'analytics.netProfit') || 'Bénéfice Net', value: maskValue(formatMontant(beneficeNet, currency)), colors: { text: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-500/20' }, icon: <Award className="w-6 h-6 text-amber-600 dark:text-amber-400" /> },
+                { id: 'rate', label: t(language as Language, 'analytics.recoveryRate') || 'Taux Recouvrement', value: maskValue(`${tauxGlobal}%`), colors: { text: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-500/20' }, icon: <Target className="w-6 h-6 text-blue-600 dark:text-blue-400" /> },
+                { id: 'recover', label: t(language as Language, 'analytics.toRecover') || 'À Recouvrer', value: maskValue(formatMontant(totalRestant, currency)), colors: { text: 'text-fuchsia-700 dark:text-fuchsia-400', bg: 'bg-fuchsia-50 dark:bg-fuchsia-500/10', border: 'border-fuchsia-500/20' }, icon: <ShieldAlert className="w-6 h-6 text-fuchsia-600 dark:text-fuchsia-400" /> },
+                { id: 'potential', label: t(language as Language, 'analytics.totalPotential') || 'Potentiel Total', value: maskValue(formatMontant(totalEcolage, currency)), colors: { text: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-500/10', border: 'border-violet-500/20' }, icon: <BarChart2 className="w-6 h-6 text-violet-600 dark:text-violet-400" /> },
                 ].map((k, idx) => (
-                <div key={k.label} className={`pro-card p-6 ${k.colors.bg} ${k.colors.border} relative overflow-hidden group hover:-translate-y-1 transition-all duration-300`} style={{ animationDelay: `${idx * 100}ms` }}>
+                <div key={k.id} className={`pro-card p-6 ${k.colors.bg} ${k.colors.border} relative overflow-hidden group hover:-translate-y-1 transition-all duration-300`} style={{ animationDelay: `${idx * 100}ms` }}>
                     <div className={`absolute -right-8 -top-8 w-24 h-24 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity bg-current ${k.colors.text}`} />
                     <div className="relative z-10 flex items-center justify-between mb-4">
                     <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{k.label}</p>
@@ -223,8 +230,8 @@ export const Analyses: React.FC = () => {
             <div className="pro-card p-8">
                 <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">Revenus par classe</h3>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Montants encaissés vs restants ({currency})</p>
+                    <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">{t(language as Language, 'analytics.revenuesByClass') || 'Revenus par classe'}</h3>
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{t(language as Language, 'analytics.amountsCollectedVsRemaining') ? (t(language as Language, 'analytics.amountsCollectedVsRemaining') as string).replace('{{currency}}', currency) : `Montants encaissés vs restants (${currency})`}</p>
                 </div>
                 </div>
                 <ResponsiveContainer width="100%" height={320}>
@@ -234,8 +241,8 @@ export const Analyses: React.FC = () => {
                     <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }} tickLine={false} axisLine={false} dx={-10} />
                     <Tooltip cursor={{ fill: 'transparent' }} content={<MoneyTooltip />} />
                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px', fontWeight: 700 }} iconType="circle" />
-                    <Bar dataKey="paye" name="Payé" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                    <Bar dataKey="restant" name="Restant" fill="#f43f5e" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="paye" name={t(language as Language, 'analytics.paid') || 'Payé'} fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="restant" name={t(language as Language, 'analytics.remains') || 'Restant'} fill="#f43f5e" radius={[6, 6, 0, 0]} maxBarSize={40} />
                 </BarChart>
                 </ResponsiveContainer>
             </div>
@@ -243,22 +250,22 @@ export const Analyses: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* 💰 RADAR CHART */}
                 <div className="pro-card p-8 flex flex-col items-center">
-                    <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight w-full mb-1">Performance Cycles</h3>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest w-full mb-8">Taux de recouvrement %</p>
+                    <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight w-full mb-1">{t(language as Language, 'analytics.cyclesPerformance') || 'Performance Cycles'}</h3>
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest w-full mb-8">{t(language as Language, 'analytics.recoveryRatePercent') || 'Taux de recouvrement %'}</p>
                     <ResponsiveContainer width="100%" height={300}>
                         <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
                         <PolarGrid stroke="#e2e8f0" />
                         <PolarAngleAxis dataKey="cycle" tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} />
                         <Tooltip content={<SingleValueTooltip />} />
-                        <Radar name="Taux" dataKey="taux" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} />
+                        <Radar name={t(language as Language, 'analytics.rate') || 'Taux'} dataKey="taux" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} />
                         </RadarChart>
                     </ResponsiveContainer>
                 </div>
 
                 {/* 💰 PIE CHART */}
                 <div className="pro-card p-8 flex flex-col items-center">
-                    <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight w-full mb-1">Répartition Revenus</h3>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest w-full mb-8">Part de chaque cycle</p>
+                    <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight w-full mb-1">{t(language as Language, 'analytics.revenuesDistribution') || 'Répartition Revenus'}</h3>
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest w-full mb-8">{t(language as Language, 'analytics.shareOfEachCycle') || 'Part de chaque cycle'}</p>
                     <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
                         <Pie data={cyclePieData} innerRadius={80} outerRadius={120} paddingAngle={5} dataKey="value" stroke="none">
@@ -280,20 +287,20 @@ export const Analyses: React.FC = () => {
                     <div className="p-3 bg-rose-100 dark:bg-rose-500/20 rounded-xl">
                     <ShieldAlert className="w-5 h-5 animate-pulse" />
                     </div>
-                    Détection Automatique — Retards Critiques ({retards.length})
+                    {t(language as Language, 'analytics.autoDetectionCriticalDelays') || 'Détection Automatique — Retards Critiques'} ({retards.length})
                 </h3>
-                <p className="text-xs font-bold text-rose-600 dark:text-rose-500 uppercase tracking-widest mb-6 ml-14">Élèves ayant payé moins de 30%</p>
+                <p className="text-xs font-bold text-rose-600 dark:text-rose-500 uppercase tracking-widest mb-6 ml-14">{t(language as Language, 'analytics.studentsPaidLessThan30') || 'Élèves ayant payé moins de 30%'}</p>
                 
                 <div className="overflow-x-auto custom-scrollbar pb-4 ml-0 lg:ml-14">
                     <table className="w-full text-sm text-left">
                     <thead>
                         <tr className="border-b border-rose-200 dark:border-rose-800/50">
-                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Élève</th>
-                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Classe</th>
-                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Payé</th>
-                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Restant</th>
-                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Taux</th>
-                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Contact</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.student') || 'Élève'}</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.class') || 'Classe'}</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.paid') || 'Payé'}</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.remains') || 'Restant'}</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.rate') || 'Taux'}</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.contact') || 'Contact'}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-rose-100 dark:divide-rose-800/30">
@@ -313,7 +320,7 @@ export const Analyses: React.FC = () => {
                     </tbody>
                     </table>
                 </div>
-                {retards.length > 10 && <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mt-4 ml-14 text-center">… et {retards.length - 10} autres élèves masqués</p>}
+                {retards.length > 10 && <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mt-4 ml-14 text-center">{(t(language as Language, 'analytics.andOtherStudentsHidden') || '… et {{count}} autres élèves masqués').replace('{{count}}', String(retards.length - 10))}</p>}
                 </div>
             )}
 
@@ -323,23 +330,23 @@ export const Analyses: React.FC = () => {
                 <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 rounded-xl">
                     <TrendingUp className="w-5 h-5" />
                 </div>
-                Prévisions & Trésorerie
+                {t(language as Language, 'analytics.forecastsAndTreasury') || 'Prévisions & Trésorerie'}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <div className="bg-indigo-50/80 dark:bg-indigo-500/10 rounded-2xl p-6 border border-indigo-100 dark:border-indigo-500/20 transition-transform hover:-translate-y-1">
-                    <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2">Potentiel Maximum</p>
+                    <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2">{t(language as Language, 'analytics.maximumPotential') || 'Potentiel Maximum'}</p>
                     <p className="text-3xl font-black text-indigo-900 dark:text-indigo-400 tracking-tighter mb-1">{maskValue(formatMontant(totalEcolage, currency))}</p>
-                    <p className="text-[11px] font-bold text-indigo-400">Si 100% du recouvrement est atteint</p>
+                    <p className="text-[11px] font-bold text-indigo-400">{t(language as Language, 'analytics.if100RecoveryReached') || 'Si 100% du recouvrement est atteint'}</p>
                 </div>
                 <div className="bg-emerald-50/80 dark:bg-emerald-500/10 rounded-2xl p-6 border border-emerald-100 dark:border-emerald-500/20 transition-transform hover:-translate-y-1">
-                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2">Situation Réelle ({maskValue(tauxGlobal)}%)</p>
+                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2">{t(language as Language, 'analytics.realSituation') ? (t(language as Language, 'analytics.realSituation') as string).replace('{{rate}}', String(maskValue(tauxGlobal))) : `Situation Réelle (${maskValue(tauxGlobal)}%)`}</p>
                     <p className="text-3xl font-black text-emerald-900 dark:text-emerald-400 tracking-tighter mb-1">{maskValue(formatMontant(totalPaye, currency))}</p>
-                    <p className="text-[11px] font-bold text-emerald-400">Total encaissé de façon effective</p>
+                    <p className="text-[11px] font-bold text-emerald-400">{t(language as Language, 'analytics.totalEffectivelyCollected') || 'Total encaissé de façon effective'}</p>
                 </div>
                 <div className="bg-amber-50/80 dark:bg-amber-500/10 rounded-2xl p-6 border border-amber-100 dark:border-amber-500/20 transition-transform hover:-translate-y-1">
-                    <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2">Déficit Objectif</p>
+                    <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2">{t(language as Language, 'analytics.objectiveDeficit') || 'Déficit Objectif'}</p>
                     <p className="text-3xl font-black text-amber-900 dark:text-amber-400 tracking-tighter mb-1">{maskValue(100 - tauxGlobal)}%</p>
-                    <p className="text-[11px] font-bold text-amber-500">Soit {maskValue(formatMontant(totalRestant, currency))} en attente</p>
+                    <p className="text-[11px] font-bold text-amber-500">{(t(language as Language, 'analytics.thatIsPending') || 'Soit {{amount}} en attente').replace('{{amount}}', String(maskValue(formatMontant(totalRestant, currency))))}</p>
                 </div>
                 </div>
             </div>
@@ -352,9 +359,9 @@ export const Analyses: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="pro-card p-6 bg-gradient-to-br from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-800/10 border-indigo-200 dark:border-indigo-800/30 flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Taux de réussite global</p>
+                        <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">{t(language as Language, 'analytics.globalSuccessRate') || 'Taux de réussite global'}</p>
                         <p className="text-4xl font-black text-indigo-900 dark:text-indigo-400 tracking-tighter">{academicData.tauxReussite}%</p>
-                        <p className="text-xs font-bold text-indigo-600/70 mt-1">Moyenne &ge; 10/20</p>
+                        <p className="text-xs font-bold text-indigo-600/70 mt-1">{t(language as Language, 'analytics.averageGte10') || 'Moyenne \u2265 10/20'}</p>
                     </div>
                     <div className="w-16 h-16 rounded-2xl bg-indigo-200/50 dark:bg-indigo-800/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                         <GraduationCap className="w-8 h-8" />
@@ -363,9 +370,9 @@ export const Analyses: React.FC = () => {
 
                 <div className="pro-card p-6 bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-900/20 dark:to-violet-800/10 border-violet-200 dark:border-violet-800/30 flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mb-1">Moyenne de l'établissement</p>
+                        <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mb-1">{t(language as Language, 'analytics.schoolAverage') || 'Moyenne de l\'établissement'}</p>
                         <p className="text-4xl font-black text-violet-900 dark:text-violet-400 tracking-tighter">{academicData.moyenneGenerale}<span className="text-lg text-violet-600/50">/20</span></p>
-                        <p className="text-xs font-bold text-violet-600/70 mt-1">Toutes classes confondues</p>
+                        <p className="text-xs font-bold text-violet-600/70 mt-1">{t(language as Language, 'analytics.allClassesCombined') || 'Toutes classes confondues'}</p>
                     </div>
                     <div className="w-16 h-16 rounded-2xl bg-violet-200/50 dark:bg-violet-800/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
                         <BookOpen className="w-8 h-8" />
@@ -378,8 +385,8 @@ export const Analyses: React.FC = () => {
                 <div className="lg:col-span-2 pro-card p-8">
                     <div className="flex items-center justify-between mb-8">
                         <div>
-                            <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">Performances par classe</h3>
-                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Moyennes générales (/20)</p>
+                            <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">{t(language as Language, 'analytics.performancesByClass') || 'Performances par classe'}</h3>
+                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{t(language as Language, 'analytics.generalAverages') || 'Moyennes générales (/20)'}</p>
                         </div>
                     </div>
                     <ResponsiveContainer width="100%" height={320}>
@@ -388,7 +395,7 @@ export const Analyses: React.FC = () => {
                             <XAxis dataKey="classe" tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }} tickLine={false} axisLine={false} dy={10} />
                             <YAxis domain={[0, 20]} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }} tickLine={false} axisLine={false} dx={-10} />
                             <Tooltip cursor={{ fill: 'transparent' }} content={<SingleValueTooltip isScore />} />
-                            <Bar dataKey="moyenne" name="Moyenne" radius={[6, 6, 0, 0]} maxBarSize={50}>
+                            <Bar dataKey="moyenne" name={t(language as Language, 'analytics.average') || 'Moyenne'} radius={[6, 6, 0, 0]} maxBarSize={50}>
                                 {academicData.classAverages.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.moyenne >= 10 ? '#8b5cf6' : '#f43f5e'} />
                                 ))}
@@ -401,12 +408,12 @@ export const Analyses: React.FC = () => {
                 <div className="pro-card p-0 overflow-hidden flex flex-col">
                     <div className="bg-amber-500 p-6 text-white text-center">
                         <Medal className="w-10 h-10 mx-auto mb-2 drop-shadow-md text-amber-100" />
-                        <h3 className="font-black text-xl tracking-tight drop-shadow-md">Tableau d'Honneur</h3>
-                        <p className="text-xs font-bold text-amber-100 uppercase tracking-widest mt-1">Les 5 meilleurs élèves</p>
+                        <h3 className="font-black text-xl tracking-tight drop-shadow-md">{t(language as Language, 'analytics.honorRoll') || "Tableau d'Honneur"}</h3>
+                        <p className="text-xs font-bold text-amber-100 uppercase tracking-widest mt-1">{t(language as Language, 'analytics.top5Students') || 'Les 5 meilleurs élèves'}</p>
                     </div>
                     <div className="flex-1 p-4 bg-white dark:bg-slate-900">
                         {academicData.top5.length === 0 ? (
-                            <p className="text-center text-slate-400 font-bold mt-10">Aucune note saisie.</p>
+                            <p className="text-center text-slate-400 font-bold mt-10">{t(language as Language, 'analytics.noGradesEntered') || 'Aucune note saisie.'}</p>
                         ) : (
                             <ul className="space-y-3">
                                 {academicData.top5.map((s, idx) => (
@@ -436,18 +443,18 @@ export const Analyses: React.FC = () => {
                         <div className="p-3 bg-rose-100 dark:bg-rose-500/20 rounded-xl">
                             <AlertCircle className="w-5 h-5 animate-pulse" />
                         </div>
-                        Détection Décrochage — Élèves en difficulté ({academicData.alertes.length})
+                        {t(language as Language, 'analytics.dropoutDetectionStrugglingStudents') || 'Détection Décrochage — Élèves en difficulté'} ({academicData.alertes.length})
                     </h3>
-                    <p className="text-xs font-bold text-rose-600 dark:text-rose-500 uppercase tracking-widest mb-6 ml-14">Moyenne générale inférieure à 8/20</p>
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-500 uppercase tracking-widest mb-6 ml-14">{t(language as Language, 'analytics.averageLessThan8') || 'Moyenne générale inférieure à 8/20'}</p>
                     
                     <div className="overflow-x-auto custom-scrollbar pb-4 ml-0 lg:ml-14">
                         <table className="w-full text-sm text-left">
                             <thead>
                                 <tr className="border-b border-rose-200 dark:border-rose-800/50">
-                                    <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Élève</th>
-                                    <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Classe</th>
-                                    <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Moyenne Actuelle</th>
-                                    <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">Contact Parent</th>
+                                    <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.student') || 'Élève'}</th>
+                                    <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.class') || 'Classe'}</th>
+                                    <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.currentAverage') || 'Moyenne Actuelle'}</th>
+                                    <th className="px-4 py-3 text-[10px] font-black text-rose-500 uppercase tracking-widest">{t(language as Language, 'analytics.parentContact') || 'Contact Parent'}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-rose-100 dark:divide-rose-800/30">

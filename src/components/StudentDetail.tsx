@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Student } from '../types';
+import { t, Language } from '../i18n';
 import { generateRecuPDF } from '../utils/pdfGenerator';
 import {
   X, Download, MessageCircle, Clock, CheckCircle,
@@ -23,6 +24,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
   const messageRappel       = useStore((s) => s.messageRappel);
   const schoolLogo          = useStore((s) => s.schoolLogo);
   const schoolStamp         = useStore((s) => s.schoolStamp);
+  const language            = useStore((s) => s.language as Language);
 
   const [tab, setTab] = useState<'infos' | 'historique'>('infos');
   const [isUploading, setIsUploading] = useState(false);
@@ -82,13 +84,13 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
             s.id === student.id ? { ...s, photoUrl: data.photoUrl } : s
           );
           useStore.setState({ students: updated });
-          alert('✅ Photo mise à jour !');
+          alert(t(language, 'common.photoUpdated') || '✅ Photo mise à jour !');
         } else {
-          alert('❌ Erreur: ' + (data.error || 'Inconnue'));
+          alert((t(language, 'common.error') || '❌ Erreur: ') + (data.error || 'Inconnue'));
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Upload Error:', err);
-        alert('❌ Erreur lors de l\'envoi de la photo.');
+        alert(err?.error || err?.message || t(language, 'common.photoError') || '❌ Erreur lors de l\'envoi de la photo.');
       } finally {
         setIsUploading(false);
       }
@@ -148,15 +150,15 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
         <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
           {isSolde ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold border border-emerald-300">
-              <CheckCircle className="w-3.5 h-3.5" /> Parent Responsable · Élève Soldé
+              <CheckCircle className="w-3.5 h-3.5" /> {t(language, 'students.statusPaid') || 'Élève Soldé'}
             </span>
           ) : isPartiel ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full text-xs font-bold border border-amber-300">
-              ✓ 2ᵉ Tranche Validée (≥70%)
+              ✓ {t(language, 'students.statusPartial') || '2ᵉ Tranche Validée'}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-800 rounded-full text-xs font-bold border border-red-300">
-              <AlertTriangle className="w-3.5 h-3.5" /> Non Soldé · Rappel requis
+              <AlertTriangle className="w-3.5 h-3.5" /> {t(language, 'students.statusUnpaid') || 'Non Soldé'}
             </span>
           )}
 
@@ -177,17 +179,17 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
 
         {/* Onglets */}
         <div className="flex border-b border-gray-100">
-          {(['infos', 'historique'] as const).map((t) => (
+          {(['infos', 'historique'] as const).map((tTab) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tTab}
+              onClick={() => setTab(tTab)}
               className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                tab === t
+                tab === tTab
                   ? 'text-amber-500 border-b-2 border-amber-500'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {t === 'infos' ? 'Informations' : `Historique (${student.historiquesPaiements.length})`}
+              {tTab === 'infos' ? (t(language, 'students.informations') || 'Informations') : `${t(language, 'payments.paymentHistory') || 'Historique'} (${student.historiquesPaiements.length})`}
             </button>
           ))}
         </div>
@@ -200,14 +202,14 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
               {/* Infos personnelles */}
               <div>
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5" /> Informations personnelles
+                  <User className="w-3.5 h-3.5" /> {t(language, 'students.personalInfo') || 'Informations personnelles'}
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Nom complet', value: `${student.prenom} ${student.nom}` },
-                    { label: 'Sexe', value: student.sexe === 'M' ? 'Masculin' : 'Féminin' },
-                    { label: 'Redoublant', value: student.redoublant ? 'Oui' : 'Non' },
-                    { label: 'N° Reçu', value: student.recu || '—' },
+                    { label: t(language, 'students.fullName') || 'Nom complet', value: `${student.prenom} ${student.nom}` },
+                    { label: t(language, 'common.gender') || 'Sexe', value: student.sexe === 'M' ? (t(language, 'students.male') || 'Masculin') : (t(language, 'students.female') || 'Féminin') },
+                    { label: t(language, 'students.repeating') || 'Redoublant', value: student.redoublant ? (t(language, 'common.yes') || 'Oui') : (t(language, 'common.no') || 'Non') },
+                    { label: t(language, 'payments.receipt') || 'N° Reçu', value: student.recu || '—' },
                   ].map(({ label, value }) => (
                     <div key={label} className="bg-gray-50 rounded-xl p-3">
                       <p className="text-xs text-gray-400 mb-0.5">{label}</p>
@@ -220,14 +222,14 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
               {/* Scolarité */}
               <div>
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <School className="w-3.5 h-3.5" /> Scolarité
+                  <School className="w-3.5 h-3.5" /> {t(language, 'settings.schoolInfo') || 'Scolarité'}
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Classe', value: student.classe },
-                    { label: 'Cycle', value: student.cycle },
-                    { label: 'École de provenance', value: student.ecoleProvenance || 'N/A' },
-                    { label: 'Année scolaire', value: schoolYear },
+                    { label: t(language, 'common.class') || 'Classe', value: student.classe },
+                    { label: t(language, 'dashboard.table.cycle') || 'Cycle', value: student.cycle },
+                    { label: t(language, 'common.previousSchool') || 'École de provenance', value: student.ecoleProvenance || 'N/A' },
+                    { label: t(language, 'settings.schoolYear') || 'Année scolaire', value: schoolYear },
                   ].map(({ label, value }) => (
                     <div key={label} className="bg-gray-50 rounded-xl p-3">
                       <p className="text-xs text-gray-400 mb-0.5">{label}</p>
@@ -240,10 +242,10 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
               {/* Contact */}
               <div>
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5" /> Contact parent
+                  <Phone className="w-3.5 h-3.5" /> {t(language, 'students.parentContact') || 'Contact parent'}
                 </h3>
                 <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-400 mb-0.5">Téléphone</p>
+                  <p className="text-xs text-gray-400 mb-0.5">{t(language, 'common.phone') || 'Téléphone'}</p>
                   <p className="text-sm font-semibold text-gray-900 font-mono">{student.telephone}</p>
                 </div>
               </div>
@@ -251,23 +253,23 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
               {/* Situation financière */}
               <div>
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5" /> Situation financière
+                  <CreditCard className="w-3.5 h-3.5" /> {t(language, 'students.fees') || 'Situation financière'}
                 </h3>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-gray-50 rounded-xl p-3 text-center">
-                    <p className="text-xs text-gray-400 mb-1">Écolage</p>
+                    <p className="text-xs text-gray-400 mb-1">{t(language, 'students.fees') || 'Écolage'}</p>
                     <p className="text-sm font-bold text-gray-900">{new Intl.NumberFormat('fr-FR').format(student.ecolage)}</p>
                     <p className="text-xs text-gray-400">{useStore.getState().currency}</p>
                   </div>
                   <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                    <p className="text-xs text-emerald-600 mb-1">Payé</p>
+                    <p className="text-xs text-emerald-600 mb-1">{t(language, 'students.paid') || 'Payé'}</p>
                     <p className="text-sm font-bold text-emerald-700">{new Intl.NumberFormat('fr-FR').format(student.dejaPaye)}</p>
                     <p className="text-xs text-emerald-500">{useStore.getState().currency}</p>
                   </div>
                   <div className={`rounded-xl p-3 text-center ${isSolde ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                    <p className={`text-xs mb-1 ${isSolde ? 'text-emerald-600' : 'text-red-500'}`}>Restant</p>
+                    <p className={`text-xs mb-1 ${isSolde ? 'text-emerald-600' : 'text-red-500'}`}>{t(language, 'students.remaining') || 'Restant'}</p>
                     {isSolde ? (
-                      <p className="text-sm font-bold text-emerald-700">SOLDÉ</p>
+                      <p className="text-sm font-bold text-emerald-700">{t(language, 'students.statusPaid') || 'SOLDÉ'}</p>
                     ) : (
                       <>
                         <p className="text-sm font-bold text-red-700">{new Intl.NumberFormat('fr-FR').format(student.restant)}</p>
@@ -281,10 +283,10 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
                 <div className="mt-3 bg-amber-50 rounded-xl p-3 flex items-center gap-3">
                   <TrendingUp className="w-4 h-4 text-amber-500 shrink-0" />
                   <div className="text-xs text-amber-700">
-                    <span className="font-semibold">Taux de paiement : {taux}%</span>
+                    <span className="font-semibold">{t(language, 'payments.progress') || 'Taux de paiement'} : {taux}%</span>
                     {!isSolde && (
                       <span className="ml-2 text-amber-500">
-                        · Manque {formatMontant(student.restant, useStore.getState().currency)} pour solder
+                        · {t(language, 'students.missingAmount') || 'Manque'} {formatMontant(student.restant, useStore.getState().currency)} {t(language, 'students.toSettle') || 'pour solder'}
                       </span>
                     )}
                   </div>
@@ -298,8 +300,8 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
               {student.historiquesPaiements.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center text-gray-400">
                   <Clock className="w-10 h-10 mb-3 opacity-30" />
-                  <p className="font-medium text-sm">Aucun paiement enregistré manuellement</p>
-                  <p className="text-xs mt-1">Le montant initial vient de l'import Excel.</p>
+                  <p className="font-medium text-sm">{t(language, 'payments.noPayments') || 'Aucun paiement enregistré manuellement'}</p>
+                  <p className="text-xs mt-1">{t(language, 'payments.initialAmountExcel') || "Le montant initial vient de l'import Excel."}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -315,7 +317,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
                           </span>
                           {p.recu && (
                             <span className="text-xs text-gray-500 flex items-center gap-1">
-                              <FileText className="w-3 h-3" /> Reçu #{p.recu}
+                              <FileText className="w-3 h-3" /> {t(language, 'payments.receipt') || 'Reçu'} #{p.recu}
                             </span>
                           )}
                         </div>
@@ -330,7 +332,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
 
                   {/* Total */}
                   <div className="border-t border-gray-200 pt-3 mt-3 flex justify-between text-sm">
-                    <span className="text-gray-500 font-medium">Total des paiements manuels</span>
+                    <span className="text-gray-500 font-medium">{t(language, 'payments.totalManual') || 'Total des paiements manuels'}</span>
                     <span className="font-bold text-emerald-700">
                       {formatMontant(student.historiquesPaiements.reduce((a, p) => a + p.montant, 0), useStore.getState().currency)}
                     </span>
@@ -347,7 +349,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
             onClick={() => generateRecuPDF(student, schoolName, schoolYear, messageRemerciement, messageRappel, schoolLogo ?? undefined, schoolStamp ?? undefined)}
             className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors shadow-sm"
           >
-            <Download className="w-4 h-4" /> Reçu PDF
+            <Download className="w-4 h-4" /> {t(language, 'dashboard.generateReport') || 'Reçu PDF'}
           </button>
           <a
             href={`https://wa.me/${phone}?text=${encodeURIComponent(waMsg)}`}
@@ -361,7 +363,7 @@ export const StudentDetail: React.FC<Props> = ({ student, onClose }) => {
             onClick={onClose}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors ml-auto"
           >
-            <X className="w-4 h-4" /> Fermer
+            <X className="w-4 h-4" /> {t(language, 'common.close') || 'Fermer'}
           </button>
         </div>
       </div>

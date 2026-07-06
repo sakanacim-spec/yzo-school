@@ -5,8 +5,12 @@ import { Users, Calendar, CheckCircle, XCircle, AlertCircle, Save, Loader2 } fro
 import { v4 as uuid } from '../../utils/uuid';
 import { notificationService } from '../../services/notificationService';
 import { playSuccessSound } from '../../utils/audio';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 export const SaisiePresence: React.FC = () => {
+    const { language } = useLanguage();
     const { 
         user, 
         students, 
@@ -101,7 +105,7 @@ export const SaisiePresence: React.FC = () => {
         
         // Notifications
         playSuccessSound();
-        alert(`L'appel pour la classe ${selectedClasse} a été enregistré avec succès !`);
+        alert(t(language as Language, 'saisiePresence.success')?.replace('{classe}', selectedClasse) || `L'appel pour la classe ${selectedClasse} a été enregistré avec succès !`);
 
         // TODO: Déclencher des SMS ou Push WhatsApp aux parents des élèves marqués "absent" si nécessaire.
 
@@ -115,10 +119,10 @@ export const SaisiePresence: React.FC = () => {
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
                 <div className="relative z-10">
                     <h1 className="text-3xl font-black text-white mb-2 flex items-center gap-3">
-                        Faire l'Appel
+                        {t(language as Language, 'saisiePresence.title') || "Faire l'Appel"}
                     </h1>
                     <p className="text-indigo-200 font-medium max-w-xl">
-                        Saisissez manuellement la liste de présence pour vos classes assignées.
+                        {t(language as Language, 'saisiePresence.subtitle') || 'Saisissez manuellement la liste de présence pour vos classes assignées.'}
                     </p>
                 </div>
             </div>
@@ -128,14 +132,14 @@ export const SaisiePresence: React.FC = () => {
                 <div className="flex-1">
                     <label className="block text-xs font-black text-slate-500 mb-2 uppercase tracking-widest flex items-center gap-2">
                         <Users className="w-4 h-4 text-indigo-500" />
-                        Classe
+                        {t(language as Language, 'common.class') || 'Classe'}
                     </label>
                     <select
                         value={selectedClasse}
                         onChange={(e) => setSelectedClasse(e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                     >
-                        <option value="">Sélectionnez une classe</option>
+                        <option value="">{t(language as Language, 'saisiePresence.selectClass') || 'Sélectionnez une classe'}</option>
                         {myClasses.map(c => (
                             <option key={c} value={c}>{c}</option>
                         ))}
@@ -145,7 +149,7 @@ export const SaisiePresence: React.FC = () => {
                 <div className="flex-1">
                     <label className="block text-xs font-black text-slate-500 mb-2 uppercase tracking-widest flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-emerald-500" />
-                        Date de l'appel
+                        {t(language as Language, 'saisiePresence.date') || "Date de l'appel"}
                     </label>
                     <input
                         type="date"
@@ -161,10 +165,10 @@ export const SaisiePresence: React.FC = () => {
                 <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
                     <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
                         <h3 className="font-black text-lg text-slate-900 dark:text-white">
-                            Liste de la classe : <span className="text-indigo-600 dark:text-indigo-400">{selectedClasse}</span>
+                            {t(language as Language, 'saisiePresence.classList') || 'Liste de la classe :'} <span className="text-indigo-600 dark:text-indigo-400">{selectedClasse}</span>
                         </h3>
                         <span className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 py-1 px-3 rounded-full text-xs font-bold">
-                            {classStudents.length} Élève(s)
+                            {classStudents.length} {t(language as Language, 'common.students') || 'Élève(s)'}
                         </span>
                     </div>
 
@@ -179,15 +183,15 @@ export const SaisiePresence: React.FC = () => {
                                 <>
                                     <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100/50 text-emerald-800 rounded-xl font-bold text-sm">
                                         <CheckCircle className="w-4 h-4 text-emerald-600" />
-                                        <span>{stats.present} Présent(s)</span>
+                                        <span>{stats.present} {t(language as Language, 'saisiePresence.presents') || 'Présent(s)'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 px-4 py-2 bg-amber-100/50 text-amber-800 rounded-xl font-bold text-sm">
                                         <AlertCircle className="w-4 h-4 text-amber-600" />
-                                        <span>{stats.retard} Retard(s)</span>
+                                        <span>{stats.retard} {t(language as Language, 'saisiePresence.lates') || 'Retard(s)'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 px-4 py-2 bg-rose-100/50 text-rose-800 rounded-xl font-bold text-sm">
                                         <XCircle className="w-4 h-4 text-rose-600" />
-                                        <span>{stats.absent} Absent(s)</span>
+                                        <span>{stats.absent} {t(language as Language, 'saisiePresence.absents') || 'Absent(s)'}</span>
                                     </div>
                                 </>
                             );
@@ -213,7 +217,7 @@ export const SaisiePresence: React.FC = () => {
                                                 <p className="font-black text-slate-900 dark:text-white text-base">
                                                     {student.prenom} <span className="uppercase">{student.nom}</span>
                                                 </p>
-                                                <p className="text-xs font-bold text-slate-500">Matricule: {student.id.split('-')[0].toUpperCase()}</p>
+                                                <p className="text-xs font-bold text-slate-500">{t(language as Language, 'common.matricule') || 'Matricule:'} {student.id.split('-')[0].toUpperCase()}</p>
                                             </div>
                                         </div>
 
@@ -227,7 +231,7 @@ export const SaisiePresence: React.FC = () => {
                                                 }`}
                                             >
                                                 <CheckCircle className="w-4 h-4" />
-                                                Présent
+                                                {t(language as Language, 'common.present') || 'Présent'}
                                             </button>
                                             <button
                                                 onClick={() => handleStatusChange(student.id, 'retard')}
@@ -238,7 +242,7 @@ export const SaisiePresence: React.FC = () => {
                                                 }`}
                                             >
                                                 <AlertCircle className="w-4 h-4" />
-                                                Retard
+                                                {t(language as Language, 'common.late') || 'Retard'}
                                             </button>
                                             <button
                                                 onClick={() => handleStatusChange(student.id, 'absent')}
@@ -249,7 +253,7 @@ export const SaisiePresence: React.FC = () => {
                                                 }`}
                                             >
                                                 <XCircle className="w-4 h-4" />
-                                                Absent
+                                                {t(language as Language, 'common.absent') || 'Absent'}
                                             </button>
                                         </div>
                                     </div>
@@ -257,7 +261,7 @@ export const SaisiePresence: React.FC = () => {
                             })
                         ) : (
                             <div className="p-12 text-center text-slate-500">
-                                Aucun élève dans cette classe.
+                                {t(language as Language, 'saisiePresence.noStudent') || 'Aucun élève dans cette classe.'}
                             </div>
                         )}
                     </div>
@@ -270,7 +274,7 @@ export const SaisiePresence: React.FC = () => {
                                 className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-8 rounded-xl font-bold transition-colors shadow-lg shadow-indigo-600/30 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                                Enregistrer l'appel
+                                {t(language as Language, 'saisiePresence.save') || "Enregistrer l'appel"}
                             </button>
                         </div>
                     )}
@@ -278,7 +282,7 @@ export const SaisiePresence: React.FC = () => {
             ) : (
                 <div className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-12 text-center text-slate-500 dark:text-slate-400">
                     <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                    <p className="text-lg font-bold">Sélectionnez une classe pour commencer l'appel</p>
+                    <p className="text-lg font-bold">{t(language as Language, 'saisiePresence.selectClassToStart') || "Sélectionnez une classe pour commencer l'appel"}</p>
                 </div>
             )}
         </div>

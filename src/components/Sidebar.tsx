@@ -9,6 +9,7 @@ import {
   FileText
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { t, Language } from '../i18n';
 
 type Page = 'dashboard' | 'students' | 'import' | 'reports' | 'analytics' | 'settings';
 
@@ -18,15 +19,15 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ currentPage, onNavigate }: SidebarProps) => {
-  const { user, logout } = useStore();
+  const { user, logout, language } = useStore();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-    { id: 'students', label: 'Gestion Élèves', icon: Users },
-    { id: 'import', label: 'Import/Export', icon: FileSpreadsheet },
-    { id: 'reports', label: 'Rapports PDF', icon: FileText },
-    { id: 'analytics', label: 'Analyses', icon: BarChart3 },
-    { id: 'settings', label: 'Paramètres', icon: Settings, adminOnly: true },
+    { id: 'dashboard', label: t(language as Language, 'nav.dashboard') || 'Tableau de bord', icon: LayoutDashboard },
+    { id: 'students', label: t(language as Language, 'nav.students') || 'Gestion Élèves', icon: Users },
+    { id: 'import', label: t(language as Language, 'nav.importExport') || 'Import/Export', icon: FileSpreadsheet },
+    { id: 'reports', label: t(language as Language, 'nav.reports') || 'Rapports PDF', icon: FileText },
+    { id: 'analytics', label: t(language as Language, 'nav.analytics') || 'Analyses', icon: BarChart3 },
+    { id: 'settings', label: t(language as Language, 'nav.settings') || 'Paramètres', icon: Settings, adminOnly: true },
   ];
 
   return (
@@ -39,7 +40,7 @@ export const Sidebar = ({ currentPage, onNavigate }: SidebarProps) => {
           </div>
           <div>
             <h1 className="font-bold text-lg leading-tight text-slate-800">SchoolFinance</h1>
-            <p className="text-amber-600 font-bold text-[10px] uppercase tracking-widest">Gestion Scolaire</p>
+            <p className="text-amber-600 font-bold text-[10px] uppercase tracking-widest">{t(language as Language, 'sidebar.subtitle') || 'Gestion Scolaire'}</p>
           </div>
         </div>
       </div>
@@ -88,7 +89,7 @@ export const Sidebar = ({ currentPage, onNavigate }: SidebarProps) => {
           className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-50 hover:bg-red-50 hover:text-red-600 text-slate-600 rounded-xl transition-colors text-sm font-semibold"
         >
           <LogOut className="w-4 h-4" />
-          Déconnexion
+          {t(language as Language, 'nav.logout') || 'Déconnexion'}
         </button>
       </div>
     </aside>

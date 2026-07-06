@@ -4,8 +4,12 @@ import { Edit3, Save, CheckCircle2, Printer, Calculator, X } from 'lucide-react'
 import { Note, PeriodeType, EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
 import { v4 as uuid } from '../utils/uuid';
 import { generateBordereauPDF } from '../utils/bordereauPdf';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 export const SaisieNotes: React.FC = () => {
+    const { language } = useLanguage();
     const currentPeriode = useStore((s) => s.currentPeriode);
     const setCurrentPeriode = useStore((s) => s.setCurrentPeriode);
     const students = useStore((s) => s.students);
@@ -141,7 +145,7 @@ export const SaisieNotes: React.FC = () => {
             useStore.getState().upsertNotes(batch);
             
             // 2. Synchroniser vers le cloud (une seule fois, après toutes les notes)
-            setSaveStatus('💾 Sauvegarde en cours...');
+            setSaveStatus(t(language as Language, 'grades.saving') || '💾 Sauvegarde en cours...');
             try {
                 const allNotes = useStore.getState().notes;
                 console.log(`📤 [Notes] Envoi de ${allNotes.length} notes vers le cloud...`);
@@ -150,18 +154,18 @@ export const SaisieNotes: React.FC = () => {
                 // Mettre à jour le timestamp pour bloquer le polling pendant 55s
                 useStore.setState({ lastSyncTimestamp: Date.now() });
                 if (result) {
-                    setSaveStatus('✅ Notes enregistrées et synchronisées !');
+                    setSaveStatus(t(language as Language, 'grades.saveSuccessSync') || '✅ Notes enregistrées et synchronisées !');
                     console.log('✅ [Notes] Sync cloud réussie, résultat:', result);
                 } else {
-                    setSaveStatus('⚠️ Sauvé localement, le serveur n\'a pas répondu');
+                    setSaveStatus(t(language as Language, 'grades.saveLocalNoServer') || "⚠️ Sauvé localement, le serveur n'a pas répondu");
                     console.warn('⚠️ [Notes] syncToBackend a retourné null');
                 }
             } catch (err) {
                 console.error('❌ [Notes] Erreur sync cloud:', err);
-                setSaveStatus('⚠️ Sauvé localement, sync cloud en attente');
+                setSaveStatus(t(language as Language, 'grades.saveLocalSyncPending') || '⚠️ Sauvé localement, sync cloud en attente');
             }
         } else {
-            setSaveStatus('Aucune note à enregistrer');
+            setSaveStatus(t(language as Language, 'grades.noNotesToSave') || 'Aucune note à enregistrer');
         }
         
         setTimeout(() => setSaveStatus(null), 3000);
@@ -224,12 +228,12 @@ export const SaisieNotes: React.FC = () => {
     
     const getAppreciation = (avg: number | null) => {
         if (avg === null) return '--';
-        if (avg >= 16) return 'Très Bien';
-        if (avg >= 14) return 'Bien';
-        if (avg >= 12) return 'Assez Bien';
-        if (avg >= 10) return 'Passable';
-        if (avg >= 8) return 'Insuffisant';
-        return 'Médiocre';
+        if (avg >= 16) return t(language as Language, 'grades.appreciation.veryGood') || 'Très Bien';
+        if (avg >= 14) return t(language as Language, 'grades.appreciation.good') || 'Bien';
+        if (avg >= 12) return t(language as Language, 'grades.appreciation.fairlyGood') || 'Assez Bien';
+        if (avg >= 10) return t(language as Language, 'grades.appreciation.passable') || 'Passable';
+        if (avg >= 8) return t(language as Language, 'grades.appreciation.insufficient') || 'Insuffisant';
+        return t(language as Language, 'grades.appreciation.poor') || 'Médiocre';
     };
     
     const getColorClass = (val: number | null) => {
@@ -276,8 +280,8 @@ export const SaisieNotes: React.FC = () => {
                         <Edit3 className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Saisie des Notes</h2>
-                        <p className="text-pink-100">Saisissez les notes de classe, de devoir et de composition.</p>
+                        <h2 className="text-2xl font-bold">{t(language as Language, 'grades.entryTitle') || 'Saisie des Notes'}</h2>
+                        <p className="text-pink-100">{t(language as Language, 'grades.entrySubtitle') || 'Saisissez les notes de classe, de devoir et de composition.'}</p>
                     </div>
                 </div>
             </div>
@@ -285,7 +289,7 @@ export const SaisieNotes: React.FC = () => {
             {/* Filtres de sélection */}
             <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[200px]">
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Période Académique</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">{t(language as Language, 'grades.academicPeriod') || 'Période Académique'}</label>
                     <select
                         value={currentPeriode}
                         onChange={(e) => setCurrentPeriode(e.target.value as PeriodeType)}
@@ -295,28 +299,28 @@ export const SaisieNotes: React.FC = () => {
                     </select>
                 </div>
                 <div className="flex-1 min-w-[200px]">
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Classe</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">{t(language as Language, 'common.class') || 'Classe'}</label>
                     <select
                         value={selectedClasse}
                         onChange={(e) => { setSelectedClasse(e.target.value); setSelectedMatiereId(''); }}
                         className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 font-bold"
                     >
-                        <option value="">Sélectionner une classe...</option>
+                        <option value="">{t(language as Language, 'grades.selectClass') || 'Sélectionner une classe...'}</option>
                         {classesList.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
                 <div className="flex-1 min-w-[250px]">
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Matière</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">{t(language as Language, 'common.subject') || 'Matière'}</label>
                     <select
                         value={selectedMatiereId}
                         onChange={(e) => setSelectedMatiereId(e.target.value)}
                         disabled={!selectedClasse}
                         className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 font-bold disabled:opacity-50"
                     >
-                        <option value="">Sélectionner une matière...</option>
+                        <option value="">{t(language as Language, 'grades.selectSubject') || 'Sélectionner une matière...'}</option>
                         {availableMatieres.map(item => (
                             <option key={item.mat!.id} value={item.mat!.id}>
-                                {item.mat!.nom} (Coef: {item.cm.coefficient})
+                                {item.mat!.nom} {(t(language as Language, 'grades.coef') || '(Coef: {{coef}})').replace('{{coef}}', String(item.cm.coefficient))}
                             </option>
                         ))}
                     </select>
@@ -328,7 +332,7 @@ export const SaisieNotes: React.FC = () => {
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-fade-in relative">
                     <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50 flex-wrap gap-4">
                         <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                            Effectif de la classe : <span className="text-rose-600 bg-rose-100 px-2 py-0.5 rounded-md">{classStudents.length}</span>
+                            {t(language as Language, 'grades.classSize') || 'Effectif de la classe :'} <span className="text-rose-600 bg-rose-100 px-2 py-0.5 rounded-md">{classStudents.length}</span>
                         </div>
                         <div className="flex items-center gap-3">
                             <button
@@ -336,14 +340,14 @@ export const SaisieNotes: React.FC = () => {
                                 className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 shadow-sm transition-all active:scale-95"
                             >
                                 <Printer className="w-5 h-5 text-gray-500" />
-                                Télécharger le bordereau
+                                {t(language as Language, 'grades.downloadSlip') || 'Télécharger le bordereau'}
                             </button>
                             <button
                                 onClick={handleSave}
                                 className="bg-rose-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-rose-700 shadow-md transition-all active:scale-95"
                             >
                                 <Save className="w-5 h-5" />
-                                Enregistrer les notes
+                                {t(language as Language, 'grades.saveNotes') || 'Enregistrer les notes'}
                             </button>
                         </div>
                     </div>
@@ -358,8 +362,8 @@ export const SaisieNotes: React.FC = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-white border-b border-gray-200 text-sm">
-                                    <th className="p-4 font-bold text-gray-600 w-16">N°</th>
-                                    <th className="p-4 font-bold text-gray-600">Nom & Prénom(s)</th>
+                                    <th className="p-4 font-bold text-gray-600 w-16">{t(language as Language, 'common.number') || 'N°'}</th>
+                                    <th className="p-4 font-bold text-gray-600">{t(language as Language, 'common.fullName') || 'Nom & Prénom(s)'}</th>
                                     {activeEvalConfigs.map((cfg, ci) => {
                                         const colors = ['text-blue-600', 'text-indigo-600', 'text-purple-600'];
                                         return (
@@ -367,13 +371,13 @@ export const SaisieNotes: React.FC = () => {
                                                 {cfg.label} (/20)
                                                 {cfg.nbNotes > 1 && (
                                                     <div className="text-[10px] font-normal text-gray-400 mt-0.5">
-                                                        ({cfg.nbNotes} notes → moy.)
+                                                        ({cfg.nbNotes} {t(language as Language, 'grades.notesToAvg') || 'notes → moy.'})
                                                     </div>
                                                 )}
                                             </th>
                                         );
                                     })}
-                                    <th className="p-4 font-bold text-rose-600 w-32 text-center">Moyenne</th>
+                                    <th className="p-4 font-bold text-rose-600 w-32 text-center">{t(language as Language, 'common.average') || 'Moyenne'}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -403,7 +407,7 @@ export const SaisieNotes: React.FC = () => {
                                                             <button
                                                                 onClick={() => setActiveCalculator(activeCalculator === calcId ? null : calcId)}
                                                                 className={`p-1.5 rounded-lg transition-colors ${activeCalculator === calcId ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'}`}
-                                                                title={`Calculatrice pour ${cfg.label}`}
+                                                                title={(t(language as Language, 'grades.calculatorFor') || 'Calculatrice pour {{label}}').replace('{{label}}', cfg.label)}
                                                             >
                                                                 <Calculator className="w-4 h-4" />
                                                             </button>
@@ -420,7 +424,7 @@ export const SaisieNotes: React.FC = () => {
                                                                 <div className="space-y-2">
                                                                     {Array.from({ length: cfg.nbNotes }, (_, i) => i + 1).map(num => (
                                                                         <div key={num} className="flex items-center gap-2">
-                                                                            <span className="text-xs font-semibold text-gray-500 w-12">Note {num}</span>
+                                                                            <span className="text-xs font-semibold text-gray-500 w-12">{t(language as Language, 'grades.noteNum') || 'Note'} {num}</span>
                                                                             <input
                                                                                 type="number" min="0" max="20" step="0.5"
                                                                                 className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
@@ -442,7 +446,7 @@ export const SaisieNotes: React.FC = () => {
                                                                     ))}
                                                                 </div>
                                                                 <div className="mt-3 pt-2 border-t border-gray-100 text-center">
-                                                                    <span className="text-xs text-gray-500">Moyenne générée :</span>
+                                                                    <span className="text-xs text-gray-500">{t(language as Language, 'grades.generatedAverage') || 'Moyenne générée :'}</span>
                                                                     <div className="font-black text-blue-600 text-lg">
                                                                         {draftNotes[student.id]?.[cfg.id] || '--'}
                                                                     </div>
@@ -468,7 +472,7 @@ export const SaisieNotes: React.FC = () => {
                                 {classStudents.length === 0 && (
                                     <tr>
                                         <td colSpan={2 + activeEvalConfigs.length + 1} className="p-8 text-center text-gray-500 font-semibold">
-                                            Aucun élève trouvé dans cette classe.
+                                            {t(language as Language, 'grades.noStudentsInClass') || 'Aucun élève trouvé dans cette classe.'}
                                         </td>
                                     </tr>
                                 )}
@@ -477,7 +481,7 @@ export const SaisieNotes: React.FC = () => {
                                 <tfoot>
                                     <tr className="bg-rose-50/50 border-t-2 border-rose-100">
                                         <td colSpan={2 + activeEvalConfigs.length} className="p-4 font-black text-rose-700 text-right">
-                                            Moyenne Générale de la Classe :
+                                            {t(language as Language, 'grades.classGeneralAverage') || 'Moyenne Générale de la Classe :'}
                                         </td>
                                         <td className="p-4 text-center font-black text-rose-700 text-lg">
                                             {classAverage.toFixed(2)}
@@ -493,7 +497,7 @@ export const SaisieNotes: React.FC = () => {
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
                     <Edit3 className="w-16 h-16 text-gray-200 mb-4" />
                     <p className="text-gray-500 font-semibold text-lg text-center max-w-sm">
-                        Sélectionnez une classe et une matière pour commencer la saisie des notes.
+                        {t(language as Language, 'grades.selectClassSubjectToStart') || 'Sélectionnez une classe et une matière pour commencer la saisie des notes.'}
                     </p>
                 </div>
             )}

@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { parentApi } from '../../services/parentApi';
 import { MessageSquare, Bell, Loader2, AlertCircle } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 export const ParentMessages: React.FC = () => {
+    const { language } = useLanguage();
     const [messages, setMessages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -13,7 +17,7 @@ export const ParentMessages: React.FC = () => {
                 const result = await parentApi.getMessages();
                 setMessages(result.messages || []);
             } catch (err: any) {
-                setError("Impossible de charger vos messages.");
+                setError(t(language as Language, 'parentMessages.errorLoading') || "Impossible de charger vos messages.");
                 console.error(err);
             } finally {
                 setLoading(false);
@@ -27,7 +31,7 @@ export const ParentMessages: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-slate-500">
                 <Loader2 className="w-10 h-10 animate-spin text-[#f97316] mb-4" />
-                <p>Récupération de vos messages...</p>
+                <p>{t(language as Language, 'parentMessages.loading') || 'Récupération de vos messages...'}</p>
             </div>
         );
     }
@@ -36,7 +40,7 @@ export const ParentMessages: React.FC = () => {
         <div className="space-y-6">
             <div className="flex items-center gap-3">
                 <MessageSquare className="w-6 h-6 text-[#f97316]" />
-                <h2 className="text-2xl font-bold text-slate-800">Messages de l'école</h2>
+                <h2 className="text-2xl font-bold text-slate-800">{t(language as Language, 'parentMessages.title') || "Messages de l'école"}</h2>
             </div>
 
             {error && (
@@ -69,7 +73,7 @@ export const ParentMessages: React.FC = () => {
                                     {message.title}
                                 </h3>
                                 <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-                                    {new Date(message.date).toLocaleDateString('fr-FR')}
+                                    {new Date(message.date).toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR')}
                                 </span>
                             </div>
                             <p className={`text-sm ${message.type === 'warning' ? 'text-amber-800' : 'text-slate-600'
@@ -82,7 +86,7 @@ export const ParentMessages: React.FC = () => {
 
                 {!loading && messages.length === 0 && (
                     <div className="py-12 bg-white rounded-2xl border border-slate-100 text-center text-slate-500 shadow-sm border-dashed">
-                        Vous n'avez aucun message pour le moment.
+                        {t(language as Language, 'parentMessages.noMessages') || "Vous n'avez aucun message pour le moment."}
                     </div>
                 )}
             </div>

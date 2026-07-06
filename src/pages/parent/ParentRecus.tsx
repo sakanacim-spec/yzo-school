@@ -2,12 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { parentApi } from '../../services/parentApi';
 import { FileText, Download, Loader2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
 import { formatMontant } from '../../utils/helpers';
 import { generatePaymentReceipt } from '../../utils/pdfUtils';
 import { useStore } from '../../store/useStore';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 export const ParentRecus: React.FC = () => {
+    const { language } = useLanguage();
     const [payments, setPayments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -32,7 +36,7 @@ export const ParentRecus: React.FC = () => {
 
                 setPayments(merged);
             } catch (err: any) {
-                setError("Impossible de charger vos reçus.");
+                setError(t(language as Language, 'parentRecus.errorLoading') || "Impossible de charger vos reçus.");
                 console.error(err);
             } finally {
                 setLoading(false);
@@ -54,7 +58,7 @@ export const ParentRecus: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-slate-500">
                 <Loader2 className="w-10 h-10 animate-spin text-[#f97316] mb-4" />
-                <p>Chargement de vos reçus...</p>
+                <p>{t(language as Language, 'parentRecus.loading') || 'Chargement de vos reçus...'}</p>
             </div>
         );
     }
@@ -63,7 +67,7 @@ export const ParentRecus: React.FC = () => {
         <div className="space-y-6">
             <div className="flex items-center gap-3">
                 <FileText className="w-6 h-6 text-[#f97316]" />
-                <h2 className="text-2xl font-bold text-slate-800">Mes reçus</h2>
+                <h2 className="text-2xl font-bold text-slate-800">{t(language as Language, 'parentRecus.title') || 'Mes reçus'}</h2>
             </div>
 
             {error && (
@@ -76,7 +80,7 @@ export const ParentRecus: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                 {payments.length === 0 ? (
                     <div className="col-span-full py-12 text-center text-slate-500 bg-white rounded-2xl shadow-sm border border-slate-100 border-dashed">
-                        Aucun reçu disponible pour l'instant.
+                        {t(language as Language, 'parentRecus.noReceipts') || "Aucun reçu disponible pour l'instant."}
                     </div>
                 ) : (
                     payments.map(payment => (
@@ -91,7 +95,7 @@ export const ParentRecus: React.FC = () => {
                                   <h3 className="font-bold text-slate-800 text-lg mb-1">{formatMontant(payment.montant)}</h3>
                                 <p className="text-sm font-medium text-slate-600 truncate">{payment.studentName}</p>
                                 <p className="text-xs text-slate-500 mt-1">
-                                    {format(new Date(payment.date), 'dd MMM yyyy', { locale: fr })}
+                                    {format(new Date(payment.date), 'dd MMM yyyy', { locale: language === 'en' ? enUS : fr })}
                                 </p>
                             </div>
 
@@ -100,7 +104,7 @@ export const ParentRecus: React.FC = () => {
                                 className="w-full py-2.5 bg-slate-50 hover:bg-blue-600 hover:text-white text-slate-700 font-medium rounded-xl text-sm transition-all flex items-center justify-center gap-2 border border-slate-200 hover:border-blue-600"
                             >
                                 <Download className="w-4 h-4" />
-                                Télécharger le PDF
+                                {t(language as Language, 'parentRecus.downloadPdf') || 'Télécharger le PDF'}
                             </button>
                         </div>
                     ))

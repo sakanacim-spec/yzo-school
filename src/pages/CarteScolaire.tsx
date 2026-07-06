@@ -12,6 +12,9 @@ import {
     CheckCircle, Loader2, ChevronDown, AlertCircle, User,
     Users, Info
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 // ============================================================
 // COMPOSANT CARTE — Affichage écran
@@ -27,10 +30,11 @@ interface CarteProps {
     schoolYear: string;
     schoolLogo: string | null;
     photoUrl?: string | null;
+    language: Language;
 }
 
 const CarteEleve: React.FC<CarteProps> = ({
-    nom, prenom, classe, id, telephone, schoolName, schoolYear, schoolLogo, photoUrl,
+    nom, prenom, classe, id, telephone, schoolName, schoolYear, schoolLogo, photoUrl, language
 }) => {
     const nomComplet = `${prenom} ${nom}`.toUpperCase();
     const [isFlipped, setIsFlipped] = useState(false);
@@ -68,7 +72,7 @@ const CarteEleve: React.FC<CarteProps> = ({
                         <div style={{ marginLeft: 12 }}>
                             <h2 style={{ color: '#0F172A', margin: 0, fontSize: 12, fontWeight: 900, textTransform: 'uppercase', lineHeight: 1 }}>{schoolName}</h2>
                             <p style={{ color: 'rgba(15,23,42,0.8)', margin: '2px 0 0 0', fontSize: 7, fontWeight: 800 }}>
-                                CARTE D'IDENTITÉ SCOLAIRE • {schoolYear}
+                                {t(language as Language, 'idCard.cardTitle') || "CARTE D'IDENTITÉ SCOLAIRE"} • {schoolYear}
                             </p>
                         </div>
                     </div>
@@ -97,7 +101,7 @@ const CarteEleve: React.FC<CarteProps> = ({
                         position: 'absolute', top: 64, left: 105, width: 110,
                         display: 'flex', flexDirection: 'column', zIndex: 10
                     }}>
-                        <p style={{ fontSize: 6, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 2 }}>Nom & Prénoms</p>
+                        <p style={{ fontSize: 6, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 2 }}>{t(language as Language, 'idCard.fullnameLabel') || 'Nom & Prénoms'}</p>
                         <h3 style={{
                             color: '#FFFFFF', margin: 0, marginBottom: 12, fontWeight: 900, 
                             fontSize: nomComplet.length > 20 ? 11 : 13,
@@ -108,7 +112,7 @@ const CarteEleve: React.FC<CarteProps> = ({
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             <div>
-                                <p style={{ fontSize: 6, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 2 }}>Classe</p>
+                                <p style={{ fontSize: 6, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 2 }}>{t(language as Language, 'idCard.classLabel') || 'Classe'}</p>
                                 <span style={{
                                     background: 'rgba(234, 179, 8, 0.15)', color: '#FCD34D', border: '1px solid rgba(234, 179, 8, 0.3)',
                                     fontSize: 11, fontWeight: 900, padding: '3px 12px', borderRadius: 4, display: 'inline-block'
@@ -117,8 +121,8 @@ const CarteEleve: React.FC<CarteProps> = ({
                                 </span>
                             </div>
                             <div>
-                                <p style={{ fontSize: 6, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 1 }}>Contact</p>
-                                <span style={{ fontSize: 10, fontWeight: 900, color: '#FFFFFF', letterSpacing: 1 }}>{telephone || 'Non renseigné'}</span>
+                                <p style={{ fontSize: 6, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 1 }}>{t(language as Language, 'idCard.contactLabel') || 'Contact'}</p>
+                                <span style={{ fontSize: 10, fontWeight: 900, color: '#FFFFFF', letterSpacing: 1 }}>{telephone || (t(language as Language, 'idCard.notProvided') || 'Non renseigné')}</span>
                             </div>
                         </div>
                     </div>
@@ -132,7 +136,7 @@ const CarteEleve: React.FC<CarteProps> = ({
                         boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
                     }}>
                         <QRCodeCanvas value={id} size={60} level="H" bgColor="#FFFFFF" fgColor="#0F172A" />
-                        <p style={{ fontSize: 5, color: '#64748B', marginTop: 4, fontWeight: 900, textTransform: 'uppercase' }}>Scan Sécurisé</p>
+                        <p style={{ fontSize: 5, color: '#64748B', marginTop: 4, fontWeight: 900, textTransform: 'uppercase' }}>{t(language as Language, 'idCard.secureScan') || 'Scan Sécurisé'}</p>
                     </div>
 
                     <div style={{ position: 'absolute', bottom: 8, right: 15 }}>
@@ -150,12 +154,12 @@ const CarteEleve: React.FC<CarteProps> = ({
                     <div style={{ width: '100%', height: 35, background: '#1E293B', marginTop: 25 }} />
                     <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
                         <Info className="w-8 h-8 text-amber-500 mb-2 opacity-50" />
-                        <h4 style={{ color: '#FCD34D', fontSize: 10, fontWeight: 800, marginBottom: 8, textTransform: 'uppercase' }}>Propriété de l'établissement</h4>
+                        <h4 style={{ color: '#FCD34D', fontSize: 10, fontWeight: 800, marginBottom: 8, textTransform: 'uppercase' }}>{t(language as Language, 'idCard.propertyOf') || 'Propriété de l\'établissement'}</h4>
                         <p style={{ color: '#94A3B8', fontSize: 8, lineHeight: 1.4, maxWidth: '80%' }}>
-                            Cette carte est strictement personnelle. En cas de perte, veuillez la retourner à l'administration de <b>{schoolName}</b>.
+                            {t(language as Language, 'idCard.lossInstruction') || 'Cette carte est strictement personnelle. En cas de perte, veuillez la retourner à l\'administration de'} <b>{schoolName}</b>.
                         </p>
                         <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 6, marginTop: 15 }}>
-                            Généré par la plateforme YZOSCHOOL
+                            {t(language as Language, 'idCard.generatedBy') || 'Généré par la plateforme YZOSCHOOL'}
                         </p>
                     </div>
                 </div>
@@ -237,9 +241,10 @@ const generateCartesPDF = async (
     schoolYear: string,
     schoolLogo: string | null,
     onProgress: (n: number) => void,
+    language: Language
 ): Promise<void> => {
     if (!students.length) {
-        throw new Error('Aucun élève sélectionné');
+        throw new Error(t(language, 'idCard.noStudentSelected') || 'Aucun élève sélectionné');
     }
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -326,13 +331,13 @@ const generateCartesPDF = async (
         doc.setTextColor(15, 23, 42); // Bleu nuit (clair)
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        const schoolLine = (schoolName || 'ÉCOLE').toUpperCase();
+        const schoolLine = (schoolName || t(language, 'idCard.schoolDefault') || 'ÉCOLE').toUpperCase();
         doc.text(schoolLine, txtX, y + 6);
         
         doc.setFontSize(4);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(15, 23, 42);
-        doc.text(`CARTE D'IDENTITÉ SCOLAIRE • ${schoolYear}`, txtX, y + 10);
+        doc.text(`${t(language, 'idCard.cardTitle') || "CARTE D'IDENTITÉ SCOLAIRE"} • ${schoolYear}`, txtX, y + 10);
 
         // ── QR Code Frame ─────────────────────────────────
         const qrMM    = 21;
@@ -353,7 +358,7 @@ const generateCartesPDF = async (
         doc.setTextColor(100, 116, 139);
         doc.setFontSize(3.5);
         doc.setFont('helvetica', 'bold');
-        doc.text("SCAN SÉCURISÉ", qrX + qrMM / 2, qrY + qrMM + 3, { align: 'center' });
+        doc.text((t(language, 'idCard.secureScan') || "SCAN SÉCURISÉ").toUpperCase(), qrX + qrMM / 2, qrY + qrMM + 3, { align: 'center' });
 
         // Identifiant raccourci
         doc.setTextColor(255, 255, 255);
@@ -403,7 +408,7 @@ const generateCartesPDF = async (
         doc.setTextColor(148, 163, 184); // Muted
         doc.setFontSize(4);
         doc.setFont('helvetica', 'bold');
-        doc.text("NOM & PRÉNOMS", infoStartX, photoY + 2);
+        doc.text((t(language, 'idCard.fullnameLabel') || "NOM & PRÉNOMS").toUpperCase(), infoStartX, photoY + 2);
 
         doc.setTextColor(255, 255, 255); // Blanc
         doc.setFont('helvetica', 'bold');
@@ -416,7 +421,7 @@ const generateCartesPDF = async (
         
         doc.setTextColor(148, 163, 184);
         doc.setFontSize(4);
-        doc.text("CLASSE", infoStartX, tagY);
+        doc.text((t(language, 'idCard.classLabel') || "CLASSE").toUpperCase(), infoStartX, tagY);
         
         doc.setFillColor(234, 179, 8); // Or
         // @ts-ignore
@@ -441,10 +446,10 @@ const generateCartesPDF = async (
         const phoneY = tagY + 10;
         doc.setTextColor(148, 163, 184);
         doc.setFontSize(4);
-        doc.text("CONTACT", infoStartX, phoneY);
+        doc.text((t(language, 'idCard.contactLabel') || "CONTACT").toUpperCase(), infoStartX, phoneY);
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(6);
-        doc.text(student.telephone || 'Non renseigné', infoStartX, phoneY + 4);
+        doc.text(student.telephone || (t(language, 'idCard.notProvided') || 'Non renseigné'), infoStartX, phoneY + 4);
 
         // Progression
         cardIndex++;
@@ -459,7 +464,7 @@ const generateCartesPDF = async (
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(160, 160, 160);
         doc.text(
-            `Cartes scolaires ${schoolYear} — ${schoolName} — Page ${p}/${nbPages}`,
+            `${t(language, 'idCard.pdfFooter') || 'Cartes scolaires'} ${schoolYear} — ${schoolName} — Page ${p}/${nbPages}`,
             105, 293, { align: 'center' }
         );
     }
@@ -475,6 +480,7 @@ export const CarteScolaire: React.FC = () => {
     const schoolName = useStore(s => s.schoolName);
     const schoolYear = useStore(s => s.schoolYear);
     const schoolLogo = useStore(s => s.schoolLogo);
+    const { language } = useLanguage();
 
     const [search,          setSearch]          = useState('');
     const [selectedClasse,  setSelectedClasse]  = useState('');
@@ -498,10 +504,10 @@ export const CarteScolaire: React.FC = () => {
         setProgress(0);
         setError(null);
         try {
-            await generateCartesPDF(list, schoolName, schoolYear, schoolLogo, setProgress);
+            await generateCartesPDF(list, schoolName, schoolYear, schoolLogo, setProgress, language as Language);
         } catch (err) {
             console.error('[CarteScolaire] Erreur génération PDF:', err);
-            setError(err instanceof Error ? err.message : 'Erreur lors de la génération du PDF');
+            setError(err instanceof Error ? err.message : (t(language as Language, 'idCard.generationError') || 'Erreur lors de la génération du PDF'));
         } finally {
             setGenerating(false);
         }
@@ -529,9 +535,9 @@ export const CarteScolaire: React.FC = () => {
                             <CreditCard className="w-7 h-7 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">Cartes Scolaires</h2>
+                            <h2 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">{t(language as Language, 'idCard.pageTitle') || 'Cartes Scolaires'}</h2>
                             <p className="text-indigo-200 text-sm mt-1 font-medium max-w-md">
-                                Format ISO 85×54 mm · QR Code niveau H
+                                {t(language as Language, 'idCard.pageSubtitle') || 'Format ISO 85×54 mm · QR Code niveau H'}
                             </p>
                         </div>
                     </div>
@@ -539,9 +545,9 @@ export const CarteScolaire: React.FC = () => {
 
                 <div className="grid grid-cols-3 gap-3 relative z-10">
                     {[
-                        { v: students.length,               l: 'Total élèves',      color: 'bg-white/10' },
-                        { v: classes.length,                l: 'Classes',           color: 'bg-purple-500/20' },
-                        { v: Math.ceil(students.length / 8), l: 'Pages PDF', color: 'bg-emerald-500/20' },
+                        { v: students.length,               l: t(language as Language, 'idCard.totalStudents') || 'Total élèves',      color: 'bg-white/10' },
+                        { v: classes.length,                l: t(language as Language, 'idCard.classes') || 'Classes',           color: 'bg-purple-500/20' },
+                        { v: Math.ceil(students.length / 8), l: t(language as Language, 'idCard.pdfPages') || 'Pages PDF', color: 'bg-emerald-500/20' },
                     ].map(({ v, l, color }) => (
                         <div key={l} className={`${color} backdrop-blur-md rounded-[20px] p-4 transition-colors`}>
                             <p className="text-3xl font-black text-white drop-shadow-md mb-1">{v}</p>
@@ -562,7 +568,7 @@ export const CarteScolaire: React.FC = () => {
                                     type="text"
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
-                                    placeholder="Rechercher un élève par nom, matricule..."
+                                    placeholder={t(language as Language, 'idCard.searchPlaceholder') || 'Rechercher un élève par nom, matricule...'}
                                     className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-[16px] text-sm focus:ring-2 focus:ring-indigo-100 focus:bg-white outline-none font-medium transition-all"
                                 />
                             </div>
@@ -574,7 +580,7 @@ export const CarteScolaire: React.FC = () => {
                                     onChange={e => setSelectedClasse(e.target.value)}
                                     className="w-full pl-11 pr-10 py-3 bg-slate-50 border-none rounded-[16px] text-sm focus:bg-white appearance-none focus:ring-2 focus:ring-indigo-100 outline-none font-medium transition-all cursor-pointer"
                                 >
-                                    <option value="">Toutes les classes</option>
+                                    <option value="">{t(language as Language, 'idCard.allClasses') || 'Toutes les classes'}</option>
                                     {classes.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </div>
@@ -588,7 +594,7 @@ export const CarteScolaire: React.FC = () => {
                             onChange={e => setSelectedClasse(e.target.value)}
                             className="pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm bg-white appearance-none focus:ring-2 focus:ring-indigo-500 outline-none sm:w-44"
                         >
-                            <option value="">Toutes les classes</option>
+                            <option value="">{t(language as Language, 'idCard.allClasses') || 'Toutes les classes'}</option>
                             {classes.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
@@ -599,7 +605,7 @@ export const CarteScolaire: React.FC = () => {
                     >
                         {generating
                             ? <><Loader2 className="w-5 h-5 animate-spin" /> {progress}%</>
-                            : <><Download className="w-5 h-5" /> Générer lot PDF ({filtered.length})</>
+                            : <><Download className="w-5 h-5" /> {t(language as Language, 'idCard.generateBatchPdf') || 'Générer lot PDF'} ({filtered.length})</>
                         }
                     </button>
                 </div>
@@ -608,7 +614,7 @@ export const CarteScolaire: React.FC = () => {
                 {generating && (
                     <div className="pt-4 mt-4 border-t border-slate-100 animate-fadeIn">
                         <div className="flex justify-between text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                            <span>Construction du document PDF en cours…</span>
+                            <span>{t(language as Language, 'idCard.buildingPdf') || 'Construction du document PDF en cours…'}</span>
                             <span className="text-slate-900">{progress}%</span>
                         </div>
                         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -635,7 +641,7 @@ export const CarteScolaire: React.FC = () => {
                     <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
                         <Filter className="w-4 h-4 text-slate-600" />
                     </div>
-                    Générer rapidement par classe
+                    {t(language as Language, 'idCard.generateByClass') || 'Générer rapidement par classe'}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                     {classes.map(c => {
@@ -657,7 +663,7 @@ export const CarteScolaire: React.FC = () => {
                 <div className="mt-5 p-4 bg-slate-50 rounded-[16px] flex items-start gap-3">
                     <Info className="w-5 h-5 text-slate-400 shrink-0" />
                     <p className="text-sm font-medium text-slate-600 leading-relaxed">
-                        Le format PDF respecte les normes ISO 7810 (85×54 mm). Le QR code est encodé avec un niveau H (30% de correction d'erreurs) garantissant une lecture fiable. Rendement de 8 cartes par page A4.
+                        {t(language as Language, 'idCard.pdfInfo') || "Le format PDF respecte les normes ISO 7810 (85×54 mm). Le QR code est encodé avec un niveau H (30% de correction d'erreurs) garantissant une lecture fiable. Rendement de 8 cartes par page A4."}
                     </p>
                 </div>
             </div>
@@ -673,7 +679,7 @@ export const CarteScolaire: React.FC = () => {
                                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center">
                                     <Search className="w-5 h-5 text-slate-600" />
                                 </div>
-                                Prévisualisation HD
+                                {t(language as Language, 'idCard.previewTitle') || 'Prévisualisation HD'}
                             </h3>
                             <button
                                 onClick={() => setSelectedStudent(null)}
@@ -687,7 +693,7 @@ export const CarteScolaire: React.FC = () => {
                             <div className="flex-shrink-0">
                                 <div className="flex items-center gap-2 mb-4">
                                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Aperçu ISO (85×54 mm)</p>
+                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">{t(language as Language, 'idCard.isoPreview') || 'Aperçu ISO (85×54 mm)'}</p>
                                 </div>
                                 <div className="p-4 bg-slate-50 rounded-[24px]">
                                     <div style={{ boxShadow:'0 25px 50px -12px rgba(0,0,0,0.25)', borderRadius:0, display:'inline-block' }} className="transition-transform hover:scale-[1.02] duration-500">
@@ -696,6 +702,7 @@ export const CarteScolaire: React.FC = () => {
                                             telephone={s.telephone}
                                             schoolName={schoolName} schoolYear={schoolYear} schoolLogo={schoolLogo}
                                             photoUrl={s.photoUrl}
+                                            language={language as Language}
                                         />
                                     </div>
                                 </div>
@@ -705,8 +712,8 @@ export const CarteScolaire: React.FC = () => {
                                 <div className="text-sm text-slate-700 bg-slate-50 rounded-[20px] p-5 flex items-start gap-4">
                                     <CheckCircle className="w-6 h-6 shrink-0 text-emerald-500" />
                                     <p className="font-medium leading-relaxed">
-                                        <strong className="block mb-1 text-slate-900">Validation technique réussie</strong>
-                                        Le QR Code généré utilise une matrice haute densité (Niveau H) offrant une résilience de 30% aux dommages.
+                                        <strong className="block mb-1 text-slate-900">{t(language as Language, 'idCard.techValidationSuccess') || 'Validation technique réussie'}</strong>
+                                        {t(language as Language, 'idCard.qrCodeInfo') || 'Le QR Code généré utilise une matrice haute densité (Niveau H) offrant une résilience de 30% aux dommages.'}
                                     </p>
                                 </div>
                                 <button
@@ -715,15 +722,15 @@ export const CarteScolaire: React.FC = () => {
                                     className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-slate-900 hover:bg-black active:scale-[0.98] disabled:opacity-50 text-white rounded-[16px] text-sm font-bold transition-all shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_15px_25px_rgba(0,0,0,0.15)]"
                                 >
                                     {generating
-                                        ? <><Loader2 className="w-5 h-5 animate-spin" /> Rendu PDF en cours…</>
-                                        : <><Printer className="w-5 h-5" /> Télécharger la carte seule (PDF)</>
+                                        ? <><Loader2 className="w-5 h-5 animate-spin" /> {t(language as Language, 'idCard.pdfRendering') || 'Rendu PDF en cours…'}</>
+                                        : <><Printer className="w-5 h-5" /> {t(language as Language, 'idCard.downloadSinglePdf') || 'Télécharger la carte seule (PDF)'}</>
                                     }
                                 </button>
                                 <button
                                     onClick={() => setSelectedStudent(null)}
                                     className="flex items-center justify-center w-full px-6 py-4 bg-white hover:bg-slate-50 text-slate-700 rounded-[16px] text-sm font-bold transition-all active:scale-[0.98]"
                                 >
-                                    Fermer
+                                    {t(language as Language, 'common.close') || 'Fermer'}
                                 </button>
                             </div>
                         </div>
@@ -735,10 +742,10 @@ export const CarteScolaire: React.FC = () => {
                     <div className="flex items-center justify-between mb-6">
                         <p className="text-lg text-slate-800 font-bold flex items-center gap-3">
                             <Users className="w-5 h-5 text-slate-400" />
-                            Répertoire des élèves
+                            {t(language as Language, 'idCard.studentDirectory') || 'Répertoire des élèves'}
                         </p>
                         <span className="bg-slate-50 text-slate-600 px-4 py-1.5 rounded-full text-xs font-black">
-                            {filtered.length} résultats
+                            {filtered.length} {t(language as Language, 'idCard.results') || 'résultats'}
                         </span>
                     </div>
                     
@@ -766,8 +773,8 @@ export const CarteScolaire: React.FC = () => {
                                 <div className="w-20 h-20 rounded-[24px] bg-slate-50 flex items-center justify-center mx-auto mb-5">
                                     <Search className="w-10 h-10 text-slate-300" />
                                 </div>
-                                <p className="text-lg text-slate-600 font-bold">Aucun élève trouvé</p>
-                                <p className="text-sm text-slate-400 mt-1">Modifiez vos critères de recherche</p>
+                                <p className="text-lg text-slate-600 font-bold">{t(language as Language, 'idCard.noStudentFound') || 'Aucun élève trouvé'}</p>
+                                <p className="text-sm text-slate-400 mt-1">{t(language as Language, 'idCard.modifySearchCriteria') || 'Modifiez vos critères de recherche'}</p>
                             </div>
                         )}
                     </div>

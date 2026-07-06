@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { chatApi } from '../services/chatApi';
+import { t, Language } from '../i18n';
 import {
     Send, ImageIcon, Phone, MessageCircle,
     ChevronLeft, MoreVertical, Loader2, Check, CheckCheck,
@@ -29,6 +30,7 @@ interface Conversation {
 
 export const ChatWindow: React.FC = () => {
     const user = useStore((s) => s.user);
+    const language = useStore((s) => s.language);
     const chatRecipientId = useStore((s) => s.chatRecipientId);
     const setChatRecipientId = useStore((s) => s.setChatRecipientId);
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -78,7 +80,7 @@ export const ChatWindow: React.FC = () => {
                         id: 'new_administration',
                         parent_id: user.id,
                         admin_role: 'administration',
-                        last_message: 'Démarrer une discussion...',
+                        last_message: t(language as Language, 'chat.startDiscussion') || 'Démarrer une discussion...',
                         updated_at: ''
                     });
                 }
@@ -87,7 +89,7 @@ export const ChatWindow: React.FC = () => {
                         id: 'new_comptabilite',
                         parent_id: user.id,
                         admin_role: 'comptabilite',
-                        last_message: 'Démarrer une discussion...',
+                        last_message: t(language as Language, 'chat.startDiscussion') || 'Démarrer une discussion...',
                         updated_at: ''
                     });
                 }
@@ -217,13 +219,13 @@ export const ChatWindow: React.FC = () => {
     };
 
     const handleDeleteMessage = async (messageId: number) => {
-        if (!window.confirm('Supprimer ce message ?')) return;
+        if (!window.confirm(t(language as Language, 'chat.confirmDeleteMessage') || 'Supprimer ce message ?')) return;
         try {
             await chatApi.deleteMessage(messageId);
             setMessages(prev => prev.filter(m => m.id !== messageId));
         } catch (err) {
             console.error(err);
-            alert('Erreur lors de la suppression');
+            alert(t(language as Language, 'chat.deleteError') || 'Erreur lors de la suppression');
         }
     };
 
@@ -232,14 +234,14 @@ export const ChatWindow: React.FC = () => {
             setActiveConv(null);
             return;
         }
-        if (!window.confirm('Supprimer toute la conversation ? Cette action est irréversible.')) return;
+        if (!window.confirm(t(language as Language, 'chat.confirmDeleteConversation') || 'Supprimer toute la conversation ? Cette action est irréversible.')) return;
         try {
             await chatApi.deleteConversation(convId);
             setConversations(prev => prev.filter(c => c.id !== convId));
             if (activeConv?.id === convId) setActiveConv(null);
         } catch (err) {
             console.error(err);
-            alert('Erreur lors de la suppression');
+            alert(t(language as Language, 'chat.deleteError') || 'Erreur lors de la suppression');
         }
     };
 
@@ -248,12 +250,12 @@ export const ChatWindow: React.FC = () => {
             {/* Sidebar Conversations */}
             <div className={`w-full md:w-80 border-r border-slate-100 flex flex-col ${activeConv ? 'hidden md:flex' : 'flex'}`}>
                 <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                    <h3 className="font-black text-slate-800 tracking-tight">Messages</h3>
+                    <h3 className="font-black text-slate-800 tracking-tight">{t(language as Language, 'chat.messages') || 'Messages'}</h3>
                     {user?.role === 'parent' && (
                         <button
                             onClick={() => setShowSupportModal(true)}
                             className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95"
-                            title="Nouvelle discussion"
+                            title={t(language as Language, 'chat.newDiscussion') || "Nouvelle discussion"}
                         >
                             <MessageCircle className="w-4 h-4" />
                         </button>
@@ -263,18 +265,18 @@ export const ChatWindow: React.FC = () => {
                 <div className="flex-1 overflow-y-auto">
                     {user?.role === 'parent' && conversations.length === 0 && (
                         <div className="p-4 space-y-3">
-                            <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Nouvelle discussion</p>
+                            <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">{t(language as Language, 'chat.newDiscussion') || 'Nouvelle discussion'}</p>
                             <button
                                 onClick={() => startNewConv('administration')}
                                 className="w-full p-3 rounded-xl bg-blue-50 text-blue-700 text-sm font-bold hover:bg-blue-100 transition-colors flex items-center gap-3"
                             >
-                                <MessageCircle className="w-4 h-4" /> Administration
+                                <MessageCircle className="w-4 h-4" /> {t(language as Language, 'chat.admin') || 'Administration'}
                             </button>
                             <button
                                 onClick={() => startNewConv('comptabilite')}
                                 className="w-full p-3 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center gap-3"
                             >
-                                <MessageCircle className="w-4 h-4" /> Comptabilité
+                                <MessageCircle className="w-4 h-4" /> {t(language as Language, 'chat.accounting') || 'Comptabilité'}
                             </button>
                         </div>
                     )}
@@ -293,7 +295,7 @@ export const ChatWindow: React.FC = () => {
                             <div className="flex-1 text-left overflow-hidden">
                                 <div className="flex justify-between items-center mb-0.5">
                                     <span className="font-bold text-slate-800 text-sm truncate">
-                                        {user?.role === 'parent' ? (conv.admin_role === 'comptabilite' ? 'Comptabilité' : 'Administration') : (conv.parent?.nom || 'Parent inconnu')}
+                                        {user?.role === 'parent' ? (conv.admin_role === 'comptabilite' ? (t(language as Language, 'chat.accounting') || 'Comptabilité') : (t(language as Language, 'chat.admin') || 'Administration')) : (conv.parent?.nom || t(language as Language, 'chat.unknownParent') || 'Parent inconnu')}
                                     </span>
                                     <span className="text-[10px] text-slate-400">
                                         {conv.updated_at ? format(new Date(conv.updated_at), 'HH:mm') : '--:--'}
@@ -321,11 +323,11 @@ export const ChatWindow: React.FC = () => {
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-slate-800 text-sm leading-tight">
-                                        {user?.role === 'parent' ? (activeConv.admin_role === 'comptabilite' ? 'Comptabilité' : 'Administration') : (activeConv.parent?.nom || 'Parent inconnu')}
+                                        {user?.role === 'parent' ? (activeConv.admin_role === 'comptabilite' ? (t(language as Language, 'chat.accounting') || 'Comptabilité') : (t(language as Language, 'chat.admin') || 'Administration')) : (activeConv.parent?.nom || t(language as Language, 'chat.unknownParent') || 'Parent inconnu')}
                                     </h4>
                                     <p className="text-[10px] text-emerald-500 font-medium tracking-tight flex items-center gap-1">
                                         <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
-                                        En ligne
+                                        {t(language as Language, 'chat.online') || 'En ligne'}
                                     </p>
                                 </div>
                             </div>
@@ -336,7 +338,7 @@ export const ChatWindow: React.FC = () => {
                                         <button
                                             onClick={() => handleCall(activeConv.parent!.telephone)}
                                             className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
-                                            title="Appeler"
+                                            title={t(language as Language, 'chat.call') || "Appeler"}
                                         >
                                             <Phone className="w-5 h-5" />
                                         </button>
@@ -352,7 +354,7 @@ export const ChatWindow: React.FC = () => {
                                 <button 
                                     onClick={() => handleDeleteConversation(activeConv.id)}
                                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                                    title="Supprimer la conversation"
+                                    title={t(language as Language, 'chat.deleteConversation') || "Supprimer la conversation"}
                                 >
                                     <Trash2 className="w-5 h-5" />
                                 </button>
@@ -386,7 +388,7 @@ export const ChatWindow: React.FC = () => {
                                             <button
                                                 onClick={() => handleDeleteMessage(msg.id)}
                                                 className={`absolute top-1 ${isMe ? '-left-8' : '-right-8'} p-1.5 text-slate-300 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all rounded-lg hover:bg-white active:scale-95 shadow-sm border border-slate-100 md:border-none md:shadow-none`}
-                                                title="Supprimer"
+                                                title={t(language as Language, 'common.delete') || "Supprimer"}
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
@@ -414,7 +416,7 @@ export const ChatWindow: React.FC = () => {
                             </button>
                             <input
                                 className="flex-1 bg-slate-100 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                placeholder="Taper un message..."
+                                placeholder={t(language as Language, 'chat.typeMessage') || "Taper un message..."}
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
                             />
@@ -432,8 +434,8 @@ export const ChatWindow: React.FC = () => {
                         <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                             <MessageCircle className="w-10 h-10" />
                         </div>
-                        <h4 className="font-bold text-slate-600 mb-1">Votre messagerie sécurisée</h4>
-                        <p className="text-sm max-w-xs">Sélectionnez une discussion pour commencer à échanger avec l'administration.</p>
+                        <h4 className="font-bold text-slate-600 mb-1">{t(language as Language, 'chat.secureMessaging') || 'Votre messagerie sécurisée'}</h4>
+                        <p className="text-sm max-w-xs">{t(language as Language, 'chat.selectDiscussion') || 'Sélectionnez une discussion pour commencer à échanger avec l\'administration.'}</p>
                     </div>
                 )}
             </div>

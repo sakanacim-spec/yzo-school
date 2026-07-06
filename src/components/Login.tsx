@@ -337,7 +337,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <input 
                             type="text" 
-                            placeholder="+33 6 12 34 56 78" 
+                            placeholder={t(language as Language, 'auth.phoneEx') || "+33 6 12 34 56 78"} 
                             className="w-full h-[52px] !pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={username} 
                             onChange={(e) => setUsername(e.target.value)} 
@@ -349,7 +349,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <input 
                             type={showPassword ? "text" : "password"} 
-                            placeholder="••••••" 
+                            placeholder={t(language as Language, 'auth.passwordPlaceholderMobile') || "••••••"} 
                             className="w-full h-[52px] !pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={password} 
                             onChange={(e) => setPassword(e.target.value)} 
@@ -366,14 +366,14 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                 </div>
 
                 <div className="flex justify-between items-center w-full px-1 pt-1 mb-6 mt-3">
-                    <button type="button" onClick={() => setView('forgot-password')} className="text-[11px] text-slate-500 font-medium hover:text-orange-500">Mot de passe oublié ?</button>
-                    <button type="button" onClick={() => setIsPrivacyOpen(true)} className="text-[11px] text-orange-500 font-semibold hover:underline underline-offset-2">Confidentialité & Données</button>
+                    <button type="button" onClick={() => setView('forgot-password')} className="text-[11px] text-slate-500 font-medium hover:text-orange-500">{t(language as Language, 'auth.forgotPasswordBtn') || 'Mot de passe oublié ?'}</button>
+                    <button type="button" onClick={() => setIsPrivacyOpen(true)} className="text-[11px] text-orange-500 font-semibold hover:underline underline-offset-2">{t(language as Language, 'auth.privacyAndData') || 'Confidentialité & Données'}</button>
                 </div>
 
                 {trialExpiredSchool && (
                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-left text-xs mb-4">
-                        <p className="text-amber-800 font-bold">⚠️ Période d'essai expirée</p>
-                        <p className="text-amber-700 mt-1">"{trialExpiredSchool}" — Contactez l'administrateur.</p>
+                        <p className="text-amber-800 font-bold">{t(language as Language, 'auth.trialExpiredWarning') || "⚠️ Période d'essai expirée"}</p>
+                        <p className="text-amber-700 mt-1">"{trialExpiredSchool}" — {t(language as Language, 'auth.contactAdmin') || "Contactez l'administrateur."}</p>
                     </div>
                 )}
                 {error && <div className="text-rose-500 text-[10px] italic text-center font-bold px-4 pb-2">{error}</div>}
@@ -389,11 +389,11 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                 </div>
                 
                 <button type="button" onClick={() => setView('register')} className="w-full py-3.5 bg-white border border-orange-200 text-orange-500 hover:bg-orange-50 rounded-xl font-bold text-xs tracking-wide transition-all flex items-center justify-center gap-2">
-                    <Building2 className="w-4 h-4" /> INSCRIRE MON ÉTABLISSEMENT
+                    <Building2 className="w-4 h-4" /> {t(language as Language, 'auth.registerSchoolBtn') || 'INSCRIRE MON ÉTABLISSEMENT'}
                 </button>
 
                 <div className="flex justify-center items-center gap-2 text-[9px] text-slate-400 font-medium mt-6">
-                    <ShieldCheck className="w-3 h-3" /> Connexion sécurisée <span className="mx-1">|</span> Vos données sont protégées
+                    <ShieldCheck className="w-3 h-3" /> {t(language as Language, 'auth.secureConnection') || 'Connexion sécurisée'} <span className="mx-1">|</span> {t(language as Language, 'auth.dataProtected') || 'Vos données sont protégées'}
                 </div>
               </form>
             </div>
@@ -573,7 +573,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                             <input 
                                 type="text" 
-                                placeholder="+33 6 12 34 56 78" 
+                                placeholder={t(language as Language, 'auth.phoneEx') || "+33 6 12 34 56 78"} 
                                 className="w-full h-[52px] !pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={username} 
                                 onChange={(e) => setUsername(e.target.value)} 
@@ -585,7 +585,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                             <input 
                                 type={showPassword ? "text" : "password"} 
-                                placeholder="••••••" 
+                                placeholder={t(language as Language, 'auth.passwordPlaceholderMobile') || "••••••"} 
                                 className="w-full h-[52px] !pl-12 pr-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={password} 
                                 onChange={(e) => setPassword(e.target.value)} 
@@ -601,20 +601,20 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         </div>
 
                       <div className="flex justify-between items-center px-1 text-[11px] mt-1">
-                        <button type="button" onClick={() => setView('forgot-password')} className="text-slate-400 hover:text-amber-600">Mot de passe oublié ?</button>
+                        <button type="button" onClick={() => setView('forgot-password')} className="text-slate-400 hover:text-amber-600">{t(language as Language, 'auth.forgotPasswordBtn') || 'Mot de passe oublié ?'}</button>
                         <button 
                           type="button" 
                           onClick={() => setIsPrivacyOpen(true)}
                           className="text-slate-400 hover:text-amber-600 underline cursor-pointer"
                         >
-                          Confidentialité & Sécurité
+                          {t(language as Language, 'auth.privacyAndSecurity') || 'Confidentialité & Sécurité'}
                         </button>
                       </div>
 
                     {trialExpiredSchool && (
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-left">
-                            <p className="text-amber-800 font-bold text-xs">⏰ Période d'essai expirée</p>
-                            <p className="text-amber-700 text-xs mt-1">"{trialExpiredSchool}" — Contactez l'administrateur pour régler l'abonnement.</p>
+                            <p className="text-amber-800 font-bold text-xs">{t(language as Language, 'auth.trialExpiredWarning') || "⏰ Période d'essai expirée"}</p>
+                            <p className="text-amber-700 text-xs mt-1">"{trialExpiredSchool}" — {t(language as Language, 'auth.contactAdminToPay') || "Contactez l'administrateur pour régler l'abonnement."}</p>
                         </div>
                     )}
                     {error && <div className="text-rose-500 text-xs italic text-center font-bold px-4">{error}</div>}
@@ -624,7 +624,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                     </button>
                     
                     <button type="button" onClick={() => setView('parent-register')} className="w-full py-3 text-orange-600 bg-orange-50 border border-orange-100 text-[10px] font-black uppercase tracking-widest mt-2 rounded-2xl hover:bg-orange-100 transition-colors shadow-sm">
-                        Je suis parent, Créer mon compte
+                        {t(language as Language, 'auth.iAmParentCreateAccount') || 'Je suis parent, Créer mon compte'}
                     </button>
                     
                     <button type="button" onClick={() => setView('register')} className="w-full py-2 text-orange-600 text-[10px] font-black uppercase tracking-widest mt-2">
@@ -637,7 +637,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
       )}
 
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-20 text-[10px] font-black uppercase tracking-[0.3em] ${isMobile ? 'text-white/60' : 'text-slate-400'} whitespace-nowrap`}>
-        <span>© {new Date().getFullYear()} {appName} • Éducation Connectée</span>
+        <span>© {new Date().getFullYear()} {appName} • {t(language as Language, 'auth.connectedEducation') || 'Éducation Connectée'}</span>
         <span className="hidden sm:inline">•</span>
         <button 
           onClick={() => setIsPrivacyOpen(true)}

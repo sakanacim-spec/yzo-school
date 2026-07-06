@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatMontant, calculateClassStats, getStatusPaiement } from '../utils/helpers';
+import { t, Language } from '../i18n';
 import {
   BarChart,
   Bar,
@@ -30,7 +31,7 @@ import {
 } from 'lucide-react';
 
 export const Analytics = () => {
-  const { students, settings } = useStore();
+  const { students, settings, language } = useStore();
   const classStats = calculateClassStats(students);
 
   // Données pour analyse par cycle
@@ -67,10 +68,10 @@ export const Analytics = () => {
     });
     
     return [
-      { name: 'Soldé', value: solde, color: '#22c55e' },
-      { name: '2ème Tranche OK', value: trancheValidee, color: '#3b82f6' },
-      { name: 'Partiel', value: tranchePartielle, color: '#f59e0b' },
-      { name: 'Non soldé', value: nonSolde, color: '#ef4444' }
+      { name: t(language as Language, 'students.statusPaid') || 'Soldé', value: solde, color: '#22c55e' },
+      { name: t(language as Language, 'students.statusPartial') || '2ème Tranche OK', value: trancheValidee, color: '#3b82f6' },
+      { name: t(language as Language, 'students.statusPartial') || 'Partiel', value: tranchePartielle, color: '#f59e0b' },
+      { name: t(language as Language, 'students.statusUnpaid') || 'Non soldé', value: nonSolde, color: '#ef4444' }
     ].filter(d => d.value > 0);
   }, [students, settings.seuilDeuxiemeTranche]);
 
@@ -112,9 +113,9 @@ export const Analytics = () => {
       <div className="p-4 sm:p-6">
         <div className="card p-8 sm:p-12 text-center">
           <BarChart3 className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Aucune donnée à analyser</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-600">{t(language as Language, 'analytics.noData') || 'Aucune donnée à analyser'}</h2>
           <p className="text-gray-400 mt-2 text-sm sm:text-base">
-            Importez des données ou ajoutez des élèves pour voir les analyses.
+            {t(language as Language, 'analytics.importPrompt') || 'Importez des données ou ajoutez des élèves pour voir les analyses.'}
           </p>
         </div>
       </div>
@@ -124,8 +125,8 @@ export const Analytics = () => {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="page-header">
-        <h1>Analyses Financières</h1>
-        <p className="text-gray-500 text-sm sm:text-base">Vue détaillée des performances de recouvrement</p>
+        <h1>{t(language as Language, 'analytics.title') || 'Analyses Financières'}</h1>
+        <p className="text-gray-500 text-sm sm:text-base">{t(language as Language, 'analytics.overview') || 'Vue détaillée des performances de recouvrement'}</p>
       </div>
 
       {/* KPIs */}
@@ -133,7 +134,7 @@ export const Analytics = () => {
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 sm:p-5 text-white shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <div className="flex-1">
-              <p className="text-xs sm:text-sm opacity-80 font-medium">Taux de recouvrement</p>
+              <p className="text-xs sm:text-sm opacity-80 font-medium">{t(language as Language, 'analytics.recoveryRate') || 'Taux de recouvrement'}</p>
               <p className="text-2xl sm:text-3xl font-bold mt-1">{Math.round(globalStats.tauxActuel)}%</p>
             </div>
             <Target className="w-8 sm:w-10 h-8 sm:h-10 opacity-40 flex-shrink-0" />
@@ -149,27 +150,27 @@ export const Analytics = () => {
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 sm:p-5 text-white shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <div className="flex-1">
-              <p className="text-xs sm:text-sm opacity-80 font-medium">Montant encaissé</p>
+              <p className="text-xs sm:text-sm opacity-80 font-medium">{t(language as Language, 'analytics.collectedAmount') || 'Montant encaissé'}</p>
               <p className="text-xl sm:text-2xl font-bold mt-1">{formatMontant(globalStats.totalPaye)}</p>
             </div>
             <DollarSign className="w-8 sm:w-10 h-8 sm:h-10 opacity-40 flex-shrink-0" />
           </div>
           <p className="mt-2 text-xs sm:text-sm opacity-80 flex items-center gap-1">
             <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
-            sur {formatMontant(globalStats.totalAttendu)} attendus
+            {t(language as Language, 'analytics.outOf') || 'sur'} {formatMontant(globalStats.totalAttendu)} {t(language as Language, 'analytics.expected') || 'attendus'}
           </p>
         </div>
 
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-4 sm:p-5 text-white shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-3">
             <div className="flex-1">
-              <p className="text-xs sm:text-sm opacity-80 font-medium">Reste à recouvrer</p>
+              <p className="text-xs sm:text-sm opacity-80 font-medium">{t(language as Language, 'analytics.remainingAmount') || 'Reste à recouvrer'}</p>
               <p className="text-xl sm:text-2xl font-bold mt-1">{formatMontant(globalStats.totalRestant)}</p>
             </div>
             <AlertTriangle className="w-8 sm:w-10 h-8 sm:h-10 opacity-40 flex-shrink-0" />
           </div>
           <p className="mt-2 text-xs sm:text-sm opacity-80">
-            {students.filter(s => s.restant > 0).length} élèves concernés
+            {students.filter(s => s.restant > 0).length} {t(language as Language, 'analytics.affectedStudents') || 'élèves concernés'}
           </p>
         </div>
       </div>
@@ -181,7 +182,7 @@ export const Analytics = () => {
           <div className="card-header">
             <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <PieChartIcon className="w-5 h-5 text-blue-600" />
-              Revenus par cycle
+              {t(language as Language, 'finance.revenueByCycle') || 'Revenus par cycle'}
             </h3>
           </div>
           <div className="card-body p-3 sm:p-6">
@@ -195,8 +196,8 @@ export const Analytics = () => {
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
                 <Legend />
-                <Bar dataKey="paye" name="Payé" fill="#22c55e" radius={[0, 4, 4, 0]} />
-                <Bar dataKey="restant" name="Restant" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="paye" name={t(language as Language, 'students.paid') || 'Payé'} fill="#22c55e" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="restant" name={t(language as Language, 'students.remaining') || 'Restant'} fill="#ef4444" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -207,7 +208,7 @@ export const Analytics = () => {
           <div className="card-header">
             <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <PieChartIcon className="w-5 h-5 text-purple-600" />
-              Distribution des statuts de paiement
+              {t(language as Language, 'analytics.statusDistribution') || 'Distribution des statuts de paiement'}
             </h3>
           </div>
           <div className="card-body p-3 sm:p-6">
@@ -238,10 +239,10 @@ export const Analytics = () => {
       {/* Comparaison entre classes */}
       <div className="card">
         <div className="card-header">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-green-600" />
-            Comparaison des classes
-          </h3>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-green-600" />
+              {t(language as Language, 'analytics.classComparison') || 'Comparaison des classes'}
+            </h3>
         </div>
         <div className="card-body p-3 sm:p-6">
           <ResponsiveContainer width="100%" height={300}>
@@ -254,8 +255,8 @@ export const Analytics = () => {
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
               />
               <Legend />
-              <Area type="monotone" dataKey="attendu" name="Attendu" stroke="#94a3b8" fill="#e2e8f0" />
-              <Area type="monotone" dataKey="paye" name="Payé" stroke="#22c55e" fill="#bbf7d0" />
+              <Area type="monotone" dataKey="attendu" name={t(language as Language, 'analytics.expected') || 'Attendu'} stroke="#94a3b8" fill="#e2e8f0" />
+              <Area type="monotone" dataKey="paye" name={t(language as Language, 'students.paid') || 'Payé'} stroke="#22c55e" fill="#bbf7d0" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -268,7 +269,7 @@ export const Analytics = () => {
           <div className="card-header">
             <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <Award className="w-5 h-5 text-yellow-500" />
-              Top 5 classes les plus solvables
+              {t(language as Language, 'analytics.topClasses') || 'Top 5 classes les plus solvables'}
             </h3>
           </div>
           <div className="card-body space-y-3">
@@ -304,15 +305,15 @@ export const Analytics = () => {
           <div className="card-header">
             <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <TrendingDown className="w-5 h-5 text-red-500" />
-              Classes en retard (&lt;50%)
+              {t(language as Language, 'analytics.lateClasses') || 'Classes en retard (<50%)'}
             </h3>
           </div>
           <div className="card-body">
             {classesEnRetard.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
                 <Award className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm sm:text-base font-medium">Aucune classe en retard !</p>
-                <p className="text-xs sm:text-sm">Toutes les classes ont un taux ≥50%</p>
+                <p className="text-sm sm:text-base font-medium">{t(language as Language, 'analytics.noLateClasses') || 'Aucune classe en retard !'}</p>
+                <p className="text-xs sm:text-sm">{t(language as Language, 'analytics.allClassesGood') || 'Toutes les classes ont un taux ≥50%'}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -325,7 +326,7 @@ export const Analytics = () => {
                       <span className="text-red-600 font-bold text-xs sm:text-sm flex-shrink-0">{c.tauxRecouvrement}%</span>
                     </div>
                     <p className="text-xs sm:text-sm text-gray-600">
-                      Reste: {formatMontant(c.restant)} ({c.effectif} élèves)
+                      {t(language as Language, 'students.remaining') || 'Reste'}: {formatMontant(c.restant)} ({c.effectif} {t(language as Language, 'dashboard.stats.totalStudents') || 'élèves'})
                     </p>
                   </div>
                 </div>

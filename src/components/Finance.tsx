@@ -4,11 +4,12 @@ import { getCycleByClass } from '../data/classes';
 import { TrendingUp, TrendingDown, DollarSign, PieChart as PieChartIcon, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { formatMontant } from '../utils/helpers';
+import { t, Language } from '../i18n';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
 export default function Finance() {
-  const { students, settings } = useStore();
+  const { students, settings, language } = useStore();
   const formatMoney = (value: number) => formatMontant(value);
 
   const cycleStats = useMemo(() => {
@@ -42,8 +43,8 @@ export default function Finance() {
     <div className="p-4 sm:p-6">
       <div className="card p-8 sm:p-12 text-center">
         <DollarSign className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Aucune donnée financière</h2>
-        <p className="text-gray-500 text-sm sm:text-base mt-2">Importez des élèves pour voir les analyses financières.</p>
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-600">{t(language as Language, 'finance.noData') || 'Aucune donnée financière'}</h2>
+        <p className="text-gray-500 text-sm sm:text-base mt-2">{t(language as Language, 'finance.importPrompt') || 'Importez des élèves pour voir les analyses financières.'}</p>
       </div>
     </div>
   );
@@ -51,8 +52,8 @@ export default function Finance() {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="page-header">
-        <h1>Finance</h1>
-        <p className="text-gray-500 text-sm sm:text-base">Vue d'ensemble des finances scolaires</p>
+        <h1>{t(language as Language, 'finance.title') || 'Finance'}</h1>
+        <p className="text-gray-500 text-sm sm:text-base">{t(language as Language, 'finance.overview') || "Vue d'ensemble des finances scolaires"}</p>
       </div>
 
       {/* KPIs */}
@@ -61,7 +62,7 @@ export default function Finance() {
           <div className="flex items-center gap-3 mb-2">
             <DollarSign className="w-6 sm:w-8 h-6 sm:h-8 opacity-80 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs sm:text-sm opacity-80 font-medium">Total Attendu</p>
+              <p className="text-xs sm:text-sm opacity-80 font-medium">{t(language as Language, 'finance.totalExpected') || 'Total Attendu'}</p>
               <p className="text-lg sm:text-xl font-bold truncate">{formatMoney(totalStats.totalEcolage)}</p>
             </div>
           </div>
@@ -71,7 +72,7 @@ export default function Finance() {
           <div className="flex items-center gap-3 mb-2">
             <TrendingUp className="w-6 sm:w-8 h-6 sm:h-8 opacity-80 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs sm:text-sm opacity-80 font-medium">Total Perçu</p>
+              <p className="text-xs sm:text-sm opacity-80 font-medium">{t(language as Language, 'finance.totalReceived') || 'Total Perçu'}</p>
               <p className="text-lg sm:text-xl font-bold truncate">{formatMoney(totalStats.totalPaye)}</p>
             </div>
           </div>
@@ -81,7 +82,7 @@ export default function Finance() {
           <div className="flex items-center gap-3 mb-2">
             <TrendingDown className="w-6 sm:w-8 h-6 sm:h-8 opacity-80 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs sm:text-sm opacity-80 font-medium">Reste à Percevoir</p>
+              <p className="text-xs sm:text-sm opacity-80 font-medium">{t(language as Language, 'finance.remaining') || 'Reste à Percevoir'}</p>
               <p className="text-lg sm:text-xl font-bold truncate">{formatMoney(totalStats.totalRestant)}</p>
             </div>
           </div>
@@ -91,7 +92,7 @@ export default function Finance() {
           <div className="flex items-center gap-3 mb-2">
             <PieChartIcon className="w-6 sm:w-8 h-6 sm:h-8 opacity-80 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs sm:text-sm opacity-80 font-medium">Taux Global</p>
+              <p className="text-xs sm:text-sm opacity-80 font-medium">{t(language as Language, 'finance.globalRate') || 'Taux Global'}</p>
               <p className="text-lg sm:text-xl font-bold">{totalStats.tauxGlobal}%</p>
             </div>
           </div>
@@ -105,7 +106,7 @@ export default function Finance() {
           <div className="card-header">
             <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <PieChartIcon className="w-5 h-5 text-blue-600" />
-              Revenus par Cycle
+              {t(language as Language, 'finance.revenueByCycle') || 'Revenus par Cycle'}
             </h3>
           </div>
           <div className="card-body p-3 sm:p-6">
@@ -138,7 +139,7 @@ export default function Finance() {
         {/* Détail par Cycle */}
         <div className="card">
           <div className="card-header">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-800">Détail par Cycle</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800">{t(language as Language, 'finance.detailByCycle') || 'Détail par Cycle'}</h3>
           </div>
           <div className="card-body space-y-3 sm:space-y-4">
             {cycleStats.map((stat, index) => (
@@ -152,8 +153,8 @@ export default function Finance() {
                   <span className="font-bold text-sm sm:text-base">{stat.taux}%</span>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2 text-xs sm:text-sm mb-2">
-                  <span className="text-green-600">Payé: {formatMoney(stat.paye)}</span>
-                  <span className="text-red-600">Restant: {formatMoney(stat.restant)}</span>
+                  <span className="text-green-600">{t(language as Language, 'students.paid') || 'Payé'}: {formatMoney(stat.paye)}</span>
+                  <span className="text-red-600">{t(language as Language, 'students.remaining') || 'Restant'}: {formatMoney(stat.restant)}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div className="h-2 rounded-full transition-all" style={{ width: `${stat.taux}%`, backgroundColor: COLORS[index] }} />
@@ -167,7 +168,7 @@ export default function Finance() {
       {/* Comparaison par Classe */}
       <div className="card">
         <div className="card-header">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800">Comparaison par Classe</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800">{t(language as Language, 'finance.comparisonByClass') || 'Comparaison par Classe'}</h3>
         </div>
         <div className="card-body p-3 sm:p-6">
           <div className="h-80 sm:h-96">
@@ -176,10 +177,10 @@ export default function Finance() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis type="number" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <YAxis dataKey="classe" type="category" width={80} tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value, name) => [formatMoney(value as number), name === 'paye' ? 'Payé' : 'Restant']} />
+                <Tooltip formatter={(value, name) => [formatMoney(value as number), name === 'paye' ? (t(language as Language, 'students.paid') || 'Payé') : (t(language as Language, 'students.remaining') || 'Restant')]} />
                 <Legend />
-                <Bar dataKey="paye" name="Payé" fill="#10B981" stackId="a" radius={[0, 4, 4, 0]} />
-                <Bar dataKey="restant" name="Restant" fill="#EF4444" stackId="a" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="paye" name={t(language as Language, 'students.paid') || 'Payé'} fill="#10B981" stackId="a" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="restant" name={t(language as Language, 'students.remaining') || 'Restant'} fill="#EF4444" stackId="a" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -191,23 +192,23 @@ export default function Finance() {
         <div className="card-header">
           <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-orange-500" />
-            Retards de Paiement (moins de 30% payé)
+            {t(language as Language, 'finance.latePayments') || 'Retards de Paiement (moins de 30% payé)'}
           </h3>
         </div>
         <div className="card-body">
           {retardPaiement.length === 0 ? (
-            <p className="text-center text-gray-500 py-8 text-sm sm:text-base">Aucun retard de paiement détecté</p>
+            <p className="text-center text-gray-500 py-8 text-sm sm:text-base">{t(language as Language, 'finance.noLatePayments') || 'Aucun retard de paiement détecté'}</p>
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">Élève</th>
-                    <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">Classe</th>
-                    <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">Écolage</th>
-                    <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">Payé</th>
-                    <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">Restant</th>
-                    <th className="text-center py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">Taux</th>
+                    <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">{t(language as Language, 'dashboard.table.student') || 'Élève'}</th>
+                    <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">{t(language as Language, 'common.class') || 'Classe'}</th>
+                    <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">{t(language as Language, 'students.fees') || 'Écolage'}</th>
+                    <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">{t(language as Language, 'students.paid') || 'Payé'}</th>
+                    <th className="text-right py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">{t(language as Language, 'students.remaining') || 'Restant'}</th>
+                    <th className="text-center py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm">{t(language as Language, 'finance.rate') || 'Taux'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -233,20 +234,20 @@ export default function Finance() {
       {/* Prévision de Trésorerie */}
       <div className="card">
         <div className="card-header">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800">Prévision de Trésorerie</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800">{t(language as Language, 'finance.forecast') || 'Prévision de Trésorerie'}</h3>
         </div>
         <div className="card-body">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="bg-blue-50 border border-blue-100 p-3 sm:p-4 rounded-lg text-center">
-              <p className="text-xs sm:text-sm text-blue-600 mb-2">Si 50% des impayés règlent</p>
+              <p className="text-xs sm:text-sm text-blue-600 mb-2">{t(language as Language, 'finance.forecast50') || 'Si 50% des impayés règlent'}</p>
               <p className="text-lg sm:text-2xl font-bold text-blue-800">{formatMoney(totalStats.totalPaye + totalStats.totalRestant * 0.5)}</p>
             </div>
             <div className="bg-green-50 border border-green-100 p-3 sm:p-4 rounded-lg text-center">
-              <p className="text-xs sm:text-sm text-green-600 mb-2">Si 75% des impayés règlent</p>
+              <p className="text-xs sm:text-sm text-green-600 mb-2">{t(language as Language, 'finance.forecast75') || 'Si 75% des impayés règlent'}</p>
               <p className="text-lg sm:text-2xl font-bold text-green-800">{formatMoney(totalStats.totalPaye + totalStats.totalRestant * 0.75)}</p>
             </div>
             <div className="bg-purple-50 border border-purple-100 p-3 sm:p-4 rounded-lg text-center">
-              <p className="text-xs sm:text-sm text-purple-600 mb-2">Si 100% règlent</p>
+              <p className="text-xs sm:text-sm text-purple-600 mb-2">{t(language as Language, 'finance.forecast100') || 'Si 100% règlent'}</p>
               <p className="text-lg sm:text-2xl font-bold text-purple-800">{formatMoney(totalStats.totalEcolage)}</p>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { API_BASE_URL } from '../config';
+import { t, Language } from '../i18n';
 
 interface ForgotPasswordProps {
     schoolSlug: string;
@@ -36,10 +37,10 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
             });
             const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error || 'Erreur lors de l\'envoi du code.');
+            if (!res.ok) throw new Error(data.error || t(language as Language, 'auth.otpSendError') || 'Erreur lors de l\'envoi du code.');
 
             setStep(2);
-            setSuccess('Un code à 6 chiffres a été envoyé par SMS.');
+            setSuccess(t(language as Language, 'auth.otpSentSuccess') || 'Un code à 6 chiffres a été envoyé par SMS.');
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -54,7 +55,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
         setLoading(true);
 
         if (newPassword.length < 6) {
-            setError('Le mot de passe doit faire au moins 6 caractères.');
+            setError(t(language as Language, 'auth.passwordLengthError') || 'Le mot de passe doit faire au moins 6 caractères.');
             setLoading(false);
             return;
         }
@@ -67,9 +68,9 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
             });
             const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error || 'Erreur lors de la réinitialisation.');
+            if (!res.ok) throw new Error(data.error || t(language as Language, 'auth.resetError') || 'Erreur lors de la réinitialisation.');
 
-            setSuccess('Mot de passe modifié avec succès ! Vous pouvez vous connecter.');
+            setSuccess(t(language as Language, 'auth.resetSuccess') || 'Mot de passe modifié avec succès ! Vous pouvez vous connecter.');
             // Go back to login after 3 seconds
             setTimeout(() => {
                 onBack();
@@ -84,12 +85,12 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
     return (
         <div className="w-full h-full flex flex-col items-center justify-center p-8">
             <h2 className="text-3xl font-black mb-2 text-slate-900 tracking-tighter text-center">
-                Mot de passe oublié
+                {t(language as Language, 'auth.forgotPassword') || 'Mot de passe oublié'}
             </h2>
             <p className="text-sm font-medium text-slate-500 mb-8 text-center max-w-sm mx-auto">
                 {step === 1 
-                    ? "Entrez votre numéro de téléphone pour recevoir un code de réinitialisation par SMS."
-                    : "Entrez le code reçu par SMS et choisissez votre nouveau mot de passe."}
+                    ? (t(language as Language, 'auth.forgotPasswordDesc1') || "Entrez votre numéro de téléphone pour recevoir un code de réinitialisation par SMS.")
+                    : (t(language as Language, 'auth.forgotPasswordDesc2') || "Entrez le code reçu par SMS et choisissez votre nouveau mot de passe.")}
             </p>
 
             {error && <div className="text-rose-500 text-xs mt-2 mb-4 font-bold max-w-sm text-center">{error}</div>}
@@ -99,24 +100,24 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
                 <form onSubmit={handleSendOTP} className="w-full max-w-sm flex flex-col items-center">
                     <input 
                         type="text" 
-                        placeholder="Numéro de téléphone" 
+                        placeholder={t(language as Language, 'auth.phonePlaceholder') || "Numéro de téléphone"} 
                         className="bg-slate-50 border border-slate-200 padding-3 mb-4 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 p-4" 
                         value={phone} 
                         onChange={(e) => setPhone(e.target.value)} 
                         required 
                     />
                     <button type="submit" disabled={loading} className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-500/30 active:scale-95 transition-transform">
-                        {loading ? 'Envoi en cours...' : 'Envoyer le code par SMS'}
+                        {loading ? (t(language as Language, 'auth.sending') || 'Envoi en cours...') : (t(language as Language, 'auth.sendOtpBtn') || 'Envoyer le code par SMS')}
                     </button>
                     <button type="button" onClick={onBack} className="mt-4 text-xs font-bold text-slate-400 hover:text-slate-600 underline">
-                        Retour à la connexion
+                        {t(language as Language, 'auth.backToLogin') || 'Retour à la connexion'}
                     </button>
                 </form>
             ) : (
                 <form onSubmit={handleResetPassword} className="w-full max-w-sm flex flex-col items-center">
                     <input 
                         type="text" 
-                        placeholder="Code à 6 chiffres" 
+                        placeholder={t(language as Language, 'auth.otpPlaceholder') || "Code à 6 chiffres"} 
                         className="bg-slate-50 border border-slate-200 padding-3 mb-4 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 p-4 tracking-widest text-center" 
                         value={otp} 
                         onChange={(e) => setOtp(e.target.value)} 
@@ -125,7 +126,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
                     />
                     <input 
                         type="password" 
-                        placeholder="Nouveau mot de passe" 
+                        placeholder={t(language as Language, 'auth.newPasswordPlaceholder') || "Nouveau mot de passe"} 
                         className="bg-slate-50 border border-slate-200 padding-3 mb-4 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 p-4" 
                         value={newPassword} 
                         onChange={(e) => setNewPassword(e.target.value)} 
@@ -133,10 +134,10 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
                         minLength={6}
                     />
                     <button type="submit" disabled={loading} className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-500/30 active:scale-95 transition-transform">
-                        {loading ? 'Vérification...' : 'Valider le nouveau mot de passe'}
+                        {loading ? (t(language as Language, 'auth.verifying') || 'Vérification...') : (t(language as Language, 'auth.validateNewPassword') || 'Valider le nouveau mot de passe')}
                     </button>
                     <button type="button" onClick={() => setStep(1)} className="mt-4 text-xs font-bold text-slate-400 hover:text-slate-600 underline">
-                        Je n'ai pas reçu de code
+                        {t(language as Language, 'auth.didNotReceiveCode') || 'Je n\'ai pas reçu de code'}
                     </button>
                 </form>
             )}

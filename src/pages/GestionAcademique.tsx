@@ -3,8 +3,12 @@ import { useStore } from '../store/useStore';
 import { MatiereCategorie } from '../types';
 import { v4 as uuid } from '../utils/uuid';
 import { BookOpen, Plus, Trash2, Settings2, Users, Layers, Library } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 export const GestionAcademique: React.FC = () => {
+    const { language } = useLanguage();
     const { 
         matieres, addMatiere, deleteMatiere,
         classeMatieres, addClasseMatiere, deleteClasseMatiere,
@@ -34,7 +38,7 @@ export const GestionAcademique: React.FC = () => {
         if (!selectedClasse || !selectedMatiere || coefficient <= 0) return;
         const existing = classeMatieres.find(cm => cm.classe === selectedClasse && cm.matiereId === selectedMatiere);
         if (existing) {
-            alert('Cette matière est déjà enseignée dans cette classe.');
+            alert(t(language as Language, 'academic.subjectAlreadyAssigned') || 'Cette matière est déjà enseignée dans cette classe.');
             return;
         }
 
@@ -61,13 +65,13 @@ export const GestionAcademique: React.FC = () => {
                 
                 <div className="relative z-10 max-w-2xl">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-500 text-[10px] font-black text-white uppercase tracking-[0.2em] mb-4 shadow-[0_0_15px_rgba(99,102,241,0.4)]">
-                        <BookOpen className="w-3.5 h-3.5" /> Pédagogie
+                        <BookOpen className="w-3.5 h-3.5" /> {t(language as Language, 'academic.pedagogy') || 'Pédagogie'}
                     </div>
                     <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter mb-2">
-                        Gestion <span className="text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 to-indigo-600">Académique</span>
+                        {t(language as Language, 'academic.management') || 'Gestion'} <span className="text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 to-indigo-600">{t(language as Language, 'academic.academic') || 'Académique'}</span>
                     </h2>
                     <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
-                        Structurez le catalogue de matières et définissez les coefficients pour chaque classe.
+                        {t(language as Language, 'academic.managementDesc') || 'Structurez le catalogue de matières et définissez les coefficients pour chaque classe.'}
                     </p>
                 </div>
             </div>
@@ -82,7 +86,7 @@ export const GestionAcademique: React.FC = () => {
                         : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
                     }`}
                 >
-                    <Settings2 className="w-4 h-4" /> Catalogue des Matières
+                    <Settings2 className="w-4 h-4" /> {t(language as Language, 'academic.subjectsCatalog') || 'Catalogue des Matières'}
                 </button>
                 <button
                     onClick={() => setActiveTab('liaisons')}
@@ -92,7 +96,7 @@ export const GestionAcademique: React.FC = () => {
                         : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
                     }`}
                 >
-                    <Users className="w-4 h-4" /> Assignations & Coefficients
+                    <Users className="w-4 h-4" /> {t(language as Language, 'academic.assignmentsCoefficients') || 'Assignations & Coefficients'}
                 </button>
             </div>
 
@@ -106,41 +110,41 @@ export const GestionAcademique: React.FC = () => {
                             <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
                                 <Plus className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                             </div>
-                            Nouvelle Matière
+                            {t(language as Language, 'academic.newSubject') || 'Nouvelle Matière'}
                         </h3>
                         <form onSubmit={handleAddMatiere} className="space-y-5">
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                                    Intitulé
+                                    {t(language as Language, 'academic.title') || 'Intitulé'}
                                 </label>
                                 <input
                                     type="text"
                                     required
                                     value={nomMatiere}
                                     onChange={(e) => setNomMatiere(e.target.value)}
-                                    placeholder="Ex: Mathématiques"
+                                    placeholder={t(language as Language, 'academic.subjectPlaceholder') || "Ex: Mathématiques"}
                                     className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                                 />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                                    Catégorie
+                                    {t(language as Language, 'common.category') || 'Catégorie'}
                                 </label>
                                 <select
                                     value={categorie}
                                     onChange={(e) => setCategorie(e.target.value as MatiereCategorie)}
                                     className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
                                 >
-                                    <option value="1-MATIERES LITTERAIRES">1 - Littéraires</option>
-                                    <option value="2-MATIERES SCIENTIFIQUES">2 - Scientifiques</option>
-                                    <option value="3-AUTRES MATIERES">3 - Autres</option>
+                                    <option value="1-MATIERES LITTERAIRES">{t(language as Language, 'academic.catLiterary') || '1 - Littéraires'}</option>
+                                    <option value="2-MATIERES SCIENTIFIQUES">{t(language as Language, 'academic.catScientific') || '2 - Scientifiques'}</option>
+                                    <option value="3-AUTRES MATIERES">{t(language as Language, 'academic.catOther') || '3 - Autres'}</option>
                                 </select>
                             </div>
                             <button
                                 type="submit"
                                 className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[12px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all"
                             >
-                                Ajouter la matière
+                                {t(language as Language, 'academic.addSubject') || 'Ajouter la matière'}
                             </button>
                         </form>
                     </div>
@@ -152,17 +156,17 @@ export const GestionAcademique: React.FC = () => {
                                 <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl">
                                     <Layers className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                 </div>
-                                Répertoire Global
+                                {t(language as Language, 'academic.globalDirectory') || 'Répertoire Global'}
                             </h3>
                             <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                                {matieres.length} enregistrements
+                                {matieres.length} {t(language as Language, 'academic.records') || 'enregistrements'}
                             </span>
                         </div>
                         
                         <div className="space-y-6">
                             {matieres.length === 0 ? (
                                 <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700">
-                                    <p className="text-sm font-bold text-slate-500">Aucune matière n'est configurée.</p>
+                                    <p className="text-sm font-bold text-slate-500">{t(language as Language, 'academic.noSubjectConfigured') || "Aucune matière n'est configurée."}</p>
                                 </div>
                             ) : (
                                 ['1-MATIERES LITTERAIRES', '2-MATIERES SCIENTIFIQUES', '3-AUTRES MATIERES'].map((cat) => {
@@ -206,12 +210,12 @@ export const GestionAcademique: React.FC = () => {
                             <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
                                 <Plus className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                             </div>
-                            Nouvelle Assignation
+                            {t(language as Language, 'academic.newAssignment') || 'Nouvelle Assignation'}
                         </h3>
                         <form onSubmit={handleAddLiaison} className="space-y-5">
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                                    Classe cible
+                                    {t(language as Language, 'academic.targetClass') || 'Classe cible'}
                                 </label>
                                 <select
                                     required
@@ -219,13 +223,13 @@ export const GestionAcademique: React.FC = () => {
                                     onChange={(e) => setSelectedClasse(e.target.value)}
                                     className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
                                 >
-                                    <option value="">Sélectionner une classe...</option>
+                                    <option value="">{t(language as Language, 'academic.selectClass') || 'Sélectionner une classe...'}</option>
                                     {classesList.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                                    Matière à enseigner
+                                    {t(language as Language, 'academic.subjectToTeach') || 'Matière à enseigner'}
                                 </label>
                                 <select
                                     required
@@ -233,25 +237,25 @@ export const GestionAcademique: React.FC = () => {
                                     onChange={(e) => setSelectedMatiere(e.target.value)}
                                     className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
                                 >
-                                    <option value="">Sélectionner une matière...</option>
+                                    <option value="">{t(language as Language, 'academic.selectSubject') || 'Sélectionner une matière...'}</option>
                                     {matieres.map(m => <option key={m.id} value={m.id}>{m.nom} ({m.categorie.substring(2)})</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                                    Professeur (Optionnel)
+                                    {t(language as Language, 'academic.teacherOptional') || 'Professeur (Optionnel)'}
                                 </label>
                                 <input
                                     type="text"
                                     value={professeur}
                                     onChange={(e) => setProfesseur(e.target.value)}
-                                    placeholder="Ex: M. DUBOIS"
+                                    placeholder={t(language as Language, 'academic.teacherPlaceholder') || "Ex: M. DUBOIS"}
                                     className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                                 />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                                    Coefficient
+                                    {t(language as Language, 'academic.coefficient') || 'Coefficient'}
                                 </label>
                                 <input
                                     type="number"
@@ -267,7 +271,7 @@ export const GestionAcademique: React.FC = () => {
                                 type="submit"
                                 className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[12px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all"
                             >
-                                Valider l'assignation
+                                {t(language as Language, 'academic.validateAssignment') || "Valider l'assignation"}
                             </button>
                         </form>
                     </div>
@@ -279,14 +283,14 @@ export const GestionAcademique: React.FC = () => {
                                 <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl">
                                     <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                 </div>
-                                Programme par Classe
+                                {t(language as Language, 'academic.programByClass') || 'Programme par Classe'}
                             </h3>
                             <select
                                 className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
                                 value={selectedClasse}
                                 onChange={(e) => setSelectedClasse(e.target.value)}
                             >
-                                <option value="">Toutes les classes</option>
+                                <option value="">{t(language as Language, 'academic.allClasses') || 'Toutes les classes'}</option>
                                 {classesList.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
@@ -294,18 +298,18 @@ export const GestionAcademique: React.FC = () => {
                         <div>
                             {classeMatieres.filter(cm => selectedClasse === '' || cm.classe === selectedClasse).length === 0 ? (
                                 <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700">
-                                    <p className="text-sm font-bold text-slate-500">Aucune matière n'est assignée pour cette sélection.</p>
+                                    <p className="text-sm font-bold text-slate-500">{t(language as Language, 'academic.noSubjectAssigned') || "Aucune matière n'est assignée pour cette sélection."}</p>
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr>
-                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800">Classe</th>
-                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800">Matière</th>
-                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800">Professeur</th>
-                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800">Coef.</th>
-                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800 text-right">Actions</th>
+                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800">{t(language as Language, 'common.class') || 'Classe'}</th>
+                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800">{t(language as Language, 'common.subject') || 'Matière'}</th>
+                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800">{t(language as Language, 'common.teacher') || 'Professeur'}</th>
+                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800">{t(language as Language, 'academic.coef') || 'Coef.'}</th>
+                                                <th className="py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-200 dark:border-slate-800 text-right">{t(language as Language, 'common.actions') || 'Actions'}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -317,7 +321,7 @@ export const GestionAcademique: React.FC = () => {
                                                     return (
                                                         <tr key={cm.id} className="group border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                                                             <td className="py-4 px-4 font-black text-sm text-slate-900 dark:text-white">{cm.classe}</td>
-                                                            <td className="py-4 px-4 font-bold text-sm text-slate-700 dark:text-slate-300">{mat ? mat.nom : 'Inconnue'}</td>
+                                                            <td className="py-4 px-4 font-bold text-sm text-slate-700 dark:text-slate-300">{mat ? mat.nom : (t(language as Language, 'common.unknown') || 'Inconnue')}</td>
                                                             <td className="py-4 px-4 font-medium text-sm text-slate-500">{cm.professeur || <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                                                             <td className="py-4 px-4">
                                                                 <span className="inline-flex items-center justify-center min-w-[2.5rem] py-1 px-2 bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 rounded-lg text-xs font-black">

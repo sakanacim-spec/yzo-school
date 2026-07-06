@@ -11,8 +11,12 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { formatMontant } from '../utils/helpers';
 import { drawHeader } from '../utils/pdfUtils';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 export const Recouvrement: React.FC = () => {
+    const { language } = useLanguage();
     const students = useStore(s => s.students);
     const tranches = useStore(s => s.tranches);
     const [searchTerm, setSearchTerm] = useState('');
@@ -67,14 +71,21 @@ export const Recouvrement: React.FC = () => {
             currency
         };
 
-        const yOffset = drawHeader(doc, fullSettings as any, 'LISTE PRIORITAIRE DE RECOUVREMENT');
+        const yOffset = drawHeader(doc, fullSettings as any, t(language as Language, 'recovery.priorityListTitle') || 'LISTE PRIORITAIRE DE RECOUVREMENT');
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(`Généré le : ${new Date().toLocaleDateString('fr-FR')}`, 14, yOffset + 6);
+        doc.text((t(language as Language, 'recovery.generatedOn') || 'Généré le : {{date}}').replace('{{date}}', new Date().toLocaleDateString('fr-FR')), 14, yOffset + 6);
 
         autoTable(doc, {
             startY: yOffset + 12,
-            head: [['Nom Prénom', 'Classe', 'Téléphone', 'Restant', 'Retard (Jours)', 'Priorité']],
+            head: [[
+                t(language as Language, 'recovery.colName') || 'Nom Prénom',
+                t(language as Language, 'recovery.colClass') || 'Classe',
+                t(language as Language, 'recovery.colPhone') || 'Téléphone',
+                t(language as Language, 'recovery.colRemaining') || 'Restant',
+                t(language as Language, 'recovery.colDelay') || 'Retard (Jours)',
+                t(language as Language, 'recovery.colPriority') || 'Priorité'
+            ]],
             body: priorityList.map(s => [
                 sanitizeText(`${s.nom} ${s.prenom}`),
                 sanitizeText(s.classe),
@@ -104,22 +115,22 @@ export const Recouvrement: React.FC = () => {
             [schoolMinistry || ''],
             [schoolName || 'Etablissement'],
             [schoolSlogan ? `« ${schoolSlogan} »` : ''],
-            [schoolAddress ? `Adresse: ${schoolAddress}` : ''],
-            [schoolPhone ? `Tel: ${schoolPhone}` : ''],
-            [schoolYear ? `Année scolaire: ${schoolYear}` : ''],
+            [schoolAddress ? `${t(language as Language, 'common.address') || 'Adresse'}: ${schoolAddress}` : ''],
+            [schoolPhone ? `${t(language as Language, 'common.phoneLabel') || 'Tel'}: ${schoolPhone}` : ''],
+            [schoolYear ? `${t(language as Language, 'common.schoolYearLabel') || 'Année scolaire'}: ${schoolYear}` : ''],
             [''],
-            ['LISTE PRIORITAIRE DE RECOUVREMENT'],
-            [`Généré le: ${new Date().toLocaleDateString('fr-FR')}`],
+            [t(language as Language, 'recovery.priorityListTitle') || 'LISTE PRIORITAIRE DE RECOUVREMENT'],
+            [(t(language as Language, 'recovery.generatedOn') || 'Généré le: {{date}}').replace('{{date}}', new Date().toLocaleDateString('fr-FR'))],
             ['']
         ];
 
         const data = priorityList.map(s => ({
-            "Nom Complet": `${s.nom} ${s.prenom}`,
-            "Classe": s.classe,
-            "Téléphone Parent": s.telephone || '-',
-            "Reste à Payer": formatMontant(s.restant, currency).replace(/[\u202F\u00A0]/g, ' '),
-            "Jours de Retard": s.joursRetard,
-            "Niveau de Priorité": s.niveauPriorite
+            [t(language as Language, 'recovery.colNameFull') || "Nom Complet"]: `${s.nom} ${s.prenom}`,
+            [t(language as Language, 'common.class') || "Classe"]: s.classe,
+            [t(language as Language, 'recovery.colPhoneParent') || "Téléphone Parent"]: s.telephone || '-',
+            [t(language as Language, 'recovery.colRemainingToPay') || "Reste à Payer"]: formatMontant(s.restant, currency).replace(/[\u202F\u00A0]/g, ' '),
+            [t(language as Language, 'recovery.colDelayDays') || "Jours de Retard"]: s.joursRetard,
+            [t(language as Language, 'recovery.colPriorityLevel') || "Niveau de Priorité"]: s.niveauPriorite
         }));
 
         const ws = XLSX.utils.json_to_sheet(data, { origin: "A10" });
@@ -142,27 +153,27 @@ export const Recouvrement: React.FC = () => {
                 <div>
                     <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                         <Target className="w-5 h-5 text-red-600" />
-                        Priorité de Recouvrement
+                        {t(language as Language, 'recovery.priority') || 'Priorité de Recouvrement'}
                     </h2>
                     <p className="text-sm text-gray-500">
-                        Liste triée par score d'urgence (Montant + Retard + Taux Classe)
+                        {t(language as Language, 'recovery.priorityDesc') || "Liste triée par score d'urgence (Montant + Retard + Taux Classe)"}
                     </p>
                 </div>
 
                 <div className="flex items-center gap-2 print:hidden">
                     <button onClick={generateExcelList} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all font-medium text-sm">
                         <Download className="w-4 h-4" />
-                        Excel
+                        {t(language as Language, 'recovery.exportExcel') || 'Excel'}
                     </button>
 
                     <button onClick={generatePDFList} className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all font-medium text-sm">
                         <FileText className="w-4 h-4" />
-                        PDF
+                        {t(language as Language, 'recovery.exportPdf') || 'PDF'}
                     </button>
 
                     <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-sm transition-all font-medium text-sm">
                         <Printer className="w-4 h-4" />
-                        Imprimer urgences
+                        {t(language as Language, 'recovery.printUrgencies') || 'Imprimer urgences'}
                     </button>
                 </div>
             </div>
@@ -173,7 +184,7 @@ export const Recouvrement: React.FC = () => {
                         <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Rechercher un élève..."
+                            placeholder={t(language as Language, 'recovery.searchStudentPlaceholder') || "Rechercher un élève..."}
                             className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -187,7 +198,7 @@ export const Recouvrement: React.FC = () => {
                             value={filterClass}
                             onChange={(e) => setFilterClass(e.target.value)}
                         >
-                            <option value="">Toutes les classes</option>
+                            <option value="">{t(language as Language, 'recovery.allClasses') || 'Toutes les classes'}</option>
                             {[...new Set(basePriorityList.map(s => s.classe))].filter(Boolean).sort().map(className => (
                                 <option key={className} value={className}>{className}</option>
                             ))}
@@ -201,7 +212,7 @@ export const Recouvrement: React.FC = () => {
                             value={filterCycle}
                             onChange={(e) => setFilterCycle(e.target.value)}
                         >
-                            <option value="">Tous les cycles</option>
+                            <option value="">{t(language as Language, 'recovery.allCycles') || 'Tous les cycles'}</option>
                             {[...new Set(basePriorityList.map(s => s.cycle))].filter(Boolean).sort().map(c => (
                                 <option key={c} value={c}>{c}</option>
                             ))}
@@ -212,7 +223,7 @@ export const Recouvrement: React.FC = () => {
 
             {priorityList.length === 0 ? (
                 <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 text-gray-500">
-                    Aucun élève ne correspond aux critères.
+                    {t(language as Language, 'recovery.noStudentMatches') || 'Aucun élève ne correspond aux critères.'}
                 </div>
             ) : (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden printable-area">
@@ -221,11 +232,11 @@ export const Recouvrement: React.FC = () => {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs uppercase tracking-wider">
                                     <th className="p-4 font-semibold rounded-tl-xl w-14">#</th>
-                                    <th className="p-4 font-semibold">Élève (Score)</th>
-                                    <th className="p-4 font-semibold">Classe & Contact</th>
-                                    <th className="p-4 font-semibold text-right">Retard (Jours)</th>
-                                    <th className="p-4 font-semibold text-right">Montant Restant</th>
-                                    <th className="p-4 font-semibold text-center rounded-tr-xl">Niveau d'urgence</th>
+                                    <th className="p-4 font-semibold">{t(language as Language, 'recovery.studentScore') || 'Élève (Score)'}</th>
+                                    <th className="p-4 font-semibold">{t(language as Language, 'recovery.classContact') || 'Classe & Contact'}</th>
+                                    <th className="p-4 font-semibold text-right">{t(language as Language, 'recovery.delayDays') || 'Retard (Jours)'}</th>
+                                    <th className="p-4 font-semibold text-right">{t(language as Language, 'recovery.remainingAmount') || 'Montant Restant'}</th>
+                                    <th className="p-4 font-semibold text-center rounded-tr-xl">{t(language as Language, 'recovery.urgencyLevel') || "Niveau d'urgence"}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 text-sm">
@@ -240,7 +251,7 @@ export const Recouvrement: React.FC = () => {
                                             </td>
                                             <td className="p-4">
                                                 <p className="font-bold text-gray-800">{s.nom.toUpperCase()} {s.prenom}</p>
-                                                <p className="text-xs text-gray-400 mt-0.5">Score: {s.scorePriorite}/100</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">{(t(language as Language, 'recovery.score') || 'Score: {{score}}/100').replace('{{score}}', String(s.scorePriorite))}</p>
                                             </td>
                                             <td className="p-4">
                                                 <p className="font-medium text-gray-700">{s.classe}</p>

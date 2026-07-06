@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { importExcel, exportToExcel, exportNonSoldesToExcel, exportClassToExcel } from '../utils/excelService';
+import { t, Language } from '../i18n';
 
 import { 
   Upload, 
@@ -15,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export const ImportExport = () => {
-  const { students, setStudents } = useStore();
+  const { students, setStudents, language } = useStore();
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedClasse, setSelectedClasse] = useState('');
@@ -92,7 +93,7 @@ export const ImportExport = () => {
       useStore.getState().setIsSyncing(false);
       setMessage({ 
         type: 'error', 
-        text: error instanceof Error ? error.message : 'Erreur lors de l\'importation' 
+        text: (error as any)?.error || (error instanceof Error ? error.message : (t(language as Language, 'settings.importError') || 'Erreur lors de l\'importation'))
       });
     } finally {
       setImporting(false);
@@ -105,8 +106,8 @@ export const ImportExport = () => {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="page-header">
-        <h1>Import / Export Excel</h1>
-        <p className="text-gray-500 text-sm sm:text-base">Gérez vos données élèves via fichiers Excel</p>
+        <h1>{t(language as Language, 'importExport.title') || 'Import / Export Excel'}</h1>
+        <p className="text-gray-500 text-sm sm:text-base">{t(language as Language, 'importExport.description') || 'Gérez vos données élèves via fichiers Excel'}</p>
       </div>
 
       {/* Message */}
@@ -129,7 +130,7 @@ export const ImportExport = () => {
           <div className="card-header">
             <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <Upload className="w-5 h-5" />
-              Importer un fichier Excel
+              {t(language as Language, 'importExport.importTitle') || 'Importer un fichier Excel'}
             </h2>
           </div>
           <div className="card-body space-y-4">
@@ -149,12 +150,12 @@ export const ImportExport = () => {
                 {importing ? (
                   <div className="flex flex-col items-center">
                     <Loader2 className="w-10 sm:w-12 h-10 sm:h-12 text-blue-500 animate-spin mb-2 sm:mb-4" />
-                    <p className="text-sm sm:text-base text-gray-600">Importation en cours...</p>
+                    <p className="text-sm sm:text-base text-gray-600">{t(language as Language, 'importExport.importing') || 'Importation en cours...'}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
                     <FileSpreadsheet className="w-10 sm:w-12 h-10 sm:h-12 text-gray-400 mb-2 sm:mb-4" />
-                    <p className="text-sm sm:text-base text-gray-600 mb-1 sm:mb-2">Cliquez ou déposez un fichier Excel</p>
+                    <p className="text-sm sm:text-base text-gray-600 mb-1 sm:mb-2">{t(language as Language, 'importExport.clickDrop') || 'Cliquez ou déposez un fichier Excel'}</p>
                     <p className="text-xs sm:text-sm text-gray-400">.xlsx ou .xls</p>
                   </div>
                 )}
@@ -162,7 +163,7 @@ export const ImportExport = () => {
             </div>
 
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 sm:p-4">
-              <h3 className="font-medium text-blue-800 mb-2 text-sm sm:text-base">Format attendu:</h3>
+              <h3 className="font-medium text-blue-800 mb-2 text-sm sm:text-base">{t(language as Language, 'importExport.expectedFormat') || 'Format attendu:'}</h3>
               <ul className="text-xs sm:text-sm text-blue-700 space-y-0.5 sm:space-y-1">
                 <li>• Colonne B: NOMS</li>
                 <li>• Colonne C: PRÉNOMS</li>
@@ -187,7 +188,7 @@ export const ImportExport = () => {
           <div className="card-header">
             <h2 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
               <Download className="w-5 h-5" />
-              Exporter les données
+              {t(language as Language, 'importExport.exportTitle') || 'Exporter les données'}
             </h2>
           </div>
           <div className="card-body space-y-3 sm:space-y-4">
@@ -199,8 +200,8 @@ export const ImportExport = () => {
                     <Users className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-sm sm:text-base">Tous les élèves</p>
-                    <p className="text-xs sm:text-sm text-gray-500">{students.length} élèves</p>
+                    <p className="font-medium text-sm sm:text-base">{t(language as Language, 'importExport.allStudents') || 'Tous les élèves'}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">{students.length} {t(language as Language, 'dashboard.stats.totalStudents') || 'élèves'}</p>
                   </div>
                 </div>
                 <button
@@ -209,7 +210,7 @@ export const ImportExport = () => {
                   className="btn-success text-xs sm:text-sm whitespace-nowrap"
                 >
                   <FileDown className="w-4 h-4" />
-                  Exporter
+                  {t(language as Language, 'importExport.exportBtn') || 'Exporter'}
                 </button>
               </div>
             </div>
@@ -222,9 +223,9 @@ export const ImportExport = () => {
                     <AlertTriangle className="w-5 h-5 text-red-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-sm sm:text-base">Élèves non soldés</p>
+                    <p className="font-medium text-sm sm:text-base">{t(language as Language, 'importExport.unpaidStudents') || 'Élèves non soldés'}</p>
                     <p className="text-xs sm:text-sm text-gray-500">
-                      {students.filter(s => s.restant > 0).length} élèves
+                      {students.filter(s => s.restant > 0).length} {t(language as Language, 'dashboard.stats.totalStudents') || 'élèves'}
                     </p>
                   </div>
                 </div>
@@ -234,21 +235,21 @@ export const ImportExport = () => {
                   className="btn-danger text-xs sm:text-sm whitespace-nowrap"
                 >
                   <FileDown className="w-4 h-4" />
-                  Exporter
+                  {t(language as Language, 'importExport.exportBtn') || 'Exporter'}
                 </button>
               </div>
             </div>
 
             {/* Export by Class */}
             <div className="p-3 sm:p-4 border border-gray-100 rounded-lg">
-              <p className="font-medium text-sm sm:text-base mb-3">Exporter par classe</p>
+              <p className="font-medium text-sm sm:text-base mb-3">{t(language as Language, 'importExport.exportByClass') || 'Exporter par classe'}</p>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <select
                   value={selectedClasse}
                   onChange={(e) => setSelectedClasse(e.target.value)}
                   className="flex-1 border border-gray-300 text-sm px-3 py-2.5 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Sélectionner une classe</option>
+                  <option value="">{t(language as Language, 'importExport.selectClass') || 'Sélectionner une classe'}</option>
                   {allClasses.map(c => (
                     <option key={c} value={c}>
                       {c} ({students.filter(s => s.classe === c).length})
@@ -261,14 +262,14 @@ export const ImportExport = () => {
                   className="btn-primary text-xs sm:text-sm whitespace-nowrap"
                 >
                   <FileDown className="w-4 h-4" />
-                  Exporter
+                  {t(language as Language, 'importExport.exportBtn') || 'Exporter'}
                 </button>
               </div>
             </div>
 
             {/* Danger Zone: Manual Reset */}
             <div className="p-3 sm:p-4 border border-amber-100 bg-amber-50/50 rounded-lg">
-              <p className="font-medium text-amber-800 text-sm sm:text-base mb-1">Maintenance & Nettoyage</p>
+              <p className="font-medium text-amber-800 text-sm sm:text-base mb-1">{t(language as Language, 'importExport.maintenance') || 'Maintenance & Nettoyage'}</p>
               <p className="text-xs text-amber-600 mb-3">Si vous voyez des doublons (750 au lieu de 350), utilisez ce bouton pour nettoyer le Cloud et renvoyer vos données locales propres.</p>
               
               <div className="flex flex-col gap-2">
@@ -282,12 +283,12 @@ export const ImportExport = () => {
                         const state = useStore.getState();
                         const result = await syncToBackend(state, true); // true = replace
                         if (result) {
-                          setMessage({ type: 'success', text: 'Cloud nettoyé et synchronisé avec succès !' });
+                          setMessage({ type: 'success', text: t(language as Language, 'settings.cloudCleanedSuccess') || 'Cloud nettoyé et synchronisé avec succès !' });
                         } else {
-                          setMessage({ type: 'error', text: 'Échec du nettoyage Cloud.' });
+                          setMessage({ type: 'error', text: t(language as Language, 'settings.cloudCleanFailed') || 'Échec du nettoyage Cloud.' });
                         }
                       } catch (err) {
-                        setMessage({ type: 'error', text: 'Erreur technique pendant le nettoyage.' });
+                        setMessage({ type: 'error', text: t(language as Language, 'settings.cloudCleanTechError') || 'Erreur technique pendant le nettoyage.' });
                       } finally {
                         setImporting(false);
                       }
@@ -296,7 +297,7 @@ export const ImportExport = () => {
                   className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Nettoyer le Cloud (Fix Doublons)
+                  {t(language as Language, 'importExport.cleanCloud') || 'Nettoyer le Cloud (Fix Doublons)'}
                 </button>
 
                 <button
@@ -316,7 +317,7 @@ export const ImportExport = () => {
                   className="w-full flex items-center justify-center gap-2 py-2 px-4 text-red-600 hover:bg-red-50 transition text-xs border border-red-100 rounded-lg"
                 >
                   <AlertCircle className="w-3.5 h-3.5" />
-                  Réinitialisation Totale (RAZ)
+                  {t(language as Language, 'importExport.reset') || 'Réinitialisation Totale (RAZ)'}
                 </button>
               </div>
             </div>
@@ -327,31 +328,31 @@ export const ImportExport = () => {
       {/* Statistics */}
       <div className="card">
         <div className="card-header">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-800">Statistiques actuelles</h2>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800">{t(language as Language, 'importExport.stats') || 'Statistiques actuelles'}</h2>
         </div>
         <div className="card-body">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <div className="text-center p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-100">
               <p className="text-2xl sm:text-3xl font-bold text-blue-900">{students.length}</p>
-              <p className="text-xs sm:text-sm text-blue-700 mt-1">Total élèves</p>
+              <p className="text-xs sm:text-sm text-blue-700 mt-1">{t(language as Language, 'importExport.totalStudents') || 'Total élèves'}</p>
             </div>
             <div className="text-center p-3 sm:p-4 bg-green-50 rounded-lg border border-green-100">
               <p className="text-2xl sm:text-3xl font-bold text-green-600">
                 {students.filter(s => s.restant === 0).length}
               </p>
-              <p className="text-xs sm:text-sm text-green-700 mt-1">Élèves soldés</p>
+              <p className="text-xs sm:text-sm text-green-700 mt-1">{t(language as Language, 'importExport.paidStudents') || 'Élèves soldés'}</p>
             </div>
             <div className="text-center p-3 sm:p-4 bg-red-50 rounded-lg border border-red-100">
               <p className="text-2xl sm:text-3xl font-bold text-red-600">
                 {students.filter(s => s.restant > 0).length}
               </p>
-              <p className="text-xs sm:text-sm text-red-700 mt-1">Non soldés</p>
+              <p className="text-xs sm:text-sm text-red-700 mt-1">{t(language as Language, 'importExport.unpaidStudentsStats') || 'Non soldés'}</p>
             </div>
             <div className="text-center p-3 sm:p-4 bg-purple-50 rounded-lg border border-purple-100">
               <p className="text-2xl sm:text-3xl font-bold text-purple-600">
                 {new Set(students.map(s => s.classe)).size}
               </p>
-              <p className="text-xs sm:text-sm text-purple-700 mt-1">Classes</p>
+              <p className="text-xs sm:text-sm text-purple-700 mt-1">{t(language as Language, 'importExport.classes') || 'Classes'}</p>
             </div>
           </div>
         </div>

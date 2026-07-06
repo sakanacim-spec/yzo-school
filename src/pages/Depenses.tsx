@@ -7,11 +7,15 @@ import { v4 as uuid } from '../utils/uuid';
 import { notificationService } from '../services/notificationService';
 import { playSuccessSound } from '../utils/audio';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 const CATEGORIES: ExpenseCategory[] = ['Salaires', 'Électricité & Eau', 'Loyer', 'Fournitures', 'Entretien', 'Autre'];
 const COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
 export const Depenses: React.FC = () => {
+    const { language } = useLanguage();
     const { expenses, addExpense, deleteExpense, user, settings } = useStore();
     const currency = settings?.currency || 'FCFA';
 
@@ -31,7 +35,7 @@ export const Depenses: React.FC = () => {
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
         if (!form.titre || !form.montant || !form.categorie || !form.date) {
-            alert("Veuillez remplir les champs obligatoires.");
+            alert(t(language as Language, 'expenses.fillRequiredFields') || "Veuillez remplir les champs obligatoires.");
             return;
         }
 
@@ -44,20 +48,20 @@ export const Depenses: React.FC = () => {
             beneficiaire: form.beneficiaire || '',
             reference: form.reference || '',
             commentaire: form.commentaire || '',
-            enregistrePar: user?.nom || 'Administration'
+            enregistrePar: user?.nom || (t(language as Language, 'common.administration') || 'Administration')
         };
 
         addExpense(newExpense);
         setIsModalOpen(false);
         playSuccessSound();
-        alert("Dépense enregistrée avec succès.");
+        alert(t(language as Language, 'expenses.expenseSavedSuccess') || "Dépense enregistrée avec succès.");
         setForm({ ...form, titre: '', montant: 0, beneficiaire: '', reference: '', commentaire: '' });
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm("Êtes-vous sûr de vouloir supprimer cette dépense ? Cette action impactera le bilan financier.")) {
+        if (window.confirm(t(language as Language, 'expenses.confirmDeleteExpense') || "Êtes-vous sûr de vouloir supprimer cette dépense ? Cette action impactera le bilan financier.")) {
             deleteExpense(id);
-            alert("Dépense supprimée.");
+            alert(t(language as Language, 'expenses.expenseDeleted') || "Dépense supprimée.");
         }
     };
 
@@ -105,10 +109,10 @@ export const Depenses: React.FC = () => {
                 <div className="relative z-10">
                     <h1 className="text-3xl font-black text-white mb-2 flex items-center gap-3">
                         <Wallet className="w-8 h-8" />
-                        Gestion des Dépenses
+                        {t(language as Language, 'expenses.expenseManagement') || 'Gestion des Dépenses'}
                     </h1>
                     <p className="text-rose-200 font-medium max-w-xl">
-                        Suivez toutes les sorties d'argent, salaires et charges pour un bilan comptable précis.
+                        {t(language as Language, 'expenses.trackExpensesDesc') || "Suivez toutes les sorties d'argent, salaires et charges pour un bilan comptable précis."}
                     </p>
                 </div>
                 <div className="relative z-10 flex gap-3">
@@ -117,7 +121,7 @@ export const Depenses: React.FC = () => {
                         className="flex items-center gap-2 bg-white text-rose-900 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-rose-50 hover:scale-105 transition-all"
                     >
                         <Plus className="w-5 h-5" />
-                        Nouvelle Dépense
+                        {t(language as Language, 'expenses.newExpense') || 'Nouvelle Dépense'}
                     </button>
                 </div>
             </div>
@@ -129,7 +133,7 @@ export const Depenses: React.FC = () => {
                         <Wallet className="w-7 h-7" />
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-slate-500">Dépenses du Mois</p>
+                        <p className="text-sm font-bold text-slate-500">{t(language as Language, 'expenses.monthExpenses') || 'Dépenses du Mois'}</p>
                         <h3 className="text-2xl font-black text-slate-800 dark:text-white">
                             {formatMontant(monthExpenses, currency)}
                         </h3>
@@ -140,7 +144,7 @@ export const Depenses: React.FC = () => {
                         <TrendingUp className="w-7 h-7" />
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-slate-500">Dépenses Totales (Cumul)</p>
+                        <p className="text-sm font-bold text-slate-500">{t(language as Language, 'expenses.totalExpensesCumul') || 'Dépenses Totales (Cumul)'}</p>
                         <h3 className="text-2xl font-black text-slate-800 dark:text-white">
                             {formatMontant(totalExpenses, currency)}
                         </h3>
@@ -151,9 +155,9 @@ export const Depenses: React.FC = () => {
                         <AlertCircle className="w-7 h-7" />
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-slate-500">Catégorie Majeure</p>
+                        <p className="text-sm font-bold text-slate-500">{t(language as Language, 'expenses.majorCategory') || 'Catégorie Majeure'}</p>
                         <h3 className="text-xl font-black text-slate-800 dark:text-white line-clamp-1">
-                            {chartData.sort((a,b) => b.value - a.value)[0]?.name || 'N/A'}
+                            {chartData.sort((a,b) => b.value - a.value)[0]?.name || (t(language as Language, 'common.na') || 'N/A')}
                         </h3>
                     </div>
                 </div>
@@ -162,7 +166,7 @@ export const Depenses: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* GRAPHIQUE */}
                 <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm lg:col-span-1">
-                    <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6">Répartition par Catégorie</h3>
+                    <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6">{t(language as Language, 'expenses.distributionByCategory') || 'Répartition par Catégorie'}</h3>
                     <div className="h-64">
                         {chartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
@@ -179,7 +183,7 @@ export const Depenses: React.FC = () => {
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-slate-400">Aucune donnée</div>
+                            <div className="h-full flex items-center justify-center text-slate-400">{t(language as Language, 'common.noData') || 'Aucune donnée'}</div>
                         )}
                     </div>
                 </div>
@@ -191,7 +195,7 @@ export const Depenses: React.FC = () => {
                             <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input 
                                 type="text"
-                                placeholder="Rechercher une dépense, un bénéficiaire..."
+                                placeholder={t(language as Language, 'expenses.searchExpensePlaceholder') || "Rechercher une dépense, un bénéficiaire..."}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500 font-medium"
@@ -204,7 +208,7 @@ export const Depenses: React.FC = () => {
                                 onChange={(e) => setFilterCategory(e.target.value)}
                                 className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500 font-medium appearance-none"
                             >
-                                <option value="">Toutes les catégories</option>
+                                <option value="">{t(language as Language, 'expenses.allCategories') || 'Toutes les catégories'}</option>
                                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
@@ -214,11 +218,11 @@ export const Depenses: React.FC = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="border-b border-slate-100 dark:border-slate-700 text-xs uppercase tracking-wider font-black text-slate-400">
-                                    <th className="py-3 px-4">Date</th>
-                                    <th className="py-3 px-4">Titre / Bénéficiaire</th>
-                                    <th className="py-3 px-4">Catégorie</th>
-                                    <th className="py-3 px-4 text-right">Montant</th>
-                                    <th className="py-3 px-4 text-center">Action</th>
+                                    <th className="py-3 px-4">{t(language as Language, 'common.date') || 'Date'}</th>
+                                    <th className="py-3 px-4">{t(language as Language, 'expenses.titleBeneficiary') || 'Titre / Bénéficiaire'}</th>
+                                    <th className="py-3 px-4">{t(language as Language, 'common.category') || 'Catégorie'}</th>
+                                    <th className="py-3 px-4 text-right">{t(language as Language, 'common.amount') || 'Montant'}</th>
+                                    <th className="py-3 px-4 text-center">{t(language as Language, 'common.action') || 'Action'}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -257,7 +261,7 @@ export const Depenses: React.FC = () => {
                                 {filteredExpenses.length === 0 && (
                                     <tr>
                                         <td colSpan={5} className="py-8 text-center text-slate-500 font-medium">
-                                            Aucune dépense trouvée.
+                                            {t(language as Language, 'expenses.noExpenseFound') || 'Aucune dépense trouvée.'}
                                         </td>
                                     </tr>
                                 )}
@@ -274,7 +278,7 @@ export const Depenses: React.FC = () => {
                         <div className="p-6 bg-rose-50 dark:bg-rose-900/20 flex justify-between items-center border-b border-rose-100 dark:border-rose-900/50">
                             <h3 className="text-xl font-black text-rose-900 dark:text-rose-100 flex items-center gap-2">
                                 <Wallet className="w-6 h-6 text-rose-500" />
-                                Enregistrer une dépense
+                                {t(language as Language, 'expenses.recordExpense') || 'Enregistrer une dépense'}
                             </h3>
                             <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-rose-200 dark:hover:bg-rose-800 rounded-full transition-colors text-rose-500">
                                 <X className="w-5 h-5" />
@@ -283,11 +287,11 @@ export const Depenses: React.FC = () => {
 
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Titre de la dépense *</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">{t(language as Language, 'expenses.expenseTitle') || 'Titre de la dépense'} *</label>
                                 <input 
                                     type="text"
                                     required
-                                    placeholder="Ex: Achat de craies, Salaire M. Dupont..."
+                                    placeholder={t(language as Language, 'expenses.expenseTitlePlaceholder') || "Ex: Achat de craies, Salaire M. Dupont..."}
                                     value={form.titre}
                                     onChange={e => setForm({...form, titre: e.target.value})}
                                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-rose-500"
@@ -296,7 +300,7 @@ export const Depenses: React.FC = () => {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 mb-1">Montant ({currency}) *</label>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">{(t(language as Language, 'expenses.amountWithCurrency') || 'Montant ({{currency}}) *').replace('{{currency}}', currency)}</label>
                                     <input 
                                         type="number"
                                         required
@@ -307,7 +311,7 @@ export const Depenses: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 mb-1">Date *</label>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">{t(language as Language, 'common.date') || 'Date'} *</label>
                                     <input 
                                         type="date"
                                         required
@@ -319,7 +323,7 @@ export const Depenses: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Catégorie *</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">{t(language as Language, 'common.category') || 'Catégorie'} *</label>
                                 <select 
                                     value={form.categorie}
                                     onChange={e => setForm({...form, categorie: e.target.value as any})}
@@ -330,10 +334,10 @@ export const Depenses: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Bénéficiaire (Optionnel)</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">{t(language as Language, 'expenses.beneficiaryOptional') || 'Bénéficiaire (Optionnel)'}</label>
                                 <input 
                                     type="text"
-                                    placeholder="Ex: Compagnie d'Électricité"
+                                    placeholder={t(language as Language, 'expenses.beneficiaryPlaceholder') || "Ex: Compagnie d'Électricité"}
                                     value={form.beneficiaire}
                                     onChange={e => setForm({...form, beneficiaire: e.target.value})}
                                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-rose-500"
@@ -341,10 +345,10 @@ export const Depenses: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Référence / Reçu (Optionnel)</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">{t(language as Language, 'expenses.referenceOptional') || 'Référence / Reçu (Optionnel)'}</label>
                                 <input 
                                     type="text"
-                                    placeholder="Ex: Facture #1234"
+                                    placeholder={t(language as Language, 'expenses.referencePlaceholder') || "Ex: Facture #1234"}
                                     value={form.reference}
                                     onChange={e => setForm({...form, reference: e.target.value})}
                                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-rose-500"
@@ -353,7 +357,7 @@ export const Depenses: React.FC = () => {
 
                             <button type="submit" className="w-full mt-4 py-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black transition-colors shadow-lg shadow-rose-600/30 flex justify-center items-center gap-2">
                                 <Wallet className="w-5 h-5" />
-                                Enregistrer la sortie d'argent
+                                {t(language as Language, 'expenses.saveExpense') || "Enregistrer la sortie d'argent"}
                             </button>
                         </form>
                     </div>

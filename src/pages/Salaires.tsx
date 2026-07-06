@@ -4,8 +4,12 @@ import { Payroll } from '../types';
 import { Wallet, Search, CheckCircle, Clock, FileText, ChevronDown, Plus, TrendingUp } from 'lucide-react';
 import { v4 as uuid } from '../utils/uuid';
 import { playSuccessSound } from '../utils/audio';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 export const Salaires: React.FC = () => {
+    const { language } = useLanguage();
     const personnels = useStore(s => s.personnels || []);
     const payrolls = useStore(s => s.payrolls);
     const addPayroll = useStore(s => s.addPayroll);
@@ -54,10 +58,10 @@ export const Salaires: React.FC = () => {
     };
 
     const handlePay = (payrollId: string) => {
-        if (window.confirm("Êtes-vous sûr de vouloir payer ce salaire ? Le montant sera automatiquement déduit de la caisse (Dépenses).")) {
+        if (window.confirm(t(language as Language, 'salaries.confirmPay') || "Êtes-vous sûr de vouloir payer ce salaire ? Le montant sera automatiquement déduit de la caisse (Dépenses).")) {
             paySalary(payrollId);
             playSuccessSound();
-            alert("Salaire payé et dépense enregistrée.");
+            alert(t(language as Language, 'salaries.paySuccess') || "Salaire payé et dépense enregistrée.");
         }
     };
 
@@ -65,8 +69,8 @@ export const Salaires: React.FC = () => {
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 dark:text-white">Gestion des Salaires</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Générez et payez les salaires de votre personnel.</p>
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-white">{t(language as Language, 'salaries.management') || 'Gestion des Salaires'}</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t(language as Language, 'salaries.managementDesc') || 'Générez et payez les salaires de votre personnel.'}</p>
                 </div>
             </div>
 
@@ -75,7 +79,7 @@ export const Salaires: React.FC = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Rechercher un employé..."
+                        placeholder={t(language as Language, 'salaries.searchPlaceholder') || "Rechercher un employé..."}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -96,19 +100,19 @@ export const Salaires: React.FC = () => {
                     <table className="w-full text-left">
                         <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-sm border-b border-slate-200 dark:border-slate-700">
                             <tr>
-                                <th className="p-4 font-semibold whitespace-nowrap">Employé</th>
-                                <th className="p-4 font-semibold whitespace-nowrap">Rôle</th>
-                                <th className="p-4 font-semibold whitespace-nowrap">Mois</th>
-                                <th className="p-4 font-semibold whitespace-nowrap text-right">Net à Payer</th>
-                                <th className="p-4 font-semibold whitespace-nowrap text-center">Statut</th>
-                                <th className="p-4 font-semibold whitespace-nowrap text-right">Actions</th>
+                                <th className="p-4 font-semibold whitespace-nowrap">{t(language as Language, 'salaries.employee') || 'Employé'}</th>
+                                <th className="p-4 font-semibold whitespace-nowrap">{t(language as Language, 'common.role') || 'Rôle'}</th>
+                                <th className="p-4 font-semibold whitespace-nowrap">{t(language as Language, 'common.month') || 'Mois'}</th>
+                                <th className="p-4 font-semibold whitespace-nowrap text-right">{t(language as Language, 'salaries.netToPay') || 'Net à Payer'}</th>
+                                <th className="p-4 font-semibold whitespace-nowrap text-center">{t(language as Language, 'common.status') || 'Statut'}</th>
+                                <th className="p-4 font-semibold whitespace-nowrap text-right">{t(language as Language, 'common.actions') || 'Actions'}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                             {filteredPersonnels.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                                        Aucun membre du personnel trouvé.
+                                        {t(language as Language, 'salaries.noPersonnelFound') || 'Aucun membre du personnel trouvé.'}
                                     </td>
                                 </tr>
                             ) : (
@@ -133,14 +137,14 @@ export const Salaires: React.FC = () => {
                                             </td>
                                             <td className="p-4 text-center">
                                                 {!payroll ? (
-                                                    <span className="text-slate-400 text-sm">Non généré</span>
+                                                    <span className="text-slate-400 text-sm">{t(language as Language, 'salaries.status.notGenerated') || 'Non généré'}</span>
                                                 ) : payroll.statut === 'Payé' ? (
                                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
-                                                        <CheckCircle className="w-3 h-3" /> Payé
+                                                        <CheckCircle className="w-3 h-3" /> {t(language as Language, 'common.paid') || 'Payé'}
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
-                                                        <Clock className="w-3 h-3" /> En attente
+                                                        <Clock className="w-3 h-3" /> {t(language as Language, 'common.pending') || 'En attente'}
                                                     </span>
                                                 )}
                                             </td>
@@ -150,21 +154,21 @@ export const Salaires: React.FC = () => {
                                                         onClick={() => handleGeneratePayroll(personnel.id)}
                                                         className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors"
                                                     >
-                                                        <FileText className="w-4 h-4" /> Générer fiche
+                                                        <FileText className="w-4 h-4" /> {t(language as Language, 'salaries.generatePayslip') || 'Générer fiche'}
                                                     </button>
                                                 ) : payroll.statut === 'En attente' ? (
                                                     <button
                                                         onClick={() => handlePay(payroll.id)}
                                                         className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
                                                     >
-                                                        <Wallet className="w-4 h-4" /> Payer
+                                                        <Wallet className="w-4 h-4" /> {t(language as Language, 'common.pay') || 'Payer'}
                                                     </button>
                                                 ) : (
                                                     <button
                                                         disabled
                                                         className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg text-sm font-medium cursor-not-allowed"
                                                     >
-                                                        <CheckCircle className="w-4 h-4" /> Réglé
+                                                        <CheckCircle className="w-4 h-4" /> {t(language as Language, 'common.settled') || 'Réglé'}
                                                     </button>
                                                 )}
                                             </td>
@@ -180,8 +184,8 @@ export const Salaires: React.FC = () => {
             {promptOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-[24px] shadow-2xl w-full max-w-sm border border-slate-200 dark:border-slate-700 animate-slideUp">
-                        <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Salaire de base</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Saisissez le salaire de base pour ce mois (en FCFA) :</p>
+                        <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">{t(language as Language, 'salaries.baseSalary') || 'Salaire de base'}</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{t(language as Language, 'salaries.baseSalaryPrompt') || 'Saisissez le salaire de base pour ce mois (en FCFA) :'}</p>
                         <input
                             type="number"
                             value={salaireSaisi}
@@ -194,13 +198,13 @@ export const Salaires: React.FC = () => {
                                 onClick={() => { setPromptOpen(false); setSelectedPersonnelId(null); }}
                                 className="px-4 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl font-medium transition-colors"
                             >
-                                Annuler
+                                {t(language as Language, 'common.cancel') || 'Annuler'}
                             </button>
                             <button
                                 onClick={submitGeneratePayroll}
                                 className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
                             >
-                                Générer
+                                {t(language as Language, 'common.generate') || 'Générer'}
                             </button>
                         </div>
                     </div>

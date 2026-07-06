@@ -10,6 +10,9 @@ import { v4 as uuid } from '../utils/uuid';
 import { playSuccessSound } from '../utils/audio';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 // ── Constantes configurables ─────────────────────────────────
 const JOURS_SEMAINE = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] as const;
@@ -58,12 +61,13 @@ const exportPDF = (
     slots: string[],
     viewMode: string,
     viewProf: string,
-    schoolName: string
+    schoolName: string,
+    language: Language
 ) => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const title = viewMode === 'prof' && viewProf
-        ? `Emploi du temps — ${viewProf}`
-        : `Emploi du temps — ${selectedClasse}`;
+        ? (t(language, 'schedule.scheduleProf') || 'Emploi du temps — {{prof}}').replace('{{prof}}', viewProf)
+        : (t(language, 'schedule.scheduleClass') || 'Emploi du temps — {{class}}').replace('{{class}}', selectedClasse);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
@@ -77,7 +81,7 @@ const exportPDF = (
         : seances.filter(s => s.classe === selectedClasse);
 
     // Construire le tableau
-    const head = [['Heure', ...jours]];
+    const head = [[t(language, 'schedule.time') || 'Heure', ...jours.map(j => t(language, 'schedule.days.' + j.toLowerCase()) || j)]];
     const body: string[][] = [];
 
     // Trouver les séances uniques par slot/jour
@@ -117,6 +121,7 @@ const exportPDF = (
 
 // ── Composant principal ──────────────────────────────────────
 export const EmploiDuTemps: React.FC = () => {
+    const { language } = useLanguage();
     const { user, students, classeMatieres, matieres, seances, addSeance, deleteSeance, settings, schoolName } = useStore();
 
     // Horaires configurables (depuis les paramètres ou valeurs par défaut)
@@ -187,11 +192,11 @@ export const EmploiDuTemps: React.FC = () => {
     const handleSaveSeance = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedClasse || !selectedAssignation || !form.jour || !form.heureDebut || !form.heureFin) {
-            alert("Veuillez remplir tous les champs obligatoires.");
+            alert(t(language as Language, 'schedule.fillRequiredFields') || "Veuillez remplir tous les champs obligatoires.");
             return;
         }
         if (timeToMin(form.heureFin!) <= timeToMin(form.heureDebut!)) {
-            alert("L'heure de fin doit être après l'heure de début.");
+            alert(t(language as Language, 'schedule.endTimeAfterStartTime') || "L'heure de fin doit être après l'heure de début.");
             return;
         }
 
@@ -216,7 +221,7 @@ export const EmploiDuTemps: React.FC = () => {
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm("Supprimer cette séance ?")) deleteSeance(id);
+        if (window.confirm(t(language as Language, 'schedule.confirmDeleteSession') || "Supprimer cette séance ?")) deleteSeance(id);
     };
 
     // Calcul position/taille d'une séance dans la grille
@@ -243,8 +248,8 @@ export const EmploiDuTemps: React.FC = () => {
                             <CalendarIcon className="w-8 h-8" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-black tracking-tight">Emploi du Temps</h1>
-                            <p className="text-indigo-200 text-sm font-medium mt-0.5">Durées flexibles · Vue classe & professeur · Export PDF</p>
+                            <h1 className="text-3xl font-black tracking-tight">{t(language as Language, 'schedule.timetable') || 'Emploi du Temps'}</h1>
+                            <p className="text-indigo-200 text-sm font-medium mt-0.5">{t(language as Language, 'schedule.timetableDesc') || 'Durées flexibles · Vue classe & professeur · Export PDF'}</p>
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -253,14 +258,14 @@ export const EmploiDuTemps: React.FC = () => {
                                 onClick={() => setShowConfig(v => !v)}
                                 className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-2xl font-bold text-sm transition-all"
                             >
-                                <Settings2 className="w-4 h-4" /> Horaires
+                                <Settings2 className="w-4 h-4" /> {t(language as Language, 'schedule.schedules') || 'Horaires'}
                             </button>
                         )}
                         <button
-                            onClick={() => exportPDF(seances, matieres, selectedClasse, joursActifs, activeSlots, viewMode, viewProf, schoolName || '')}
+                            onClick={() => exportPDF(seances, matieres, selectedClasse, joursActifs, activeSlots, viewMode, viewProf, schoolName || '', language as Language)}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-2xl font-bold text-sm transition-all"
                         >
-                            <Printer className="w-4 h-4" /> Exporter PDF
+                            <Printer className="w-4 h-4" /> {t(language as Language, 'schedule.exportPdf') || 'Exporter PDF'}
                         </button>
                         {!isProf && (
                             <button
@@ -268,7 +273,7 @@ export const EmploiDuTemps: React.FC = () => {
                                 disabled={viewMode === 'classe' && !selectedClasse}
                                 className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-700 hover:bg-indigo-50 rounded-2xl font-black text-sm transition-all shadow-lg disabled:opacity-50"
                             >
-                                <Plus className="w-4 h-4" /> Nouvelle séance
+                                <Plus className="w-4 h-4" /> {t(language as Language, 'schedule.newSession') || 'Nouvelle séance'}
                             </button>
                         )}
                     </div>
@@ -279,21 +284,21 @@ export const EmploiDuTemps: React.FC = () => {
             {showConfig && (
                 <div className="bg-white dark:bg-slate-900 rounded-[24px] border border-indigo-100 dark:border-indigo-900/30 p-5 shadow-sm">
                     <h3 className="font-black text-slate-700 dark:text-white mb-4 flex items-center gap-2">
-                        <Settings2 className="w-4 h-4 text-indigo-500" /> Configuration des horaires de la grille
+                        <Settings2 className="w-4 h-4 text-indigo-500" /> {t(language as Language, 'schedule.gridConfig') || 'Configuration des horaires de la grille'}
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Début journée</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{t(language as Language, 'schedule.dayStart') || 'Début journée'}</label>
                             <input type="time" value={configDebut} onChange={e => setConfigDebut(e.target.value)}
                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Fin journée</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{t(language as Language, 'schedule.dayEnd') || 'Fin journée'}</label>
                             <input type="time" value={configFin} onChange={e => setConfigFin(e.target.value)}
                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" />
                         </div>
                         <div className="col-span-2 flex items-end">
-                            <p className="text-xs text-slate-400">La grille affichera de <strong>{configDebut}</strong> à <strong>{configFin}</strong> avec des créneaux de 30 min. {configSlots.length - 1} lignes au total.</p>
+                            <p className="text-xs text-slate-400"><span dangerouslySetInnerHTML={{ __html: (t(language as Language, 'schedule.gridInfoHtml') || 'La grille affichera de <strong>{{start}}</strong> à <strong>{{end}}</strong> avec des créneaux de 30 min. {{lines}} lignes au total.').replace('{{start}}', configDebut).replace('{{end}}', configFin).replace('{{lines}}', String(configSlots.length - 1)) }} /></p>
                         </div>
                     </div>
                 </div>
@@ -308,13 +313,13 @@ export const EmploiDuTemps: React.FC = () => {
                             onClick={() => setViewMode('classe')}
                             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${viewMode === 'classe' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm' : 'text-slate-500'}`}
                         >
-                            <BookOpen className="w-4 h-4" /> Par Classe
+                            <BookOpen className="w-4 h-4" /> {t(language as Language, 'schedule.byClass') || 'Par Classe'}
                         </button>
                         <button
                             onClick={() => setViewMode('prof')}
                             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${viewMode === 'prof' ? 'bg-white dark:bg-slate-900 text-violet-600 shadow-sm' : 'text-slate-500'}`}
                         >
-                            <UserIcon className="w-4 h-4" /> Par Professeur
+                            <UserIcon className="w-4 h-4" /> {t(language as Language, 'schedule.byTeacher') || 'Par Professeur'}
                         </button>
                     </div>
                 )}
@@ -327,7 +332,7 @@ export const EmploiDuTemps: React.FC = () => {
                             onChange={e => setSelectedClasse(e.target.value)}
                             className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
                         >
-                            <option value="">Sélectionnez une classe</option>
+                            <option value="">{t(language as Language, 'schedule.selectClass') || 'Sélectionnez une classe'}</option>
                             {classesList.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
@@ -339,7 +344,7 @@ export const EmploiDuTemps: React.FC = () => {
                             disabled={isProf}
                             className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-75"
                         >
-                            <option value="">Sélectionnez un professeur</option>
+                            <option value="">{t(language as Language, 'schedule.selectTeacher') || 'Sélectionnez un professeur'}</option>
                             {profsList.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                     </div>
@@ -348,7 +353,7 @@ export const EmploiDuTemps: React.FC = () => {
                 {/* Résumé séances */}
                 <div className="flex items-center gap-2 px-5 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl">
                     <Eye className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{currentSeances.length} séance{currentSeances.length > 1 ? 's' : ''}</span>
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{currentSeances.length} {currentSeances.length > 1 ? (t(language as Language, 'schedule.sessions') || 'séances') : (t(language as Language, 'schedule.session') || 'séance')}</span>
                 </div>
             </div>
 
@@ -365,9 +370,9 @@ export const EmploiDuTemps: React.FC = () => {
                                 </div>
                                 {joursActifs.map(jour => (
                                     <div key={jour} className="p-4 text-center">
-                                        <p className="font-black text-slate-800 dark:text-white text-sm">{jour}</p>
+                                        <p className="font-black text-slate-800 dark:text-white text-sm">{t(language as Language, 'schedule.days.' + jour.toLowerCase()) || jour}</p>
                                         <p className="text-[10px] text-slate-400 font-semibold">
-                                            {currentSeances.filter(s => s.jour === jour).length} cours
+                                            {currentSeances.filter(s => s.jour === jour).length} {t(language as Language, 'schedule.classes') || 'cours'}
                                         </p>
                                     </div>
                                 ))}
@@ -428,7 +433,7 @@ export const EmploiDuTemps: React.FC = () => {
                                                         <div className="text-[9px] font-bold text-white/80 mt-0.5 flex items-center gap-1">
                                                             <Clock className="w-2.5 h-2.5" />
                                                             {seance.heureDebut}–{seance.heureFin}
-                                                            <span className="ml-1 opacity-60">({durationMin}min)</span>
+                                                            <span className="ml-1 opacity-60">({durationMin}{t(language as Language, 'schedule.min') || 'min'})</span>
                                                         </div>
                                                     </div>
                                                     {durationMin >= 60 && (
@@ -466,9 +471,9 @@ export const EmploiDuTemps: React.FC = () => {
                 <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[28px] border border-dashed border-slate-200 dark:border-slate-700">
                     <CalendarIcon className="w-14 h-14 text-slate-200 mx-auto mb-4" />
                     <h3 className="text-lg font-black text-slate-600 dark:text-slate-300 mb-2">
-                        {viewMode === 'classe' ? 'Sélectionnez une classe' : 'Sélectionnez un professeur'}
+                        {viewMode === 'classe' ? (t(language as Language, 'schedule.selectClass') || 'Sélectionnez une classe') : (t(language as Language, 'schedule.selectTeacher') || 'Sélectionnez un professeur')}
                     </h3>
-                    <p className="text-sm text-slate-400">L'emploi du temps s'affichera ici.</p>
+                    <p className="text-sm text-slate-400">{t(language as Language, 'schedule.scheduleWillShowHere') || "L'emploi du temps s'affichera ici."}</p>
                 </div>
             )}
 
@@ -478,7 +483,7 @@ export const EmploiDuTemps: React.FC = () => {
                     <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden">
                         {/* Header modal */}
                         <div className="px-7 py-5 bg-indigo-600 flex items-center justify-between">
-                            <h3 className="text-xl font-black text-white">Nouvelle séance</h3>
+                            <h3 className="text-xl font-black text-white">{t(language as Language, 'schedule.newSession') || 'Nouvelle séance'}</h3>
                             <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition">
                                 <X className="w-5 h-5" />
                             </button>
@@ -487,14 +492,14 @@ export const EmploiDuTemps: React.FC = () => {
                         <form onSubmit={handleSaveSeance} className="p-6 space-y-5">
                             {/* Matière */}
                             <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Matière & Professeur *</label>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t(language as Language, 'schedule.subjectAndTeacher') || 'Matière & Professeur'} *</label>
                                 <select
                                     value={selectedAssignation}
                                     onChange={e => setSelectedAssignation(e.target.value)}
                                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 >
-                                    <option value="">Sélectionnez...</option>
+                                    <option value="">{t(language as Language, 'common.select') || 'Sélectionnez...'}</option>
                                     {classAssignations.map(a => {
                                         const mat = matieres.find(m => m.id === a.matiereId);
                                         return <option key={a.id} value={a.id}>{mat?.nom} — {a.professeur}</option>;
@@ -505,20 +510,20 @@ export const EmploiDuTemps: React.FC = () => {
                             {/* Jour + Salle */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Jour *</label>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t(language as Language, 'common.day') || 'Jour'} *</label>
                                     <select
                                         value={form.jour}
                                         onChange={e => setForm({ ...form, jour: e.target.value as any })}
                                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold outline-none"
                                     >
-                                        {joursActifs.map(j => <option key={j} value={j}>{j}</option>)}
+                                        {joursActifs.map(j => <option key={j} value={j}>{t(language as Language, 'schedule.days.' + j.toLowerCase()) || j}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Salle</label>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t(language as Language, 'schedule.room') || 'Salle'}</label>
                                     <input
                                         type="text"
-                                        placeholder="Ex: Salle A1"
+                                        placeholder={t(language as Language, 'schedule.roomPlaceholder') || "Ex: Salle A1"}
                                         value={form.salle}
                                         onChange={e => setForm({ ...form, salle: e.target.value })}
                                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
@@ -529,7 +534,7 @@ export const EmploiDuTemps: React.FC = () => {
                             {/* Heures — input time libre (durée flexible) */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Heure de début *</label>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t(language as Language, 'schedule.startTime') || 'Heure de début'} *</label>
                                     <input
                                         type="time"
                                         value={form.heureDebut}
@@ -541,7 +546,7 @@ export const EmploiDuTemps: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Heure de fin *</label>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t(language as Language, 'schedule.endTime') || 'Heure de fin'} *</label>
                                     <input
                                         type="time"
                                         value={form.heureFin}
@@ -555,13 +560,13 @@ export const EmploiDuTemps: React.FC = () => {
                             </div>
                             {form.heureDebut && form.heureFin && timeToMin(form.heureFin) > timeToMin(form.heureDebut) && (
                                 <p className="text-xs text-indigo-600 font-bold text-center -mt-2">
-                                    Durée : {timeToMin(form.heureFin!) - timeToMin(form.heureDebut!)} minutes
+                                    {(t(language as Language, 'schedule.durationMinutes') || 'Durée : {{duration}} minutes').replace('{{duration}}', String(timeToMin(form.heureFin!) - timeToMin(form.heureDebut!)))}
                                 </p>
                             )}
 
                             {/* Couleur */}
                             <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Couleur</label>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t(language as Language, 'schedule.color') || 'Couleur'}</label>
                                 <div className="flex flex-wrap gap-2">
                                     {COULEURS.map(c => (
                                         <button
@@ -569,14 +574,14 @@ export const EmploiDuTemps: React.FC = () => {
                                             type="button"
                                             onClick={() => setForm({ ...form, couleur: c.cls })}
                                             className={`w-8 h-8 rounded-full ${c.cls} transition-all ${form.couleur === c.cls ? 'ring-4 ring-offset-2 ring-indigo-500 scale-110' : 'hover:scale-110'}`}
-                                            title={c.label}
+                                            title={t(language as Language, 'schedule.colors.' + c.label.toLowerCase().replace(/\s/g, '')) || c.label}
                                         />
                                     ))}
                                 </div>
                             </div>
 
                             <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black transition-all shadow-lg shadow-indigo-600/30 active:scale-[0.98]">
-                                Sauvegarder la séance
+                                {t(language as Language, 'schedule.saveSession') || 'Sauvegarder la séance'}
                             </button>
                         </form>
                     </div>

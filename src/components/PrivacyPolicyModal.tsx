@@ -1,4 +1,6 @@
 import React from 'react';
+import { useStore } from '../store/useStore';
+import { t, Language } from '../i18n';
 import { Shield, Eye, Lock, FileText, X, Check, Globe, Sparkles } from 'lucide-react';
 
 interface PrivacyPolicyModalProps {
@@ -7,6 +9,7 @@ interface PrivacyPolicyModalProps {
 }
 
 export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose }) => {
+  const language = useStore((s) => s.language);
   if (!isOpen) return null;
 
   return (
@@ -36,11 +39,11 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
             </div>
             <div>
               <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                Charte de Confidentialité
+                {t(language as Language, 'privacy.title') || 'Charte de Confidentialité'}
                 <Sparkles className="w-5 h-5 text-amber-500 animate-pulse" />
               </h2>
               <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
-                Protection des données scolaires & familiales
+                {t(language as Language, 'privacy.subtitle') || 'Protection des données scolaires & familiales'}
               </p>
             </div>
           </div>
@@ -52,10 +55,10 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
           {/* Introduction */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60">
             <p className="font-medium text-slate-800 dark:text-slate-200">
-              Chez <span className="font-bold text-amber-500">Yziow</span>, nous croyons que la vie privée de vos enfants et la sécurité de vos données financières et académiques sont fondamentales. Cette politique vous explique comment les données sont collectées, stockées, protégées et isolées dans notre système multi-établissement.
+              {t(language as Language, 'privacy.intro') || <>Chez <span className="font-bold text-amber-500">Yziow</span>, nous croyons que la vie privée de vos enfants et la sécurité de vos données financières et académiques sont fondamentales. Cette politique vous explique comment les données sont collectées, stockées, protégées et isolées dans notre système multi-établissement.</>}
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-              Dernière mise à jour : Mai 2026. Conforme aux standards internationaux de protection des données (RGPD / RPD).
+              {t(language as Language, 'privacy.lastUpdate') || 'Dernière mise à jour : Mai 2026. Conforme aux standards internationaux de protection des données (RGPD / RPD).'}
             </p>
           </div>
 
@@ -63,19 +66,19 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
           <section className="space-y-3">
             <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <Lock className="w-5 h-5 text-amber-500" />
-              1. Isolation Strictement Multi-École (SaaS)
+              {t(language as Language, 'privacy.section1Title') || '1. Isolation Strictement Multi-École (SaaS)'}
             </h3>
             <p>
-              Notre plateforme applique une architecture d'isolation physique et logique des bases de données. Chaque établissement scolaire dispose de son propre jeu de tables de données hermétiques (indexées par un identifiant d'école unique).
+              {t(language as Language, 'privacy.section1Desc') || 'Notre plateforme applique une architecture d\'isolation physique et logique des bases de données. Chaque établissement scolaire dispose de son propre jeu de tables de données hermétiques (indexées par un identifiant d\'école unique).'}
             </p>
             <ul className="space-y-2 pl-4 border-l-2 border-amber-500/30">
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-1" />
-                <span>Aucun administrateur, parent, professeur ou élève d'une école A ne peut visualiser, modifier ou intercepter les données d'une école B.</span>
+                <span>{t(language as Language, 'privacy.section1Bullet1') || 'Aucun administrateur, parent, professeur ou élève d\'une école A ne peut visualiser, modifier ou intercepter les données d\'une école B.'}</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-1" />
-                <span>Les connexions et sessions sont scellées par des jetons cryptographiques JWT contenant l'identifiant unique de l'école.</span>
+                <span>{t(language as Language, 'privacy.section1Bullet2') || 'Les connexions et sessions sont scellées par des jetons cryptographiques JWT contenant l\'identifiant unique de l\'école.'}</span>
               </li>
             </ul>
           </section>
@@ -84,22 +87,22 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
           <section className="space-y-3">
             <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <FileText className="w-5 h-5 text-amber-500" />
-              2. Quelles données collectons-nous ?
+              {t(language as Language, 'privacy.section2Title') || '2. Quelles données collectons-nous ?'}
             </h3>
             <p>
-              Les données stockées sur la plateforme sont exclusivement destinées à la gestion administrative, pédagogique et financière de l'établissement :
+              {t(language as Language, 'privacy.section2Desc') || 'Les données stockées sur la plateforme sont exclusivement destinées à la gestion administrative, pédagogique et financière de l\'établissement :'}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
-                <h4 className="font-bold text-slate-950 dark:text-white text-xs uppercase tracking-wider mb-2">Informations Académiques</h4>
+                <h4 className="font-bold text-slate-950 dark:text-white text-xs uppercase tracking-wider mb-2">{t(language as Language, 'privacy.academicInfoTitle') || 'Informations Académiques'}</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Noms, prénoms, classes, cycles, notes, bulletins scolaires, pointages de présence/absence des élèves et photos d'identité.
+                  {t(language as Language, 'privacy.academicInfoDesc') || 'Noms, prénoms, classes, cycles, notes, bulletins scolaires, pointages de présence/absence des élèves et photos d\'identité.'}
                 </p>
               </div>
               <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
-                <h4 className="font-bold text-slate-950 dark:text-white text-xs uppercase tracking-wider mb-2">Données de Facturation</h4>
+                <h4 className="font-bold text-slate-950 dark:text-white text-xs uppercase tracking-wider mb-2">{t(language as Language, 'privacy.billingInfoTitle') || 'Données de Facturation'}</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Frais d'écolage dus, historiques des paiements effectués, reçus de scolarité délivrés et statuts de recouvrement.
+                  {t(language as Language, 'privacy.billingInfoDesc') || 'Frais d\'écolage dus, historiques des paiements effectués, reçus de scolarité délivrés et statuts de recouvrement.'}
                 </p>
               </div>
             </div>
@@ -109,10 +112,10 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
           <section className="space-y-3">
             <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <Eye className="w-5 h-5 text-amber-500" />
-              3. Sécurité & Confidentialité
+              {t(language as Language, 'privacy.section3Title') || '3. Sécurité & Confidentialité'}
             </h3>
             <p>
-              La sécurité est notre priorité absolue :
+              {t(language as Language, 'privacy.section3Desc') || 'La sécurité est notre priorité absolue :'}
             </p>
             <ul className="space-y-3">
               <li className="flex gap-3">
@@ -120,8 +123,8 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
                   01
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-800 dark:text-slate-200">Zéro Partage Tiers</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Vos données ne sont jamais vendues, louées, partagées ou analysées par des tiers ou des régies publicitaires.</p>
+                  <h4 className="font-bold text-slate-800 dark:text-slate-200">{t(language as Language, 'privacy.zeroSharingTitle') || 'Zéro Partage Tiers'}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t(language as Language, 'privacy.zeroSharingDesc') || 'Vos données ne sont jamais vendues, louées, partagées ou analysées par des tiers ou des régies publicitaires.'}</p>
                 </div>
               </li>
               <li className="flex gap-3">
@@ -129,8 +132,8 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
                   02
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-800 dark:text-slate-200">Chiffrement de bout en bout</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Tous les flux réseaux sont chiffrés via HTTPS/TLS. Les données sensibles stockées en base Supabase bénéficient de pare-feux et de politiques RLS de niveau professionnel.</p>
+                  <h4 className="font-bold text-slate-800 dark:text-slate-200">{t(language as Language, 'privacy.encryptionTitle') || 'Chiffrement de bout en bout'}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t(language as Language, 'privacy.encryptionDesc') || 'Tous les flux réseaux sont chiffrés via HTTPS/TLS. Les données sensibles stockées en base Supabase bénéficient de pare-feux et de politiques RLS de niveau professionnel.'}</p>
                 </div>
               </li>
               <li className="flex gap-3">
@@ -138,8 +141,8 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
                   03
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-800 dark:text-slate-200">Contrôle d'accès strict</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Seuls les personnels habilités de votre établissement (comptables, directeurs, surveillants) et vous-mêmes (via votre espace Parent sécurisé) peuvent accéder à ces dossiers.</p>
+                  <h4 className="font-bold text-slate-800 dark:text-slate-200">{t(language as Language, 'privacy.accessControlTitle') || 'Contrôle d\'accès strict'}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t(language as Language, 'privacy.accessControlDesc') || 'Seuls les personnels habilités de votre établissement (comptables, directeurs, surveillants) et vous-mêmes (via votre espace Parent sécurisé) peuvent accéder à ces dossiers.'}</p>
                 </div>
               </li>
             </ul>
@@ -149,19 +152,19 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
           <section className="space-y-3">
             <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <Globe className="w-5 h-5 text-amber-500" />
-              4. Vos Droits (Accès, Rectification, Suppression)
+              {t(language as Language, 'privacy.section4Title') || '4. Vos Droits (Accès, Rectification, Suppression)'}
             </h3>
             <p>
-              Conformément à la réglementation sur la protection de la vie privée, vous disposez d'un droit d'accès, de rectification et de suppression des informations nominatives vous concernant.
+              {t(language as Language, 'privacy.section4Desc1') || 'Conformément à la réglementation sur la protection de la vie privée, vous disposez d\'un droit d\'accès, de rectification et de suppression des informations nominatives vous concernant.'}
             </p>
             <p>
-              Pour exercer ces droits, vous pouvez contacter directement l'administration de votre établissement ou envoyer un courriel à notre assistance technique.
+              {t(language as Language, 'privacy.section4Desc2') || 'Pour exercer ces droits, vous pouvez contacter directement l\'administration de votre établissement ou envoyer un courriel à notre assistance technique.'}
             </p>
           </section>
 
           {/* Footer légal */}
           <div className="pt-6 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-400">
-            Yziow est hébergé sur des serveurs sécurisés et utilise la technologie Supabase Postgres.
+            {t(language as Language, 'privacy.footerText') || 'Yziow est hébergé sur des serveurs sécurisés et utilise la technologie Supabase Postgres.'}
           </div>
         </div>
 
@@ -171,7 +174,7 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
             onClick={onClose}
             className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
           >
-            J'ai compris
+            {t(language as Language, 'privacy.understoodBtn') || "J'ai compris"}
           </button>
         </div>
 

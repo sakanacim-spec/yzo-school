@@ -3,6 +3,9 @@ import { Users, Plus, Trash2, Shield, Loader2 } from 'lucide-react';
 import { personnelApi } from '../services/personnelApi';
 import { UserRole } from '../types';
 import { useStore } from '../store/useStore';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 interface Personnel {
     id: string;
@@ -12,6 +15,7 @@ interface Personnel {
 }
 
 export const GestionPersonnel: React.FC = () => {
+    const { language } = useLanguage();
     const { user } = useStore();
     const [personnelList, setPersonnelList] = useState<Personnel[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -52,19 +56,19 @@ export const GestionPersonnel: React.FC = () => {
             // Refresh list
             fetchPersonnel();
         } catch (error: any) {
-            alert(error.error || 'Erreur lors de la création.');
+            alert(error.error || t(language as Language, 'staff.creationError') || 'Erreur lors de la création.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('Voulez-vous vraiment supprimer ce compte ?')) return;
+        if (!window.confirm(t(language as Language, 'staff.confirmDelete') || 'Voulez-vous vraiment supprimer ce compte ?')) return;
         try {
             await personnelApi.deletePersonnel(id);
             fetchPersonnel();
         } catch (error: any) {
-            alert(error.error || 'Erreur lors de la suppression.');
+            alert(error.error || t(language as Language, 'staff.deleteError') || 'Erreur lors de la suppression.');
         }
     };
 
@@ -73,7 +77,7 @@ export const GestionPersonnel: React.FC = () => {
     if (!isAdmin) {
         return (
             <div className="flex items-center justify-center h-full">
-                <p className="text-slate-500 font-bold">Accès réservé à la direction.</p>
+                <p className="text-slate-500 font-bold">{t(language as Language, 'common.adminAccessOnly') || 'Accès réservé à la direction.'}</p>
             </div>
         );
     }
@@ -85,8 +89,8 @@ export const GestionPersonnel: React.FC = () => {
                     <Users className="w-7 h-7" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-black text-slate-800 dark:text-white">Gestion du Personnel</h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">Ajoutez et gérez les professeurs, censeurs et comptables.</p>
+                    <h1 className="text-2xl font-black text-slate-800 dark:text-white">{t(language as Language, 'staff.management') || 'Gestion du Personnel'}</h1>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">{t(language as Language, 'staff.managementDesc') || 'Ajoutez et gérez les professeurs, censeurs et comptables.'}</p>
                 </div>
             </div>
 
@@ -95,39 +99,39 @@ export const GestionPersonnel: React.FC = () => {
                 <div className="lg:col-span-1 bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm h-fit">
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                         <Plus className="w-5 h-5 text-indigo-500" />
-                        Nouveau Membre
+                        {t(language as Language, 'staff.newMember') || 'Nouveau Membre'}
                     </h2>
                     
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Nom complet</label>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'common.fullName') || 'Nom complet'}</label>
                             <input 
                                 type="text"
                                 required
                                 value={nom}
                                 onChange={e => setNom(e.target.value)}
-                                placeholder="ex: M. Dupont"
+                                placeholder={t(language as Language, 'staff.namePlaceholder') || "ex: M. Dupont"}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500"
                             />
-                            <p className="text-xs text-slate-400 mt-1">Pour un professeur, ce nom doit correspondre à celui dans la gestion académique.</p>
+                            <p className="text-xs text-slate-400 mt-1">{t(language as Language, 'staff.teacherNameNote') || 'Pour un professeur, ce nom doit correspondre à celui dans la gestion académique.'}</p>
                         </div>
                         
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Numéro de téléphone</label>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'common.phoneNumber') || 'Numéro de téléphone'}</label>
                             <input 
                                 type="tel"
                                 required
                                 pattern="[0-9+ ]+"
-                                title="Veuillez entrer un numéro valide (chiffres et symbole + uniquement)"
+                                title={t(language as Language, 'staff.validPhoneTitle') || "Veuillez entrer un numéro valide (chiffres et symbole + uniquement)"}
                                 value={telephone}
                                 onChange={e => setTelephone(e.target.value)}
-                                placeholder="Numéro pour la connexion"
+                                placeholder={t(language as Language, 'staff.phonePlaceholder') || "Numéro pour la connexion"}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Mot de passe</label>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'common.password') || 'Mot de passe'}</label>
                             <input 
                                 type="password"
                                 required
@@ -139,19 +143,19 @@ export const GestionPersonnel: React.FC = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Rôle</label>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'common.role') || 'Rôle'}</label>
                             <select 
                                 value={role}
                                 onChange={e => setRole(e.target.value as UserRole)}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-700 dark:text-indigo-400"
                             >
-                                <option value="professeur">Professeur / Enseignant</option>
-                                <option value="surveillant">Surveillant</option>
-                                <option value="censeur">Censeur</option>
-                                <option value="comptable">Comptable</option>
-                                <option value="superviseur">Superviseur</option>
-                                <option value="secretaire">Secrétaire</option>
-                                <option value="admin">Administrateur</option>
+                                <option value="professeur">{t(language as Language, 'staff.roles.professeur') || 'Professeur / Enseignant'}</option>
+                                <option value="surveillant">{t(language as Language, 'staff.roles.surveillant') || 'Surveillant'}</option>
+                                <option value="censeur">{t(language as Language, 'staff.roles.censeur') || 'Censeur'}</option>
+                                <option value="comptable">{t(language as Language, 'staff.roles.comptable') || 'Comptable'}</option>
+                                <option value="superviseur">{t(language as Language, 'staff.roles.superviseur') || 'Superviseur'}</option>
+                                <option value="secretaire">{t(language as Language, 'staff.roles.secretaire') || 'Secrétaire'}</option>
+                                <option value="admin">{t(language as Language, 'staff.roles.admin') || 'Administrateur'}</option>
                             </select>
                         </div>
 
@@ -160,7 +164,7 @@ export const GestionPersonnel: React.FC = () => {
                             disabled={isSubmitting}
                             className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 mt-4 flex items-center justify-center gap-2"
                         >
-                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Créer le compte'}
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (t(language as Language, 'staff.createAccount') || 'Créer le compte')}
                         </button>
                     </form>
                 </div>
@@ -169,7 +173,7 @@ export const GestionPersonnel: React.FC = () => {
                 <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                         <Shield className="w-5 h-5 text-indigo-500" />
-                        Comptes Administrateurs & Professeurs
+                        {t(language as Language, 'staff.adminTeacherAccounts') || 'Comptes Administrateurs & Professeurs'}
                     </h2>
 
                     {isLoading ? (
@@ -179,18 +183,18 @@ export const GestionPersonnel: React.FC = () => {
                     ) : personnelList.length === 0 ? (
                         <div className="text-center py-12 bg-slate-50 dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                             <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">Aucun personnel enregistré</h3>
-                            <p className="text-slate-500">Utilisez le formulaire pour créer le premier compte.</p>
+                            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">{t(language as Language, 'staff.noStaffRegistered') || 'Aucun personnel enregistré'}</h3>
+                            <p className="text-slate-500">{t(language as Language, 'staff.useFormToCreate') || 'Utilisez le formulaire pour créer le premier compte.'}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="border-b-2 border-slate-100 dark:border-slate-700">
-                                        <th className="pb-3 text-sm font-bold text-slate-400 uppercase tracking-wider">Nom</th>
-                                        <th className="pb-3 text-sm font-bold text-slate-400 uppercase tracking-wider">Téléphone</th>
-                                        <th className="pb-3 text-sm font-bold text-slate-400 uppercase tracking-wider">Rôle</th>
-                                        <th className="pb-3 text-sm font-bold text-slate-400 uppercase tracking-wider text-right">Action</th>
+                                        <th className="pb-3 text-sm font-bold text-slate-400 uppercase tracking-wider">{t(language as Language, 'common.name') || 'Nom'}</th>
+                                        <th className="pb-3 text-sm font-bold text-slate-400 uppercase tracking-wider">{t(language as Language, 'common.phone') || 'Téléphone'}</th>
+                                        <th className="pb-3 text-sm font-bold text-slate-400 uppercase tracking-wider">{t(language as Language, 'common.role') || 'Rôle'}</th>
+                                        <th className="pb-3 text-sm font-bold text-slate-400 uppercase tracking-wider text-right">{t(language as Language, 'common.action') || 'Action'}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -208,7 +212,7 @@ export const GestionPersonnel: React.FC = () => {
                                                     <button 
                                                         onClick={() => handleDelete(p.id)}
                                                         className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                                                        title="Supprimer"
+                                                        title={t(language as Language, 'common.delete') || 'Supprimer'}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>

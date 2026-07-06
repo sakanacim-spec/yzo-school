@@ -9,6 +9,9 @@ import {
     LogIn, CreditCard, UserCog, FileText, UserCheck,
     Upload, ArrowDownToLine, MoreHorizontal
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 const ACTION_ICONS: Record<string, React.ReactNode> = {
     connexion: <LogIn className="w-3.5 h-3.5" />,
@@ -23,6 +26,7 @@ const ACTION_ICONS: Record<string, React.ReactNode> = {
 };
 
 export const HistoriqueActivites: React.FC = () => {
+    const { language } = useLanguage();
     const activityLogs = useStore((s) => s.activityLogs);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterAction, setFilterAction] = useState<string>('');
@@ -66,22 +70,22 @@ export const HistoriqueActivites: React.FC = () => {
                         <Activity className="w-5 h-5" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold">Historique des activités</h2>
-                        <p className="text-slate-300 text-sm">Journal complet des actions</p>
+                        <h2 className="text-xl font-bold">{t(language as Language, 'activity.history') || 'Historique des activités'}</h2>
+                        <p className="text-slate-300 text-sm">{t(language as Language, 'activity.completeLog') || 'Journal complet des actions'}</p>
                     </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                     <div className="bg-white/10 rounded-xl p-3 text-center">
                         <p className="text-2xl font-bold">{todayLogs.length}</p>
-                        <p className="text-xs text-slate-300">Actions aujourd'hui</p>
+                        <p className="text-xs text-slate-300">{t(language as Language, 'activity.actionsToday') || "Actions aujourd'hui"}</p>
                     </div>
                     <div className="bg-white/10 rounded-xl p-3 text-center">
                         <p className="text-2xl font-bold">{todayConnexions}</p>
-                        <p className="text-xs text-slate-300">Connexions</p>
+                        <p className="text-xs text-slate-300">{t(language as Language, 'activity.logins') || 'Connexions'}</p>
                     </div>
                     <div className="bg-white/10 rounded-xl p-3 text-center">
                         <p className="text-2xl font-bold">{todayPaiements}</p>
-                        <p className="text-xs text-slate-300">Paiements</p>
+                        <p className="text-xs text-slate-300">{t(language as Language, 'activity.payments') || 'Paiements'}</p>
                     </div>
                 </div>
             </div>
@@ -95,7 +99,7 @@ export const HistoriqueActivites: React.FC = () => {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
-                            placeholder="Rechercher une action..."
+                            placeholder={t(language as Language, 'activity.searchPlaceholder') || "Rechercher une action..."}
                             className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
                     </div>
@@ -104,10 +108,10 @@ export const HistoriqueActivites: React.FC = () => {
                         onChange={(e) => { setFilterAction(e.target.value); setPage(0); }}
                         className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white sm:w-40"
                     >
-                        <option value="">Toutes actions</option>
+                        <option value="">{t(language as Language, 'activity.allActions') || 'Toutes actions'}</option>
                         {actions.map(a => {
                             const style = getActionStyle(a);
-                            return <option key={a} value={a}>{style.label}</option>;
+                            return <option key={a} value={a}>{t(language as Language, 'activity.actions.' + a) || style.label}</option>;
                         })}
                     </select>
                     <select
@@ -115,7 +119,7 @@ export const HistoriqueActivites: React.FC = () => {
                         onChange={(e) => { setFilterUser(e.target.value); setPage(0); }}
                         className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white sm:w-40"
                     >
-                        <option value="">Tous utilisateurs</option>
+                        <option value="">{t(language as Language, 'activity.allUsers') || 'Tous utilisateurs'}</option>
                         {users.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
                 </div>
@@ -125,7 +129,7 @@ export const HistoriqueActivites: React.FC = () => {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                     <p className="text-sm font-semibold text-gray-700">
-                        {filteredLogs.length} entrée{filteredLogs.length !== 1 ? 's' : ''}
+                        {filteredLogs.length} {filteredLogs.length !== 1 ? (t(language as Language, 'activity.entries') || 'entrées') : (t(language as Language, 'activity.entry') || 'entrée')}
                     </p>
                     {totalPages > 1 && (
                         <div className="flex items-center gap-2">
@@ -152,7 +156,7 @@ export const HistoriqueActivites: React.FC = () => {
                     {paginated.length === 0 ? (
                         <div className="p-8 text-center text-gray-400 text-sm">
                             <Clock className="w-8 h-8 mx-auto mb-3 text-gray-300" />
-                            Aucune activité enregistrée
+                            {t(language as Language, 'activity.noActivity') || 'Aucune activité enregistrée'}
                         </div>
                     ) : (
                         paginated.map((log) => {
@@ -165,7 +169,7 @@ export const HistoriqueActivites: React.FC = () => {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${style.bg} ${style.color}`}>
-                                                {style.label}
+                                                {t(language as Language, 'activity.actions.' + log.action) || style.label}
                                             </span>
                                             <span className="text-[10px] text-gray-400 font-medium">
                                                 {log.utilisateur} ({log.utilisateurRole})

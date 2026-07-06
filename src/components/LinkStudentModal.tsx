@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useStore } from '../store/useStore';
+import { t, Language } from '../i18n';
 import { parentApi } from '../services/parentApi';
 import { Search, UserPlus, GraduationCap, X, Check, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -9,6 +11,7 @@ interface LinkStudentModalProps {
 }
 
 export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onClose, onSuccess }) => {
+    const { language } = useStore();
     const [search, setSearch] = useState('');
     const [students, setStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -68,7 +71,7 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
             setHasSearched(true);
         } catch (err: any) {
             console.error('Erreur recherche:', err);
-            setError(err.error || "Erreur lors de la recherche. Vérifiez votre connexion.");
+            setError(err.error || t(language as Language, 'parent.searchError') || "Erreur lors de la recherche. Vérifiez votre connexion.");
             setHasSearched(true);
         } finally {
             setLoading(false);
@@ -80,13 +83,13 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
         setError('');
         try {
             await parentApi.linkStudent(studentId);
-            setMessage("Enfant lié avec succès !");
+            setMessage(t(language as Language, 'parent.linkSuccess') || "Enfant lié avec succès !");
             setTimeout(() => {
                 onSuccess();
                 onClose();
             }, 1500);
         } catch (err: any) {
-            setError(err.error || "Impossible de lier cet enfant.");
+            setError(err.error || t(language as Language, 'parent.linkError') || "Impossible de lier cet enfant.");
         } finally {
             setLinking(null);
         }
@@ -102,7 +105,7 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                         <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
                             <UserPlus className="w-5 h-5" />
                         </div>
-                        <h3 className="text-xl font-bold text-slate-800">Lier un enfant</h3>
+                        <h3 className="text-xl font-bold text-slate-800">{t(language as Language, 'parent.linkChild') || 'Lier un enfant'}</h3>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                         <X className="w-5 h-5 text-slate-400" />
@@ -111,7 +114,7 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
 
                 <div className="p-6 space-y-6">
                     <p className="text-slate-500 text-sm">
-                        Recherchez votre enfant par son nom ou prénom pour l'ajouter à votre espace parent.
+                        {t(language as Language, 'parent.searchChildDesc') || "Recherchez votre enfant par son nom ou prénom pour l'ajouter à votre espace parent."}
                     </p>
 
                     <div className="relative">
@@ -120,7 +123,7 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Entrez le nom ou prénom de l'élève..."
+                            placeholder={t(language as Language, 'parent.enterNameOrFirstname') || "Entrez le nom ou prénom de l'élève..."}
                             className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                             autoFocus
                         />
@@ -130,7 +133,7 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                         {loading && (
                             <div className="flex flex-col items-center justify-center py-10 text-slate-400">
                                 <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-2" />
-                                <p className="text-xs">Recherche en cours...</p>
+                                <p className="text-xs">{t(language as Language, 'common.loading') || 'Recherche en cours...'}</p>
                             </div>
                         )}
 
@@ -157,7 +160,7 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                                     {linking === student.id ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
                                     ) : (
-                                        <>Lier</>
+                                        <>{t(language as Language, 'parent.linkBtn') || 'Lier'}</>
                                     )}
                                 </button>
                             </div>
@@ -166,12 +169,12 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                         {!loading && search.length >= 2 && students.length === 0 && (
                             <div className="text-center py-12 text-slate-400 flex flex-col items-center gap-2">
                                 <Search className="w-12 h-12 opacity-10" />
-                                <p className="font-medium text-slate-500">Aucun élève ne correspond à votre recherche.</p>
-                                <p className="text-xs">Vérifiez l'orthographe du nom ou du prénom.</p>
+                                <p className="font-medium text-slate-500">{t(language as Language, 'parent.noChildFound') || 'Aucun élève ne correspond à votre recherche.'}</p>
+                                <p className="text-xs">{t(language as Language, 'parent.checkSpelling') || 'Vérifiez l\'orthographe du nom ou du prénom.'}</p>
                                 {totalStudents === 0 && (
                                     <p className="text-xs text-red-400 mt-2 font-medium">
-                                        ⚠️ Aucun élève n'est synchronisé dans la base de données.<br/>
-                                        L'administrateur doit importer les données depuis Excel.
+                                        {t(language as Language, 'parent.noStudentsInDb') || '⚠️ Aucun élève n\'est synchronisé dans la base de données.'}<br/>
+                                        {t(language as Language, 'parent.adminMustImport') || 'L\'administrateur doit importer les données depuis Excel.'}
                                     </p>
                                 )}
                             </div>
@@ -179,12 +182,12 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
 
                         {!loading && !hasSearched && search.length < 2 && (
                             <div className="text-center py-8 text-slate-400 border border-dashed border-slate-100 rounded-2xl">
-                                <p className="text-xs mb-2">Tapez au moins 2 caractères pour rechercher</p>
+                                <p className="text-xs mb-2">{t(language as Language, 'parent.typeAtLeast2Chars') || 'Tapez au moins 2 caractères pour rechercher'}</p>
                                 {totalStudents !== null && (
                                     <p className="text-xs text-slate-400">
                                         {totalStudents > 0 
-                                            ? `💡 ${totalStudents} élève(s) disponible(s) dans la base`
-                                            : '⚠️ Aucun élève synchronisé - Contactez l\'administrateur'
+                                            ? `💡 ${totalStudents} ${t(language as Language, 'parent.studentsAvailable') || 'élève(s) disponible(s) dans la base'}`
+                                            : (t(language as Language, 'parent.noStudentsSynced') || '⚠️ Aucun élève synchronisé - Contactez l\'administrateur')
                                         }
                                     </p>
                                 )}
@@ -212,7 +215,7 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                         onClick={onClose}
                         className="text-slate-500 hover:text-slate-700 font-bold text-sm"
                     >
-                        Annuler
+                        {t(language as Language, 'common.cancel') || 'Annuler'}
                     </button>
                 </div>
             </div>

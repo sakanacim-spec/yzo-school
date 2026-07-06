@@ -4,16 +4,22 @@ import { Phone, MessageSquare, Send, Users, AlertCircle, Filter, CheckCircle2, B
 import { formatMontant, generateWhatsAppLink, sendBulkSMS } from '../utils/helpers';
 import { notificationService } from '../services/notificationService';
 import { Student } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 export const Communication: React.FC = () => {
     const students = useStore((s) => s.students);
     const settings = useStore((s) => s.settings);
     const messageRappel = useStore((s) => s.messageRappel);
 
+    const { language } = useLanguage();
+    const defaultMsg = t(language as Language, 'communication.defaultMessage') || "Bonjour parent de {nom_eleve},\nSauf erreur, il reste à payer {reste_a_payer} pour la scolarité.\nMerci de régulariser.\nLa Direction.";
+    
     const [activeTab, setActiveTab] = useState<'impayes' | 'tous'>('impayes');
     const [selectedClass, setSelectedClass] = useState<string>('Toutes');
     const [messageTemplate, setMessageTemplate] = useState<string>(
-        messageRappel || "Bonjour parent de {nom_eleve},\nSauf erreur, il reste à payer {reste_a_payer} pour la scolarité.\nMerci de régulariser.\nLa Direction."
+        messageRappel || defaultMsg
     );
     const [isSending, setIsSending] = useState(false);
     const [sendResult, setSendResult] = useState<{ success: boolean; count: number; error?: string } | null>(null);
@@ -42,7 +48,7 @@ export const Communication: React.FC = () => {
     };
 
     const handleSendWhatsApp = () => {
-        if (filteredStudents.length === 0) return alert("Aucun destinataire sélectionné.");
+        if (filteredStudents.length === 0) return alert(t(language as Language, 'communication.noRecipientSelected') || "Aucun destinataire sélectionné.");
         
         // WhatsApp doesn't easily allow bulk sending without Business API.
         // So we generate the link for the first one and warn the user.
@@ -50,13 +56,19 @@ export const Communication: React.FC = () => {
         const msg = buildMessage(firstStudent);
         const link = generateWhatsAppLink(firstStudent.telephone, msg);
         
-        alert(`Pour éviter le spam WhatsApp, nous allons ouvrir la conversation pour le premier parent (${firstStudent.nom} ${firstStudent.prenom}).\n\nVous devrez répéter l'opération pour les autres depuis la fiche de l'élève ou utiliser le module SMS pour un envoi de masse en 1 clic.`);
+        alert(t(language as Language, 'communication.whatsappWarning') 
+            ? (t(language as Language, 'communication.whatsappWarning') as string).replace('{{name}}', `${firstStudent.nom} ${firstStudent.prenom}`) 
+            : `Pour éviter le spam WhatsApp, nous allons ouvrir la conversation pour le premier parent (${firstStudent.nom} ${firstStudent.prenom}).\n\nVous devrez répéter l'opération pour les autres depuis la fiche de l'élève ou utiliser le module SMS pour un envoi de masse en 1 clic.`);
         window.open(link, '_blank');
     };
 
     const handleSendSMS = async () => {
-        if (filteredStudents.length === 0) return alert("Aucun destinataire sélectionné.");
-        if (!window.confirm(`Êtes-vous sûr de vouloir envoyer ${filteredStudents.length} SMS ?`)) return;
+        if (filteredStudents.length === 0) return alert(t(language as Language, 'communication.noRecipientSelected') || "Aucun destinataire sélectionné.");
+        
+        const confirmMsg = t(language as Language, 'communication.confirmSms') 
+            ? (t(language as Language, 'communication.confirmSms') as string).replace('{{count}}', filteredStudents.length.toString()) 
+            : `Êtes-vous sûr de vouloir envoyer ${filteredStudents.length} SMS ?`;
+        if (!window.confirm(confirmMsg)) return;
 
         setIsSending(true);
         setSendResult(null);
@@ -72,8 +84,12 @@ export const Communication: React.FC = () => {
     };
 
     const handleSendPush = async () => {
-        if (filteredStudents.length === 0) return alert("Aucun destinataire sélectionné.");
-        if (!window.confirm(`Êtes-vous sûr de vouloir envoyer une Notification Push à ${filteredStudents.length} parents ?\n(Cette action est 100% gratuite)`)) return;
+        if (filteredStudents.length === 0) return alert(t(language as Language, 'communication.noRecipientSelected') || "Aucun destinataire sélectionné.");
+        
+        const confirmMsg = t(language as Language, 'communication.confirmPush') 
+            ? (t(language as Language, 'communication.confirmPush') as string).replace('{{count}}', filteredStudents.length.toString()) 
+            : `Êtes-vous sûr de vouloir envoyer une Notification Push à ${filteredStudents.length} parents ?\n(Cette action est 100% gratuite)`;
+        if (!window.confirm(confirmMsg)) return;
 
         setIsSending(true);
         setSendResult(null);
@@ -87,7 +103,7 @@ export const Communication: React.FC = () => {
                 student.id,
                 message,
                 'message',
-                activeTab === 'impayes' ? '🚨 Relance de Paiement' : '📢 Message de l\'École'
+                activeTab === 'impayes' ? (t(language as Language, 'communication.paymentReminderTitle') || '🚨 Relance de Paiement') : (t(language as Language, 'communication.schoolMessageTitle') || "📢 Message de l'École")
             );
             if (success) sentCount++;
             else failCount++;
@@ -96,7 +112,7 @@ export const Communication: React.FC = () => {
         setSendResult({
             success: sentCount > 0,
             count: sentCount,
-            error: failCount > 0 ? `${failCount} push ont échoué (parents non connectés).` : undefined
+            error: failCount > 0 ? (t(language as Language, 'communication.pushFailed') ? (t(language as Language, 'communication.pushFailed') as string).replace('{{count}}', failCount.toString()) : `${failCount} push ont échoué (parents non connectés).`) : undefined
         });
         setIsSending(false);
     };
@@ -107,9 +123,9 @@ export const Communication: React.FC = () => {
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
                         <MessageSquare className="w-8 h-8 text-indigo-500" />
-                        Communication
+                        {t(language as Language, 'communication.pageTitle') || 'Communication'}
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Envoyez des messages ciblés aux parents par SMS ou WhatsApp</p>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t(language as Language, 'communication.pageSubtitle') || 'Envoyez des messages ciblés aux parents par SMS ou WhatsApp'}</p>
                 </div>
             </div>
 
@@ -120,7 +136,7 @@ export const Communication: React.FC = () => {
                     <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
                         <div className="flex items-center gap-2 mb-6">
                             <Filter className="w-5 h-5 text-indigo-500" />
-                            <h2 className="text-lg font-bold text-slate-800 dark:text-white">Ciblage</h2>
+                            <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t(language as Language, 'communication.targeting') || 'Ciblage'}</h2>
                         </div>
                         
                         <div className="flex flex-col sm:flex-row gap-4">
@@ -133,7 +149,7 @@ export const Communication: React.FC = () => {
                                             : 'text-slate-500 hover:text-slate-700'
                                     }`}
                                 >
-                                    Relances Impayés
+                                    {t(language as Language, 'communication.unpaidReminders') || 'Relances Impayés'}
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('tous')}
@@ -143,7 +159,7 @@ export const Communication: React.FC = () => {
                                             : 'text-slate-500 hover:text-slate-700'
                                     }`}
                                 >
-                                    Tous les parents
+                                    {t(language as Language, 'communication.allParents') || 'Tous les parents'}
                                 </button>
                             </div>
                             
@@ -152,7 +168,7 @@ export const Communication: React.FC = () => {
                                 onChange={(e) => setSelectedClass(e.target.value)}
                                 className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
                             >
-                                <option value="Toutes">Toutes les classes</option>
+                                <option value="Toutes">{t(language as Language, 'communication.allClasses') || 'Toutes les classes'}</option>
                                 {classes.map(c => (
                                     <option key={c} value={c}>{c}</option>
                                 ))}
@@ -163,7 +179,7 @@ export const Communication: React.FC = () => {
                     {/* Editeur de message */}
                     <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                            <h2 className="text-lg font-bold text-slate-800 dark:text-white">Message</h2>
+                            <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t(language as Language, 'communication.messageTitle') || 'Message'}</h2>
                             <div className="flex flex-wrap gap-2">
                                 <button onClick={() => insertVariable('{nom_eleve}')} className="px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-lg hover:bg-indigo-100 transition">
                                     + {'{nom_eleve}'}
@@ -182,10 +198,14 @@ export const Communication: React.FC = () => {
                             onChange={(e) => setMessageTemplate(e.target.value)}
                             rows={6}
                             className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm resize-none focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white"
-                            placeholder="Écrivez votre message ici..."
+                            placeholder={t(language as Language, 'communication.writeMessageHere') || 'Écrivez votre message ici...'}
                         />
                         <p className="text-xs text-slate-500 mt-2">
-                            Aperçu : {messageTemplate.length} caractères (env. {Math.ceil(messageTemplate.length / 160)} SMS/destinataire).
+                            {t(language as Language, 'communication.previewLength') 
+                                ? (t(language as Language, 'communication.previewLength') as string)
+                                    .replace('{{chars}}', messageTemplate.length.toString())
+                                    .replace('{{sms}}', Math.ceil(messageTemplate.length / 160).toString())
+                                : `Aperçu : ${messageTemplate.length} caractères (env. ${Math.ceil(messageTemplate.length / 160)} SMS/destinataire).`}
                         </p>
                     
                         {/* Boutons d'envoi */}
@@ -196,11 +216,11 @@ export const Communication: React.FC = () => {
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-2xl font-bold hover:from-amber-600 hover:to-amber-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(245,158,11,0.3)]"
                             >
                                 {isSending ? (
-                                    <span className="animate-pulse">Envoi en cours...</span>
+                                    <span className="animate-pulse">{t(language as Language, 'communication.sending') || 'Envoi en cours...'}</span>
                                 ) : (
                                     <>
                                         <BellRing className="w-5 h-5" />
-                                        Push ({filteredStudents.length}) - Gratuit
+                                        {t(language as Language, 'communication.pushBtn') ? (t(language as Language, 'communication.pushBtn') as string).replace('{{count}}', filteredStudents.length.toString()) : `Push (${filteredStudents.length}) - Gratuit`}
                                     </>
                                 )}
                             </button>
@@ -210,11 +230,11 @@ export const Communication: React.FC = () => {
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(79,70,229,0.3)]"
                             >
                                 {isSending ? (
-                                    <span className="animate-pulse">Envoi en cours...</span>
+                                    <span className="animate-pulse">{t(language as Language, 'communication.sending') || 'Envoi en cours...'}</span>
                                 ) : (
                                     <>
                                         <Send className="w-5 h-5" />
-                                        SMS ({filteredStudents.length})
+                                        {t(language as Language, 'communication.smsBtn') ? (t(language as Language, 'communication.smsBtn') as string).replace('{{count}}', filteredStudents.length.toString()) : `SMS (${filteredStudents.length})`}
                                     </>
                                 )}
                             </button>
@@ -234,8 +254,8 @@ export const Communication: React.FC = () => {
                             <div className={`mt-6 p-4 rounded-xl flex items-center gap-3 ${sendResult.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
                                 {sendResult.success ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
                                 <div>
-                                    <p className="font-bold">{sendResult.success ? 'Envoi réussi !' : 'Erreur lors de l\'envoi'}</p>
-                                    <p className="text-sm">{sendResult.success ? `${sendResult.count} messages ont été envoyés avec succès. ${sendResult.error || ''}` : sendResult.error}</p>
+                                    <p className="font-bold">{sendResult.success ? (t(language as Language, 'communication.sendSuccess') || 'Envoi réussi !') : (t(language as Language, 'communication.sendError') || "Erreur lors de l'envoi")}</p>
+                                    <p className="text-sm">{sendResult.success ? (t(language as Language, 'communication.messagesSentSuccess') ? (t(language as Language, 'communication.messagesSentSuccess') as string).replace('{{count}}', sendResult.count.toString()).replace('{{error}}', sendResult.error || '') : `${sendResult.count} messages ont été envoyés avec succès. ${sendResult.error || ''}`) : sendResult.error}</p>
                                 </div>
                             </div>
                         )}
@@ -247,7 +267,7 @@ export const Communication: React.FC = () => {
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-2">
                             <Users className="w-5 h-5 text-indigo-500" />
-                            <h2 className="text-lg font-bold text-slate-800 dark:text-white">Destinataires</h2>
+                            <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t(language as Language, 'communication.recipients') || 'Destinataires'}</h2>
                         </div>
                         <span className="bg-indigo-100 text-indigo-700 text-xs font-black px-2 py-1 rounded-lg">
                             {filteredStudents.length}
@@ -257,7 +277,7 @@ export const Communication: React.FC = () => {
                     <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                         {filteredStudents.length === 0 ? (
                             <div className="text-center py-12">
-                                <p className="text-slate-500 font-medium">Aucun élève ne correspond à vos filtres ou n'a de numéro renseigné.</p>
+                                <p className="text-slate-500 font-medium">{t(language as Language, 'communication.noMatchingStudents') || "Aucun élève ne correspond à vos filtres ou n'a de numéro renseigné."}</p>
                             </div>
                         ) : (
                             filteredStudents.map(student => (
@@ -269,7 +289,7 @@ export const Communication: React.FC = () => {
                                     <p className="text-xs font-mono text-slate-500 mb-2">{student.telephone}</p>
                                     
                                     {activeTab === 'impayes' && student.restant > 0 && (
-                                        <p className="text-xs font-bold text-rose-500">Reste: {formatMontant(student.restant)}</p>
+                                        <p className="text-xs font-bold text-rose-500">{t(language as Language, 'communication.remaining') || 'Reste:'} {formatMontant(student.restant)}</p>
                                     )}
                                 </div>
                             ))

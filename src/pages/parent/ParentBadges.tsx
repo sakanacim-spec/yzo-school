@@ -1,9 +1,13 @@
 import React from 'react';
 import { useStore } from '../../store/useStore';
 import { Award, ShieldCheck, Zap, Star, Loader2, AlertCircle, TrendingUp, Clock, Medal } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 export const ParentBadges: React.FC = () => {
     const { badges } = useStore();
+    const { language } = useLanguage();
     const loading = false;
     const error = ''; 
 
@@ -33,7 +37,7 @@ export const ParentBadges: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-12 h-12 animate-spin text-blue-600 mb-4" />
-                <p className="text-slate-500 font-medium">Récupération de vos trophées...</p>
+                <p className="text-slate-500 font-medium">{t(language as Language, 'parentBadges.loading') || 'Récupération de vos trophées...'}</p>
             </div>
         );
     }
@@ -50,9 +54,9 @@ export const ParentBadges: React.FC = () => {
                         <Medal className="w-12 h-12 text-amber-400" />
                     </div>
                     <div className="text-center md:text-left">
-                        <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-3">Trophées & Succès</h2>
+                        <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-3">{t(language as Language, 'parentBadges.title') || 'Trophées & Succès'}</h2>
                         <p className="text-indigo-100 text-lg opacity-80 max-w-xl font-medium leading-relaxed">
-                            Célébrez l'excellence de vos enfants et votre engagement. Chaque badge est une marque de confiance et de réussite.
+                            {t(language as Language, 'parentBadges.subtitle') || "Célébrez l'excellence de vos enfants et votre engagement. Chaque badge est une marque de confiance et de réussite."}
                         </p>
                     </div>
                 </div>
@@ -70,8 +74,8 @@ export const ParentBadges: React.FC = () => {
                 {badges.length === 0 ? (
                     <div className="col-span-full py-20 flex flex-col items-center justify-center bg-slate-50 border-4 border-dashed border-slate-200 rounded-[40px]">
                         <Award className="w-16 h-16 text-slate-300 mb-4" />
-                        <p className="text-slate-400 font-bold text-xl">Vos trophées apparaîtront ici.</p>
-                        <p className="text-slate-400 text-sm">Continuez à suivre l'évolution de vos enfants !</p>
+                        <p className="text-slate-400 font-bold text-xl">{t(language as Language, 'parentBadges.emptyTitle') || 'Vos trophées apparaîtront ici.'}</p>
+                        <p className="text-slate-400 text-sm">{t(language as Language, 'parentBadges.emptySubtitle') || "Continuez à suivre l'évolution de vos enfants !"}</p>
                     </div>
                 ) : (
                     badges.map((badge) => (
@@ -100,14 +104,14 @@ export const ParentBadges: React.FC = () => {
 
                             {badge.student_prenom && (
                                 <div className="mb-6 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-xs font-black uppercase tracking-widest">
-                                    En lien avec : {badge.student_prenom}
+                                    {t(language as Language, 'parentBadges.linkedTo') || 'En lien avec :'} {badge.student_prenom}
                                 </div>
                             )}
 
                             <div className="mt-auto w-full pt-6 border-t border-slate-50">
                                 <div className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     <Clock className="w-3 h-3" />
-                                    Obtenu le {new Date(badge.earned_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    {t(language as Language, 'parentBadges.earnedOn') || 'Obtenu le'} {new Date(badge.earned_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
                                 </div>
                             </div>
                         </div>
@@ -118,7 +122,7 @@ export const ParentBadges: React.FC = () => {
             {/* Motivational message */}
             <div className="bg-slate-50 rounded-[40px] p-8 text-center border border-slate-100">
                 <p className="text-slate-500 font-medium italic">
-                    "L'éducation est l'arme la plus puissante pour changer le monde." - Nelson Mandela
+                    {t(language as Language, 'parentBadges.quote') || `"L'éducation est l'arme la plus puissante pour changer le monde." - Nelson Mandela`}
                 </p>
             </div>
         </div>

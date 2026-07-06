@@ -4,6 +4,9 @@ import { BulletinPDF } from '../components/pdf/BulletinPDF';
 import { calculerBulletinsClasse, BulletinEleveResultat } from '../utils/bulletinCalculations';
 import { useReactToPrint } from 'react-to-print';
 import { FileSpreadsheet, Printer, Users, Award, ShieldCheck } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 export const Bulletins: React.FC = () => {
     const { 
@@ -12,6 +15,7 @@ export const Bulletins: React.FC = () => {
     } = useStore();
 
     const classesList = Array.from(new Set(students.map(s => s.classe))).sort();
+    const { language } = useLanguage();
     const [selectedClasse, setSelectedClasse] = useState('');
     const [bulletinsCalcules, setBulletinsCalcules] = useState<BulletinEleveResultat[]>([]);
 
@@ -54,8 +58,8 @@ export const Bulletins: React.FC = () => {
                         <FileSpreadsheet className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Générateur de Bulletins (Modèle Officiel DRE)</h2>
-                        <p className="text-amber-100">Calcul automatique des moyennes, rangs et génération PDF.</p>
+                        <h2 className="text-2xl font-bold">{t(language as Language, 'reportCards.generatorTitle') || 'Générateur de Bulletins (Modèle Officiel DRE)'}</h2>
+                        <p className="text-amber-100">{t(language as Language, 'reportCards.generatorDesc') || 'Calcul automatique des moyennes, rangs et génération PDF.'}</p>
                     </div>
                 </div>
                 <div className="text-right">
@@ -66,13 +70,13 @@ export const Bulletins: React.FC = () => {
             {/* Outils de génération */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[200px]">
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Classe</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">{t(language as Language, 'reportCards.classLabel') || 'Classe'}</label>
                     <select
                         value={selectedClasse}
                         onChange={(e) => setSelectedClasse(e.target.value)}
                         className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-bold"
                     >
-                        <option value="">Sélectionner une classe...</option>
+                        <option value="">{t(language as Language, 'reportCards.selectClass') || 'Sélectionner une classe...'}</option>
                         {classesList.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
@@ -82,7 +86,7 @@ export const Bulletins: React.FC = () => {
                     className="bg-gray-800 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-900 shadow-md transition-all active:scale-95 disabled:opacity-50"
                 >
                     <ShieldCheck className="w-5 h-5" />
-                    Calculer
+                    {t(language as Language, 'reportCards.calculateBtn') || 'Calculer'}
                 </button>
                 <button
                     onClick={handlePrintAll}
@@ -90,7 +94,7 @@ export const Bulletins: React.FC = () => {
                     className="bg-amber-600 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-amber-700 shadow-md transition-all active:scale-95 disabled:opacity-50"
                 >
                     <Printer className="w-5 h-5" />
-                    Imprimer (Lot PDF)
+                    {t(language as Language, 'reportCards.printBatchBtn') || 'Imprimer (Lot PDF)'}
                 </button>
             </div>
 
@@ -100,11 +104,11 @@ export const Bulletins: React.FC = () => {
                     <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
                         <h3 className="font-bold flex items-center gap-2">
                             <Users className="w-5 h-5 text-gray-500" />
-                            Aperçu des résultats ({bulletinsCalcules.length} élèves)
+                            {t(language as Language, 'reportCards.previewResults') || 'Aperçu des résultats'} ({bulletinsCalcules.length} {t(language as Language, 'reportCards.studentsCount') || 'élèves'})
                         </h3>
                         <div className="text-sm flex gap-4">
-                            <span>Moy. Max : <b className="text-emerald-600">{bulletinsCalcules[0].moyenneMax.toFixed(2)}</b></span>
-                            <span>Moy. Cl. : <b className="text-blue-600">{bulletinsCalcules[0].moyenneClasse.toFixed(2)}</b></span>
+                            <span>{t(language as Language, 'reportCards.maxAverage') || 'Moy. Max :'} <b className="text-emerald-600">{bulletinsCalcules[0].moyenneMax.toFixed(2)}</b></span>
+                            <span>{t(language as Language, 'reportCards.classAverage') || 'Moy. Cl. :'} <b className="text-blue-600">{bulletinsCalcules[0].moyenneClasse.toFixed(2)}</b></span>
                         </div>
                     </div>
                     <div className="p-4 grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto">
@@ -114,13 +118,13 @@ export const Bulletins: React.FC = () => {
                                 <h4 className="font-bold text-gray-900 group-hover:text-amber-600 transition">{b.eleve.nom} {b.eleve.prenom}</h4>
                                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                                     <div className="bg-gray-50 p-2 rounded">
-                                        <p className="text-gray-500 text-xs uppercase">Moy. Gen.</p>
+                                        <p className="text-gray-500 text-xs uppercase">{t(language as Language, 'reportCards.genAverage') || 'Moy. Gen.'}</p>
                                         <p className={`font-black text-lg ${b.moyenneGenerale >= 10 ? 'text-emerald-600' : 'text-red-600'}`}>
                                             {b.moyenneGenerale.toFixed(2)}
                                         </p>
                                     </div>
                                     <div className="bg-gray-50 p-2 rounded">
-                                        <p className="text-gray-500 text-xs uppercase">Rang</p>
+                                        <p className="text-gray-500 text-xs uppercase">{t(language as Language, 'reportCards.rank') || 'Rang'}</p>
                                         <p className="font-black text-lg text-blue-600 flex items-center gap-1">
                                             <Award className="w-4 h-4" /> {b.rangGeneral}
                                         </p>
@@ -155,7 +159,7 @@ export const Bulletins: React.FC = () => {
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
                     <FileSpreadsheet className="w-16 h-16 text-gray-200 mb-4" />
                     <p className="text-gray-500 font-semibold text-lg text-center max-w-sm">
-                        Sélectionnez une classe puis calculez pour prévisualiser et imprimer les bulletins.
+                        {t(language as Language, 'reportCards.emptyStateDesc') || 'Sélectionnez une classe puis calculez pour prévisualiser et imprimer les bulletins.'}
                     </p>
                 </div>
             )}

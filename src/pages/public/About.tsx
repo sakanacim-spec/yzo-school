@@ -1,11 +1,15 @@
 import React, { useEffect } from 'react';
 import { Users, CheckCircle, ArrowLeft } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 interface AboutProps {
   onBack: () => void;
 }
 
 export const About: React.FC<AboutProps> = ({ onBack }) => {
+  const { language } = useLanguage();
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -19,7 +23,7 @@ export const About: React.FC<AboutProps> = ({ onBack }) => {
             onClick={onBack}
             className="flex items-center gap-2 text-slate-500 hover:text-[#f97316] transition-colors font-bold text-sm"
           >
-            <ArrowLeft className="w-5 h-5" /> Retour à l'accueil
+            <ArrowLeft className="w-5 h-5" /> {t(language as Language, 'public.backToHome') || "Retour à l'accueil"}
           </button>
         </div>
       </header>
@@ -31,23 +35,23 @@ export const About: React.FC<AboutProps> = ({ onBack }) => {
           <div className="w-20 h-20 bg-white rounded-[2rem] flex items-center justify-center mx-auto shadow-xl border border-slate-100">
             <Users className="w-10 h-10 text-[#f97316]" />
           </div>
-          <h2 className="text-sm font-black text-[#f97316] tracking-widest uppercase">Qui sommes-nous ?</h2>
-          <h3 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight">Notre mission pour l'éducation moderne</h3>
+          <h2 className="text-sm font-black text-[#f97316] tracking-widest uppercase">{t(language as Language, 'public.whoAreWe') || 'Qui sommes-nous ?'}</h2>
+          <h3 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight">{t(language as Language, 'public.ourMission') || "Notre mission pour l'éducation moderne"}</h3>
           <p className="text-lg md:text-xl text-slate-600 font-medium leading-relaxed max-w-4xl mx-auto">
-            Yziow est une plateforme née d'une vision d'excellence et d'accessibilité. Notre mission est de simplifier la gestion administrative des établissements scolaires tout en intégrant activement les parents dans le parcours éducatif de leurs enfants. Nous croyons que la réussite scolaire s'appuie sur une collaboration étroite et transparente entre l'école et la famille.
+            {t(language as Language, 'public.aboutDescription') || "Yziow est une plateforme née d'une vision d'excellence et d'accessibilité. Notre mission est de simplifier la gestion administrative des établissements scolaires tout en intégrant activement les parents dans le parcours éducatif de leurs enfants. Nous croyons que la réussite scolaire s'appuie sur une collaboration étroite et transparente entre l'école et la famille."}
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 pt-8">
             <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-100">
               <CheckCircle className="w-6 h-6 text-emerald-500" />
-              <span className="font-bold text-slate-700">Collaboration Parents-École</span>
+              <span className="font-bold text-slate-700">{t(language as Language, 'public.parentSchoolCollab') || 'Collaboration Parents-École'}</span>
             </div>
             <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-100">
               <CheckCircle className="w-6 h-6 text-emerald-500" />
-              <span className="font-bold text-slate-700">Transparence Totale</span>
+              <span className="font-bold text-slate-700">{t(language as Language, 'public.totalTransparency') || 'Transparence Totale'}</span>
             </div>
             <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-100">
               <CheckCircle className="w-6 h-6 text-emerald-500" />
-              <span className="font-bold text-slate-700">Suivi Académique Rigoureux</span>
+              <span className="font-bold text-slate-700">{t(language as Language, 'public.rigorousTracking') || 'Suivi Académique Rigoureux'}</span>
             </div>
           </div>
         </div>

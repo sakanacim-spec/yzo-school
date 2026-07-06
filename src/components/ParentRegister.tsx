@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Phone, Lock, ArrowLeft, Loader2, Building } from 'lucide-react';
 import { parentApi } from '../services/parentApi';
-import { getTranslations } from '../i18n';
+import { t, Language, getTranslations } from '../i18n';
 import { useStore } from '../store/useStore';
 
 interface ParentRegisterProps {
@@ -46,7 +46,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
             onSuccess(data);
         } catch (err: any) {
             console.error('Registration error:', err);
-            setError(err.message || (T.register as any)?.error || "Une erreur s'est produite lors de la création de votre compte.");
+            setError(err.error || err.message || (T.register as any)?.error || "Une erreur s'est produite lors de la création de votre compte.");
         } finally {
             setLoading(false);
         }
@@ -64,7 +64,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h2 className="text-xl font-bold text-white">Inscription Parent</h2>
+                <h2 className="text-xl font-bold text-white">{t(language as Language, 'auth.parentRegister') || 'Inscription Parent'}</h2>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 max-w-md w-full mx-auto pb-8">
@@ -76,7 +76,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
 
                 <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-4">
                     <div>
-                        <label className={labelClass}>Code de l'école (School Slug)</label>
+                        <label className={labelClass}>{t(language as Language, 'auth.schoolCode') || "Code de l'école (School Slug)"}</label>
                         <div className="relative">
                             <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
@@ -84,15 +84,15 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                 required
                                 value={schoolSlug}
                                 onChange={e => setSchoolSlug(e.target.value.toLowerCase().trim())}
-                                placeholder="ex: mon_ecole_2025"
+                                placeholder={t(language as Language, 'auth.schoolCodeEx') || "ex: mon_ecole_2025"}
                                 className={inputClass}
                             />
                         </div>
-                        <p className="text-xs text-blue-200/70 mt-1">Demandez ce code à l'administration de votre école.</p>
+                        <p className="text-xs text-blue-200/70 mt-1">{t(language as Language, 'auth.askCodeAdmin') || "Demandez ce code à l'administration de votre école."}</p>
                     </div>
 
                     <div>
-                        <label className={labelClass}>Nom Complet (Parent)</label>
+                        <label className={labelClass}>{t(language as Language, 'auth.fullNameParent') || 'Nom Complet (Parent)'}</label>
                         <div className="relative">
                             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
@@ -100,14 +100,14 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                 required
                                 value={nom}
                                 onChange={e => setNom(e.target.value)}
-                                placeholder="ex: Koffi Kouassi"
+                                placeholder={t(language as Language, 'auth.fullNameEx') || "ex: Koffi Kouassi"}
                                 className={inputClass}
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className={labelClass}>Numéro de téléphone</label>
+                        <label className={labelClass}>{t(language as Language, 'auth.phone') || 'Numéro de téléphone'}</label>
                         <div className="relative">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
@@ -116,15 +116,15 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                 pattern="[0-9+ ]+"
                                 value={telephone}
                                 onChange={e => setTelephone(e.target.value)}
-                                placeholder="Ce numéro sera utilisé pour la connexion"
+                                placeholder={t(language as Language, 'auth.phoneUsedForLogin') || "Ce numéro sera utilisé pour la connexion"}
                                 className={inputClass}
                             />
                         </div>
-                        <p className="text-xs text-blue-200/70 mt-1">Le numéro doit correspondre à celui enregistré par l'école pour vos enfants.</p>
+                        <p className="text-xs text-blue-200/70 mt-1">{t(language as Language, 'auth.phoneMustMatch') || "Le numéro doit correspondre à celui enregistré par l'école pour vos enfants."}</p>
                     </div>
 
                     <div>
-                        <label className={labelClass}>Mot de passe</label>
+                        <label className={labelClass}>{t(language as Language, 'auth.password') || 'Mot de passe'}</label>
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
@@ -133,7 +133,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                 minLength={6}
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
-                                placeholder="Minimum 6 caractères"
+                                placeholder={t(language as Language, 'auth.min6Chars') || "Minimum 6 caractères"}
                                 className={inputClass}
                             />
                         </div>
@@ -150,7 +150,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                         className="mt-1 w-4 h-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-500/50"
                     />
                     <label htmlFor="terms" className="text-sm text-blue-200">
-                        J'accepte les conditions d'utilisation et certifie que ce numéro m'appartient bien.
+                        {t(language as Language, 'auth.acceptTermsAndCertify') || "J'accepte les conditions d'utilisation et certifie que ce numéro m'appartient bien."}
                     </label>
                 </div>
 
@@ -159,7 +159,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                     disabled={loading}
                     className="w-full py-3.5 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Créer mon compte Parent"}
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (t(language as Language, 'auth.createParentAccount') || "Créer mon compte Parent")}
                 </button>
             </form>
         </div>

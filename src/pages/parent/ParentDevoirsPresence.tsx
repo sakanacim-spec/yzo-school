@@ -6,13 +6,16 @@ import {
     ChevronRight, FileDown, CheckSquare, Square
 } from 'lucide-react';
 import { format, isValid, parseISO, isPast, isToday, isTomorrow, differenceInDays } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
 import { parentApi } from '../../services/parentApi';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
-const safeFormatDate = (dateStr: string | undefined, fmt: string) => {
-    if (!dateStr) return 'Date non précisée';
+const safeFormatDate = (dateStr: string | undefined, fmt: string, language?: Language) => {
+    if (!dateStr) return t(language as Language, 'parentDevoirs.noDate') || 'Date non précisée';
     const d = new Date(dateStr);
-    return isValid(d) ? format(d, fmt, { locale: fr }) : 'Date invalide';
+    return isValid(d) ? format(d, fmt, { locale: language === 'en' ? enUS : fr }) : t(language as Language, 'parentDevoirs.invalidDate') || 'Date invalide';
 };
 
 const parseDevoirDescription = (desc: string) => {
@@ -26,15 +29,15 @@ const parseDevoirDescription = (desc: string) => {
     return { cleanDesc, completedIds };
 };
 
-const getDueDateLabel = (dateStr?: string) => {
+const getDueDateLabel = (dateStr: string | undefined, language: Language) => {
     if (!dateStr) return null;
     const d = new Date(dateStr);
     if (!isValid(d)) return null;
-    if (isToday(d)) return { label: "Aujourd'hui !", color: 'text-rose-600 bg-rose-50 border-rose-200', urgent: true };
-    if (isTomorrow(d)) return { label: 'Demain', color: 'text-amber-600 bg-amber-50 border-amber-200', urgent: true };
-    if (isPast(d)) return { label: 'En retard', color: 'text-rose-700 bg-rose-100 border-rose-300', urgent: true };
+    if (isToday(d)) return { label: t(language, 'parentDevoirs.today') || "Aujourd'hui !", color: 'text-rose-600 bg-rose-50 border-rose-200', urgent: true };
+    if (isTomorrow(d)) return { label: t(language, 'parentDevoirs.tomorrow') || 'Demain', color: 'text-amber-600 bg-amber-50 border-amber-200', urgent: true };
+    if (isPast(d)) return { label: t(language, 'parentDevoirs.late') || 'En retard', color: 'text-rose-700 bg-rose-100 border-rose-300', urgent: true };
     const days = differenceInDays(d, new Date());
-    return { label: `Dans ${days} jour${days > 1 ? 's' : ''}`, color: 'text-slate-600 bg-slate-50 border-slate-200', urgent: false };
+    return { label: (t(language, 'parentDevoirs.inDays') || `Dans {{days}} jour${days > 1 ? 's' : ''}`).replace('{{days}}', days.toString()), color: 'text-slate-600 bg-slate-50 border-slate-200', urgent: false };
 };
 
 export const ParentDevoirsPresence: React.FC = () => {
@@ -44,6 +47,7 @@ export const ParentDevoirsPresence: React.FC = () => {
     const students = useStore(s => s.students);
     const devoirs = useStore(s => s.devoirs) || [];
     const presences = useStore(s => s.presences) || [];
+    const { language } = useLanguage();
 
     // Filtre robuste : tous les enfants du store (déjà filtrés côté parent par le store)
     const myChildren = useMemo(() => students, [students]);
@@ -107,7 +111,7 @@ export const ParentDevoirsPresence: React.FC = () => {
     };
 
     if (!user || user.role !== 'parent') {
-        return <div className="p-8 text-center text-slate-500">Accès réservé aux parents.</div>;
+        return <div className="p-8 text-center text-slate-500">{t(language as Language, 'parentDevoirs.accessDenied') || 'Accès réservé aux parents.'}</div>;
     }
 
     return (
@@ -121,14 +125,14 @@ export const ParentDevoirsPresence: React.FC = () => {
                             <BookOpen className="w-8 h-8" />
                         </div>
                         <div>
-                            <h2 className="text-3xl font-black tracking-tight">Devoirs & Présences</h2>
-                            <p className="text-indigo-100 font-medium text-sm mt-0.5">Suivez le travail et l'assiduité de vos enfants</p>
+                            <h2 className="text-3xl font-black tracking-tight">{t(language as Language, 'parentDevoirs.headerTitle') || 'Devoirs & Présences'}</h2>
+                            <p className="text-indigo-100 font-medium text-sm mt-0.5">{t(language as Language, 'parentDevoirs.headerSubtitle') || "Suivez le travail et l'assiduité de vos enfants"}</p>
                         </div>
                     </div>
                     {devoirsUrgents > 0 && (
                         <div className="flex items-center gap-2 bg-rose-500 px-4 py-2.5 rounded-2xl animate-pulse shadow-lg">
                             <AlertCircle className="w-5 h-5" />
-                            <span className="font-black text-sm">{devoirsUrgents} devoir{devoirsUrgents > 1 ? 's' : ''} urgent{devoirsUrgents > 1 ? 's' : ''} !</span>
+                            <span className="font-black text-sm">{devoirsUrgents} {t(language as Language, 'parentDevoirs.urgentHomework') || `devoir${devoirsUrgents > 1 ? 's' : ''} urgent${devoirsUrgents > 1 ? 's' : ''} !`}</span>
                         </div>
                     )}
                 </div>
@@ -165,7 +169,7 @@ export const ParentDevoirsPresence: React.FC = () => {
                     }`}
                 >
                     <BookOpen className="w-4 h-4" />
-                    Travail à faire
+                    {t(language as Language, 'parentDevoirs.tabHomework') || 'Travail à faire'}
                     {childDevoirs.length > 0 && (
                         <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'devoirs' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'}`}>
                             {childDevoirs.length}
@@ -181,7 +185,7 @@ export const ParentDevoirsPresence: React.FC = () => {
                     }`}
                 >
                     <UserCheck className="w-4 h-4" />
-                    Assiduité
+                    {t(language as Language, 'parentDevoirs.tabAttendance') || 'Assiduité'}
                     {presenceStats.absent + presenceStats.retard > 0 && (
                         <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700">
                             {presenceStats.absent + presenceStats.retard}
@@ -196,12 +200,12 @@ export const ParentDevoirsPresence: React.FC = () => {
                     {childDevoirs.length === 0 ? (
                         <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-200 dark:border-slate-700">
                             <CheckCircle2 className="w-14 h-14 text-emerald-300 mx-auto mb-4" />
-                            <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">Aucun devoir en attente</h3>
-                            <p className="text-sm text-slate-400">Aucun travail à la maison enregistré pour le moment.</p>
+                            <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">{t(language as Language, 'parentDevoirs.noHomeworkTitle') || 'Aucun devoir en attente'}</h3>
+                            <p className="text-sm text-slate-400">{t(language as Language, 'parentDevoirs.noHomeworkSubtitle') || 'Aucun travail à la maison enregistré pour le moment.'}</p>
                         </div>
                     ) : (
                         childDevoirs.map(d => {
-                            const dueDateInfo = getDueDateLabel(d.dateRendu);
+                            const dueDateInfo = getDueDateLabel(d.dateRendu, language as Language);
                             const donneeDate = d.dateDonnee ? new Date(d.dateDonnee) : null;
                             const { cleanDesc, completedIds } = parseDevoirDescription(d.description);
                             const isDone = selectedChildId ? completedIds.includes(selectedChildId) : false;
@@ -214,16 +218,16 @@ export const ParentDevoirsPresence: React.FC = () => {
                                             <div className="flex flex-wrap items-center gap-2 mb-3">
                                                 <span className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-black">{d.matiere}</span>
                                                 {d.professeurNom && (
-                                                    <span className="text-xs font-bold text-slate-400">Par {d.professeurNom}</span>
+                                                    <span className="text-xs font-bold text-slate-400">{t(language as Language, 'parentDevoirs.by') || 'Par'} {d.professeurNom}</span>
                                                 )}
                                                 {donneeDate && isValid(donneeDate) && (
                                                     <span className="text-xs text-slate-400 flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" /> Donné le {format(donneeDate, 'dd MMM', { locale: fr })}
+                                                        <Calendar className="w-3 h-3" /> {t(language as Language, 'parentDevoirs.givenOn') || 'Donné le'} {format(donneeDate, 'dd MMM', { locale: language === 'en' ? enUS : fr })}
                                                     </span>
                                                 )}
                                                 {isDone && (
                                                     <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-                                                        <CheckCircle2 className="w-3 h-3" /> Fait
+                                                        <CheckCircle2 className="w-3 h-3" /> {t(language as Language, 'parentDevoirs.done') || 'Fait'}
                                                     </span>
                                                 )}
                                             </div>
@@ -237,7 +241,7 @@ export const ParentDevoirsPresence: React.FC = () => {
                                                     rel="noopener noreferrer"
                                                     className="inline-flex items-center gap-2 mt-3 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-xl text-sm font-bold transition-colors"
                                                 >
-                                                    <FileDown className="w-4 h-4" /> Pièce jointe
+                                                    <FileDown className="w-4 h-4" /> {t(language as Language, 'parentDevoirs.attachment') || 'Pièce jointe'}
                                                 </a>
                                             )}
                                         </div>
@@ -248,7 +252,7 @@ export const ParentDevoirsPresence: React.FC = () => {
                                                 <div>
                                                     <div>{dueDateInfo.label}</div>
                                                     <div className="text-[10px] font-bold opacity-70 mt-0.5">
-                                                        {safeFormatDate(d.dateRendu, 'dd MMM yyyy')}
+                                                        {safeFormatDate(d.dateRendu, 'dd MMM yyyy', language as Language)}
                                                     </div>
                                                 </div>
                                             </div>
@@ -266,7 +270,7 @@ export const ParentDevoirsPresence: React.FC = () => {
                                             }`}
                                         >
                                             {isDone ? <CheckSquare className="w-4 h-4 text-emerald-600" /> : <Square className="w-4 h-4" />}
-                                            {isDone ? 'Marqué comme fait' : "Marquer comme fait par l'enfant"}
+                                            {isDone ? (t(language as Language, 'parentDevoirs.markedAsDone') || 'Marqué comme fait') : (t(language as Language, 'parentDevoirs.markAsDone') || "Marquer comme fait par l'enfant")}
                                         </button>
                                     </div>
                                 </div>
@@ -282,10 +286,10 @@ export const ParentDevoirsPresence: React.FC = () => {
                     {/* Statistiques */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[
-                            { label: 'Présent', count: presenceStats.present, color: 'emerald', icon: <CheckCircle2 className="w-5 h-5" /> },
-                            { label: 'Absent', count: presenceStats.absent, color: 'rose', icon: <XCircle className="w-5 h-5" /> },
-                            { label: 'Retard', count: presenceStats.retard, color: 'amber', icon: <Clock className="w-5 h-5" /> },
-                            { label: 'Taux de présence', count: `${presenceStats.tauxPresence}%`, color: 'blue', icon: <UserCheck className="w-5 h-5" /> },
+                            { label: t(language as Language, 'parentDevoirs.present') || 'Présent', count: presenceStats.present, color: 'emerald', icon: <CheckCircle2 className="w-5 h-5" /> },
+                            { label: t(language as Language, 'parentDevoirs.absent') || 'Absent', count: presenceStats.absent, color: 'rose', icon: <XCircle className="w-5 h-5" /> },
+                            { label: t(language as Language, 'parentDevoirs.lateStat') || 'Retard', count: presenceStats.retard, color: 'amber', icon: <Clock className="w-5 h-5" /> },
+                            { label: t(language as Language, 'parentDevoirs.attendanceRate') || 'Taux de présence', count: `${presenceStats.tauxPresence}%`, color: 'blue', icon: <UserCheck className="w-5 h-5" /> },
                         ].map(stat => (
                             <div key={stat.label} className="bg-white dark:bg-slate-900 rounded-[24px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 bg-${stat.color}-100 dark:bg-${stat.color}-500/10 text-${stat.color}-600 dark:text-${stat.color}-400`}>
@@ -303,15 +307,15 @@ export const ParentDevoirsPresence: React.FC = () => {
                             <table className="w-full text-left">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                        <th className="px-6 py-4">Date</th>
-                                        <th className="px-6 py-4">Heure</th>
-                                        <th className="px-6 py-4">Statut</th>
+                                        <th className="px-6 py-4">{t(language as Language, 'common.date') || 'Date'}</th>
+                                        <th className="px-6 py-4">{t(language as Language, 'common.time') || 'Heure'}</th>
+                                        <th className="px-6 py-4">{t(language as Language, 'common.status') || 'Statut'}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                                     {childPresences.map(p => (
                                         <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                            <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300 capitalize">{safeFormatDate(p.date, 'EEEE dd MMMM')}</td>
+                                            <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300 capitalize">{safeFormatDate(p.date, 'EEEE dd MMMM', language as Language)}</td>
                                             <td className="px-6 py-4 text-slate-500 font-mono font-medium">{p.heure.slice(0, 5)}</td>
                                             <td className="px-6 py-4">
                                                 <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ${
@@ -332,8 +336,8 @@ export const ParentDevoirsPresence: React.FC = () => {
                         ) : (
                             <div className="text-center py-16">
                                 <CheckCircle2 className="w-14 h-14 text-emerald-300 mx-auto mb-4" />
-                                <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">Assiduité parfaite !</h3>
-                                <p className="text-sm text-slate-400">Aucune absence ni retard enregistré.</p>
+                                <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">{t(language as Language, 'parentDevoirs.perfectAttendance') || 'Assiduité parfaite !'}</h3>
+                                <p className="text-sm text-slate-400">{t(language as Language, 'parentDevoirs.noAbsence') || 'Aucune absence ni retard enregistré.'}</p>
                             </div>
                         )}
                     </div>

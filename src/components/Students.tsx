@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { parseExcelFile, exportToExcel } from '../utils/excelUtils';
 import { generateReceipt, generateStudentCard } from '../utils/pdfUtils';
+import { t, Language } from '../i18n';
 import { Student, Payment } from '../types';
 import { CLASSES } from '../data/classes';
 import { formatMontant, getCycleFromClasse, getEcolageFromClasse } from '../utils/helpers';
@@ -23,7 +24,8 @@ import {
 } from 'lucide-react';
 
 export default function Students() {
-  const { students, setStudents, addStudent, updateStudent, deleteStudent, addPayment, settings } = useStore();
+  const { students, setStudents, addStudent, updateStudent, deleteStudent, addPayment, settings, language } = useStore();
+  const lang = language as Language;
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [search, setSearch] = useState('');
@@ -87,9 +89,9 @@ export default function Students() {
     try {
       const importedStudents = await parseExcelFile(file);
       setStudents(importedStudents);
-      alert(`✅ ${importedStudents.length} élèves importés avec succès !`);
-    } catch (error) {
-      alert('❌ Erreur lors de l\'importation du fichier');
+      alert(t(lang, 'students.importSuccess')?.replace('{count}', importedStudents.length.toString()) || `✅ ${importedStudents.length} élèves importés avec succès !`);
+    } catch (error: any) {
+      alert(error?.error || error?.message || t(lang, 'students.importError') || '❌ Erreur lors de l\'importation du fichier');
       console.error(error);
     }
     setIsLoading(false);
@@ -149,7 +151,7 @@ export default function Students() {
 
   const handleSaveStudent = () => {
     if (!formData.nom || !formData.prenom || !formData.classe) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      alert(t(lang, 'students.fillRequiredFields') || 'Veuillez remplir tous les champs obligatoires');
       return;
     }
 
@@ -192,7 +194,7 @@ export default function Students() {
 
   const handleSavePayment = () => {
     if (!selectedStudent || !paymentData.montant) {
-      alert('Veuillez entrer un montant');
+      alert(t(lang, 'payments.enterAmount') || 'Veuillez entrer un montant');
       return;
     }
 
@@ -209,12 +211,13 @@ export default function Students() {
 
     addPayment(selectedStudent.id, payment);
     setShowPaymentModal(false);
-    alert('✅ Paiement enregistré avec succès !');
+    alert(t(lang, 'payments.paymentRecorded') || '✅ Paiement enregistré avec succès !');
   };
 
   const handleDelete = (student: Student, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`Supprimer ${student.nom} ${student.prenom} ?`)) {
+    const confirmMsg = t(lang, 'students.confirmDelete')?.replace('{name}', `${student.nom} ${student.prenom}`) || `Supprimer ${student.nom} ${student.prenom} ?`;
+    if (confirm(confirmMsg)) {
       deleteStudent(student.id);
     }
   };
@@ -245,20 +248,17 @@ export default function Students() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
-            className="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium shadow-sm hover:bg-blue-700 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all inline-flex items-center justify-center gap-2 text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors font-medium disabled:opacity-50 border border-blue-100/50"
           >
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">{isLoading ? 'Importation...' : 'Importer Excel'}</span>
-            <span className="sm:hidden">{isLoading ? '...' : 'Import'}</span>
+            <Upload className="w-5 h-5" />
+            <span className="hidden sm:inline">{isLoading ? (t(lang, 'common.loading') || 'Chargement...') : (t(lang, 'common.import') || 'Importer') + ' Excel'}</span>
           </button>
           <button
-            onClick={handleExport}
-            disabled={students.length === 0}
-            className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium shadow-sm hover:bg-gray-300 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all inline-flex items-center justify-center gap-2 text-sm"
+            onClick={() => exportToExcel(filteredStudents, 'eleves')}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-colors font-medium border border-emerald-100/50"
           >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Exporter</span>
-            <span className="sm:hidden">Export</span>
+            <Download className="w-5 h-5" />
+            <span className="hidden sm:inline">{t(lang, 'common.export') || 'Exporter'} Excel</span>
           </button>
           <button
             onClick={openAddModal}
@@ -272,7 +272,7 @@ export default function Students() {
         <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white rounded-xl shadow-sm border border-gray-100">
           <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
           <span className="text-xs sm:text-sm text-gray-600">
-            <span className="font-bold text-gray-800">{filteredStudents.length}</span> élève(s) sur <span className="font-bold">{students.length}</span>
+            <span className="font-bold text-gray-800">{filteredStudents.length}</span> {t(lang, 'dashboard.students') || 'élève(s)'} {t(lang, 'common.of') || 'sur'} <span className="font-bold">{students.length}</span>
           </span>
         </div>
       </div>
@@ -283,14 +283,14 @@ export default function Students() {
           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
             <Filter className="w-5 h-5 text-blue-600" />
           </div>
-          <span className="font-semibold text-gray-800">Filtres de recherche</span>
+          <span className="font-semibold text-gray-800">{t(lang, 'students.searchFilters') || 'Filtres de recherche'}</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Rechercher un élève..."
+              placeholder={t(lang, 'students.search') || "Rechercher un élève..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input pl-12"
@@ -301,30 +301,36 @@ export default function Students() {
             onChange={(e) => setFilterCycle(e.target.value)}
             className="select"
           >
-            <option value="">🎓 Tous les cycles</option>
-            <option value="Primaire">📚 Primaire</option>
-            <option value="Collège">📖 Collège</option>
-            <option value="Lycée">🎯 Lycée</option>
+            <option value="">🎓 {t(lang, 'common.allCycles') || 'Tous les cycles'}</option>
+            <option value="Primaire">📚 {t(lang, 'common.primary') || 'Primaire'}</option>
+            <option value="Collège">📖 {t(lang, 'common.middleSchool') || 'Collège'}</option>
+            <option value="Lycée">🎯 {t(lang, 'common.highSchool') || 'Lycée'}</option>
           </select>
-          <select
-            value={filterClass}
-            onChange={(e) => setFilterClass(e.target.value)}
-            className="select"
-          >
-            <option value="">📋 Toutes les classes</option>
-            {uniqueClasses.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="select"
-          >
-            <option value="">📊 Tous les statuts</option>
-            <option value="solde">✅ Soldés</option>
-            <option value="nonsolde">⚠️ Non soldés</option>
-          </select>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <select
+              value={filterClass}
+              onChange={(e) => setFilterClass(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow appearance-none"
+            >
+              <option value="">{t(lang, 'students.filterClass') || 'Toutes les classes'}</option>
+              {uniqueClasses.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow appearance-none"
+            >
+              <option value="">{t(lang, 'students.filterStatus') || 'Tous les statuts'}</option>
+              <option value="solde">{t(lang, 'students.statusPaid') || 'Soldé'}</option>
+              <option value="nonsolde">{t(lang, 'students.statusUnpaid') || 'Non Soldé'}</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -340,21 +346,24 @@ export default function Students() {
               )}
             </div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              {students.length === 0 ? 'Aucun élève enregistré' : 'Aucun résultat trouvé'}
+              {students.length === 0 ? (t(lang, 'students.noStudents') || 'Aucun élève enregistré') : (t(lang, 'students.noResult') || 'Aucun résultat trouvé')}
             </h3>
             <p className="text-gray-500 mb-6">
               {students.length === 0 
-                ? 'Importez un fichier Excel pour commencer à gérer vos élèves.'
-                : 'Modifiez vos filtres pour voir plus de résultats.'
+                ? (t(lang, 'dashboard.table.noData') || 'Importez un fichier Excel pour commencer à gérer vos élèves.')
+                : (t(lang, 'students.noStudents') || 'Modifiez vos filtres pour voir plus de résultats.')
               }
             </p>
             {students.length === 0 && (
               <button
-                onClick={() => fileInputRef.current?.click()}
-                className="btn btn-primary"
+                onClick={() => {
+                  resetForm();
+                  setShowModal(true);
+                }}
+                className="btn-primary flex items-center gap-2"
               >
-                <Upload className="w-4 h-4" />
-                Importer un fichier Excel
+                <Plus className="w-5 h-5" />
+                <span className="hidden sm:inline">{t(lang, 'students.addNew') || 'Nouvelle Inscription'}</span>
               </button>
             )}
           </div>
@@ -363,14 +372,14 @@ export default function Students() {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 sticky top-0">
                 <tr>
-                  <th className="text-left py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700">Élève</th>
-                  <th className="text-left py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700 hidden md:table-cell">Classe</th>
-                  <th className="text-left py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700 hidden lg:table-cell">Téléphone</th>
-                  <th className="text-right py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700 hidden sm:table-cell">Écolage</th>
-                  <th className="text-right py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700 hidden sm:table-cell">Payé</th>
-                  <th className="text-right py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700">Restant</th>
-                  <th className="text-center py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700">Statut</th>
-                  <th className="text-center py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700">Actions</th>
+                  <th className="text-left py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700">{t(lang, 'common.student') || 'Élève'}</th>
+                  <th className="text-left py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700 hidden md:table-cell">{t(lang, 'common.class') || 'Classe'}</th>
+                  <th className="text-left py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700 hidden lg:table-cell">{t(lang, 'common.phone') || 'Téléphone'}</th>
+                  <th className="text-right py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700 hidden sm:table-cell">{t(lang, 'students.fees') || 'Écolage'}</th>
+                  <th className="text-right py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700 hidden sm:table-cell">{t(lang, 'students.paid') || 'Payé'}</th>
+                  <th className="text-right py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700">{t(lang, 'students.remaining') || 'Restant'}</th>
+                  <th className="text-center py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700">{t(lang, 'students.status') || 'Statut'}</th>
+                  <th className="text-center py-3 sm:py-4 px-3 sm:px-4 font-semibold text-xs sm:text-sm text-gray-700">{t(lang, 'common.actions') || 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -411,15 +420,15 @@ export default function Students() {
                     <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">
                       {student.restant === 0 ? (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                          ✓ Soldé
+                          ✓ {t(lang, 'students.statusPaid') || 'Soldé'}
                         </span>
                       ) : student.dejaPaye > 0 ? (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                          Partiel
+                          {t(lang, 'students.statusPartial') || 'Partiel'}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                          Non payé
+                          {t(lang, 'students.statusUnpaid') || 'Non payé'}
                         </span>
                       )}
                     </td>
@@ -428,35 +437,35 @@ export default function Students() {
                         <button
                           onClick={(e) => openDetailModal(student, e)}
                           className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                          title="Voir détails"
+                          title={t(lang, 'students.viewDetail') || 'Voir détails'}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
                           onClick={(e) => openPaymentModal(student, e)}
                           className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-green-600 hover:bg-green-100 rounded-lg transition-all"
-                          title="Ajouter paiement"
+                          title={t(lang, 'students.registerPayment') || 'Ajouter paiement'}
                         >
                           <CreditCard className="w-4 h-4" />
                         </button>
                         <button
                           onClick={(e) => handleGenerateReceipt(student, e)}
                           className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-purple-600 hover:bg-purple-100 rounded-lg transition-all"
-                          title="Générer reçu"
+                          title={t(lang, 'payments.printReceipt') || 'Générer reçu'}
                         >
                           <FileText className="w-4 h-4" />
                         </button>
                         <button
                           onClick={(e) => openEditModal(student, e)}
                           className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-amber-600 hover:bg-amber-100 rounded-lg transition-all"
-                          title="Modifier"
+                          title={t(lang, 'common.edit') || 'Modifier'}
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={(e) => handleDelete(student, e)}
                           className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-all"
-                          title="Supprimer"
+                          title={t(lang, 'common.delete') || 'Supprimer'}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -481,7 +490,7 @@ export default function Students() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-800">
-                    {isEditing ? 'Modifier l\'élève' : 'Nouvel élève'}
+                    {isEditing ? (t(lang, 'students.editStudent') || 'Modifier l\\'élève') : (t(lang, 'students.addNew') || 'Nouvel élève')}
                   </h2>
                   <p className="text-sm text-gray-500">Remplissez les informations ci-dessous</p>
                 </div>
@@ -493,27 +502,27 @@ export default function Students() {
             <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Nom *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'students.lastName') || 'Nom'} *</label>
                   <input
                     type="text"
                     value={formData.nom || ''}
                     onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
                     className="input"
-                    placeholder="Nom de famille"
+                    placeholder={t(lang, 'students.lastNamePlaceholder') || "Nom de famille"}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Prénom *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'students.firstName') || 'Prénom'} *</label>
                   <input
                     type="text"
                     value={formData.prenom || ''}
                     onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
                     className="input"
-                    placeholder="Prénom"
+                    placeholder={t(lang, 'students.firstNamePlaceholder') || "Prénom"}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Classe *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'students.class') || 'Classe'} *</label>
                   <select
                     value={formData.classe || ''}
                     onChange={(e) => {
@@ -526,14 +535,14 @@ export default function Students() {
                     }}
                     className="select"
                   >
-                    <option value="">Sélectionner une classe</option>
+                    <option value="">{t(lang, 'students.selectClass') || 'Sélectionner une classe'}</option>
                     {CLASSES.map(c => (
                       <option key={c.nom} value={c.nom}>{c.nom} ({c.cycle}) - {formatMoney(c.ecolage)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Téléphone</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'common.phone') || 'Téléphone'}</label>
                   <input
                     type="tel"
                     value={formData.telephone || ''}
@@ -543,39 +552,39 @@ export default function Students() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Sexe</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'common.gender') || 'Sexe'}</label>
                   <select
                     value={formData.sexe || 'M'}
                     onChange={(e) => setFormData({ ...formData, sexe: e.target.value as 'M' | 'F' })}
                     className="select"
                   >
-                    <option value="M">👨 Masculin</option>
-                    <option value="F">👩 Féminin</option>
+                    <option value="M">👨 {t(lang, 'students.male') || 'Masculin'}</option>
+                    <option value="F">👩 {t(lang, 'students.female') || 'Féminin'}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Redoublant</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'students.repeating') || 'Redoublant'}</label>
                   <select
                     value={formData.redoublant ? 'oui' : 'non'}
                     onChange={(e) => setFormData({ ...formData, redoublant: e.target.value === 'oui' })}
                     className="select"
                   >
-                    <option value="non">Non</option>
-                    <option value="oui">Oui</option>
+                    <option value="non">{t(lang, 'common.no') || 'Non'}</option>
+                    <option value="oui">{t(lang, 'common.yes') || 'Oui'}</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">École de provenance</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'common.previousSchool') || 'École de provenance'}</label>
                   <input
                     type="text"
                     value={formData.ecoleProvenance || ''}
                     onChange={(e) => setFormData({ ...formData, ecoleProvenance: e.target.value })}
                     className="input"
-                    placeholder="Nom de l'ancienne école"
+                    placeholder=""
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Écolage</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'students.fees') || 'Écolage'}</label>
                   <input
                     type="number"
                     value={formData.ecolage || 0}
@@ -584,7 +593,7 @@ export default function Students() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Déjà payé</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'students.paid') || 'Déjà payé'}</label>
                   <input
                     type="number"
                     value={formData.dejaPaye || 0}
@@ -596,11 +605,11 @@ export default function Students() {
             </div>
             <div className="flex justify-end gap-3 p-6 border-t border-gray-100 bg-gray-50">
               <button onClick={() => setShowModal(false)} className="btn btn-secondary">
-                Annuler
+                {t(lang, 'common.cancel') || 'Annuler'}
               </button>
               <button onClick={handleSaveStudent} className="btn btn-success">
                 <Check className="w-4 h-4" />
-                {isEditing ? 'Enregistrer' : 'Ajouter'}
+                {isEditing ? (t(lang, 'common.save') || 'Enregistrer') : (t(lang, 'common.add') || 'Ajouter')}
               </button>
             </div>
           </div>
@@ -617,7 +626,7 @@ export default function Students() {
                   <CreditCard className="w-6 h-6 text-green-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">Nouveau paiement</h2>
+                  <h2 className="text-xl font-bold text-gray-800">{t(lang, 'payments.addPayment') || 'Nouveau paiement'}</h2>
                   <p className="text-sm text-gray-500">{selectedStudent.nom} {selectedStudent.prenom}</p>
                 </div>
               </div>
@@ -628,16 +637,16 @@ export default function Students() {
             <div className="p-6 space-y-5">
               <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Classe:</span>
+                  <span className="text-gray-600">{t(lang, 'common.class') || 'Classe'}:</span>
                   <span className="font-semibold">{selectedStudent.classe}</span>
                 </div>
                 <div className="flex justify-between items-center mt-2">
-                  <span className="text-gray-600">Reste à payer:</span>
+                  <span className="text-gray-600">{t(lang, 'students.remaining') || 'Reste à payer'}:</span>
                   <span className="font-bold text-xl text-red-600">{formatMoney(selectedStudent.restant)}</span>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Montant *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'payments.amount') || 'Montant'} *</label>
                 <input
                   type="number"
                   value={paymentData.montant || ''}
@@ -648,46 +657,46 @@ export default function Students() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Mode de paiement</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'payments.method') || 'Mode de paiement'}</label>
                 <select
                   value={paymentData.mode || 'Espèces'}
                   onChange={(e) => setPaymentData({ ...paymentData, mode: e.target.value as Payment['mode'] })}
                   className="select"
                 >
-                  <option value="Espèces">💵 Espèces</option>
-                  <option value="Chèque">📝 Chèque</option>
-                  <option value="Virement">🏦 Virement</option>
-                  <option value="Mobile Money">📱 Mobile Money</option>
+                  <option value="Espèces">💵 {t(lang, 'payments.cash') || 'Espèces'}</option>
+                  <option value="Chèque">📝 {t(lang, 'payments.check') || 'Chèque'}</option>
+                  <option value="Virement">🏦 {t(lang, 'payments.transfer') || 'Virement'}</option>
+                  <option value="Mobile Money">📱 {t(lang, 'payments.mobile') || 'Mobile Money'}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Référence</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'common.reference') || 'Référence'}</label>
                 <input
                   type="text"
                   value={paymentData.reference || ''}
                   onChange={(e) => setPaymentData({ ...paymentData, reference: e.target.value })}
                   className="input"
-                  placeholder="Numéro de référence"
+                  placeholder={t(lang, 'students.refNumberPlaceholder') || "Numéro de référence"}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Commentaire</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t(lang, 'payments.comment') || 'Commentaire'}</label>
                 <textarea
                   value={paymentData.commentaire || ''}
                   onChange={(e) => setPaymentData({ ...paymentData, commentaire: e.target.value })}
                   className="input"
                   rows={2}
-                  placeholder="Notes additionnelles..."
+                  placeholder={t(lang, 'students.additionalNotesPlaceholder') || "Notes additionnelles..."}
                 />
               </div>
             </div>
             <div className="flex justify-end gap-3 p-6 border-t border-gray-100 bg-gray-50">
               <button onClick={() => setShowPaymentModal(false)} className="btn btn-secondary">
-                Annuler
+                {t(lang, 'common.cancel') || 'Annuler'}
               </button>
               <button onClick={handleSavePayment} className="btn btn-success">
                 <Check className="w-4 h-4" />
-                Enregistrer le paiement
+                {t(lang, 'common.save') || 'Enregistrer le paiement'}
               </button>
             </div>
           </div>
@@ -699,7 +708,7 @@ export default function Students() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDetailModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-800">Fiche élève</h2>
+              <h2 className="text-xl font-bold text-gray-800">{t(lang, 'students.viewDetail') || 'Fiche élève'}</h2>
               <button onClick={() => setShowDetailModal(false)} className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors">
                 <X className="w-5 h-5" />
               </button>
@@ -729,7 +738,7 @@ export default function Students() {
                     ) : null}
                     {selectedStudent.redoublant && (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-700">
-                        Redoublant
+                        {t(lang, 'students.repeating') || 'Redoublant'}
                       </span>
                     )}
                   </div>
@@ -739,19 +748,19 @@ export default function Students() {
               {/* Info Grid */}
               <div className="grid grid-cols-2 gap-4 mb-8">
                 <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-sm text-gray-500 mb-1">📞 Téléphone</p>
+                  <p className="text-sm text-gray-500 mb-1">📞 {t(lang, 'common.phone') || 'Téléphone'}</p>
                   <p className="font-semibold">{selectedStudent.telephone || '—'}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-sm text-gray-500 mb-1">{selectedStudent.sexe === 'F' ? '👩' : '👨'} Sexe</p>
-                  <p className="font-semibold">{selectedStudent.sexe === 'F' ? 'Féminin' : 'Masculin'}</p>
+                  <p className="text-sm text-gray-500 mb-1">{selectedStudent.sexe === 'F' ? '👩' : '👨'} {t(lang, 'common.gender') || 'Sexe'}</p>
+                  <p className="font-semibold">{selectedStudent.sexe === 'F' ? (t(lang, 'students.female') || 'Féminin') : (t(lang, 'students.male') || 'Masculin')}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-sm text-gray-500 mb-1">🔄 Redoublant</p>
-                  <p className="font-semibold">{selectedStudent.redoublant ? 'Oui' : 'Non'}</p>
+                  <p className="text-sm text-gray-500 mb-1">🔄 {t(lang, 'students.repeating') || 'Redoublant'}</p>
+                  <p className="font-semibold">{selectedStudent.redoublant ? (t(lang, 'common.yes') || 'Oui') : (t(lang, 'common.no') || 'Non')}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-sm text-gray-500 mb-1">🏫 École de provenance</p>
+                  <p className="text-sm text-gray-500 mb-1">🏫 {t(lang, 'common.previousSchool') || 'École de provenance'}</p>
                   <p className="font-semibold">{selectedStudent.ecoleProvenance || '—'}</p>
                 </div>
               </div>
@@ -759,27 +768,27 @@ export default function Students() {
               {/* Financial Section */}
               <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border border-blue-100 mb-8">
                 <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <span className="text-xl">💰</span> Situation financière
+                  <span className="text-xl">💰</span> {t(lang, 'students.fees') || 'Situation financière'}
                 </h4>
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="text-center p-4 bg-white rounded-xl shadow-sm">
-                    <p className="text-sm text-gray-500">Écolage</p>
+                    <p className="text-sm text-gray-500">{t(lang, 'students.fees') || 'Écolage'}</p>
                     <p className="text-xl font-bold text-gray-800">{formatMoney(selectedStudent.ecolage)}</p>
                   </div>
                   <div className="text-center p-4 bg-white rounded-xl shadow-sm">
-                    <p className="text-sm text-gray-500">Payé</p>
+                    <p className="text-sm text-gray-500">{t(lang, 'students.paid') || 'Payé'}</p>
                     <p className="text-xl font-bold text-green-600">{formatMoney(selectedStudent.dejaPaye)}</p>
                   </div>
                   <div className="text-center p-4 bg-white rounded-xl shadow-sm">
-                    <p className="text-sm text-gray-500">Restant</p>
+                    <p className="text-sm text-gray-500">{t(lang, 'students.remaining') || 'Restant'}</p>
                     <p className="text-xl font-bold text-red-600">
-                      {selectedStudent.restant === 0 ? '✓ SOLDÉ' : formatMoney(selectedStudent.restant)}
+                      {selectedStudent.restant === 0 ? \`✓ \${t(lang, 'students.statusPaid') || 'SOLDÉ'}\` : formatMoney(selectedStudent.restant)}
                     </p>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-600">Progression du paiement</span>
+                    <span className="text-gray-600">{t(lang, 'payments.progress') || 'Progression du paiement'}</span>
                     <span className="font-semibold">{Math.round((selectedStudent.dejaPaye / selectedStudent.ecolage) * 100)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
@@ -794,7 +803,7 @@ export default function Students() {
               {/* Payment History */}
               <div>
                 <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <span className="text-xl">📋</span> Historique des paiements
+                  <span className="text-xl">📋</span> {t(lang, 'payments.paymentHistory') || 'Historique des paiements'}
                 </h4>
                 {selectedStudent.paiements && selectedStudent.paiements.length > 0 ? (
                   <div className="space-y-3">
@@ -815,7 +824,7 @@ export default function Students() {
                   </div>
                 ) : (
                   <div className="text-center py-8 bg-gray-50 rounded-xl">
-                    <p className="text-gray-500">Aucun paiement enregistré</p>
+                    <p className="text-gray-500">{t(lang, 'payments.noPayments') || 'Aucun paiement enregistré'}</p>
                   </div>
                 )}
               </div>
@@ -826,14 +835,14 @@ export default function Students() {
                 className="btn btn-secondary"
               >
                 <FileText className="w-4 h-4" />
-                Fiche PDF
+                {t(lang, 'dashboard.generateReport') || 'Fiche PDF'}
               </button>
               <button 
                 onClick={() => generateReceipt(selectedStudent, settings)} 
                 className="btn btn-primary"
               >
                 <FileText className="w-4 h-4" />
-                Reçu PDF
+                {t(lang, 'payments.receipt') || 'Reçu PDF'}
               </button>
             </div>
           </div>

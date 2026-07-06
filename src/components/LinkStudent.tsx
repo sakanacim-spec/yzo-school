@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useStore } from '../store/useStore';
+import { t, Language } from '../i18n';
 import { parentApi } from '../services/parentApi';
 import { Search, UserPlus, GraduationCap, X, Check, AlertCircle, CheckSquare, Square } from 'lucide-react';
 
@@ -7,6 +9,7 @@ interface LinkStudentProps {
 }
 
 export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
+    const { language } = useStore();
     const [search, setSearch] = useState('');
     const [students, setStudents] = useState<any[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -36,7 +39,7 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
             const uniqueStudents = Array.from(new Map(result.students.map((s: any) => [s.id, s])).values());
             setStudents(uniqueStudents);
         } catch (err: any) {
-            setError("Erreur lors de la recherche.");
+            setError(t(language as Language, 'parent.searchError') || "Erreur lors de la recherche.");
         } finally {
             setLoading(false);
         }
@@ -56,12 +59,12 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
         try {
             await parentApi.linkStudents(selectedIds);
 
-            setMessage(`${selectedIds.length} enfant(s) lié(s) avec succès !`);
+            setMessage(`${selectedIds.length} ${t(language as Language, 'parent.linkSuccessSuffix') || 'enfant(s) lié(s) avec succès !'}`);
             setTimeout(() => {
                 onComplete();
             }, 1500);
         } catch (err: any) {
-            setError(err.error || "Impossible de lier les élèves sélectionnés.");
+            setError(err.error || t(language as Language, 'parent.linkError') || "Impossible de lier les élèves sélectionnés.");
         } finally {
             setLinking(false);
         }
@@ -70,9 +73,9 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
     return (
         <div className="space-y-6">
             <div className="text-center">
-                <h2 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter">Enregistrez vos enfants</h2>
+                <h2 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter">{t(language as Language, 'parent.registerChildren') || 'Enregistrez vos enfants'}</h2>
                 <p className="text-slate-500 text-sm font-medium">
-                    Recherchez vos enfants par leur nom et cochez-les pour les lier à votre compte.
+                    {t(language as Language, 'parent.registerChildrenDesc') || 'Recherchez vos enfants par leur nom et cochez-les pour les lier à votre compte.'}
                 </p>
             </div>
 
@@ -82,7 +85,7 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Entrez un nom..."
+                    placeholder={t(language as Language, 'parent.enterName') || 'Entrez un nom...'}
                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white transition-all shadow-inner"
                 />
             </div>
@@ -120,7 +123,7 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
 
                             <div className="flex items-center gap-3">
                                 {isAlreadyLinked ? (
-                                    <span className="text-[10px] font-black text-slate-400 uppercase bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200">Lié</span>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200">{t(language as Language, 'parent.linked') || 'Lié'}</span>
                                 ) : (
                                     <div className={isSelected ? 'text-blue-400' : 'text-slate-500'}>
                                         {isSelected ? <CheckSquare className="w-6 h-6" /> : <Square className="w-6 h-6" />}
@@ -134,7 +137,7 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
                 {!loading && search.length >= 2 && students.length === 0 && (
                     <div className="text-center py-8 text-blue-300/60 flex flex-col items-center gap-2">
                         <X className="w-8 h-8 opacity-20" />
-                        <p>Aucun élève trouvé.</p>
+                        <p>{t(language as Language, 'students.noResults') || 'Aucun élève trouvé.'}</p>
                     </div>
                 )}
             </div>
@@ -150,7 +153,7 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
                     ) : (
                         <>
                             <UserPlus className="w-5 h-5" />
-                            Lier les {selectedIds.length} enfant(s) sélectionnés
+                            {t(language as Language, 'parent.linkSelectedPrefix') || 'Lier les'} {selectedIds.length} {t(language as Language, 'parent.linkSelectedSuffix') || 'enfant(s) sélectionnés'}
                         </>
                     )}
                 </button>
@@ -174,7 +177,7 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
                 onClick={onComplete}
                 className="w-full text-slate-400 text-xs font-black uppercase tracking-widest hover:text-blue-600 transition-colors py-2"
             >
-                {selectedIds.length > 0 ? 'Annuler' : 'Plus tard'}
+                {selectedIds.length > 0 ? (t(language as Language, 'common.cancel') || 'Annuler') : (t(language as Language, 'common.later') || 'Plus tard')}
             </button>
         </div>
     );

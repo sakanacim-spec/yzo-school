@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { COUNTRIES, getSortedCountries, getCountryByCode } from '../data/countries';
-import { getTranslations } from '../i18n';
+import { getTranslations, t, Language } from '../i18n';
 
 interface RegisterProps {
   onBack: () => void;
@@ -286,7 +286,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
                   type="text"
                   value={ministry}
                   onChange={(e) => setMinistry(e.target.value)}
-                  placeholder="Ex: Ministère de l'Éducation Nationale"
+                  placeholder={t(language as Language, 'register.ministryEx') || "Ex: Ministère de l'Éducation Nationale"}
                   className={inputClass}
                 />
               </div>
@@ -299,7 +299,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
                   type="text"
                   value={slogan}
                   onChange={(e) => setSlogan(e.target.value)}
-                  placeholder="Ex: L'excellence pour tous"
+                  placeholder={t(language as Language, 'register.sloganEx') || "Ex: L'excellence pour tous"}
                   className={inputClass}
                 />
               </div>

@@ -5,9 +5,11 @@ import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import {
     Megaphone, Plus, Trash2, X, Send, Eye, EyeOff, Clock,
-    AlertCircle, Info, AlertTriangle, Filter, CheckCircle
-} from 'lucide-react';
+import { AlertCircle, Info, AlertTriangle, Filter, CheckCircle } from 'lucide-react';
 import type { AnnouncementImportance, AnnouncementTarget } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 const IMPORTANCE_LABELS: Record<AnnouncementImportance, { label: string; color: string; icon: React.ReactNode }> = {
     info:      { label: 'Information',   color: 'bg-blue-500/10 text-blue-700 border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]',    icon: <Info className="w-3.5 h-3.5" /> },
@@ -22,6 +24,16 @@ export const Annonces: React.FC = () => {
     const announcementReads = useStore(s => s.announcementReads);
     const addAnnouncement = useStore(s => s.addAnnouncement);
     const deleteAnnouncement = useStore(s => s.deleteAnnouncement);
+    const { language } = useLanguage();
+
+    // Use a function to get localized importance labels so they update on language change
+    const getImportanceLabels = (lang: Language) => ({
+        info:      { label: t(lang, 'announcements.information') || 'Information',   color: 'bg-blue-500/10 text-blue-700 border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]',    icon: <Info className="w-3.5 h-3.5" /> },
+        important: { label: t(lang, 'announcements.important') || 'Important',     color: 'bg-amber-500/10 text-amber-700 border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]',  icon: <AlertCircle className="w-3.5 h-3.5" /> },
+        urgent:    { label: t(lang, 'announcements.urgentLabel') || 'Urgent',        color: 'bg-rose-500/10 text-rose-700 border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.1)]',        icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+    });
+
+    const importanceLabels = getImportanceLabels(language as Language);
 
     const isParent = user?.role === 'parent';
 
@@ -31,7 +43,10 @@ export const Annonces: React.FC = () => {
     });
 
     const hideForParent = (id: string, titre: string) => {
-        if (window.confirm(`Retirer l'annonce "${titre}" de votre liste ?`)) {
+        const confirmHideMsg = t(language as Language, 'announcements.confirmHide') 
+            ? (t(language as Language, 'announcements.confirmHide') as string).replace('{{title}}', titre) 
+            : `Retirer l'annonce "${titre}" de votre liste ?`;
+        if (window.confirm(confirmHideMsg)) {
             const updated = [...hiddenAnnouncements, id];
             setHiddenAnnouncements(updated);
             localStorage.setItem(`hidden_announcements_${user?.id}`, JSON.stringify(updated));
@@ -65,7 +80,10 @@ export const Annonces: React.FC = () => {
     };
 
     const handleDelete = (id: string, titre: string) => {
-        if (window.confirm(`Supprimer l'annonce "${titre}" ?`)) {
+        const confirmDeleteMsg = t(language as Language, 'announcements.confirmDelete') 
+            ? (t(language as Language, 'announcements.confirmDelete') as string).replace('{{title}}', titre) 
+            : `Supprimer l'annonce "${titre}" ?`;
+        if (window.confirm(confirmDeleteMsg)) {
             deleteAnnouncement(id);
         }
     };
@@ -100,9 +118,9 @@ export const Annonces: React.FC = () => {
                             <Megaphone className="w-7 h-7 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">Annonces & Communications</h2>
+                            <h2 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">{t(language as Language, 'announcements.title') || 'Annonces & Communications'}</h2>
                             <p className="text-indigo-200 text-sm mt-1 font-medium max-w-md">
-                                Gérez les communications avec les parents d'élèves. Les annonces importantes nécessitent une confirmation de lecture.
+                                {t(language as Language, 'announcements.subtitle') || 'Gérez les communications avec les parents d\'élèves. Les annonces importantes nécessitent une confirmation de lecture.'}
                             </p>
                         </div>
                     </div>
@@ -113,7 +131,7 @@ export const Annonces: React.FC = () => {
                             className="group flex items-center justify-center gap-2 px-6 py-3 bg-white text-indigo-900 active:scale-[0.98] hover:bg-slate-50 rounded-[16px] text-sm font-bold transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]"
                         >
                             {showForm ? <X className="w-5 h-5 transition-transform group-hover:rotate-90" /> : <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />}
-                            {showForm ? 'Annuler' : 'Nouvelle Annonce'}
+                            {showForm ? (t(language as Language, 'common.cancel') || 'Annuler') : (t(language as Language, 'announcements.newAnnouncement') || 'Nouvelle Annonce')}
                         </button>
                     )}
                 </div>
@@ -122,19 +140,19 @@ export const Annonces: React.FC = () => {
                     <div className="grid grid-cols-3 gap-3 mt-8 relative z-10">
                         <div className="bg-white/10 backdrop-blur-md rounded-[20px] p-4 transition-colors">
                             <p className="text-3xl font-black text-white drop-shadow-md mb-1">{announcements.length}</p>
-                            <p className="text-xs font-bold text-white/70 uppercase tracking-wider">Total Annonces</p>
+                            <p className="text-xs font-bold text-white/70 uppercase tracking-wider">{t(language as Language, 'announcements.total') || 'Total Annonces'}</p>
                         </div>
                         <div className="bg-rose-500/20 backdrop-blur-md rounded-[20px] p-4 transition-colors">
                             <p className="text-3xl font-black text-rose-100 drop-shadow-md mb-1">
                                 {announcements.filter(a => a.importance === 'urgent').length}
                             </p>
-                            <p className="text-xs font-bold text-rose-200 uppercase tracking-wider">Urgentes</p>
+                            <p className="text-xs font-bold text-rose-200 uppercase tracking-wider">{t(language as Language, 'announcements.urgentLabel') || 'Urgentes'}</p>
                         </div>
                         <div className="bg-emerald-500/20 backdrop-blur-md rounded-[20px] p-4 transition-colors">
                             <p className="text-3xl font-black text-emerald-100 drop-shadow-md mb-1">
                                 {announcementReads.filter(r => r.readAt).length}
                             </p>
-                            <p className="text-xs font-bold text-emerald-200 uppercase tracking-wider">Confirmations "Lues"</p>
+                            <p className="text-xs font-bold text-emerald-200 uppercase tracking-wider">{t(language as Language, 'announcements.readConfirmations') || 'Confirmations "Lues"'}</p>
                         </div>
                     </div>
                 )}
@@ -147,7 +165,7 @@ export const Annonces: React.FC = () => {
                         <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600">
                             <Send className="w-5 h-5" />
                         </div>
-                        Rédiger une nouvelle annonce
+                        {t(language as Language, 'announcements.writeNew') || 'Rédiger une nouvelle annonce'}
                     </h3>
                     
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -156,12 +174,12 @@ export const Annonces: React.FC = () => {
                             <div className="md:col-span-8 space-y-6">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                                        Titre de l'annonce <span className="text-rose-500">*</span>
+                                        {t(language as Language, 'announcements.announcementTitle') || 'Titre de l\'annonce'} <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         value={titre}
                                         onChange={e => setTitre(e.target.value)}
-                                        placeholder="Ex: Réunion de rentrée, Modification des horaires..."
+                                        placeholder={t(language as Language, 'announcements.titlePlaceholder') || 'Ex: Réunion de rentrée, Modification des horaires...'}
                                         className="w-full bg-slate-50 border-none rounded-[16px] px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-100 focus:bg-white outline-none transition-all placeholder-slate-400 font-medium text-slate-800"
                                         required
                                     />
@@ -169,13 +187,13 @@ export const Annonces: React.FC = () => {
 
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                                        Contenu détaillé <span className="text-rose-500">*</span>
+                                        {t(language as Language, 'announcements.detailedContent') || 'Contenu détaillé'} <span className="text-rose-500">*</span>
                                     </label>
                                     <textarea
                                         value={message}
                                         onChange={e => setMessage(e.target.value)}
                                         rows={5}
-                                        placeholder="Rédigez le message détaillé qui sera lu par les parents..."
+                                        placeholder={t(language as Language, 'announcements.contentPlaceholder') || 'Rédigez le message détaillé qui sera lu par les parents...'}
                                         className="w-full bg-slate-50 border-none rounded-[16px] px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-100 focus:bg-white outline-none transition-all placeholder-slate-400 resize-none font-medium text-slate-800"
                                         required
                                     />
@@ -187,24 +205,24 @@ export const Annonces: React.FC = () => {
                                 <div className="bg-slate-50 p-5 rounded-[20px]">
                                     <label className="flex items-center gap-2 text-xs font-bold text-slate-600 mb-3 uppercase tracking-wider">
                                         <Filter className="w-3.5 h-3.5 text-slate-400" />
-                                        Destinataires
+                                        {t(language as Language, 'announcements.recipients') || 'Destinataires'}
                                     </label>
                                     <select
                                         value={cible}
                                         onChange={e => setCible(e.target.value as AnnouncementTarget)}
                                         className="w-full border-none rounded-[14px] px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-100 outline-none font-medium shadow-sm cursor-pointer"
                                     >
-                                        <option value="all">Établissement entier</option>
-                                        <option value="impayes">Parents avec impayés</option>
-                                        <optgroup label="Classes spécifiques">
-                                            {classes.map(c => <option key={c} value={c}>Classe: {c}</option>)}
+                                        <option value="all">{t(language as Language, 'announcements.allSchool') || 'Établissement entier'}</option>
+                                        <option value="impayes">{t(language as Language, 'announcements.parentsWithUnpaid') || 'Parents avec impayés'}</option>
+                                        <optgroup label={t(language as Language, 'announcements.specificClasses') || 'Classes spécifiques'}>
+                                            {classes.map(c => <option key={c} value={c}>{t(language as Language, 'announcements.class') || 'Classe:'} {c}</option>)}
                                         </optgroup>
                                     </select>
                                 </div>
 
                                 <div className="bg-slate-50 p-5 rounded-[20px]">
                                     <label className="block text-xs font-bold text-slate-600 mb-3 uppercase tracking-wider">
-                                        Niveau de priorité
+                                        {t(language as Language, 'announcements.priorityLevel') || 'Niveau de priorité'}
                                     </label>
                                     <div className="flex flex-col gap-2">
                                         {(['info', 'important', 'urgent'] as const).map(level => {
@@ -216,12 +234,12 @@ export const Annonces: React.FC = () => {
                                                     onClick={() => setImportance(level)}
                                                     className={`flex items-center gap-3 py-2.5 px-4 rounded-[14px] text-xs font-bold transition-all ${
                                                         isSelected
-                                                            ? IMPORTANCE_LABELS[level].color + ' scale-[1.02]'
+                                                            ? importanceLabels[level].color + ' scale-[1.02]'
                                                             : 'bg-white text-slate-500 border-none shadow-sm hover:bg-slate-100 hover:text-slate-700'
                                                     }`}
                                                 >
-                                                    {IMPORTANCE_LABELS[level].icon}
-                                                    <span className="flex-1 text-left">{IMPORTANCE_LABELS[level].label}</span>
+                                                    {importanceLabels[level].icon}
+                                                    <span className="flex-1 text-left">{importanceLabels[level].label}</span>
                                                     {isSelected && <CheckCircle className="w-4 h-4 opacity-70" />}
                                                 </button>
                                             );
@@ -234,7 +252,7 @@ export const Annonces: React.FC = () => {
                         <div className="pt-6 mt-6 border-t border-slate-100 flex flex-col items-end gap-2">
                             {(!titre.trim() || !message.trim()) && (
                                 <p className="text-xs font-bold text-rose-500">
-                                    ⚠️ Veuillez remplir le titre ET le contenu détaillé pour pouvoir publier.
+                                    {t(language as Language, 'announcements.fillRequired') || '⚠️ Veuillez remplir le titre ET le contenu détaillé pour pouvoir publier.'}
                                 </p>
                             )}
                             <button
@@ -243,7 +261,7 @@ export const Annonces: React.FC = () => {
                                 className="flex items-center gap-2 px-8 py-3 bg-slate-900 active:scale-[0.98] hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-[16px] text-sm font-bold transition-all shadow-md"
                             >
                                 <Send className="w-4 h-4" />
-                                Publier l'annonce
+                                {t(language as Language, 'announcements.publish') || 'Publier l\'annonce'}
                             </button>
                         </div>
                     </form>
@@ -253,9 +271,9 @@ export const Annonces: React.FC = () => {
             {/* Liste des annonces */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-black text-slate-800">Journal des annonces</h3>
+                    <h3 className="text-lg font-black text-slate-800">{t(language as Language, 'announcements.log') || 'Journal des annonces'}</h3>
                     <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg border border-slate-200">
-                        {displayAnnouncements.length} {displayAnnouncements.length > 1 ? 'publiées' : 'publiée'}
+                        {displayAnnouncements.length} {t(language as Language, 'announcements.published') || 'publiée(s)'}
                     </span>
                 </div>
 
@@ -265,18 +283,18 @@ export const Annonces: React.FC = () => {
                             <Megaphone className="w-10 h-10 text-slate-300" />
                         </div>
                         <p className="text-lg font-bold text-slate-700 mb-2">
-                            {isParent ? "Aucune annonce disponible" : "Le journal est vide"}
+                            {isParent ? (t(language as Language, 'announcements.noneAvailable') || "Aucune annonce disponible") : (t(language as Language, 'announcements.emptyLog') || "Le journal est vide")}
                         </p>
                         <p className="text-sm font-medium text-slate-500 max-w-sm mx-auto">
                             {isParent 
-                                ? "L'établissement n'a publié aucune annonce vous concernant pour le moment." 
-                                : "Créez votre première annonce pour communiquer des informations importantes aux parents."}
+                                ? (t(language as Language, 'announcements.noneForYou') || "L'établissement n'a publié aucune annonce vous concernant pour le moment.")
+                                : (t(language as Language, 'announcements.createFirst') || "Créez votre première annonce pour communiquer des informations importantes aux parents.")}
                         </p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
                         {displayAnnouncements.map(a => {
-                            const imp = IMPORTANCE_LABELS[a.importance];
+                            const imp = importanceLabels[a.importance];
                             const stats = getReadStats(a.id);
                             const nonLus = stats.total - stats.lus;
                             const isReadByMe = isParent && announcementReads.some(r => r.announcementId === a.id && r.parentId === user?.id && r.readAt);
@@ -299,7 +317,7 @@ export const Annonces: React.FC = () => {
                                                     </span>
                                                     <span className="flex items-center gap-1.5 px-3 py-1 rounded-[10px] bg-slate-50 text-[10px] font-bold text-slate-600">
                                                         <Filter className="w-3 h-3 text-slate-400" />
-                                                        {a.cible === 'all' ? 'Toutes les classes' : `Cible: ${a.cible}`}
+                                                        {a.cible === 'all' ? (t(language as Language, 'announcements.allClasses') || 'Toutes les classes') : `${t(language as Language, 'announcements.target') || 'Cible:'} ${a.cible}`}
                                                     </span>
                                                     <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 ml-auto">
                                                         <Clock className="w-3.5 h-3.5" />
@@ -319,13 +337,13 @@ export const Annonces: React.FC = () => {
                                                         <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-[12px]">
                                                             <Eye className="w-4 h-4" />
                                                             <span>{stats.lus}</span>
-                                                            <span className="font-medium text-emerald-700/70">Parent{stats.lus > 1 ? 's' : ''} touché{stats.lus > 1 ? 's' : ''}</span>
+                                                            <span className="font-medium text-emerald-700/70">{t(language as Language, 'announcements.parentsReached') || 'Parent(s) touché(s)'}</span>
                                                         </div>
                                                         {nonLus > 0 && (
                                                             <div className="flex items-center gap-2 text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-[12px]">
                                                                 <EyeOff className="w-4 h-4" />
                                                                 <span>{nonLus}</span>
-                                                                <span className="font-medium text-rose-700/70">En attente</span>
+                                                                <span className="font-medium text-rose-700/70">{t(language as Language, 'announcements.pending') || 'En attente'}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -333,11 +351,11 @@ export const Annonces: React.FC = () => {
                                                     <div className="mt-5">
                                                         {isReadByMe ? (
                                                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] bg-emerald-50 text-xs font-bold text-emerald-700">
-                                                                <CheckCircle className="w-4 h-4 text-emerald-500" /> Confirmée lue
+                                                                <CheckCircle className="w-4 h-4 text-emerald-500" /> {t(language as Language, 'announcements.confirmedRead') || 'Confirmée lue'}
                                                             </span>
                                                         ) : (
                                                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] bg-amber-50 text-xs font-bold text-amber-700">
-                                                                <Clock className="w-4 h-4 text-amber-500" /> Lecture en attente
+                                                                <Clock className="w-4 h-4 text-amber-500" /> {t(language as Language, 'announcements.readPending') || 'Lecture en attente'}
                                                             </span>
                                                         )}
                                                     </div>
@@ -349,7 +367,7 @@ export const Annonces: React.FC = () => {
                                                 <button
                                                     onClick={() => isParent ? hideForParent(a.id, a.titre) : handleDelete(a.id, a.titre)}
                                                     className="p-3 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-[14px] transition-all group/btn active:scale-[0.98]"
-                                                    title={isParent ? "Retirer de la liste" : "Supprimer définitivement"}
+                                                    title={isParent ? (t(language as Language, 'announcements.removeFromList') || "Retirer de la liste") : (t(language as Language, 'announcements.deletePermanently') || "Supprimer définitivement")}
                                                 >
                                                     <Trash2 className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
                                                 </button>

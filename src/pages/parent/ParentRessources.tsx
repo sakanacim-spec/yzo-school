@@ -6,6 +6,9 @@ import {
     Download, ExternalLink, BookOpen, Layers, GraduationCap,
     Filter, Clock, User, ChevronRight, Zap
 } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 // ── Catégorisation des ressources ────────────────────────────
 type ResourceCategory = 'all' | 'cours' | 'exercices' | 'autre';
@@ -18,21 +21,22 @@ const getCategoryFromResource = (res: any): ResourceCategory => {
     return 'autre';
 };
 
-const CATEGORY_CONFIG = {
-    all: { label: 'Tout', icon: <Layers className="w-4 h-4" />, color: 'bg-slate-700 text-white' },
-    cours: { label: 'Cours', icon: <BookOpen className="w-4 h-4" />, color: 'bg-blue-600 text-white' },
-    exercices: { label: 'Exercices', icon: <GraduationCap className="w-4 h-4" />, color: 'bg-indigo-600 text-white' },
-    autre: { label: 'Autre', icon: <File className="w-4 h-4" />, color: 'bg-slate-500 text-white' },
-};
+const getCategoryConfig = (language: Language) => ({
+    all: { label: t(language, 'parentResources.catAll') || 'Tout', icon: <Layers className="w-4 h-4" />, color: 'bg-slate-700 text-white' },
+    cours: { label: t(language, 'parentResources.catCours') || 'Cours', icon: <BookOpen className="w-4 h-4" />, color: 'bg-blue-600 text-white' },
+    exercices: { label: t(language, 'parentResources.catExercices') || 'Exercices', icon: <GraduationCap className="w-4 h-4" />, color: 'bg-indigo-600 text-white' },
+    autre: { label: t(language, 'parentResources.catAutre') || 'Autre', icon: <File className="w-4 h-4" />, color: 'bg-slate-500 text-white' },
+});
 
-const TYPE_CONFIG: Record<ResourceType | string, { icon: React.ReactNode; badge: string; badgeColor: string }> = {
+const getTypeConfig = (language: Language): Record<ResourceType | string, { icon: React.ReactNode; badge: string; badgeColor: string }> => ({
     pdf: { icon: <FileText className="w-6 h-6 text-red-500" />, badge: 'PDF', badgeColor: 'bg-red-100 text-red-700' },
-    video: { icon: <Video className="w-6 h-6 text-blue-500" />, badge: 'Vidéo', badgeColor: 'bg-blue-100 text-blue-700' },
-    link: { icon: <LinkIcon className="w-6 h-6 text-green-500" />, badge: 'Lien', badgeColor: 'bg-green-100 text-green-700' },
-    default: { icon: <File className="w-6 h-6 text-slate-400" />, badge: 'Fichier', badgeColor: 'bg-slate-100 text-slate-600' },
-};
+    video: { icon: <Video className="w-6 h-6 text-blue-500" />, badge: t(language, 'common.video') || 'Vidéo', badgeColor: 'bg-blue-100 text-blue-700' },
+    link: { icon: <LinkIcon className="w-6 h-6 text-green-500" />, badge: t(language, 'common.link') || 'Lien', badgeColor: 'bg-green-100 text-green-700' },
+    default: { icon: <File className="w-6 h-6 text-slate-400" />, badge: t(language, 'common.file') || 'Fichier', badgeColor: 'bg-slate-100 text-slate-600' },
+});
 
 export const ParentRessources: React.FC = () => {
+    const { language } = useLanguage();
     const students = useStore(s => s.students);
     const resources = useStore(s => s.resources);
 
@@ -95,18 +99,18 @@ export const ParentRessources: React.FC = () => {
                             <Zap className="w-8 h-8" />
                         </div>
                         <div>
-                            <h2 className="text-3xl font-black tracking-tight">E-Learning</h2>
-                            <p className="text-teal-100 font-medium text-sm mt-0.5">Cours, exercices et ressources partagés par les professeurs</p>
+                            <h2 className="text-3xl font-black tracking-tight">{t(language as Language, 'parentResources.title') || 'E-Learning'}</h2>
+                            <p className="text-teal-100 font-medium text-sm mt-0.5">{t(language as Language, 'parentResources.subtitle') || 'Cours, exercices et ressources partagés par les professeurs'}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="bg-white/20 px-5 py-3 rounded-2xl">
                             <p className="text-white font-black text-2xl leading-none">{availableResources.length}</p>
-                            <p className="text-teal-100 text-[10px] font-bold uppercase tracking-widest">Ressource{availableResources.length > 1 ? 's' : ''}</p>
+                            <p className="text-teal-100 text-[10px] font-bold uppercase tracking-widest">{t(language as Language, 'common.resources') || 'Ressource(s)'}</p>
                         </div>
                         <div className="bg-white/20 px-5 py-3 rounded-2xl">
                             <p className="text-white font-black text-2xl leading-none">{studentClasses.length}</p>
-                            <p className="text-teal-100 text-[10px] font-bold uppercase tracking-widest">Classe{studentClasses.length > 1 ? 's' : ''}</p>
+                            <p className="text-teal-100 text-[10px] font-bold uppercase tracking-widest">{t(language as Language, 'common.classes') || 'Classe(s)'}</p>
                         </div>
                     </div>
                 </div>
@@ -119,7 +123,7 @@ export const ParentRessources: React.FC = () => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Rechercher un cours, une matière..."
+                        placeholder={t(language as Language, 'parentResources.searchPlaceholder') || "Rechercher un cours, une matière..."}
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         className="w-full pl-11 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none font-medium text-slate-700 dark:text-slate-300"
@@ -134,7 +138,7 @@ export const ParentRessources: React.FC = () => {
                             onChange={e => setFilterClass(e.target.value)}
                             className="w-full pl-10 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none appearance-none font-bold text-slate-700 dark:text-slate-300"
                         >
-                            <option value="">Toutes les classes</option>
+                            <option value="">{t(language as Language, 'parentResources.allClasses') || 'Toutes les classes'}</option>
                             {studentClasses.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
@@ -143,8 +147,8 @@ export const ParentRessources: React.FC = () => {
 
             {/* ── Catégories ── */}
             <div className="flex flex-wrap gap-2">
-                {(Object.keys(CATEGORY_CONFIG) as ResourceCategory[]).map(cat => {
-                    const cfg = CATEGORY_CONFIG[cat];
+                {(Object.keys(getCategoryConfig(language as Language)) as ResourceCategory[]).map(cat => {
+                    const cfg = getCategoryConfig(language as Language)[cat];
                     const count = categoryCounts[cat];
                     const isActive = activeCategory === cat;
                     return (
@@ -173,19 +177,19 @@ export const ParentRessources: React.FC = () => {
                     <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
                         <BookOpen className="w-8 h-8 text-slate-200" />
                     </div>
-                    <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">Aucune ressource</h3>
+                    <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">{t(language as Language, 'parentResources.noResourceTitle') || 'Aucune ressource'}</h3>
                     <p className="text-sm text-slate-400 max-w-sm mx-auto">
                         {availableResources.length === 0
-                            ? "Les professeurs n'ont pas encore partagé de cours pour vos classes."
-                            : "Aucune ressource ne correspond à vos filtres."}
+                            ? (t(language as Language, 'parentResources.noResourceShared') || "Les professeurs n'ont pas encore partagé de cours pour vos classes.")
+                            : (t(language as Language, 'parentResources.noResourceFilterMatch') || "Aucune ressource ne correspond à vos filtres.")}
                     </p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {filteredResources.map(res => {
-                        const typeCfg = TYPE_CONFIG[res.type] || TYPE_CONFIG.default;
+                        const typeCfg = getTypeConfig(language as Language)[res.type] || getTypeConfig(language as Language).default;
                         const category = getCategoryFromResource(res);
-                        const catCfg = CATEGORY_CONFIG[category];
+                        const catCfg = getCategoryConfig(language as Language)[category];
                         const isDownloadable = res.type !== 'link' && res.type !== 'video';
 
                         return (
@@ -210,7 +214,7 @@ export const ParentRessources: React.FC = () => {
 
                                     {/* Titre & Description */}
                                     <h3 className="font-black text-slate-900 dark:text-white text-lg line-clamp-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-snug mb-2">{res.titre}</h3>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 flex-grow">{res.description || 'Aucune description'}</p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 flex-grow">{res.description || (t(language as Language, 'common.noDescription') || 'Aucune description')}</p>
 
                                     {/* Badges matière / classe */}
                                     <div className="flex flex-wrap gap-2 mt-4">
@@ -221,7 +225,7 @@ export const ParentRessources: React.FC = () => {
                                     {/* Méta */}
                                     <div className="flex items-center gap-3 mt-3 text-[10px] text-slate-400">
                                         <span className="flex items-center gap-1"><User className="w-3 h-3" /> {res.professeurNom}</span>
-                                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(res.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(res.createdAt).toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' })}</span>
                                     </div>
 
                                     {/* Bouton action */}
@@ -230,9 +234,9 @@ export const ParentRessources: React.FC = () => {
                                         className="mt-5 w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-sm shadow-teal-600/20"
                                     >
                                         {isDownloadable ? (
-                                            <><Download className="w-4 h-4" /> Télécharger</>
+                                            <><Download className="w-4 h-4" /> {t(language as Language, 'common.download') || 'Télécharger'}</>
                                         ) : (
-                                            <><ExternalLink className="w-4 h-4" /> Ouvrir</>
+                                            <><ExternalLink className="w-4 h-4" /> {t(language as Language, 'common.open') || 'Ouvrir'}</>
                                         )}
                                         <ChevronRight className="w-4 h-4 ml-auto" />
                                     </button>

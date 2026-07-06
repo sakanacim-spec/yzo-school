@@ -2,11 +2,15 @@ import React, { useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { Seance } from '../../types';
 import { Calendar as CalendarIcon, Clock, MapPin, Users } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] as const;
 const HEURES = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
 
 export const ProfEmploiDuTemps: React.FC = () => {
+    const { language } = useLanguage();
     const { user, seances, matieres } = useStore();
 
     // Séances filtrées pour le professeur connecté
@@ -41,10 +45,10 @@ export const ProfEmploiDuTemps: React.FC = () => {
                 <div className="relative z-10">
                     <h1 className="text-3xl font-black text-white mb-2 flex items-center gap-3">
                         <CalendarIcon className="w-8 h-8" />
-                        Mon Emploi du Temps
+                        {t(language as Language, 'profTimetable.title') || 'Mon Emploi du Temps'}
                     </h1>
                     <p className="text-emerald-200 font-medium max-w-xl">
-                        Retrouvez toutes vos heures de cours programmées selon les classes assignées.
+                        {t(language as Language, 'profTimetable.subtitle') || 'Retrouvez toutes vos heures de cours programmées selon les classes assignées.'}
                     </p>
                 </div>
             </div>
@@ -54,12 +58,22 @@ export const ProfEmploiDuTemps: React.FC = () => {
                 <div className="min-w-[800px] relative">
                     {/* En-tête des Jours */}
                     <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700 mb-4 sticky top-0 bg-white dark:bg-slate-800 z-20 pb-4">
-                        <div className="text-center font-black text-slate-400 dark:text-slate-500">Heures</div>
-                        {JOURS.map(jour => (
-                            <div key={jour} className="text-center font-black text-slate-800 dark:text-white text-lg">
-                                {jour}
-                            </div>
-                        ))}
+                        <div className="text-center font-black text-slate-400 dark:text-slate-500">{t(language as Language, 'common.hours') || 'Heures'}</div>
+                        {JOURS.map(jour => {
+                            const dayMap: Record<string, string> = {
+                                'Lundi': 'common.monday',
+                                'Mardi': 'common.tuesday',
+                                'Mercredi': 'common.wednesday',
+                                'Jeudi': 'common.thursday',
+                                'Vendredi': 'common.friday',
+                                'Samedi': 'common.saturday'
+                            };
+                            return (
+                                <div key={jour} className="text-center font-black text-slate-800 dark:text-white text-lg">
+                                    {t(language as Language, dayMap[jour]) || jour}
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Corps de la grille */}

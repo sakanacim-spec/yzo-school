@@ -144,7 +144,7 @@ const SidebarNav: React.FC<{
       {navItems.map((item) => {
         const active = currentPage === item.id;
         const groupRaw = NAV_GROUPS[item.id] || '';
-        const group = groupRaw ? t(language, \`groups.\${groupRaw}\`) : '';
+        const group = groupRaw ? t(language, `groups.${groupRaw}`) : '';
         const showGroupLabel = !collapsed && group && group !== lastGroup;
         if (group && group !== lastGroup) lastGroup = group;
 
@@ -418,7 +418,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
          : undefined,
   }));
 
-  const currentLabel = t(language, \`nav.\${currentPage}\`);
+  const currentLabel = t(language, `nav.${currentPage}`);
   const sidebarW = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED;
 
   const sidebarProps = {

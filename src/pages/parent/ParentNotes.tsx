@@ -8,20 +8,24 @@ import {
 } from 'lucide-react';
 import { generateGradeReport } from '../../utils/pdfUtils';
 import { PeriodeType, DEFAULT_EVAL_CONFIGS } from '../../types';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 // ── Appréciation ─────────────────────────────────────────────
-const getAppreciation = (avg: number | null): { label: string; color: string } => {
+const getAppreciation = (avg: number | null, language: Language): { label: string; color: string } => {
     if (avg === null) return { label: '—', color: 'text-slate-400' };
-    if (avg >= 18) return { label: 'Excellent', color: 'text-emerald-600' };
-    if (avg >= 16) return { label: 'Très Bien', color: 'text-emerald-500' };
-    if (avg >= 14) return { label: 'Bien', color: 'text-blue-600' };
-    if (avg >= 12) return { label: 'Assez Bien', color: 'text-blue-500' };
-    if (avg >= 10) return { label: 'Passable', color: 'text-amber-600' };
-    if (avg >= 8)  return { label: 'Insuffisant', color: 'text-orange-600' };
-    return { label: 'Très Insuffisant', color: 'text-rose-600' };
+    if (avg >= 18) return { label: t(language, 'parentNotes.appreciation.excellent') || 'Excellent', color: 'text-emerald-600' };
+    if (avg >= 16) return { label: t(language, 'parentNotes.appreciation.veryGood') || 'Très Bien', color: 'text-emerald-500' };
+    if (avg >= 14) return { label: t(language, 'parentNotes.appreciation.good') || 'Bien', color: 'text-blue-600' };
+    if (avg >= 12) return { label: t(language, 'parentNotes.appreciation.satisfactory') || 'Assez Bien', color: 'text-blue-500' };
+    if (avg >= 10) return { label: t(language, 'parentNotes.appreciation.passable') || 'Passable', color: 'text-amber-600' };
+    if (avg >= 8)  return { label: t(language, 'parentNotes.appreciation.insufficient') || 'Insuffisant', color: 'text-orange-600' };
+    return { label: t(language, 'parentNotes.appreciation.veryInsufficient') || 'Très Insuffisant', color: 'text-rose-600' };
 };
 
 export const ParentNotes: React.FC = () => {
+    const { language } = useLanguage();
     const { notes, matieres, classeMatieres, students: children, settings } = useStore();
     const storedEvalConfigs = useStore(s => s.settings?.evalConfigs);
     const evalConfigs = (storedEvalConfigs && storedEvalConfigs.length > 0) ? storedEvalConfigs : DEFAULT_EVAL_CONFIGS;
@@ -55,8 +59,8 @@ export const ParentNotes: React.FC = () => {
                 <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Search className="w-8 h-8 text-slate-300" />
                 </div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">Aucun enfant lié</h3>
-                <p className="text-slate-500 max-w-sm mx-auto">Liez vos enfants depuis le tableau de bord pour voir leurs résultats scolaires.</p>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">{t(language as Language, 'parentNotes.noLinkedChild') || 'Aucun enfant lié'}</h3>
+                <p className="text-slate-500 max-w-sm mx-auto">{t(language as Language, 'parentNotes.noLinkedChildDesc') || 'Liez vos enfants depuis le tableau de bord pour voir leurs résultats scolaires.'}</p>
             </div>
         );
     }
@@ -72,14 +76,14 @@ export const ParentNotes: React.FC = () => {
                             <GraduationCap className="w-8 h-8" />
                         </div>
                         <div>
-                            <h2 className="text-3xl font-black tracking-tight">Relevé de Notes</h2>
-                            <p className="text-amber-100 font-medium text-sm mt-0.5">Résultats scolaires en temps réel</p>
+                            <h2 className="text-3xl font-black tracking-tight">{t(language as Language, 'parentNotes.title') || 'Relevé de Notes'}</h2>
+                            <p className="text-amber-100 font-medium text-sm mt-0.5">{t(language as Language, 'parentNotes.subtitle') || 'Résultats scolaires en temps réel'}</p>
                         </div>
                     </div>
                     {loadingData && (
                         <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-xl">
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="text-sm font-bold">Actualisation...</span>
+                            <span className="text-sm font-bold">{t(language as Language, 'parentNotes.updating') || 'Actualisation...'}</span>
                         </div>
                     )}
                 </div>
@@ -132,7 +136,7 @@ export const ParentNotes: React.FC = () => {
                         }).filter(v => v !== null) as number[];
 
                         const periodeAvg = notesAvg.length > 0 ? notesAvg.reduce((a, b) => a + b, 0) / notesAvg.length : null;
-                        const periodeApprec = getAppreciation(periodeAvg);
+                        const periodeApprec = getAppreciation(periodeAvg, language as Language);
 
                         return (
                             <section key={periode} className="animate-fadeIn">
@@ -156,7 +160,7 @@ export const ParentNotes: React.FC = () => {
                                                 onClick={() => generateGradeReport(selectedChild, periode, notes, matieres, classeMatieres, settings)}
                                                 className="flex items-center gap-2 px-4 py-2 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-full text-xs font-bold shadow-sm transition-all active:scale-95"
                                             >
-                                                <Download className="w-3.5 h-3.5" /> Relevé PDF
+                                                <Download className="w-3.5 h-3.5" /> {t(language as Language, 'parentNotes.pdfReport') || 'Relevé PDF'}
                                             </button>
                                         )}
                                     </div>
@@ -166,7 +170,7 @@ export const ParentNotes: React.FC = () => {
                                 {!hasNotes ? (
                                     <div className="bg-white/50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 border-dashed rounded-3xl p-10 text-center">
                                         <Clock className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                                        <p className="text-slate-400 text-sm font-medium italic">Aucune note enregistrée pour cette période.</p>
+                                        <p className="text-slate-400 text-sm font-medium italic">{t(language as Language, 'parentNotes.noGradesRecorded') || 'Aucune note enregistrée pour cette période.'}</p>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -185,7 +189,7 @@ export const ParentNotes: React.FC = () => {
                                             const finalAvg = validVals.length > 0
                                                 ? validVals.reduce((a, b) => a + b, 0) / validVals.length
                                                 : null;
-                                            const apprecInfo = getAppreciation(finalAvg);
+                                            const apprecInfo = getAppreciation(finalAvg, language as Language);
 
                                             return (
                                                 <div key={cm.id} className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-100 dark:border-slate-800 p-6 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
@@ -195,7 +199,7 @@ export const ParentNotes: React.FC = () => {
                                                             <div className="flex-1">
                                                                 <h4 className="font-black text-slate-900 dark:text-white text-lg leading-tight group-hover:text-[#f97316] transition-colors">{matiere.nom}</h4>
                                                                 <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                                                                    Coeff: {cm.coefficient} · {cm.professeur || 'Prof. non défini'}
+                                                                    {t(language as Language, 'common.coeff') || 'Coeff'}: {cm.coefficient} · {cm.professeur || (t(language as Language, 'parentNotes.profUndefined') || 'Prof. non défini')}
                                                                 </p>
                                                             </div>
                                                             <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center shrink-0">

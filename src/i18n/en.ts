@@ -57,7 +57,10 @@ export const en = {
     lightMode: 'Light Mode',
     profile: 'My Profile',
     logout: 'Logout',
-  },\n\n  // Auth — Login\n  login: {
+  },
+
+  // Auth — Login
+  login: {
     title: 'Login',
     subtitle: 'School management platform',
     schoolLabel: 'School',
@@ -279,4 +282,14 @@ export const en = {
     loginFailed: 'Invalid credentials.',
     networkError: 'Network connection problem.',
   },
-\n  support: {\n    title: 'New Discussion',\n    subtitle: 'Choose the department to contact',\n    adminTitle: 'Administration',\n    adminDesc: 'General questions, documents, enrollment, and school life.',\n    comptaTitle: 'Accounting',\n    comptaDesc: 'Tuition payments, receipts, remaining balances, and billing.',\n    secureMsg: 'Your messages are encrypted and secure. Our team will respond as soon as possible.'\n  },\n};
+
+  support: {
+    title: 'New Discussion',
+    subtitle: 'Choose the department to contact',
+    adminTitle: 'Administration',
+    adminDesc: 'General questions, documents, enrollment, and school life.',
+    comptaTitle: 'Accounting',
+    comptaDesc: 'Tuition payments, receipts, remaining balances, and billing.',
+    secureMsg: 'Your messages are encrypted and secure. Our team will respond as soon as possible.'
+  },
+};

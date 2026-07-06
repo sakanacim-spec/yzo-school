@@ -3,12 +3,16 @@ import { parentApi } from '../../services/parentApi';
 import { Clock, Download, Loader2, AlertCircle, CreditCard, UserCheck, Calendar } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
 import { formatMontant } from '../../utils/helpers';
 import { generatePaymentReceipt } from '../../utils/pdfUtils';
 import { useStore } from '../../store/useStore';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 export const ParentHistorique: React.FC = () => {
+    const { language } = useLanguage();
     const [payments, setPayments] = useState<any[]>([]);
     const [presences, setPresences] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'payments' | 'presences'>('payments');
@@ -48,7 +52,7 @@ export const ParentHistorique: React.FC = () => {
                 setPresences(mergedPresences.reverse());
 
             } catch (err: any) {
-                setError("Impossible de charger l'historique.");
+                setError(t(language as Language, 'parent.historyLoadError') || "Impossible de charger l'historique.");
                 console.error(err);
             } finally {
                 setLoading(false);
@@ -61,14 +65,14 @@ export const ParentHistorique: React.FC = () => {
     const downloadReceipt = (payment: any) => {
         const doc = new jsPDF();
         doc.setFontSize(22);
-        doc.text('Reçu de Paiement', 20, 20);
+        doc.text(t(language as Language, 'payments.receiptTitle') || 'Reçu de Paiement', 20, 20);
         doc.setFontSize(12);
-        doc.text(`Élève: ${payment.studentName}`, 20, 40);
-        doc.text(`Classe: ${payment.classe}`, 20, 50);
-        doc.text(`Date: ${format(new Date(payment.date), 'dd/MM/yyyy')}`, 20, 60);
-        doc.text(`Montant payé: ${formatMontant(payment.montant, useStore.getState().currency)}`, 20, 70);
-        doc.text(`N° de reçu: ${payment.recu}`, 20, 80);
-        if (payment.note) doc.text(`Note: ${payment.note}`, 20, 90);
+        doc.text(`${t(language as Language, 'payments.student') || 'Élève'}: ${payment.studentName}`, 20, 40);
+        doc.text(`${t(language as Language, 'common.class') || 'Classe'}: ${payment.classe}`, 20, 50);
+        doc.text(`${t(language as Language, 'common.date') || 'Date'}: ${format(new Date(payment.date), 'dd/MM/yyyy')}`, 20, 60);
+        doc.text(`${t(language as Language, 'payments.amountPaid') || 'Montant payé'}: ${formatMontant(payment.montant, useStore.getState().currency)}`, 20, 70);
+        doc.text(`${t(language as Language, 'payments.receiptNo') || 'N° de reçu'}: ${payment.recu}`, 20, 80);
+        if (payment.note) doc.text(`${t(language as Language, 'payments.note') || 'Note'}: ${payment.note}`, 20, 90);
         doc.save(`Recu_${payment.recu}.pdf`);
     };
 
@@ -76,7 +80,7 @@ export const ParentHistorique: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-slate-500">
                 <Loader2 className="w-10 h-10 animate-spin text-[#f97316] mb-4" />
-                <p>Chargement de votre historique...</p>
+                <p>{t(language as Language, 'parent.loadingHistory') || "Chargement de votre historique..."}</p>
             </div>
         );
     }
@@ -86,7 +90,7 @@ export const ParentHistorique: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <Clock className="w-6 h-6 text-[#f97316]" />
-                    <h2 className="text-2xl font-bold text-slate-800">Historique complet</h2>
+                    <h2 className="text-2xl font-bold text-slate-800">{t(language as Language, 'parent.fullHistory') || "Historique complet"}</h2>
                 </div>
 
                 <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -95,14 +99,14 @@ export const ParentHistorique: React.FC = () => {
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'payments' ? 'bg-white text-[#f97316] shadow-sm' : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
-                        <CreditCard className="w-4 h-4" /> Paiements
+                        <CreditCard className="w-4 h-4" /> {t(language as Language, 'dashboard.payments') || "Paiements"}
                     </button>
                     <button
                         onClick={() => setActiveTab('presences')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'presences' ? 'bg-white text-[#f97316] shadow-sm' : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
-                        <UserCheck className="w-4 h-4" /> Présences
+                        <UserCheck className="w-4 h-4" /> {t(language as Language, 'dashboard.presences') || "Présences"}
                     </button>
                 </div>
             </div>
@@ -119,20 +123,20 @@ export const ParentHistorique: React.FC = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-100">
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Enfant</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Montant</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t(language as Language, 'common.date') || "Date"}</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t(language as Language, 'parent.child') || "Enfant"}</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t(language as Language, 'payments.amount') || "Montant"}</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">{t(language as Language, 'common.actions') || "Action"}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {payments.length === 0 ? (
-                                    <tr><td colSpan={4} className="py-12 text-center text-slate-400">Aucun paiement.</td></tr>
+                                    <tr><td colSpan={4} className="py-12 text-center text-slate-400">{t(language as Language, 'parent.noPayment') || "Aucun paiement."}</td></tr>
                                 ) : (
                                     payments.map(p => (
                                         <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                                             <td className="px-6 py-4 text-sm text-slate-600">
-                                                {format(new Date(p.date), 'dd MMM yyyy', { locale: fr })}
+                                                {format(new Date(p.date), 'dd MMM yyyy', { locale: language === 'en' ? enUS : fr })}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-slate-800">{p.studentName}</div>
@@ -155,21 +159,21 @@ export const ParentHistorique: React.FC = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-100">
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date & Heure</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Enfant</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Statut</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t(language as Language, 'parent.dateAndTime') || "Date & Heure"}</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t(language as Language, 'parent.child') || "Enfant"}</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t(language as Language, 'common.status') || "Statut"}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {presences.length === 0 ? (
-                                    <tr><td colSpan={3} className="py-12 text-center text-slate-400">Aucun pointage.</td></tr>
+                                    <tr><td colSpan={3} className="py-12 text-center text-slate-400">{t(language as Language, 'parent.noPresence') || "Aucun pointage."}</td></tr>
                                 ) : (
                                     presences.map(p => (
                                         <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
                                                     <Calendar className="w-4 h-4 text-slate-400" />
-                                                    {format(new Date(p.date), 'dd MMMM', { locale: fr })}
+                                                    {format(new Date(p.date), 'dd MMMM', { locale: language === 'en' ? enUS : fr })}
                                                 </div>
                                                 <div className="text-xs text-slate-500 ml-6">{p.heure}</div>
                                             </td>
@@ -180,7 +184,7 @@ export const ParentHistorique: React.FC = () => {
                                             <td className="px-6 py-4">
                                                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${p.statut === 'present' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                                                     }`}>
-                                                    {p.statut === 'present' ? 'À L\'ÉCOLE' : p.statut}
+                                                    {p.statut === 'present' ? (t(language as Language, 'presences.atSchool') || 'À L\'ÉCOLE') : p.statut}
                                                 </span>
                                             </td>
                                         </tr>

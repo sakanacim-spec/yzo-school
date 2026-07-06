@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore';
 import { StatusPaiement } from '../types';
 import { formatMontant, getStatusPaiement, generateWhatsAppLink } from '../utils/helpers';
 import { generateReceipt, generateClassReport, generateNonSoldesReport } from '../utils/pdfService';
+import { t, Language } from '../i18n';
 import {
   FileText,
   Receipt,
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export const Reports = () => {
-  const { students, settings } = useStore();
+  const { students, settings, language } = useStore();
   const [selectedClasse, setSelectedClasse] = useState('');
 
   const allClasses = useStore((s) => s.classes).map((c) => c.name);
@@ -41,15 +42,15 @@ export const Reports = () => {
     // Open first one immediately
     if (messages.length > 0) {
       window.open(generateWhatsAppLink(messages[0].phone, messages[0].message), '_blank');
-      alert(`${messages.length} messages à envoyer. Le premier est ouvert. Copiez les autres numéros depuis la liste.`);
+      alert(t(language as Language, 'reports.bulkWhatsAppSent') || `${messages.length} messages à envoyer. Le premier est ouvert. Copiez les autres numéros depuis la liste.`);
     }
   };
 
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">Génération de Rapports PDF</h1>
-        <p className="text-gray-500">Créez des reçus et rapports personnalisés</p>
+        <h1 className="text-2xl font-bold text-gray-800">{t(language as Language, 'reports.title') || 'Génération de Rapports PDF'}</h1>
+        <p className="text-gray-500">{t(language as Language, 'reports.description') || 'Créez des reçus et rapports personnalisés'}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -57,7 +58,7 @@ export const Reports = () => {
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-600" />
-            Rapports par classe
+            {t(language as Language, 'reports.byClass') || 'Rapports par classe'}
           </h2>
 
           <div className="space-y-4">
@@ -66,7 +67,7 @@ export const Reports = () => {
               onChange={(e) => setSelectedClasse(e.target.value)}
               className="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">-- Sélectionner une classe --</option>
+              <option value="">-- {t(language as Language, 'common.class') || 'Sélectionner une classe'} --</option>
               {allClasses.map(c => {
                 const count = students.filter(s => s.classe === c).length;
                 return (
@@ -80,11 +81,11 @@ export const Reports = () => {
             {selectedClasse && classStudents.length > 0 && (
               <div className="space-y-3">
                 <div className="bg-blue-50 rounded-lg p-4">
-                  <p className="font-medium text-blue-800">Classe: {selectedClasse}</p>
+                  <p className="font-medium text-blue-800">{t(language as Language, 'common.class') || 'Classe'}: {selectedClasse}</p>
                   <p className="text-sm text-blue-600 mt-1">
-                    {classStudents.length} élèves •
-                    {classStudents.filter(s => s.restant === 0).length} soldés •
-                    {classStudents.filter(s => s.restant > 0).length} non soldés
+                    {classStudents.length} {t(language as Language, 'dashboard.stats.totalStudents') || 'élèves'} •
+                    {classStudents.filter(s => s.restant === 0).length} {t(language as Language, 'students.statusPaid') || 'soldés'} •
+                    {classStudents.filter(s => s.restant > 0).length} {t(language as Language, 'students.statusUnpaid') || 'non soldés'}
                   </p>
                 </div>
 
@@ -94,14 +95,14 @@ export const Reports = () => {
                     className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition"
                   >
                     <FileText className="w-4 h-4" />
-                    Rapport complet
+                    {t(language as Language, 'reports.fullReport') || 'Rapport complet'}
                   </button>
                   <button
                     onClick={() => generateAllReceipts(classStudents)}
                     className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-500 transition"
                   >
                     <Receipt className="w-4 h-4" />
-                    Tous les reçus
+                    {t(language as Language, 'reports.allReceipts') || 'Tous les reçus'}
                   </button>
                 </div>
 
@@ -116,10 +117,10 @@ export const Reports = () => {
                       non_solde: 'bg-red-100 text-red-800'
                     };
                     const statusLabels: Record<StatusPaiement, string> = {
-                      solde: 'Soldé',
-                      tranche_validee: '2ème Tranche OK',
-                      tranche_partielle: 'Partiel',
-                      non_solde: 'Non soldé'
+                      solde: t(language as Language, 'students.statusPaid') || 'Soldé',
+                      tranche_validee: t(language as Language, 'students.statusPartial') || '2ème Tranche OK',
+                      tranche_partielle: t(language as Language, 'students.statusPartial') || 'Partiel',
+                      non_solde: t(language as Language, 'students.statusUnpaid') || 'Non soldé'
                     };
                     return (
                       <div
@@ -135,9 +136,9 @@ export const Reports = () => {
                           </div>
                           <p className="text-xs text-gray-500">
                             {student.restant === 0 ? (
-                              <span className="text-green-600">Soldé</span>
+                              <span className="text-green-600">{t(language as Language, 'students.statusPaid') || 'Soldé'}</span>
                             ) : (
-                              <span className="text-red-500">Reste: {formatMontant(student.restant)}</span>
+                              <span className="text-red-500">{t(language as Language, 'students.remaining') || 'Reste'}: {formatMontant(student.restant)}</span>
                             )}
                           </p>
                         </div>
@@ -170,19 +171,19 @@ export const Reports = () => {
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-red-500" />
-            Élèves non soldés ({nonSoldes.length})
+            {t(language as Language, 'reports.unpaidStudents') || 'Élèves non soldés'} ({nonSoldes.length})
           </h2>
 
           {nonSoldes.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
-              <p>Aucun élève non soldé</p>
-              <p className="text-sm mt-1">Tous les élèves ont réglé leurs frais!</p>
+              <p>{t(language as Language, 'reports.noUnpaid') || 'Aucun élève non soldé'}</p>
+              <p className="text-sm mt-1">{t(language as Language, 'reports.allPaid') || 'Tous les élèves ont réglé leurs frais!'}</p>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="bg-red-50 rounded-lg p-4">
                 <p className="font-medium text-red-800">
-                  Total à recouvrer: {formatMontant(nonSoldes.reduce((sum, s) => sum + s.restant, 0))}
+                  {t(language as Language, 'reports.totalToRecover') || 'Total à recouvrer'}: {formatMontant(nonSoldes.reduce((sum, s) => sum + s.restant, 0))}
                 </p>
               </div>
 
@@ -192,14 +193,14 @@ export const Reports = () => {
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-500 transition"
                 >
                   <Download className="w-4 h-4" />
-                  Rapport PDF
+                  {t(language as Language, 'reports.pdfReport') || 'Rapport PDF'}
                 </button>
                 <button
                   onClick={() => sendBulkWhatsApp(nonSoldes)}
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-500 transition"
                 >
                   <Phone className="w-4 h-4" />
-                  Relance WhatsApp
+                  {t(language as Language, 'reports.whatsappReminder') || 'Relance WhatsApp'}
                 </button>
               </div>
 
@@ -218,7 +219,7 @@ export const Reports = () => {
                           <span className="text-xs px-2 py-0.5 bg-gray-100 rounded">{student.classe}</span>
                         </div>
                         <p className="text-xs text-red-500 mt-1">
-                          Reste: {formatMontant(student.restant)}
+                          {t(language as Language, 'students.remaining') || 'Reste'}: {formatMontant(student.restant)}
                         </p>
                       </div>
                       <div className="flex gap-1">
@@ -250,7 +251,7 @@ export const Reports = () => {
 
       {/* Actions rapides */}
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Actions rapides</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">{t(language as Language, 'dashboard.quickActions') || 'Actions rapides'}</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
@@ -263,9 +264,9 @@ export const Reports = () => {
                 <Receipt className="w-5 h-5 text-green-600" />
               </div>
               <div className="text-left">
-                <p className="font-medium">Reçus - Élèves soldés</p>
+                <p className="font-medium">{t(language as Language, 'reports.receiptsPaid') || 'Reçus - Élèves soldés'}</p>
                 <p className="text-sm text-gray-500">
-                  {students.filter(s => s.restant === 0).length} reçus
+                  {students.filter(s => s.restant === 0).length} {t(language as Language, 'payments.receipt') || 'reçus'}
                 </p>
               </div>
             </div>
@@ -282,8 +283,8 @@ export const Reports = () => {
                 <FileText className="w-5 h-5 text-blue-600" />
               </div>
               <div className="text-left">
-                <p className="font-medium">Tous les reçus</p>
-                <p className="text-sm text-gray-500">{students.length} reçus</p>
+                <p className="font-medium">{t(language as Language, 'reports.allReceipts') || 'Tous les reçus'}</p>
+                <p className="text-sm text-gray-500">{students.length} {t(language as Language, 'payments.receipt') || 'reçus'}</p>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600" />
@@ -308,8 +309,8 @@ export const Reports = () => {
                 <Users className="w-5 h-5 text-purple-600" />
               </div>
               <div className="text-left">
-                <p className="font-medium">Rapports par classe</p>
-                <p className="text-sm text-gray-500">Toutes les classes</p>
+                <p className="font-medium">{t(language as Language, 'reports.byClass') || 'Rapports par classe'}</p>
+                <p className="text-sm text-gray-500">{t(language as Language, 'reports.allClasses') || 'Toutes les classes'}</p>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600" />

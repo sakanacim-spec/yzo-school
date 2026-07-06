@@ -1,8 +1,12 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { BookOpen, Users, GraduationCap, Edit3 } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 export const ProfesseurDashboard: React.FC = () => {
+    const { language } = useLanguage();
     const { user, students, classeMatieres, matieres, setCurrentPage } = useStore();
 
     // Trouver les assignations pour ce professeur
@@ -44,10 +48,10 @@ export const ProfesseurDashboard: React.FC = () => {
                 
                 <div className="relative z-10">
                     <h1 className="text-3xl font-black text-white mb-2">
-                        Bienvenue, {user?.nom} 👋
+                        {t(language as Language, 'profDashboard.welcome') || 'Bienvenue,'} {user?.nom} 👋
                     </h1>
                     <p className="text-indigo-200 font-medium max-w-xl">
-                        Voici un aperçu de vos classes et de vos statistiques pour cette année scolaire.
+                        {t(language as Language, 'profDashboard.overview') || 'Voici un aperçu de vos classes et de vos statistiques pour cette année scolaire.'}
                     </p>
                 </div>
             </div>
@@ -59,7 +63,7 @@ export const ProfesseurDashboard: React.FC = () => {
                         <Users className="w-7 h-7" />
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Total Élèves</p>
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">{t(language as Language, 'profDashboard.totalStudents') || 'Total Élèves'}</p>
                         <p className="text-2xl font-black text-slate-800 dark:text-white">{totalStudents}</p>
                     </div>
                 </div>
@@ -69,7 +73,7 @@ export const ProfesseurDashboard: React.FC = () => {
                         <BookOpen className="w-7 h-7" />
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Classes Assignées</p>
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">{t(language as Language, 'profDashboard.assignedClasses') || 'Classes Assignées'}</p>
                         <p className="text-2xl font-black text-slate-800 dark:text-white">{myClasses.length}</p>
                     </div>
                 </div>
@@ -79,7 +83,7 @@ export const ProfesseurDashboard: React.FC = () => {
                         <GraduationCap className="w-7 h-7" />
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Matières Enseignées</p>
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">{t(language as Language, 'profDashboard.taughtSubjects') || 'Matières Enseignées'}</p>
                         <p className="text-2xl font-black text-slate-800 dark:text-white">{myAssignations.length}</p>
                     </div>
                 </div>
@@ -89,7 +93,7 @@ export const ProfesseurDashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-6">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-black text-slate-800 dark:text-white">Vos Classes et Matières</h2>
+                        <h2 className="text-lg font-black text-slate-800 dark:text-white">{t(language as Language, 'profDashboard.yourClassesAndSubjects') || 'Vos Classes et Matières'}</h2>
                     </div>
 
                     {myAssignations.length > 0 ? (
@@ -104,16 +108,16 @@ export const ProfesseurDashboard: React.FC = () => {
                                                 <BookOpen className="w-6 h-6" />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-slate-800 dark:text-white">{matiere?.nom || 'Matière Inconnue'}</p>
+                                                <p className="font-bold text-slate-800 dark:text-white">{matiere?.nom || (t(language as Language, 'common.unknownSubject') || 'Matière Inconnue')}</p>
                                                 <p className="text-sm text-slate-500 flex items-center gap-2">
                                                     <span className="font-semibold text-indigo-600 dark:text-indigo-400">{assignation.classe}</span>
                                                     <span>•</span>
-                                                    <span>{countEleves} élèves</span>
+                                                    <span>{countEleves} {t(language as Language, 'common.studentsCount') || 'élèves'}</span>
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Coef</p>
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{t(language as Language, 'common.coef') || 'Coef'}</p>
                                             <p className="font-black text-slate-700 dark:text-slate-300">{assignation.coefficient}</p>
                                         </div>
                                     </div>
@@ -123,8 +127,8 @@ export const ProfesseurDashboard: React.FC = () => {
                     ) : (
                         <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                             <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-1">Aucune classe assignée</h3>
-                            <p className="text-sm text-slate-500">L'administration ne vous a pas encore assigné de classes ou de matières.</p>
+                            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'profDashboard.noClassAssigned') || 'Aucune classe assignée'}</h3>
+                            <p className="text-sm text-slate-500">{t(language as Language, 'profDashboard.noClassAssignedDesc') || 'L\'administration ne vous a pas encore assigné de classes ou de matières.'}</p>
                         </div>
                     )}
                 </div>
@@ -138,16 +142,16 @@ export const ProfesseurDashboard: React.FC = () => {
                                 <Edit3 className="w-6 h-6 text-white" />
                             </div>
                             
-                            <h3 className="text-2xl font-black mb-2">Saisie des notes</h3>
+                            <h3 className="text-2xl font-black mb-2">{t(language as Language, 'profDashboard.gradesEntry') || 'Saisie des notes'}</h3>
                             <p className="text-indigo-100 font-medium mb-8 flex-1">
-                                Accédez à l'interface de saisie pour entrer les notes d'interrogation, de devoir et de composition de vos élèves.
+                                {t(language as Language, 'profDashboard.gradesEntryDesc') || 'Accédez à l\'interface de saisie pour entrer les notes d\'interrogation, de devoir et de composition de vos élèves.'}
                             </p>
                             
                             <button 
                                 onClick={handleSaisieNotes}
                                 className="w-full py-4 bg-white text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors shadow-lg"
                             >
-                                Saisir les notes
+                                {t(language as Language, 'profDashboard.enterGrades') || 'Saisir les notes'}
                             </button>
                         </div>
                     </div>
@@ -160,9 +164,9 @@ export const ProfesseurDashboard: React.FC = () => {
                                 <BookOpen className="w-6 h-6 text-white" />
                             </div>
                             
-                            <h3 className="text-2xl font-black mb-2">Cahier de Textes</h3>
+                            <h3 className="text-2xl font-black mb-2">{t(language as Language, 'profDashboard.textbook') || 'Cahier de Textes'}</h3>
                             <p className="text-emerald-100 font-medium mb-8 flex-1">
-                                Gérez les leçons du jour et les devoirs à la maison de vos classes.
+                                {t(language as Language, 'profDashboard.textbookDesc') || 'Gérez les leçons du jour et les devoirs à la maison de vos classes.'}
                             </p>
                             
                             <div className="flex flex-col gap-3">
@@ -170,13 +174,13 @@ export const ProfesseurDashboard: React.FC = () => {
                                     onClick={() => setCurrentPage('cahier_textes')}
                                     className="w-full py-3 bg-white text-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-colors shadow-lg"
                                 >
-                                    Ouvrir le cahier
+                                    {t(language as Language, 'profDashboard.openTextbook') || 'Ouvrir le cahier'}
                                 </button>
                                 <button 
                                     onClick={handleSaisiePresence}
                                     className="w-full py-3 bg-emerald-800 text-white border border-emerald-400/50 rounded-xl font-bold hover:bg-emerald-900 transition-colors shadow-lg"
                                 >
-                                    Faire l'appel
+                                    {t(language as Language, 'profDashboard.takeAttendance') || "Faire l'appel"}
                                 </button>
                             </div>
                         </div>

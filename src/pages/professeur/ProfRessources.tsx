@@ -4,8 +4,12 @@ import { Resource, ResourceType } from '../../types';
 import { FileText, Video, Link as LinkIcon, File, Plus, X, Trash2, Search, Filter } from 'lucide-react';
 import { v4 as uuid } from '../../utils/uuid';
 import { playSuccessSound } from '../../utils/audio';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 export const ProfRessources: React.FC = () => {
+    const { language } = useLanguage();
     const user = useStore(s => s.user);
     const resources = useStore(s => s.resources);
     const addResource = useStore(s => s.addResource);
@@ -82,7 +86,7 @@ export const ProfRessources: React.FC = () => {
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
         if (!form.titre || !form.classe || !form.matiere || !form.url) {
-            alert("Veuillez remplir tous les champs et fournir un fichier/lien.");
+            alert(t(language as Language, 'profResources.fillAllFields') || "Veuillez remplir tous les champs et fournir un fichier/lien.");
             return;
         }
 
@@ -102,7 +106,7 @@ export const ProfRessources: React.FC = () => {
         addResource(newResource);
         setIsModalOpen(false);
         playSuccessSound();
-        alert("Ressource ajoutée avec succès !");
+        alert(t(language as Language, 'profResources.addSuccess') || "Ressource ajoutée avec succès !");
         setForm({ titre: '', description: '', type: 'pdf', url: '', classe: '', matiere: '' });
     };
 
@@ -110,15 +114,15 @@ export const ProfRessources: React.FC = () => {
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 dark:text-white">Mes Ressources Pédagogiques</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">Partagez des cours, exercices et vidéos avec vos élèves.</p>
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-white">{t(language as Language, 'profResources.title') || 'Mes Ressources Pédagogiques'}</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">{t(language as Language, 'profResources.subtitle') || 'Partagez des cours, exercices et vidéos avec vos élèves.'}</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
                     className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 dark:shadow-none"
                 >
                     <Plus className="w-5 h-5" />
-                    Ajouter une ressource
+                    {t(language as Language, 'profResources.addResource') || 'Ajouter une ressource'}
                 </button>
             </div>
 
@@ -127,7 +131,7 @@ export const ProfRessources: React.FC = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Rechercher par titre ou matière..."
+                        placeholder={t(language as Language, 'profResources.searchPlaceholder') || "Rechercher par titre ou matière..."}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -140,7 +144,7 @@ export const ProfRessources: React.FC = () => {
                         onChange={(e) => setFilterClass(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
                     >
-                        <option value="">Toutes les classes</option>
+                        <option value="">{t(language as Language, 'profResources.allClasses') || 'Toutes les classes'}</option>
                         {myClasses.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
@@ -149,7 +153,7 @@ export const ProfRessources: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredResources.length === 0 ? (
                     <div className="col-span-full py-12 text-center text-slate-500 bg-white/50 dark:bg-slate-800/50 rounded-3xl border border-slate-200 dark:border-slate-700">
-                        Aucune ressource trouvée. Cliquez sur "Ajouter une ressource" pour commencer.
+                        {t(language as Language, 'profResources.noResources') || 'Aucune ressource trouvée. Cliquez sur "Ajouter une ressource" pour commencer.'}
                     </div>
                 ) : (
                     filteredResources.map(res => (
@@ -166,14 +170,14 @@ export const ProfRessources: React.FC = () => {
                                 </button>
                             </div>
                             <h3 className="font-bold text-slate-900 dark:text-white text-lg line-clamp-1">{res.titre}</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 flex-grow">{res.description || "Aucune description"}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 flex-grow">{res.description || (t(language as Language, 'common.noDescription') || "Aucune description")}</p>
                             
                             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-2">
                                 <span className="text-xs font-medium px-2 py-1 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 rounded-md">
                                     {res.matiere}
                                 </span>
                                 <span className="text-xs font-medium px-2 py-1 bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 rounded-md">
-                                    Classe: {res.classe}
+                                    {t(language as Language, 'common.class') || 'Classe'}: {res.classe}
                                 </span>
                             </div>
                         </div>
@@ -185,7 +189,7 @@ export const ProfRessources: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
                         <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Ajouter une ressource</h2>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t(language as Language, 'profResources.addResource') || 'Ajouter une ressource'}</h2>
                             <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
                                 <X className="w-5 h-5" />
                             </button>
@@ -193,7 +197,7 @@ export const ProfRessources: React.FC = () => {
 
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Titre de la ressource *</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'profResources.form.title') || 'Titre de la ressource *'}</label>
                                 <input
                                     type="text"
                                     required
@@ -205,19 +209,19 @@ export const ProfRessources: React.FC = () => {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Classe *</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'profResources.form.class') || 'Classe *'}</label>
                                     <select
                                         required
                                         value={form.classe}
                                         onChange={e => setForm({ ...form, classe: e.target.value, matiere: '' })}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                     >
-                                        <option value="">Sélectionner</option>
+                                        <option value="">{t(language as Language, 'profResources.form.select') || 'Sélectionner'}</option>
                                         {myClasses.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Matière *</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'profResources.form.subject') || 'Matière *'}</label>
                                     <select
                                         required
                                         value={form.matiere}
@@ -225,29 +229,29 @@ export const ProfRessources: React.FC = () => {
                                         disabled={!form.classe}
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
                                     >
-                                        <option value="">Sélectionner</option>
+                                        <option value="">{t(language as Language, 'profResources.form.select') || 'Sélectionner'}</option>
                                         {availableMatieres.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Type de contenu *</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'profResources.form.contentType') || 'Type de contenu *'}</label>
                                 <select
                                     value={form.type}
                                     onChange={e => setForm({ ...form, type: e.target.value as ResourceType, url: '' })}
                                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
                                 >
-                                    <option value="pdf">Document PDF</option>
-                                    <option value="document">Fichier Word/Excel</option>
-                                    <option value="video">Vidéo</option>
-                                    <option value="link">Lien externe</option>
+                                    <option value="pdf">{t(language as Language, 'profResources.form.pdf') || 'Document PDF'}</option>
+                                    <option value="document">{t(language as Language, 'profResources.form.document') || 'Fichier Word/Excel'}</option>
+                                    <option value="video">{t(language as Language, 'common.video') || 'Vidéo'}</option>
+                                    <option value="link">{t(language as Language, 'profResources.form.link') || 'Lien externe'}</option>
                                 </select>
                             </div>
 
                             {form.type === 'link' || form.type === 'video' ? (
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">URL / Lien *</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'profResources.form.url') || 'URL / Lien *'}</label>
                                     <input
                                         type="url"
                                         required
@@ -259,7 +263,7 @@ export const ProfRessources: React.FC = () => {
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fichier *</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'profResources.form.file') || 'Fichier *'}</label>
                                     <input
                                         type="file"
                                         required={!form.url}
@@ -271,7 +275,7 @@ export const ProfRessources: React.FC = () => {
                             )}
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description (Optionnel)</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t(language as Language, 'profResources.form.description') || 'Description (Optionnel)'}</label>
                                 <textarea
                                     rows={3}
                                     value={form.description}
@@ -285,7 +289,7 @@ export const ProfRessources: React.FC = () => {
                                     type="submit"
                                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition-all"
                                 >
-                                    Publier la ressource
+                                    {t(language as Language, 'profResources.form.publish') || 'Publier la ressource'}
                                 </button>
                             </div>
                         </form>

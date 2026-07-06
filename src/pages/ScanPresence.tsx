@@ -13,6 +13,9 @@ import {
     Camera, Search, CheckCircle2, AlertTriangle, UserCheck,
     Clock, Users, X
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 // import { sendDirectNotification } from '../services/whatsappService'; // Non utilisé actuellement
 import { notificationService } from '../services/notificationService';
@@ -22,8 +25,8 @@ import { playSuccessSound, playErrorSound, playWarningBeep, unlockAudio } from '
 const StudentScanned: React.FC<{
     nom: string; prenom: string; classe: string; heure: string; date: string;
     dejaPresent: boolean; telephone?: string; schoolName: string;
-    statut?: 'present' | 'retard';
-}> = ({ nom, prenom, classe, heure, date, dejaPresent, statut }) => {
+    statut?: 'present' | 'retard'; language: Language;
+}> = ({ nom, prenom, classe, heure, date, dejaPresent, statut, language }) => {
     const isRetard = statut === 'retard';
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -50,7 +53,7 @@ const StudentScanned: React.FC<{
                 <p className="text-lg text-gray-500 font-bold mb-6">{classe}</p>
 
                 <div className={`py-3 px-6 rounded-2xl font-black text-lg ${dejaPresent ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                    {dejaPresent ? 'DÉJÀ POINTÉ' : `PRÉSENT LE ${date} À ${heure}`}
+                    {dejaPresent ? (t(language, 'scanner.alreadyPointed') || 'DÉJÀ POINTÉ') : `${t(language, 'scanner.presentOn') || 'PRÉSENT LE'} ${date} ${t(language, 'scanner.at') || 'À'} ${heure}`}
                 </div>
             </div>
         </div>
@@ -68,6 +71,7 @@ export const ScanPresence: React.FC = () => {
     const addActivityLog = useStore((s) => s.addActivityLog);
     const user = useStore((s) => s.user);
     const schoolName = useStore((s) => s.schoolName);
+    const { language } = useLanguage();
     const getHeureLimite = useStore((s) => s.getHeureLimite);
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -97,7 +101,7 @@ export const ScanPresence: React.FC = () => {
         // Cas : Élève inconnu ou non lié
         if (!student || !isLinked) {
             playErrorSound(); // Buzzer instantané
-            setFlashError("PAS LIÉE");
+            setFlashError(t(language as Language, 'scanner.notLinked') || "PAS LIÉE");
             isScanningPaused.current = true;
             setTimeout(() => {
                 setFlashError(null);
@@ -220,7 +224,7 @@ export const ScanPresence: React.FC = () => {
             );
         } catch (err) {
             console.error("Camera Error:", err);
-            setCameraError('Erreur matérielle ou permissions refusées.');
+            setCameraError(t(language as Language, 'scanner.cameraError') || 'Erreur matérielle ou permissions refusées.');
             setCameraActive(false);
         }
     };
@@ -259,24 +263,24 @@ export const ScanPresence: React.FC = () => {
                         <UserCheck className="w-5 h-5" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold">Pointage des présences</h2>
-                        <p className="text-cyan-100 text-sm">Scan QR ou recherche manuelle</p>
+                        <h2 className="text-xl font-bold">{t(language as Language, 'scanner.presenceScanTitle') || 'Pointage des présences'}</h2>
+                        <p className="text-cyan-100 text-sm">{t(language as Language, 'scanner.scanOrSearch') || 'Scan QR ou recherche manuelle'}</p>
                     </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3 mt-4">
                     <div className="bg-white/10 rounded-xl p-3 text-center">
                         <p className="text-2xl font-bold">{todayPresences.length}</p>
-                        <p className="text-xs text-cyan-200">Présents</p>
+                        <p className="text-xs text-cyan-200">{t(language as Language, 'scanner.present') || "Present"}</p>
                     </div>
                     <div className="bg-white/10 rounded-xl p-3 text-center">
                         <p className="text-2xl font-bold">{students.length}</p>
-                        <p className="text-xs text-cyan-200">Total élèves</p>
+                        <p className="text-xs text-cyan-200">{t(language as Language, 'scanner.totalStudents') || 'Total Students'}</p>
                     </div>
                     <div className="bg-white/10 rounded-xl p-3 text-center">
                         <p className="text-2xl font-bold">
                             {students.length > 0 ? Math.round((todayPresences.length / students.length) * 100) : 0}%
                         </p>
-                        <p className="text-xs text-cyan-200">Taux</p>
+                        <p className="text-xs text-cyan-200">{t(language as Language, 'scanner.rate') || 'Rate'}</p>
                     </div>
                 </div>
             </div>
@@ -286,7 +290,7 @@ export const ScanPresence: React.FC = () => {
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                     <h3 className="font-semibold text-gray-800 flex items-center gap-2 text-sm">
                         <Camera className="w-4 h-4 text-blue-600" />
-                        Scanner un QR Code
+                        {t(language as Language, 'scanner.scanQRCode') || 'Scan QR Code'}
                     </h3>
                     <button
                         onClick={cameraActive ? stopCamera : startCamera}
@@ -295,7 +299,7 @@ export const ScanPresence: React.FC = () => {
                             : 'bg-blue-600 text-white hover:bg-blue-700'
                             }`}
                     >
-                        {cameraActive ? <><X className="w-3.5 h-3.5" /> Arrêter</> : <><Camera className="w-3.5 h-3.5" /> Activer caméra</>}
+                        {cameraActive ? <><X className="w-3.5 h-3.5" /> {t(language as Language, 'common.stop') || 'Stop'}</> : <><Camera className="w-3.5 h-3.5" /> {t(language as Language, 'scanner.enableCamera') || 'Enable Camera'}</>}
                     </button>
                 </div>
 
@@ -326,7 +330,7 @@ export const ScanPresence: React.FC = () => {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
                 <h3 className="font-semibold text-gray-800 flex items-center gap-2 mb-3 text-sm">
                     <Search className="w-4 h-4 text-blue-600" />
-                    Recherche manuelle
+                    {t(language as Language, 'scanner.manualSearch') || 'Manual Search'}
                 </h3>
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -334,7 +338,7 @@ export const ScanPresence: React.FC = () => {
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Nom, prénom, classe ou matricule..."
+                        placeholder={t(language as Language, 'scanner.searchPlaceholder') || 'Nom, prénom, classe ou matricule...'}
                         className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                     />
                 </div>
@@ -362,10 +366,10 @@ export const ScanPresence: React.FC = () => {
                                     </div>
                                     {alreadyHere ? (
                                         <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                                            <CheckCircle2 className="w-3.5 h-3.5" /> Présent
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> {t(language as Language, 'scanner.present') || 'Présent'}
                                         </span>
                                     ) : (
-                                        <span className="text-xs font-bold text-blue-600">Pointer →</span>
+                                        <span className="text-xs font-bold text-blue-600">{t(language as Language, 'scanner.point') || 'Pointer →'}</span>
                                     )}
                                 </button>
                             );
@@ -387,7 +391,7 @@ export const ScanPresence: React.FC = () => {
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                     <h3 className="font-semibold text-gray-800 flex items-center gap-2 text-sm">
                         <Users className="w-4 h-4 text-emerald-600" />
-                        Présents aujourd'hui ({todayPresences.length})
+                        {t(language as Language, 'scanner.presentToday') || "Présents aujourd'hui"} ({todayPresences.length})
                     </h3>
                     <div className="flex items-center gap-1 text-xs text-gray-500">
                         <Clock className="w-3 h-3" />
@@ -396,7 +400,7 @@ export const ScanPresence: React.FC = () => {
                 </div>
                 <div className="p-4 max-h-[400px] overflow-y-auto">
                     {todayPresences.length === 0 ? (
-                        <p className="text-center text-gray-400 text-sm py-8">Aucune présence enregistrée aujourd'hui</p>
+                        <p className="text-center text-gray-400 text-sm py-8">{t(language as Language, 'scanner.noPresenceToday') || "Aucune présence enregistrée aujourd'hui"}</p>
                     ) : (
                         <div className="space-y-1">
                             {todayPresences.map(p => (

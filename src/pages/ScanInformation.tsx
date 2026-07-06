@@ -5,9 +5,11 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { Html5Qrcode } from "html5-qrcode";
 import {
-    Camera, Search, AlertTriangle, UserCircle,
     X, Wallet, Info, ShieldCheck, ChevronRight, Scan, CreditCard
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 import { playSuccessSound, playErrorSound, unlockAudio } from '../utils/audio';
 
 // ── Composant carte d'élève scanné (OVERLAY PREMIUM) ────────────────
@@ -18,8 +20,9 @@ const InfoStudentScanned: React.FC<{
     photoUrl?: string;
     solde: number;
     statut: string;
+    language: Language;
     onClose: () => void;
-}> = ({ nom, prenom, classe, photoUrl, solde, statut, onClose }) => {
+}> = ({ nom, prenom, classe, photoUrl, solde, statut, language, onClose }) => {
     const isSolvable = solde <= 0;
     
     // Mount animation effect
@@ -99,7 +102,7 @@ const InfoStudentScanned: React.FC<{
                             </div>
                             <div className="flex flex-col items-start text-left relative z-10">
                                 <span className="text-[10px] sm:text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                                    <Wallet className="w-3 h-3" /> Solde
+                                    <Wallet className="w-3 h-3" /> {t(language, 'common.balance') || 'Solde'}
                                 </span>
                                 <div className={`text-lg sm:text-xl font-black tracking-tight ${solde > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                     {solde.toLocaleString()} <span className="text-xs sm:text-sm font-bold opacity-60">{useStore.getState().currency}</span>
@@ -113,7 +116,7 @@ const InfoStudentScanned: React.FC<{
                             </div>
                             <div className="flex flex-col items-start text-left relative z-10">
                                 <span className="text-[10px] sm:text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                                    <ShieldCheck className="w-3 h-3" /> Statut
+                                    <ShieldCheck className="w-3 h-3" /> {t(language, 'common.status') || 'Statut'}
                                 </span>
                                 <div className={`text-xs sm:text-sm font-black px-2.5 py-1.5 rounded-xl inline-flex items-center gap-1.5 shadow-sm border
                                     ${statut === 'Soldé' ? 'bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400' : 
@@ -132,7 +135,7 @@ const InfoStudentScanned: React.FC<{
                         className="w-full relative overflow-hidden group py-4 sm:py-4.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-[1.25rem] font-black text-sm sm:text-base transition-all active:scale-95 shadow-[0_8px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_12px_25px_rgba(0,0,0,0.15)]"
                     >
                         <span className="relative z-10 flex items-center justify-center gap-2">
-                            Terminer la consultation <ChevronRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform duration-300" />
+                            {t(language, 'scanner.finishConsultation') || 'Terminer la consultation'} <ChevronRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform duration-300" />
                         </span>
                         <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-black dark:from-gray-100 dark:to-white opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </button>
@@ -145,6 +148,7 @@ const InfoStudentScanned: React.FC<{
 // ── Page principale ──────────────────────────────────────────
 export const ScanInformation: React.FC = () => {
     const students = useStore((s) => s.students);
+    const { language } = useLanguage();
     const [searchQuery, setSearchQuery] = useState('');
     const [scannedStudent, setScannedStudent] = useState<any | null>(null);
     const [cameraActive, setCameraActive] = useState(false);
@@ -170,7 +174,7 @@ export const ScanInformation: React.FC = () => {
 
         if (!student || !isLinked) {
             playErrorSound();
-            setFlashError("PAS LIÉE");
+            setFlashError(t(language as Language, 'scanner.notLinked') || "PAS LIÉE");
             isScanningPaused.current = true;
             setTimeout(() => {
                 setFlashError(null);
@@ -218,7 +222,7 @@ export const ScanInformation: React.FC = () => {
             );
         } catch (err) {
             console.error("Camera Error:", err);
-            setCameraError('Erreur matérielle ou permissions refusées.');
+            setCameraError(t(language as Language, 'scanner.cameraError') || 'Erreur matérielle ou permissions refusées.');
             setCameraActive(false);
         }
     };
@@ -268,13 +272,13 @@ export const ScanInformation: React.FC = () => {
                 <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-xs sm:text-sm font-bold text-blue-200 mb-4 sm:mb-6 shadow-sm">
-                            <Scan className="w-4 h-4" /> Mode Scanner Express
+                            <Scan className="w-4 h-4" /> {t(language as Language, 'scanner.expressMode') || 'Mode Scanner Express'}
                         </div>
                         <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight mb-3">
-                            Vérification <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-indigo-200">Instantanée</span>
+                            {t(language as Language, 'scanner.instantVerification1') || 'Vérification'} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-indigo-200">{t(language as Language, 'scanner.instantVerification2') || 'Instantanée'}</span>
                         </h1>
                         <p className="text-indigo-200 text-sm sm:text-base font-medium max-w-lg leading-relaxed">
-                            Identifiez rapidement un élève avec son QR Code pour accéder à son statut financier et ses informations de base en un clin d'œil.
+                            {t(language as Language, 'scanner.infoDesc') || "Identifiez rapidement un élève avec son QR Code pour accéder à son statut financier et ses informations de base en un clin d'œil."}
                         </p>
                     </div>
                     
@@ -296,8 +300,8 @@ export const ScanInformation: React.FC = () => {
                                     <Camera className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg">Caméra Intelligente</h3>
-                                    <p className="text-xs font-medium text-gray-500">Alignez le QR code dans le cadre</p>
+                                    <h3 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg">{t(language as Language, 'scanner.smartCamera') || 'Caméra Intelligente'}</h3>
+                                    <p className="text-xs font-medium text-gray-500">{t(language as Language, 'scanner.alignQrCode') || 'Alignez le QR code dans le cadre'}</p>
                                 </div>
                             </div>
                             <button
@@ -309,9 +313,9 @@ export const ScanInformation: React.FC = () => {
                                 }`}
                             >
                                 {cameraActive ? (
-                                    <><X className="w-4 h-4" /> <span className="hidden sm:inline">Arrêter la caméra</span></>
+                                    <><X className="w-4 h-4" /> <span className="hidden sm:inline">{t(language as Language, 'scanner.stopCamera') || 'Arrêter la caméra'}</span></>
                                 ) : (
-                                    <><Scan className="w-4 h-4" /> <span className="hidden sm:inline">Activer le lecteur</span></>
+                                    <><Scan className="w-4 h-4" /> <span className="hidden sm:inline">{t(language as Language, 'scanner.activateReader') || 'Activer le lecteur'}</span></>
                                 )}
                             </button>
                         </div>
@@ -350,7 +354,7 @@ export const ScanInformation: React.FC = () => {
                                         <div className="w-16 h-16 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center shadow-md mb-3 group-hover:scale-110 group-hover:text-blue-500 transition-all duration-300">
                                             <Camera className="w-8 h-8" />
                                         </div>
-                                        <p className="font-bold text-sm tracking-wide">Appuyez pour activer la caméra</p>
+                                        <p className="font-bold text-sm tracking-wide">{t(language as Language, 'scanner.tapToActivate') || 'Appuyez pour activer la caméra'}</p>
                                     </div>
                                 )}
                             </div>
@@ -373,9 +377,9 @@ export const ScanInformation: React.FC = () => {
                                 <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-lg shadow-sm">
                                     <Search className="w-4 h-4" />
                                 </div>
-                                <h3 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg">Recherche manuelle</h3>
+                                <h3 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg">{t(language as Language, 'scanner.manualSearch') || 'Recherche manuelle'}</h3>
                             </div>
-                            <p className="text-sm text-gray-500 font-medium">Saisissez le nom de l'élève</p>
+                            <p className="text-sm text-gray-500 font-medium">{t(language as Language, 'scanner.enterStudentName') || "Saisissez le nom de l'élève"}</p>
                         </div>
 
                         <div className="relative group flex-shrink-0">
@@ -386,7 +390,7 @@ export const ScanInformation: React.FC = () => {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Nom, prénom, classe..."
+                                placeholder={t(language as Language, 'scanner.searchPlaceholder') || 'Nom, prénom, classe...'}
                                 className="block w-full pl-11 pr-10 py-3.5 sm:py-4 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-indigo-500/30 focus:bg-white dark:focus:bg-gray-900 rounded-[1.25rem] text-sm sm:text-base font-bold text-gray-900 dark:text-white placeholder-gray-400 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all duration-300 shadow-inner"
                             />
                             {searchQuery && (
@@ -433,7 +437,7 @@ export const ScanInformation: React.FC = () => {
                             ) : searchQuery.length >= 2 ? (
                                 <div className="text-center p-6 bg-gray-50 dark:bg-gray-800/50 rounded-[1.5rem] border border-dashed border-gray-200 dark:border-gray-700 flex-1 flex flex-col items-center justify-center">
                                     <Search className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-                                    <p className="text-sm font-bold text-gray-500">Aucun élève trouvé pour "{searchQuery}"</p>
+                                    <p className="text-sm font-bold text-gray-500">{(t(language as Language, 'scanner.noStudentFound') || 'Aucun élève trouvé pour "{{query}}"').replace('{{query}}', searchQuery)}</p>
                                 </div>
                             ) : null}
                         </div>

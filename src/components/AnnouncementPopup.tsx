@@ -4,6 +4,7 @@
 // ============================================================
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
+import { t, Language } from '../i18n';
 import {
     Megaphone, X, CheckCircle, Clock, Bell,
     AlertCircle, AlertTriangle, Info
@@ -32,6 +33,7 @@ const IMPORTANCE_STYLES: Record<AnnouncementImportance, {
 
 export const AnnouncementPopup: React.FC = () => {
     const user = useStore(s => s.user);
+    const language = useStore(s => s.language);
     const getUnreadAnnouncements = useStore(s => s.getUnreadAnnouncements);
     const markAnnouncementRead = useStore(s => s.markAnnouncementRead);
     const remindAnnouncementLater = useStore(s => s.remindAnnouncementLater);
@@ -103,7 +105,7 @@ export const AnnouncementPopup: React.FC = () => {
                             <div className="flex items-center gap-2">
                                 <Megaphone className="w-4 h-4 opacity-80" />
                                 <span className="text-xs font-bold uppercase tracking-wider opacity-80">
-                                    Annonce de l'école
+                                    {t(language as Language, 'announcement.schoolAnnouncement') || "Annonce de l'école"}
                                 </span>
                             </div>
                             <h3 className="text-lg font-bold mt-0.5 leading-tight">
@@ -125,7 +127,7 @@ export const AnnouncementPopup: React.FC = () => {
                         })}
                         {currentAnnouncement.cible !== 'all' && (
                             <span className="ml-2 px-2 py-0.5 bg-gray-200 rounded-full text-[10px] font-bold">
-                                Classe: {currentAnnouncement.cible}
+                                {t(language as Language, 'announcement.class') || 'Classe: '} {currentAnnouncement.cible}
                             </span>
                         )}
                     </div>
@@ -139,7 +141,7 @@ export const AnnouncementPopup: React.FC = () => {
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-all shadow-md"
                     >
                         <CheckCircle className="w-4 h-4" />
-                        J'ai lu et compris
+                        {t(language as Language, 'announcement.readAndUnderstood') || "J'ai lu et compris"}
                     </button>
 
                     {/* Me rappeler dans 1 jour */}
@@ -148,7 +150,7 @@ export const AnnouncementPopup: React.FC = () => {
                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-sm font-medium transition-all"
                     >
                         <Bell className="w-4 h-4" />
-                        Me rappeler dans 1 jour
+                        {t(language as Language, 'announcement.remindLater') || "Me rappeler dans 1 jour"}
                     </button>
 
                     {/* Fermer */}
@@ -157,7 +159,7 @@ export const AnnouncementPopup: React.FC = () => {
                         className="w-full flex items-center justify-center gap-2 px-4 py-2 text-gray-400 hover:text-gray-600 rounded-xl text-xs transition-all"
                     >
                         <X className="w-3.5 h-3.5" />
-                        Fermer (réapparaîtra à la prochaine connexion)
+                        {t(language as Language, 'announcement.closeAndRemind') || "Fermer (réapparaîtra à la prochaine connexion)"}
                     </button>
                 </div>
             </div>

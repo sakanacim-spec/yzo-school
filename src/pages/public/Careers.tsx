@@ -1,61 +1,65 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Briefcase, Heart, Zap, Globe, ChevronRight, X, Send } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../utils/i18n';
+import type { Language } from '../../types';
 
 interface CareersProps {
   onBack: () => void;
 }
 
-const VALUES = [
-  {
-    icon: <Heart className="w-6 h-6 text-rose-500" />,
-    title: "Passion pour l'Éducation",
-    desc: "Nous construisons des outils qui ont un impact direct sur la réussite des élèves et le quotidien des enseignants."
-  },
-  {
-    icon: <Zap className="w-6 h-6 text-orange-500" />,
-    title: "Innovation Rapide",
-    desc: "Nous itérons vite et n'avons pas peur de remettre en question le statu quo pour offrir les meilleures solutions."
-  },
-  {
-    icon: <Globe className="w-6 h-6 text-blue-500" />,
-    title: "Impact Global",
-    desc: "Avec des bureaux en Espagne et au Bénin, nous pensons notre plateforme pour qu'elle s'adapte à tous les contextes."
-  }
-];
-
-const JOB_OPENINGS = [
-  {
-    title: "Commercial(e) Terrain B2B",
-    location: "Cotonou, Bénin",
-    type: "Temps plein",
-    department: "Ventes",
-    desc: "Développez notre réseau d'écoles partenaires en présentant la solution Yziow aux directeurs d'établissements."
-  },
-  {
-    title: "Développeur(se) Full-Stack React/Node",
-    location: "Télétravail / Espagne",
-    type: "Temps plein",
-    department: "Ingénierie",
-    desc: "Participez à la construction et à l'optimisation des fonctionnalités clés de la plateforme."
-  },
-  {
-    title: "Chargé(e) de Support Client",
-    location: "Cotonou, Bénin",
-    type: "Temps plein",
-    department: "Support",
-    desc: "Accompagnez nos écoles partenaires dans le déploiement de la solution et répondez à leurs questions quotidiennes."
-  },
-  {
-    title: "Représentant(e) Commercial(e) International(e)",
-    location: "International (Autres Pays)",
-    type: "Indépendant / Temps plein",
-    department: "Ventes & Expansion",
-    desc: "Devenez l'ambassadeur de Yziow dans votre pays. Développez notre réseau d'écoles partenaires au-delà de l'Espagne et du Bénin."
-  }
-];
-
 export const Careers: React.FC<CareersProps> = ({ onBack }) => {
+  const { language } = useLanguage();
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
+
+  const VALUES = [
+    {
+      icon: <Heart className="w-6 h-6 text-rose-500" />,
+      title: t(language as Language, 'public.careers.val1.title') || "Passion pour l'Éducation",
+      desc: t(language as Language, 'public.careers.val1.desc') || "Nous construisons des outils qui ont un impact direct sur la réussite des élèves et le quotidien des enseignants."
+    },
+    {
+      icon: <Zap className="w-6 h-6 text-orange-500" />,
+      title: t(language as Language, 'public.careers.val2.title') || "Innovation Rapide",
+      desc: t(language as Language, 'public.careers.val2.desc') || "Nous itérons vite et n'avons pas peur de remettre en question le statu quo pour offrir les meilleures solutions."
+    },
+    {
+      icon: <Globe className="w-6 h-6 text-blue-500" />,
+      title: t(language as Language, 'public.careers.val3.title') || "Impact Global",
+      desc: t(language as Language, 'public.careers.val3.desc') || "Avec des bureaux en Espagne et au Bénin, nous pensons notre plateforme pour qu'elle s'adapte à tous les contextes."
+    }
+  ];
+
+  const JOB_OPENINGS = [
+    {
+      title: t(language as Language, 'public.careers.job1.title') || "Commercial(e) Terrain B2B",
+      location: t(language as Language, 'public.careers.job1.location') || "Cotonou, Bénin",
+      type: t(language as Language, 'public.careers.job1.type') || "Temps plein",
+      department: t(language as Language, 'public.careers.job1.department') || "Ventes",
+      desc: t(language as Language, 'public.careers.job1.desc') || "Développez notre réseau d'écoles partenaires en présentant la solution Yziow aux directeurs d'établissements."
+    },
+    {
+      title: t(language as Language, 'public.careers.job2.title') || "Développeur(se) Full-Stack React/Node",
+      location: t(language as Language, 'public.careers.job2.location') || "Télétravail / Espagne",
+      type: t(language as Language, 'public.careers.job2.type') || "Temps plein",
+      department: t(language as Language, 'public.careers.job2.department') || "Ingénierie",
+      desc: t(language as Language, 'public.careers.job2.desc') || "Participez à la construction et à l'optimisation des fonctionnalités clés de la plateforme."
+    },
+    {
+      title: t(language as Language, 'public.careers.job3.title') || "Chargé(e) de Support Client",
+      location: t(language as Language, 'public.careers.job3.location') || "Cotonou, Bénin",
+      type: t(language as Language, 'public.careers.job3.type') || "Temps plein",
+      department: t(language as Language, 'public.careers.job3.department') || "Support",
+      desc: t(language as Language, 'public.careers.job3.desc') || "Accompagnez nos écoles partenaires dans le déploiement de la solution et répondez à leurs questions quotidiennes."
+    },
+    {
+      title: t(language as Language, 'public.careers.job4.title') || "Représentant(e) Commercial(e) International(e)",
+      location: t(language as Language, 'public.careers.job4.location') || "International (Autres Pays)",
+      type: t(language as Language, 'public.careers.job4.type') || "Indépendant / Temps plein",
+      department: t(language as Language, 'public.careers.job4.department') || "Ventes & Expansion",
+      desc: t(language as Language, 'public.careers.job4.desc') || "Devenez l'ambassadeur de Yziow dans votre pays. Développez notre réseau d'écoles partenaires au-delà de l'Espagne et du Bénin."
+    }
+  ];
   const [formName, setFormName] = useState('');
   const [formCountry, setFormCountry] = useState('');
   const [formEmail, setFormEmail] = useState('');
@@ -97,9 +101,9 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
       setFormCountry('');
       setFormEmail('');
       setFormMessage('');
-      alert("Votre candidature a bien été envoyée ! Nous vous contacterons très prochainement.");
+      alert(t(language as Language, 'public.careers.success') || "Votre candidature a bien été envoyée ! Nous vous contacterons très prochainement.");
     } catch (error) {
-      alert("Une erreur est survenue lors de l'envoi de la candidature. Veuillez réessayer.");
+      alert(t(language as Language, 'public.careers.error') || "Une erreur est survenue lors de l'envoi de la candidature. Veuillez réessayer.");
     } finally {
       setIsSubmitting(false);
     }
@@ -114,7 +118,7 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
             onClick={onBack}
             className="flex items-center gap-2 text-slate-500 hover:text-[#f97316] transition-colors font-bold text-sm"
           >
-            <ArrowLeft className="w-5 h-5" /> Retour à l'accueil
+            <ArrowLeft className="w-5 h-5" /> {t(language as Language, 'public.backToHome') || "Retour à l'accueil"}
           </button>
         </div>
       </header>
@@ -125,12 +129,12 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-20">
-            <h2 className="text-sm font-black text-[#f97316] tracking-widest uppercase mb-1">Rejoignez-nous</h2>
+            <h2 className="text-sm font-black text-[#f97316] tracking-widest uppercase mb-1">{t(language as Language, 'public.careers.joinUs') || "Rejoignez-nous"}</h2>
             <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight">
-              Construisons l'école de demain
+              {t(language as Language, 'public.careers.buildSchool') || "Construisons l'école de demain"}
             </h1>
             <p className="text-base text-slate-500 font-medium leading-relaxed mt-4">
-              Chez Yziow, nous cherchons des esprits brillants et passionnés pour transformer l'éducation en Afrique et en Europe.
+              {t(language as Language, 'public.careers.heroDesc') || "Chez Yziow, nous cherchons des esprits brillants et passionnés pour transformer l'éducation en Afrique et en Europe."}
             </p>
           </div>
 
@@ -155,7 +159,7 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
               <div className="w-12 h-12 bg-[#f97316]/10 rounded-xl flex items-center justify-center shrink-0">
                 <Briefcase className="w-6 h-6 text-[#f97316]" />
               </div>
-              <h2 className="text-2xl font-black text-slate-900">Postes ouverts</h2>
+              <h2 className="text-2xl font-black text-slate-900">{t(language as Language, 'public.careers.openPositions') || "Postes ouverts"}</h2>
             </div>
 
             <div className="space-y-4">
@@ -179,24 +183,23 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
                     onClick={() => setSelectedJob(job.title)}
                     className="shrink-0 px-6 py-3 bg-slate-50 text-slate-700 hover:text-white hover:bg-[#f97316] font-bold text-sm rounded-xl transition-colors flex items-center gap-2 group-hover:bg-[#f97316] group-hover:text-white"
                   >
-                    Postuler <ChevronRight className="w-4 h-4" />
+                    {t(language as Language, 'public.careers.apply') || "Postuler"} <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               ))}
             </div>
 
-            {/* Unsolicited Application */}
             <div className="mt-12 bg-slate-900 rounded-3xl p-8 md:p-12 text-center text-white relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-[#f97316] rounded-full blur-3xl opacity-20 -translate-y-1/2 translate-x-1/2"></div>
-              <h3 className="text-2xl font-black mb-4 relative z-10">Vous ne trouvez pas votre poste idéal ?</h3>
+              <h3 className="text-2xl font-black mb-4 relative z-10">{t(language as Language, 'public.careers.noIdealJob') || "Vous ne trouvez pas votre poste idéal ?"}</h3>
               <p className="text-slate-400 font-medium mb-8 max-w-xl mx-auto relative z-10">
-                Nous sommes toujours ouverts aux candidatures spontanées. Envoyez-nous votre CV et une courte présentation de vos motivations.
+                {t(language as Language, 'public.careers.unsolicitedDesc') || "Nous sommes toujours ouverts aux candidatures spontanées. Envoyez-nous votre CV et une courte présentation de vos motivations."}
               </p>
               <button 
-                onClick={() => setSelectedJob("Candidature Spontanée")}
+                onClick={() => setSelectedJob(t(language as Language, 'public.careers.unsolicitedJob') || "Candidature Spontanée")}
                 className="inline-flex items-center justify-center px-8 py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-bold shadow-lg shadow-orange-500/20 active:scale-95 transition-all relative z-10"
               >
-                Envoyer une candidature spontanée
+                {t(language as Language, 'public.careers.sendUnsolicited') || "Envoyer une candidature spontanée"}
               </button>
             </div>
 
@@ -211,7 +214,7 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
           <div className="bg-white rounded-3xl w-full max-w-lg relative z-10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
-                <h3 className="text-lg font-black text-slate-900">Postuler</h3>
+                <h3 className="text-lg font-black text-slate-900">{t(language as Language, 'public.careers.apply') || "Postuler"}</h3>
                 <p className="text-sm font-medium text-[#f97316] mt-1">{selectedJob}</p>
               </div>
               <button 
@@ -225,7 +228,7 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
             <div className="p-6 overflow-y-auto">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">Nom complet</label>
+                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">{t(language as Language, 'public.careers.fullName') || "Nom complet"}</label>
                   <input 
                     type="text" 
                     required
@@ -236,7 +239,7 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">Pays de résidence</label>
+                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">{t(language as Language, 'public.careers.country') || "Pays de résidence"}</label>
                   <input 
                     type="text" 
                     required
@@ -247,7 +250,7 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">Adresse email</label>
+                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">{t(language as Language, 'public.careers.email') || "Adresse email"}</label>
                   <input 
                     type="email" 
                     required
@@ -258,7 +261,7 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">Votre message / Lettre de motivation</label>
+                  <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">{t(language as Language, 'public.careers.message') || "Votre message / Lettre de motivation"}</label>
                   <textarea 
                     required
                     rows={4}
@@ -274,8 +277,8 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
                     disabled={isSubmitting}
                     className="w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-bold tracking-wide shadow-lg shadow-orange-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
                   >
-                    {isSubmitting ? 'Envoi en cours...' : (
-                      <>Envoyer ma candidature <Send className="w-4 h-4" /></>
+                    {isSubmitting ? (t(language as Language, 'public.careers.sending') || 'Envoi en cours...') : (
+                      <>{t(language as Language, 'public.careers.sendApplication') || 'Envoyer ma candidature'} <Send className="w-4 h-4" /></>
                     )}
                   </button>
                 </div>

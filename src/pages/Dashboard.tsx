@@ -20,6 +20,9 @@ import { generateRapportMensuelPDF } from '@/utils/reportGenerator';
 import { DashboardSkeleton } from '../components/SkeletonLoaders';
 
 import { formatMontant } from '../utils/helpers';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../utils/i18n';
+import type { Language } from '../types';
 
 const PIE_COLORS = ['#f59e0b', '#10b981', '#f43f5e'];
 const BAR_COLORS = { paye: '#10b981', restant: '#f43f5e' };
@@ -59,6 +62,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, sub, icon, color, tre
 );
 
 const CustomTooltip: React.FC<{ active?: boolean; payload?: { name: string; value: number }[]; label?: string }> = ({ active, payload, label }) => {
+  const { language } = useLanguage();
   const privacyMode = useStore(s => s.privacyMode);
   const currency = useStore(s => s.currency);
   if (active && payload && payload.length) {
@@ -70,7 +74,7 @@ const CustomTooltip: React.FC<{ active?: boolean; payload?: { name: string; valu
             <div key={i} className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.name === 'Payé' ? BAR_COLORS.paye : BAR_COLORS.restant }} />
-                <span className="font-bold text-slate-600 dark:text-slate-300">{p.name}</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">{p.name === 'Payé' ? (t(language as Language, 'dashboard.paid') || 'Payé') : (t(language as Language, 'dashboard.remains') || 'Restant')}</span>
               </div>
               <span className="font-black text-slate-900 dark:text-white">
                 {privacyMode ? '••••••' : formatMontant(p.value, currency)}
@@ -85,6 +89,7 @@ const CustomTooltip: React.FC<{ active?: boolean; payload?: { name: string; valu
 };
 
 export const Dashboard: React.FC = () => {
+  const { language } = useLanguage();
   const students = useStore((s) => s.students);
   const classes = useStore((s) => s.classes) || [];
   const user = useStore((s) => s.user);
@@ -209,10 +214,9 @@ export const Dashboard: React.FC = () => {
         <div className="w-32 h-32 bg-amber-500/10 dark:bg-amber-500/5 rounded-[32px] flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
           <GraduationCap className="w-16 h-16 text-amber-500 animate-bounce" />
         </div>
-        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">Aucune donnée trouvée</h2>
+        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">{t(language as Language, 'dashboard.noDataFound') || 'Aucune donnée trouvée'}</h2>
         <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto px-4 text-base leading-relaxed">
-          Importez un fichier Excel ou patientez si une synchronisation est en cours.
-          Vérifiez que vous êtes bien connecté à internet.
+          {t(language as Language, 'dashboard.importExcelOrWait') || 'Importez un fichier Excel ou patientez si une synchronisation est en cours. Vérifiez que vous êtes bien connecté à internet.'}
         </p>
       </div>
     );
@@ -229,13 +233,13 @@ export const Dashboard: React.FC = () => {
         <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-8">
             <div className="max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500 text-[10px] font-black text-white uppercase tracking-[0.2em] mb-6 shadow-[0_0_15px_rgba(245,158,11,0.4)]">
-                    <Target className="w-3.5 h-3.5" /> Dashboard Stratégique
+                    <Target className="w-3.5 h-3.5" /> {t(language as Language, 'dashboard.strategicDashboard') || 'Dashboard Stratégique'}
                 </div>
                 <h2 className="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tighter mb-4 leading-tight">
-                    Vision & <span className="text-transparent bg-clip-text bg-gradient-to-br from-amber-400 to-amber-600">Performance</span>
+                    {t(language as Language, 'dashboard.visionAnd') || 'Vision &'} <span className="text-transparent bg-clip-text bg-gradient-to-br from-amber-400 to-amber-600">{t(language as Language, 'dashboard.performance') || 'Performance'}</span>
                 </h2>
                 <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed font-medium max-w-xl">
-                    Tableau de bord exécutif en temps réel : analysez le recouvrement, les projections financières et les performances globales par cycle.
+                    {t(language as Language, 'dashboard.executiveDashboardDesc') || 'Tableau de bord exécutif en temps réel : analysez le recouvrement, les projections financières et les performances globales par cycle.'}
                 </p>
             </div>
 
@@ -251,23 +255,23 @@ export const Dashboard: React.FC = () => {
                     <div className="w-8 h-8 rounded-full bg-white/20 dark:bg-slate-900/10 flex items-center justify-center group-hover:rotate-12 transition-transform duration-300">
                         <FileText className="w-4 h-4" />
                     </div>
-                    RAPPORT MENSUEL
+                    {t(language as Language, 'dashboard.monthlyReport') || 'RAPPORT MENSUEL'}
                 </button>
 
                 <button
                   onClick={() => setPrivacyMode(!privacyMode)}
                   className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-[20px] hover:border-amber-500 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] font-black text-[13px] tracking-wide shadow-md active:scale-[0.98] hover:scale-105 group"
-                  title={privacyMode ? "Afficher les chiffres" : "Masquer les chiffres"}
+                  title={privacyMode ? (t(language as Language, 'dashboard.showFigures') || "Afficher les chiffres") : (t(language as Language, 'dashboard.hideFigures') || "Masquer les chiffres")}
                 >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${privacyMode ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'bg-slate-100 dark:bg-slate-700'}`}>
                     {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </div>
-                  MODE CONFIDENTIEL
+                  {t(language as Language, 'dashboard.confidentialMode') || 'MODE CONFIDENTIEL'}
                 </button>
 
                 <div className="w-full sm:w-auto flex items-center gap-5 bg-white/80 dark:bg-slate-800/80 px-6 py-4 rounded-[24px] border border-slate-200/50 dark:border-slate-700/50 backdrop-blur-xl shadow-lg">
                     <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Santé Financière</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t(language as Language, 'dashboard.financialHealth') || 'Santé Financière'}</p>
                         <p className={`text-xl font-black tracking-tight ${santeFinanciere.color}`}>
                             {maskValue(santeFinanciere.label)}
                         </p>
@@ -289,45 +293,45 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6">
         <StatCard
           delay={100}
-          title="Total Élèves"
+          title={t(language as Language, 'dashboard.totalStudents') || 'Total Élèves'}
           value={maskValue(students.length)}
-          sub={privacyMode ? 'Données masquées' : `${stats.soldes} soldés / ${stats.nonSoldes} non soldés`}
+          sub={privacyMode ? (t(language as Language, 'dashboard.hiddenData') || 'Données masquées') : (t(language as Language, 'dashboard.settledVsUnsettled') ? (t(language as Language, 'dashboard.settledVsUnsettled') as string).replace('{{soldes}}', stats.soldes.toString()).replace('{{nonSoldes}}', stats.nonSoldes.toString()) : `${stats.soldes} soldés / ${stats.nonSoldes} non soldés`)}
           icon={<Users className="w-6 h-6 text-amber-600" />}
           color="bg-amber-50/80 dark:bg-amber-900/20 border-amber-500/20"
         />
         <StatCard
           delay={200}
-          title="Écolage Attendu"
+          title={t(language as Language, 'dashboard.expectedTuition') || 'Écolage Attendu'}
           value={maskValue(formatMontant(stats.totalEcolage, currency))}
-          sub="Total annuel"
+          sub={t(language as Language, 'dashboard.annualTotal') || 'Total annuel'}
           icon={<Wallet className="w-6 h-6 text-indigo-600" />}
           color="bg-indigo-50/80 dark:bg-indigo-900/20 border-indigo-500/20"
         />
         <StatCard
           delay={300}
-          title="Déjà Perçu"
+          title={t(language as Language, 'dashboard.alreadyReceived') || 'Déjà Perçu'}
           value={maskValue(formatMontant(stats.totalPaye, currency))}
-          sub="Paiements reçus"
+          sub={t(language as Language, 'dashboard.paymentsReceived') || 'Paiements reçus'}
           icon={<CheckCircle className="w-6 h-6 text-emerald-600" />}
           color="bg-emerald-50/80 dark:bg-emerald-900/20 border-emerald-500/20"
-          trend={privacyMode ? undefined : `+${stats.taux}% recouvré`}
+          trend={privacyMode ? undefined : `+${stats.taux}% ${t(language as Language, 'dashboard.recovered') || 'recouvré'}`}
         />
         <StatCard
           delay={400}
-          title="Solde Restant"
+          title={t(language as Language, 'dashboard.remainingBalance') || 'Solde Restant'}
           value={maskValue(formatMontant(stats.totalRestant, currency))}
-          sub="À recouvrer"
+          sub={t(language as Language, 'dashboard.toRecover') || 'À recouvrer'}
           icon={<AlertCircle className="w-6 h-6 text-rose-600" />}
           color="bg-rose-50/80 dark:bg-rose-900/20 border-rose-500/20"
         />
         <StatCard
           delay={500}
-          title="Présences du Jour"
+          title={t(language as Language, 'dashboard.todayAttendance') || 'Présences du Jour'}
           value={maskValue(`${todayPresences.length} / ${students.length}`)}
-          sub="Élèves pointés"
+          sub={t(language as Language, 'dashboard.studentsClockedIn') || 'Élèves pointés'}
           icon={<UserCheck className="w-6 h-6 text-cyan-600" />}
           color="bg-cyan-50/80 dark:bg-cyan-900/20 border-cyan-500/20"
-          trend={privacyMode ? undefined : `${tauxPresence}% de présence`}
+          trend={privacyMode ? undefined : `${tauxPresence}% ${t(language as Language, 'dashboard.attendanceRate') || 'de présence'}`}
         />
       </div>
 
@@ -335,8 +339,8 @@ export const Dashboard: React.FC = () => {
       <div className="pro-card p-8 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl">
         <div className="flex items-center justify-between mb-8">
           <div className="space-y-1">
-            <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight">Recouvrement Global</h3>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Progression des encaissements sur l'année</p>
+            <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight">{t(language as Language, 'dashboard.globalRecovery') || 'Recouvrement Global'}</h3>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{t(language as Language, 'dashboard.recoveryProgress') || "Progression des encaissements sur l'année"}</p>
           </div>
           <div className="text-5xl font-black text-amber-500 dark:text-amber-400 tracking-tighter drop-shadow-sm">{maskValue(`${stats.taux}%`)}</div>
         </div>
@@ -349,9 +353,9 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
         <div className="flex justify-between mt-4 text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">
-          <span>Initial (0%)</span>
-          <span className="text-slate-300">Seuil (50%)</span>
-          <span>Objectif (100%)</span>
+          <span>{t(language as Language, 'dashboard.initial') || 'Initial'} (0%)</span>
+          <span className="text-slate-300">{t(language as Language, 'dashboard.threshold') || 'Seuil'} (50%)</span>
+          <span>{t(language as Language, 'dashboard.target') || 'Objectif'} (100%)</span>
         </div>
       </div>
 
@@ -378,7 +382,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <p className={`text-2xl font-black tracking-tighter text-slate-900 dark:text-white`}>{cycle}</p>
-                    <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest truncate mt-0.5">Statistiques du cycle</p>
+                    <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest truncate mt-0.5">{t(language as Language, 'dashboard.cycleStats') || 'Statistiques du cycle'}</p>
                   </div>
                   <div className={`px-4 py-2 rounded-xl font-black text-xl bg-slate-50 dark:bg-slate-800 ${colors.text}`}>
                     {maskValue(cs.count)}
@@ -402,7 +406,7 @@ export const Dashboard: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between items-end mb-3">
-                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Taux de recouvrement</span>
+                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{t(language as Language, 'dashboard.recoveryRate') || 'Taux de recouvrement'}</span>
                     <span className={`text-xl font-black ${colors.text}`}>{maskValue(`${cs.taux}%`)}</span>
                   </div>
                   <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner p-0.5">
@@ -424,15 +428,15 @@ export const Dashboard: React.FC = () => {
         <div className="xl:col-span-2 pro-card p-8">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">Paiements par classe</h3>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Distribution des montants ({currency})</p>
+              <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">{t(language as Language, 'dashboard.paymentsByClass') || 'Paiements par classe'}</h3>
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{t(language as Language, 'dashboard.amountDistribution') ? (t(language as Language, 'dashboard.amountDistribution') as string).replace('{{currency}}', currency) : `Distribution des montants (${currency})`}</p>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-[16px]">
               <BarChart2 className="w-5 h-5 text-slate-400" />
             </div>
           </div>
           {classData.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center text-slate-400 text-sm font-bold bg-slate-50 dark:bg-slate-800/50 rounded-[20px]">Aucune donnée</div>
+            <div className="h-[300px] flex items-center justify-center text-slate-400 text-sm font-bold bg-slate-50 dark:bg-slate-800/50 rounded-[20px]">{t(language as Language, 'dashboard.noData') || 'Aucune donnée'}</div>
           ) : (
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={classData} barCategoryGap="20%" barGap={4} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
@@ -451,15 +455,15 @@ export const Dashboard: React.FC = () => {
         <div className="pro-card p-8 flex flex-col">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">Répartition</h3>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Élèves par cycle</p>
+              <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight mb-1">{t(language as Language, 'dashboard.distribution') || 'Répartition'}</h3>
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{t(language as Language, 'dashboard.studentsByCycle') || 'Élèves par cycle'}</p>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-[16px]">
               <PieChart className="w-5 h-5 text-slate-400" />
             </div>
           </div>
           {cycleData.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-slate-400 text-sm font-bold bg-slate-50 dark:bg-slate-800/50 rounded-[20px]">Aucune donnée</div>
+            <div className="flex-1 flex items-center justify-center text-slate-400 text-sm font-bold bg-slate-50 dark:bg-slate-800/50 rounded-[20px]">{t(language as Language, 'dashboard.noData') || 'Aucune donnée'}</div>
           ) : (
             <div className="flex-1 flex items-center justify-center min-h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -476,7 +480,7 @@ export const Dashboard: React.FC = () => {
                   </Pie>
                   <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px', fontWeight: 700 }} iconType="circle" />
                   <Tooltip 
-                    formatter={(value) => [`${value} élèves`, 'Total']} 
+                    formatter={(value) => [`${value} ${t(language as Language, 'dashboard.students') || 'élèves'}`, t(language as Language, 'dashboard.total') || 'Total']} 
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px', fontWeight: 900 }}
                   />
                 </PieChart>
@@ -494,7 +498,7 @@ export const Dashboard: React.FC = () => {
               <div className="p-3 bg-amber-50 dark:bg-amber-500/10 text-amber-500 rounded-[16px]">
                 <BarChart2 className="w-6 h-6" />
               </div>
-              Top Performances
+              {t(language as Language, 'dashboard.topPerformances') || 'Top Performances'}
             </h3>
           </div>
 
@@ -535,7 +539,7 @@ export const Dashboard: React.FC = () => {
               <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-[16px]">
                 <Target className="w-6 h-6" />
               </div>
-              Solvabilité / Cycle
+              {t(language as Language, 'dashboard.solvencyByCycle') || 'Solvabilité / Cycle'}
             </h3>
           </div>
           <div className="flex-1 flex items-center justify-center min-h-[300px]">
@@ -554,7 +558,7 @@ export const Dashboard: React.FC = () => {
                 />
                 <Tooltip 
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px', fontWeight: 900 }}
-                  formatter={(value) => [`${value}%`, 'Recouvrement']}
+                  formatter={(value) => [`${value}%`, t(language as Language, 'dashboard.recovery') || 'Recouvrement']}
                 />
               </RadarChart>
             </ResponsiveContainer>

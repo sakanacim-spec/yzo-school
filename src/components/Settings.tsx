@@ -68,7 +68,7 @@ export const Settings = () => {
                   type="text"
                   value={formData.anneScolaire}
                   onChange={(e) => setFormData({ ...formData, anneScolaire: e.target.value })}
-                  placeholder="2024-2025"
+                  placeholder={t(language as Language, 'settings.schoolYearEx') || "2024-2025"}
                   className="w-full"
                 />
               </div>
