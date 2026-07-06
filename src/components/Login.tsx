@@ -323,9 +323,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                             onChange={(e) => setSelectedSchool(e.target.value)} 
                             required
                         >
-                            <option value="" disabled>-- Sélectionnez votre établissement --</option>
-                            <option value="global">Accès Global (SuperAdmin)</option>
-                            <option disabled>────── Établissements ──────</option>
+                            <option value="" disabled>-- {T.login?.schoolPlaceholder || 'Sélectionnez votre établissement'} --</option>
+                            <option value="global">{t(language as Language, 'auth.globalAccess') || 'Accès Global (SuperAdmin)'}</option>
+                            <option disabled>────── {t(language as Language, 'auth.schoolsList') || 'Établissements'} ──────</option>
                             {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
                         </select>
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
@@ -379,12 +379,13 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                 {error && <div className="text-rose-500 text-[10px] italic text-center font-bold px-4 pb-2">{error}</div>}
 
                 <button type="submit" disabled={loading} className="w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl font-bold text-xs tracking-wide shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2">
-                    <Lock className="w-4 h-4" /> SE CONNECTER
+                    <Lock className="w-4 h-4" />
+                  {(T.login?.loginButton || 'SE CONNECTER').toUpperCase()}
                 </button>
                 
                 <div className="flex items-center gap-4 my-5 w-full">
                     <div className="h-px bg-slate-200 flex-1"></div>
-                    <span className="text-[10px] text-slate-400 font-medium">ou</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{t(language as Language, 'common.or') || 'ou'}</span>
                     <div className="h-px bg-slate-200 flex-1"></div>
                 </div>
                 
@@ -402,16 +403,16 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
           <div className="overlay-container">
             <div className="overlay">
               <div className="overlay-panel overlay-left">
-                <h2 className="text-3xl font-black mb-4 tracking-tighter">De retour ? 👋</h2>
+                <h2 className="text-3xl font-black mb-4 tracking-tighter">{t(language as Language, 'auth.welcomeBack') || 'De retour ? 👋'}</h2>
                 <p className="text-sm font-medium opacity-90 mb-8 leading-relaxed max-w-[280px]">
-                  Connectez-vous pour accéder au tableau de bord et gérer votre établissement.
+                  {t(language as Language, 'auth.welcomeBackDesc') || 'Connectez-vous pour accéder au tableau de bord et gérer votre établissement.'}
                 </p>
                 <button 
                   className="auth-button ghost"
                   type="button" 
                   onClick={() => setView('login')}
                 >
-                  SE CONNECTER
+                  {(T.login?.loginButton || 'SE CONNECTER').toUpperCase()}
                 </button>
               </div>
 
@@ -495,9 +496,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                   onClick={() => setView('parent-register')}
                                   className="w-full py-4 border border-white bg-white/10 hover:bg-white text-white hover:text-[#f97316] rounded-xl font-black text-xs tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm"
                               >
-                                  <User className="w-4 h-4" /> CRÉER MON ESPACE PARENT <span className="ml-2 text-md font-bold">&gt;</span>
+                                  <User className="w-4 h-4" /> {(t(language as Language, 'auth.iAmParentCreateAccount') || 'CRÉER MON ESPACE PARENT').toUpperCase()} <span className="ml-2 text-md font-bold">&gt;</span>
                               </button>
-                              <p className="text-[10px] text-[#431407] font-semibold mt-2 pl-2">C'est rapide, gratuit et sécurisé.</p>
+                              <p className="text-[10px] text-[#431407] font-semibold mt-2 pl-2">{t(language as Language, 'auth.fastFreeSecure') || "C'est rapide, gratuit et sécurisé."}</p>
                           </div>
 
                           {/* Family photo position overlay */}
@@ -559,9 +560,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                 onChange={(e) => setSelectedSchool(e.target.value)} 
                                 required
                             >
-                                <option value="" disabled>-- Sélectionnez votre établissement --</option>
-                                <option value="global">Accès Global (SuperAdmin)</option>
-                                <option disabled>────── Établissements ──────</option>
+                                <option value="" disabled>-- {T.login?.schoolPlaceholder || 'Sélectionnez votre établissement'} --</option>
+                                <option value="global">{t(language as Language, 'auth.globalAccess') || 'Accès Global (SuperAdmin)'}</option>
+                                <option disabled>────── {t(language as Language, 'auth.schoolsList') || 'Établissements'} ──────</option>
                                 {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
                             </select>
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">

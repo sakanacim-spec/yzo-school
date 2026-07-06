@@ -60,6 +60,11 @@ export const fr = {
   },
 
   auth: {
+    globalAccess: 'Accès Global (SuperAdmin)',
+    schoolsList: 'Établissements',
+    welcomeBack: 'De retour ? 👋',
+    welcomeBackDesc: 'Connectez-vous pour accéder au tableau de bord et gérer votre établissement.',
+    fastFreeSecure: 'C\'est rapide, gratuit et sécurisé.',
     phoneEx: '+33 6 12 34 56 78',
     passwordPlaceholderMobile: '••••••',
     forgotPasswordBtn: 'Mot de passe oublié ?',

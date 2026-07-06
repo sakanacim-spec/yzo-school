@@ -60,6 +60,11 @@ export const en = {
   },
 
   auth: {
+    globalAccess: 'Global Access (SuperAdmin)',
+    schoolsList: 'Schools',
+    welcomeBack: 'Welcome back! 👋',
+    welcomeBackDesc: 'Log in to access your dashboard and manage your school.',
+    fastFreeSecure: 'It\'s fast, free, and secure.',
     phoneEx: '+1 234 567 8900',
     passwordPlaceholderMobile: '••••••',
     forgotPasswordBtn: 'Forgot password?',

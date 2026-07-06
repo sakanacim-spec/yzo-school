@@ -57,6 +57,11 @@ export const es = {
   },
 
   auth: {
+    globalAccess: 'Acceso Global (SuperAdmin)',
+    schoolsList: 'Escuelas',
+    welcomeBack: '¡Bienvenido de nuevo! 👋',
+    welcomeBackDesc: 'Inicie sesión para acceder a su panel y administrar su escuela.',
+    fastFreeSecure: 'Es rápido, gratis y seguro.',
     phoneEx: '+34 600 12 34 56',
     passwordPlaceholderMobile: '••••••',
     forgotPasswordBtn: '¿Contraseña olvidada?',

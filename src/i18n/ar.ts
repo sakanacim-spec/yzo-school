@@ -57,6 +57,11 @@ export const ar = {
   },
 
   auth: {
+    globalAccess: 'الوصول الشامل (المدير العام)',
+    schoolsList: 'المدارس',
+    welcomeBack: 'مرحباً بعودتك! 👋',
+    welcomeBackDesc: 'سجل الدخول للوصول إلى لوحة القيادة وإدارة مؤسستك.',
+    fastFreeSecure: 'سريع، مجاني، وآمن.',
     phoneEx: '+212 6 12 34 56 78',
     passwordPlaceholderMobile: '••••••',
     forgotPasswordBtn: 'هل نسيت كلمة المرور؟',
