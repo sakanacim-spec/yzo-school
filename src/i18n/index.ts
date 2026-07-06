@@ -42,7 +42,7 @@ export function t(lang: Language, path: string, vars?: Record<string, string | n
     if (value === undefined) break;
   }
   
-  if (typeof value !== 'string') return path;
+  if (typeof value !== 'string') return '';
   
   // Remplacement des variables ex: {count}
   if (vars) {

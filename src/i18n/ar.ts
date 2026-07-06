@@ -56,6 +56,22 @@ export const ar = {
     logout: 'تسجيل الخروج',
   },
 
+  auth: {
+    phoneEx: '+212 6 12 34 56 78',
+    passwordPlaceholderMobile: '••••••',
+    forgotPasswordBtn: 'هل نسيت كلمة المرور؟',
+    privacyAndData: 'الخصوصية والبيانات',
+    trialExpiredWarning: '⚠️ انتهت الفترة التجريبية',
+    contactAdmin: 'اتصل بالمسؤول.',
+    registerSchoolBtn: 'تسجيل مؤسستي',
+    secureConnection: 'اتصال آمن',
+    dataProtected: 'بياناتك محمية',
+    privacyAndSecurity: 'الخصوصية والأمان',
+    contactAdminToPay: 'اتصل بالمسؤول لدفع الاشتراك.',
+    iAmParentCreateAccount: 'أنا ولي أمر، إنشاء حسابي',
+    connectedEducation: 'التعليم المتصل',
+  },
+
   // Auth — Login
   login: {
     title: 'تسجيل الدخول',

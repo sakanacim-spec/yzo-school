@@ -59,6 +59,22 @@ export const en = {
     logout: 'Logout',
   },
 
+  auth: {
+    phoneEx: '+1 234 567 8900',
+    passwordPlaceholderMobile: '••••••',
+    forgotPasswordBtn: 'Forgot password?',
+    privacyAndData: 'Privacy & Data',
+    trialExpiredWarning: '⚠️ Trial period expired',
+    contactAdmin: 'Contact the administrator.',
+    registerSchoolBtn: 'REGISTER MY SCHOOL',
+    secureConnection: 'Secure connection',
+    dataProtected: 'Your data is protected',
+    privacyAndSecurity: 'Privacy & Security',
+    contactAdminToPay: 'Contact the administrator to pay the subscription.',
+    iAmParentCreateAccount: 'I am a parent, Create my account',
+    connectedEducation: 'Connected Education',
+  },
+
   // Auth — Login
   login: {
     title: 'Login',

@@ -56,6 +56,22 @@ export const es = {
     logout: 'Cerrar sesión',
   },
 
+  auth: {
+    phoneEx: '+34 600 12 34 56',
+    passwordPlaceholderMobile: '••••••',
+    forgotPasswordBtn: '¿Contraseña olvidada?',
+    privacyAndData: 'Privacidad y Datos',
+    trialExpiredWarning: '⚠️ Período de prueba expirado',
+    contactAdmin: 'Contacte al administrador.',
+    registerSchoolBtn: 'REGISTRAR MI ESCUELA',
+    secureConnection: 'Conexión segura',
+    dataProtected: 'Tus datos están protegidos',
+    privacyAndSecurity: 'Privacidad y Seguridad',
+    contactAdminToPay: 'Contacte al administrador para pagar la suscripción.',
+    iAmParentCreateAccount: 'Soy padre, Crear mi cuenta',
+    connectedEducation: 'Educación Conectada',
+  },
+
   // Auth — Login
   login: {
     title: 'Iniciar sesión',

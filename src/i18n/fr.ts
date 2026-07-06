@@ -59,6 +59,22 @@ export const fr = {
     logout: 'Déconnexion',
   },
 
+  auth: {
+    phoneEx: '+33 6 12 34 56 78',
+    passwordPlaceholderMobile: '••••••',
+    forgotPasswordBtn: 'Mot de passe oublié ?',
+    privacyAndData: 'Confidentialité & Données',
+    trialExpiredWarning: '⚠️ Période d\'essai expirée',
+    contactAdmin: 'Contactez l\'administrateur.',
+    registerSchoolBtn: 'INSCRIRE MON ÉTABLISSEMENT',
+    secureConnection: 'Connexion sécurisée',
+    dataProtected: 'Vos données sont protégées',
+    privacyAndSecurity: 'Confidentialité & Sécurité',
+    contactAdminToPay: 'Contactez l\'administrateur pour régler l\'abonnement.',
+    iAmParentCreateAccount: 'Je suis parent, Créer mon compte',
+    connectedEducation: 'Éducation Connectée',
+  },
+
   // Auth — Login
   login: {
     title: 'Connexion',
