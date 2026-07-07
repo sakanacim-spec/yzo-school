@@ -228,7 +228,7 @@ export function App() {
   }
 
   return (
-    <Layout>
+    <Layout key={language}>
       <Suspense fallback={<LoadingSpinner />}>
         <PageContent />
       </Suspense>

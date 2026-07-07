@@ -544,6 +544,28 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
 
 
+              {/* Sélecteur de Langue */}
+              <div className="relative group">
+                <select
+                  value={language}
+                  onChange={(e) => {
+                    const nextLang = e.target.value as Language;
+                    setLanguage(nextLang);
+                    // Force l'actualisation complète de la page pour recharger la nouvelle langue sur tous les menus
+                    window.location.reload();
+                  }}
+                  className="h-10 pl-3 pr-8 rounded-[16px] bg-white dark:bg-slate-800 border-0 text-[12px] font-bold text-slate-700 dark:text-slate-300 shadow-[0_2px_10px_rgba(0,0,0,0.04)] focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer appearance-none transition-all duration-300 hover:text-amber-500"
+                >
+                  <option value="fr">🇫🇷 FR</option>
+                  <option value="en">🇬🇧 EN</option>
+                  <option value="es">🇪🇸 ES</option>
+                  <option value="ar">🇸🇦 AR</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400 text-[10px]">
+                  ▼
+                </div>
+              </div>
+
               <button
                 onClick={toggleTheme}
                 className="w-10 h-10 rounded-[16px] bg-white dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-amber-500 transition-all duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.04)] active:scale-[0.95]"
