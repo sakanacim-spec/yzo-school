@@ -28,7 +28,8 @@ const parentRegisterSchema = Joi.object({
         'any.only': 'Vous devez accepter le traitement de vos données scolaires.'
     }),
     marketing_consent: Joi.boolean().default(false),
-    parent_photo_authorization: Joi.boolean().default(false)
+    parent_photo_authorization: Joi.boolean().default(false),
+    preferred_language: Joi.string().valid('fr', 'en', 'es', 'ar').default('fr')
 });
 
 // Joi validation schema for SaaS School registration
@@ -57,7 +58,7 @@ const schoolRegisterSchema = Joi.object({
     email: Joi.string().email().allow('', null),
     slogan: Joi.string().trim().allow('', null),
     ministry: Joi.string().trim().allow('', null),
-    preferred_language: Joi.string().valid('fr', 'en').default('fr'),
+    preferred_language: Joi.string().valid('fr', 'en', 'es', 'ar').default('fr'),
     accepted_terms: Joi.boolean().allow(null),
     accepted_privacy_policy: Joi.boolean().allow(null),
     marketing_consent: Joi.boolean().allow(null)
@@ -77,7 +78,8 @@ async function register(req, res) {
         return res.status(400).json({ error: validationError.details.map(d => d.message).join(', ') });
     }
 
-    const { nom, telephone, password, school_slug, accepted_terms, accepted_privacy_policy, marketing_consent, parent_photo_authorization } = validatedData;
+    const { nom, telephone, password, school_slug, accepted_terms, accepted_privacy_policy, marketing_consent, parent_photo_authorization, preferred_language } = validatedData;
+    const ipHash = getIpHash(req);
 
     try {
         const { data: school } = await supabase
@@ -179,12 +181,17 @@ async function registerSchool(req, res) {
 
     try {
         // Générer un slug propre depuis le nom de l'école
-        const cleanSlug = validatedData.school_name
+        let cleanSlug = validatedData.school_name
             .toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // retirer accents
             .replace(/[^a-z0-9]+/g, '_')
             .replace(/(^_|_$)+/g, '')
             .substring(0, 40);
+
+        if (!cleanSlug) {
+            // Fallback for names with only non-ascii characters (e.g. Arabic)
+            cleanSlug = `school_${Math.random().toString(36).substring(2, 8)}_${Date.now().toString().slice(-4)}`;
+        }
 
         // Vérifier si le slug est déjà utilisé
         const { data: existing } = await supabase

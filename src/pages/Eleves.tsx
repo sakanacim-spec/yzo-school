@@ -266,6 +266,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
 // ── Bouton WhatsApp ──────────────────────────────────────────
 const WhatsAppBtn: React.FC<{ student: Student; schoolName: string }> = ({ student, schoolName }) => {
   const currency = useStore(s => s.currency);
+  const language = useStore(s => s.language);
   const messageRemerciement = useStore(s => s.messageRemerciement);
   const messageRappel = useStore(s => s.messageRappel);
   const taux = Math.round((student.dejaPaye / student.ecolage) * 100);
@@ -305,6 +306,7 @@ const WhatsAppBtn: React.FC<{ student: Student; schoolName: string }> = ({ stude
 // ── Photo Modal ──────────────────────────────────────────────
 const PhotoModal: React.FC<{ student: Student; onClose: () => void; onSave: (b64: string) => Promise<void>; onDelete: () => Promise<void>; }> = ({ student, onClose, onSave, onDelete }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const language = useStore((s) => s.language);
   const [preview, setPreview] = useState<string>(student.photoUrl || '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -381,6 +383,7 @@ const PhotoModal: React.FC<{ student: Student; onClose: () => void; onSave: (b64
 type SortKey = 'nom' | 'classe' | 'dejaPaye' | 'restant' | 'status';
 
 export const Eleves: React.FC = () => {
+  const language = useStore((s) => s.language);
   const students = useStore((s) => s.students);
   const deleteStudent = useStore((s) => s.deleteStudent);
   const searchQuery = useStore((s) => s.searchQuery);
