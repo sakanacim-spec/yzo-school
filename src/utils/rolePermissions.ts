@@ -13,25 +13,25 @@ const ROLE_PAGES: Record<Role, AppPage[]> = {
     ],
     directeur_general: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
-        'parametres', 'recouvrement', 'scan_information',
+        'parametres', 'recouvrement', 'scan_information', 'depenses', 'scan_presence', 'scan_sortie', 'carte_scolaire',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
         'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires', 'emploi_du_temps'
     ],
     admin: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
-        'parametres', 'recouvrement', 'scan_information',
+        'parametres', 'recouvrement', 'scan_information', 'depenses', 'scan_presence', 'scan_sortie', 'carte_scolaire',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
         'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires', 'emploi_du_temps'
     ],
     directeur: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
-        'parametres', 'recouvrement', 'scan_information',
+        'parametres', 'recouvrement', 'scan_information', 'depenses', 'scan_presence', 'scan_sortie', 'carte_scolaire',
         'verification_recu', 'historique_activites', 'parents_list', 'import_export', 'chat', 'annonces', 'communication',
         'gestion_academique', 'saisie_notes', 'bulletins', 'gestion_personnel', 'salaires', 'emploi_du_temps'
     ],
     comptable: [
         'dashboard', 'eleves', 'paiements', 'analyses', 'documents',
-        'recouvrement', 'verification_recu', 'import_export', 'chat', 'scan_information'
+        'recouvrement', 'verification_recu', 'import_export', 'chat', 'scan_information', 'depenses'
     ],
     superviseur: [
         'scan_presence', 'scan_sortie', 'scan_information', 'carte_scolaire'
