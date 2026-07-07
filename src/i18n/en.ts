@@ -166,6 +166,8 @@ export const en = {
     preferredLanguage: 'Preferred platform language',
     langFr: 'Français',
     langEn: 'English',
+    langEs: 'Español',
+    langAr: 'العربية',
     terms: 'I accept the Terms of Use of the platform.',
     privacy: 'I consent to the processing of my school data.',
     createButton: 'Create my school',
@@ -367,6 +369,7 @@ export const en = {
     countryRequired: 'Please select your country.',
     genericError: 'An error occurred. Please try again.',
     loginFailed: 'Invalid credentials.',
+    registerFailed: 'Registration failed.',
     networkError: 'Network connection problem.',
   },
 

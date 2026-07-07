@@ -166,6 +166,8 @@ export const fr = {
     preferredLanguage: "Langue préférée de la plateforme",
     langFr: "Français",
     langEn: "English",
+    langEs: "Español",
+    langAr: "العربية",
     terms: "J'accepte les Conditions d'Utilisation de la plateforme.",
     privacy: "Je consens au traitement des données de mon établissement.",
     createButton: "Créer mon établissement",

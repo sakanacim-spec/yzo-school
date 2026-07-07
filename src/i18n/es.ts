@@ -163,6 +163,8 @@ export const es = {
     preferredLanguage: "Idioma preferido de la plataforma",
     langFr: "Francés",
     langEn: "Inglés",
+    langEs: "Español",
+    langAr: "العربية",
     terms: "Acepto los Términos de Servicio de la plataforma.",
     privacy: "Acepto el tratamiento de datos de mi establecimiento.",
     createButton: "Crear mi establecimiento",

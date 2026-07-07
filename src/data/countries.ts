@@ -216,11 +216,11 @@ export function getCountryName(code: string | null | undefined, lang: 'fr' | 'en
 }
 
 // Pays triés par nom pour une langue donnée
-export function getSortedCountries(lang: 'fr' | 'en' = 'fr'): Country[] {
+export function getSortedCountries(lang: 'fr' | 'en' | 'es' | 'ar' = 'fr'): Country[] {
   return [...COUNTRIES].sort((a, b) => {
     const nameA = lang === 'en' ? a.name_en : a.name_fr;
     const nameB = lang === 'en' ? b.name_en : b.name_fr;
-    return nameA.localeCompare(nameB, lang);
+    return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : lang === 'es' ? 'es' : lang);
   });
 }
 

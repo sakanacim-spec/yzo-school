@@ -163,6 +163,8 @@ export const ar = {
     preferredLanguage: "اللغة المفضلة للمنصة",
     langFr: "الفرنسية",
     langEn: "الإنجليزية",
+    langEs: "الإسبانية",
+    langAr: "العربية",
     terms: "أوافق على شروط الاستخدام للمنصة.",
     privacy: "أوافق على معالجة بيانات مؤسستي.",
     createButton: "إنشاء مؤسستي",
