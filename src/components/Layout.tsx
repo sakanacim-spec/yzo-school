@@ -428,6 +428,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     connectedParentsCount, logout, collapsed,
     onOpenSupport: () => setShowSupportModal(true),
     onOpenPrivacy: () => setShowPrivacyModal(true),
+    language,
   };
 
   const bottomNavItems = (user?.role === 'superviseur' || user?.role === 'surveillant') ? [

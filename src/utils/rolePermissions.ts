@@ -152,7 +152,7 @@ export const getRoleLabel = (role: string): string => {
     return labels[role] || role;
 };
 
-export const getFilteredNavItems = (role: string | undefined, items: { id: AppPage }[]): typeof items => {
+export const getFilteredNavItems = <T extends { id: AppPage }>(role: string | undefined, items: T[]): T[] => {
     if (!role) return [];
     return items.filter(item => canAccessPage(role, item.id));
 };
