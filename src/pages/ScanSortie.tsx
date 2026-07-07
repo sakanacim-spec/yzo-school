@@ -349,6 +349,7 @@ export const ScanSortie: React.FC = () => {
                 <StudentScanned
                     {...scannedStudent}
                     schoolName={schoolName}
+                    language={language as Language}
                 />
             )}
 

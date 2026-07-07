@@ -370,6 +370,7 @@ export type AppPage =
   | 'cahier_textes'
   | 'prof_dashboard'
   | 'prof_ressources'
+  | 'prof_emploi_du_temps'
   | 'parent_ressources'
   | 'salaires'
   // ── Pages SuperAdmin (propriétaire SaaS) ──

@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { Html5Qrcode } from "html5-qrcode";
 import {
-    X, Wallet, Info, ShieldCheck, ChevronRight, Scan, CreditCard
+    X, Wallet, Info, ShieldCheck, ChevronRight, Scan, CreditCard, UserCircle, AlertTriangle, Camera, Search
 } from 'lucide-react';
 import { t } from '../i18n';
 import type { Language } from '../i18n';
@@ -453,6 +453,7 @@ export const ScanInformation: React.FC = () => {
                     photoUrl={scannedStudent.photoUrl}
                     solde={scannedStudent.restant}
                     statut={scannedStudent.status}
+                    language={language as Language}
                     onClose={() => {
                         setScannedStudent(null);
                         isScanningPaused.current = false;
