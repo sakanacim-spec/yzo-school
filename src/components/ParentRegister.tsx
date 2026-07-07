@@ -27,7 +27,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
         setError('');
         
         if (!acceptedTerms) {
-            setError((T.register as any)?.acceptTerms || "Veuillez accepter les conditions d'utilisation.");
+            setError(T.errors?.termsRequired || "Veuillez accepter les conditions d'utilisation.");
             return;
         }
 
@@ -41,12 +41,13 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                 accepted_terms: acceptedTerms,
                 accepted_privacy_policy: acceptedTerms,
                 marketing_consent: false,
-                parent_photo_authorization: false
+                parent_photo_authorization: false,
+                preferred_language: language
             });
             onSuccess(data);
         } catch (err: any) {
             console.error('Registration error:', err);
-            setError(err.error || err.message || (T.register as any)?.error || "Une erreur s'est produite lors de la création de votre compte.");
+            setError(err.error || err.message || T.errors?.genericError || "Une erreur s'est produite lors de la création de votre compte.");
         } finally {
             setLoading(false);
         }
@@ -113,7 +114,6 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                             <input
                                 type="tel"
                                 required
-                                pattern="[0-9+ ]+"
                                 value={telephone}
                                 onChange={e => setTelephone(e.target.value)}
                                 placeholder={t(language as Language, 'auth.phoneUsedForLogin') || "Ce numéro sera utilisé pour la connexion"}
