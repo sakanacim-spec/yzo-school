@@ -15,7 +15,12 @@ const LANGUAGES = [
   { code: 'fr', name: 'Français', flagUrl: 'https://flagcdn.com/w40/fr.png' },
   { code: 'en', name: 'English', flagUrl: 'https://flagcdn.com/w40/gb.png' },
   { code: 'es', name: 'Español', flagUrl: 'https://flagcdn.com/w40/es.png' },
-  { code: 'ar', name: 'العربية', flagUrl: 'https://flagcdn.com/w40/sa.png' }
+  { code: 'ar', name: 'العربية', flagUrl: 'https://flagcdn.com/w40/sa.png' },
+  { code: 'it', name: 'Italiano', flagUrl: 'https://flagcdn.com/w40/it.png' },
+  { code: 'de', name: 'Deutsch', flagUrl: 'https://flagcdn.com/w40/de.png' },
+  { code: 'pt', name: 'Português', flagUrl: 'https://flagcdn.com/w40/pt.png' },
+  { code: 'zh', name: '中文', flagUrl: 'https://flagcdn.com/w40/cn.png' },
+  { code: 'ru', name: 'Русский', flagUrl: 'https://flagcdn.com/w40/ru.png' }
 ];
 
 const LANDING_I18N: Record<string, any> = {
@@ -49,12 +54,53 @@ const LANDING_I18N: Record<string, any> = {
   }
 };
 
+import { useEffect } from 'react';
+import { translationApi } from '../services/translationApi';
+
+// Fonction récursive pour traduire un dictionnaire de chaînes avec cache local
+async function translateObject(obj: any, targetLang: string): Promise<any> {
+  if (typeof obj === 'string') {
+    const cacheKey = `landing_translation_${targetLang}_${obj}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return cached;
+
+    const translated = await translationApi.translate(obj, targetLang, 'fr');
+    if (typeof translated === 'string') {
+      localStorage.setItem(cacheKey, translated);
+      return translated;
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return Promise.all(obj.map(item => translateObject(item, targetLang)));
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const result: any = {};
+    for (const key of Object.keys(obj)) {
+      result[key] = await translateObject(obj[key], targetLang);
+    }
+    return result;
+  }
+  return obj;
+}
+
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate }) => {
   const { language, setLanguage } = useStore();
   const [langOpen, setLangOpen] = useState(false);
+  const [dynamicT, setDynamicT] = useState<any>(LANDING_I18N[language] || LANDING_I18N.fr);
   
   const currentLang = LANGUAGES.find(l => l.code === language) || LANGUAGES[0];
-  const t = LANDING_I18N[language] || LANDING_I18N.fr;
+  const t = dynamicT;
+
+  useEffect(() => {
+    if (LANDING_I18N[language]) {
+      setDynamicT(LANDING_I18N[language]);
+    } else {
+      translateObject(LANDING_I18N.fr, language).then(translated => {
+        setDynamicT(translated);
+      });
+    }
+  }, [language]);
 
   return (
     <div className={`min-h-screen bg-[#fafcff] font-['Poppins'] text-slate-800 selection:bg-orange-500 selection:text-white scroll-smooth flex flex-col ${language === 'ar' ? 'dir-rtl' : ''}`}>

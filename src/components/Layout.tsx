@@ -560,6 +560,11 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <option value="en">🇬🇧 EN</option>
                   <option value="es">🇪🇸 ES</option>
                   <option value="ar">🇸🇦 AR</option>
+                  <option value="it">🇮🇹 IT</option>
+                  <option value="de">🇩🇪 DE</option>
+                  <option value="pt">🇵🇹 PT</option>
+                  <option value="zh">🇨🇳 ZH</option>
+                  <option value="ru">🇷🇺 RU</option>
                 </select>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400 text-[10px]">
                   ▼

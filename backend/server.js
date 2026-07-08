@@ -40,6 +40,7 @@ app.use('/api/sync', require('./routes/sync'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/translate', require('./routes/translation'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/personnel', require('./routes/personnel'));
 app.use('/api/payment', require('./routes/payment'));

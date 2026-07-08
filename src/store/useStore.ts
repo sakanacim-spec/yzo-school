@@ -8,6 +8,7 @@ import { API_BASE_URL } from '../config';
 import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
 import { createActivityLog } from '../utils/activityLogger';
+import { Language, getStoredLanguage } from '../i18n';
 
 export interface AppState {
   // Identité de l'app
@@ -221,8 +222,10 @@ export interface AppState {
   setPrivacyMode: (v: boolean) => void;
 
   // Langue (i18n)
-  language: 'fr' | 'en' | 'es' | 'ar';
-  setLanguage: (lang: 'fr' | 'en' | 'es' | 'ar') => void;
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  translationVersion: number;
+  forceTranslationUpdate: () => void;
 }
 
 // Authentification gérée par Supabase
@@ -378,10 +381,14 @@ export const useStore = create<AppState>()(
       setPrivacyMode: (privacyMode) => set({ privacyMode }),
 
       // ── Langue (i18n) ──────────────────────────────────
-      language: (typeof localStorage !== 'undefined' ? (localStorage.getItem('app_language') as 'fr' | 'en' | 'es' | 'ar') : null) || 'fr',
+      language: getStoredLanguage(),
       setLanguage: (lang) => {
         set({ language: lang });
         try { localStorage.setItem('app_language', lang); } catch {}
+      },
+      translationVersion: 0,
+      forceTranslationUpdate: () => {
+        set((state) => ({ translationVersion: state.translationVersion + 1 }));
       },
 
       // ── Auth ──────────────────────────────────────────────
