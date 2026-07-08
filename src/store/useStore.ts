@@ -378,7 +378,7 @@ export const useStore = create<AppState>()(
       setPrivacyMode: (privacyMode) => set({ privacyMode }),
 
       // ── Langue (i18n) ──────────────────────────────────
-      language: (typeof localStorage !== 'undefined' ? (localStorage.getItem('app_language') as 'fr' | 'en') : null) || 'fr',
+      language: (typeof localStorage !== 'undefined' ? (localStorage.getItem('app_language') as 'fr' | 'en' | 'es' | 'ar') : null) || 'fr',
       setLanguage: (lang) => {
         set({ language: lang });
         try { localStorage.setItem('app_language', lang); } catch {}

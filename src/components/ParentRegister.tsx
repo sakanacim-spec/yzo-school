@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Phone, Lock, ArrowLeft, Loader2, Building } from 'lucide-react';
+import { User, Phone, Lock, ArrowLeft, ArrowRight, Loader2, Building, CheckCircle } from 'lucide-react';
 import { parentApi } from '../services/parentApi';
 import { t, Language, getTranslations } from '../i18n';
 import { useStore } from '../store/useStore';
@@ -10,9 +10,54 @@ interface ParentRegisterProps {
     onSuccess: (parentData: any) => void;
 }
 
+/** Translate common French backend error messages to the user's language */
+function translateBackendError(msg: string, lang: Language): string {
+    if (!msg) return msg;
+    const lower = msg.toLowerCase();
+
+    if (lower.includes('établissement inconnu') || lower.includes('unknown school') || lower.includes('etablissement inconnu')) {
+        const map: Record<Language, string> = {
+            fr: 'Établissement inconnu. Vérifiez le code de votre école.',
+            en: 'Unknown school. Please check your school code.',
+            es: 'Institución desconocida. Verifica el código de tu escuela.',
+            ar: 'المدرسة غير موجودة. يرجى التحقق من رمز مدرستك.',
+        };
+        return map[lang] || msg;
+    }
+    if (lower.includes('numéro de téléphone est déjà') || lower.includes('already registered') || lower.includes('phone') && lower.includes('exist')) {
+        const map: Record<Language, string> = {
+            fr: 'Ce numéro de téléphone est déjà enregistré. Connectez-vous.',
+            en: 'This phone number is already registered. Please log in.',
+            es: 'Este número de teléfono ya está registrado. Inicia sesión.',
+            ar: 'رقم الهاتف هذا مسجل مسبقاً. يرجى تسجيل الدخول.',
+        };
+        return map[lang] || msg;
+    }
+    if (lower.includes('suspendu') || lower.includes('suspended')) {
+        const map: Record<Language, string> = {
+            fr: "L'établissement est suspendu.",
+            en: 'This school account is suspended.',
+            es: 'Esta institución está suspendida.',
+            ar: 'هذه المدرسة موقوفة مؤقتاً.',
+        };
+        return map[lang] || msg;
+    }
+    if (lower.includes('mot de passe') && lower.includes('6') || lower.includes('password') && lower.includes('6')) {
+        const map: Record<Language, string> = {
+            fr: 'Le mot de passe doit contenir au moins 6 caractères.',
+            en: 'Password must be at least 6 characters.',
+            es: 'La contraseña debe tener al menos 6 caracteres.',
+            ar: 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.',
+        };
+        return map[lang] || msg;
+    }
+    return msg;
+}
+
 export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSuccess }) => {
     const { language } = useStore();
     const T = getTranslations(language);
+    const isRTL = language === 'ar';
 
     const [nom, setNom] = useState('');
     const [telephone, setTelephone] = useState('');
@@ -21,6 +66,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,10 +90,13 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                 parent_photo_authorization: false,
                 preferred_language: language
             });
-            onSuccess(data);
+            setSuccess(true);
+            // Give user time to read success message, then proceed
+            setTimeout(() => onSuccess(data), 2000);
         } catch (err: any) {
             console.error('Registration error:', err);
-            setError(err.error || err.message || T.errors?.genericError || "Une erreur s'est produite lors de la création de votre compte.");
+            const rawMsg = err.error || err.message || T.errors?.genericError || "Une erreur s'est produite.";
+            setError(translateBackendError(rawMsg, language as Language));
         } finally {
             setLoading(false);
         }
@@ -56,6 +105,27 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
     const inputClass = "w-full ps-10 pe-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-blue-200/50 focus:ring-2 focus:ring-blue-400 outline-none backdrop-blur-sm transition-all";
     const labelClass = "block text-sm font-semibold text-blue-100 mb-1.5";
 
+    // Success screen
+    if (success) {
+        const successMessages: Record<Language, { title: string; body: string }> = {
+            fr: { title: 'Compte créé avec succès !', body: 'Vous allez être redirigé vers la connexion.' },
+            en: { title: 'Account created successfully!', body: 'Redirecting you to login.' },
+            es: { title: '¡Cuenta creada con éxito!', body: 'Serás redirigido al inicio de sesión.' },
+            ar: { title: 'تم إنشاء الحساب بنجاح!', body: 'سيتم تحويلك إلى صفحة تسجيل الدخول.' },
+        };
+        const msg = successMessages[language as Language] || successMessages.fr;
+        return (
+            <div className="w-full h-full p-8 flex flex-col items-center justify-center gap-4 text-center">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <CheckCircle className="w-10 h-10 text-emerald-400" />
+                </div>
+                <h2 className="text-xl font-bold text-white">{msg.title}</h2>
+                <p className="text-blue-200 text-sm">{msg.body}</p>
+                <div className="w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mt-2" />
+            </div>
+        );
+    }
+
     return (
         <div className="w-full h-full p-8 flex flex-col relative z-10 overflow-y-auto custom-scrollbar">
             <div className="flex items-center gap-3 mb-6">
@@ -63,7 +133,11 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                     onClick={onBack}
                     className="p-2 hover:bg-white/10 rounded-xl transition-colors text-blue-200 hover:text-white"
                 >
-                    <ArrowLeft className="w-5 h-5" />
+                    {/* Arrow direction adapts to RTL */}
+                    {isRTL
+                        ? <ArrowRight className="w-5 h-5" />
+                        : <ArrowLeft className="w-5 h-5" />
+                    }
                 </button>
                 <h2 className="text-xl font-bold text-white">{t(language as Language, 'auth.parentRegister') || 'Inscription Parent'}</h2>
             </div>
@@ -76,22 +150,25 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                 )}
 
                 <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-4">
+                    {/* School code — always LTR (ASCII codes) */}
                     <div>
                         <label className={labelClass}>{t(language as Language, 'auth.schoolCode') || "Code de l'école (School Slug)"}</label>
                         <div className="relative">
                             <Building className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
+                                dir="ltr"
                                 type="text"
                                 required
                                 value={schoolSlug}
                                 onChange={e => setSchoolSlug(e.target.value.toLowerCase().trim())}
-                                placeholder={t(language as Language, 'auth.schoolCodeEx') || "ex: mon_ecole_2025"}
+                                placeholder="ex: mon_ecole_2025"
                                 className={inputClass}
                             />
                         </div>
                         <p className="text-xs text-blue-200/70 mt-1">{t(language as Language, 'auth.askCodeAdmin') || "Demandez ce code à l'administration de votre école."}</p>
                     </div>
 
+                    {/* Full name — RTL-aware (accepts Arabic names) */}
                     <div>
                         <label className={labelClass}>{t(language as Language, 'auth.fullNameParent') || 'Nom Complet (Parent)'}</label>
                         <div className="relative">
@@ -107,27 +184,33 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                         </div>
                     </div>
 
+                    {/* Phone — always LTR (phone numbers are LTR even in Arabic) */}
                     <div>
-                        <label className={labelClass}>{t(language as Language, 'auth.phone') || 'Numéro de téléphone'}</label>
+                        <label className={labelClass}>
+                            {t(language as Language, 'auth.phone') || t(language as Language, 'auth.phoneUsedForLogin') || 'Numéro de téléphone'}
+                        </label>
                         <div className="relative">
                             <Phone className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
+                                dir="ltr"
                                 type="tel"
                                 required
                                 value={telephone}
                                 onChange={e => setTelephone(e.target.value)}
-                                placeholder={t(language as Language, 'auth.phoneUsedForLogin') || "Ce numéro sera utilisé pour la connexion"}
+                                placeholder="+22690000000"
                                 className={inputClass}
                             />
                         </div>
                         <p className="text-xs text-blue-200/70 mt-1">{t(language as Language, 'auth.phoneMustMatch') || "Le numéro doit correspondre à celui enregistré par l'école pour vos enfants."}</p>
                     </div>
 
+                    {/* Password — always LTR */}
                     <div>
                         <label className={labelClass}>{t(language as Language, 'auth.password') || 'Mot de passe'}</label>
                         <div className="relative">
                             <Lock className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                             <input
+                                dir="ltr"
                                 type="password"
                                 required
                                 minLength={6}
@@ -144,19 +227,18 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                     <input
                         type="checkbox"
                         id="terms"
-                        required
                         checked={acceptedTerms}
                         onChange={(e) => setAcceptedTerms(e.target.checked)}
-                        className="mt-1 w-4 h-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-500/50"
+                        className="mt-1 w-4 h-4 rounded border-white/30 bg-white/20 text-blue-500 focus:ring-blue-500/50 cursor-pointer flex-shrink-0"
                     />
-                    <label htmlFor="terms" className="text-sm text-blue-200">
+                    <label htmlFor="terms" className="text-sm text-blue-200 cursor-pointer">
                         {t(language as Language, 'auth.acceptTermsAndCertify') || "J'accepte les conditions d'utilisation et certifie que ce numéro m'appartient bien."}
                     </label>
                 </div>
 
                 <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || !acceptedTerms}
                     className="w-full py-3.5 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (t(language as Language, 'auth.createParentAccount') || "Créer mon compte Parent")}

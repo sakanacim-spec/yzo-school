@@ -192,7 +192,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center font-['Poppins'] overflow-hidden bg-white relative">
+    <div dir="ltr" className="min-h-screen flex items-center justify-center font-['Poppins'] overflow-hidden bg-white relative">
       <style>{`
         /* ──── DESKTOP SLIDING OVERLAY ──── */
         .auth-container {
@@ -336,8 +336,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                     <div className="relative">
                         <User className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <input 
+                            dir="ltr"
                             type="text" 
-                            placeholder={t(language as Language, 'auth.phoneEx') || "+33 6 12 34 56 78"} 
+                            placeholder="+33 6 12 34 56 78" 
                             className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={username} 
                             onChange={(e) => setUsername(e.target.value)} 
@@ -348,8 +349,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                     <div className="relative">
                         <Lock className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                         <input 
+                            dir="ltr"
                             type={showPassword ? "text" : "password"} 
-                            placeholder={t(language as Language, 'auth.passwordPlaceholderMobile') || "••••••"} 
+                            placeholder="••••••" 
                             className="w-full h-[52px] !ps-12 pe-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                             value={password} 
                             onChange={(e) => setPassword(e.target.value)} 
@@ -573,8 +575,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         <div className="relative">
                             <User className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                             <input 
+                                dir="ltr"
                                 type="text" 
-                                placeholder={t(language as Language, 'auth.phoneEx') || "+33 6 12 34 56 78"} 
+                                placeholder="+33 6 12 34 56 78" 
                                 className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={username} 
                                 onChange={(e) => setUsername(e.target.value)} 
@@ -585,8 +588,9 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         <div className="relative">
                             <Lock className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                             <input 
+                                dir="ltr"
                                 type={showPassword ? "text" : "password"} 
-                                placeholder={t(language as Language, 'auth.passwordPlaceholderMobile') || "••••••"} 
+                                placeholder="••••••" 
                                 className="w-full h-[52px] !ps-12 pe-11 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
                                 value={password} 
                                 onChange={(e) => setPassword(e.target.value)} 

@@ -77,6 +77,7 @@ export const ar = {
     askCodeAdmin: 'اطلب هذا الرمز من إدارة مدرستك.',
     fullNameParent: 'الاسم الكامل (ولي الأمر)',
     fullNameEx: 'مثال: محمد عبدالله',
+    phone: 'رقم الهاتف',
     phoneUsedForLogin: 'سيتم استخدام هذا الرقم لتسجيل الدخول',
     phoneMustMatch: 'يجب أن يتطابق الرقم مع الرقم المسجل لدى المدرسة لأطفالك.',
     password: 'كلمة المرور',
