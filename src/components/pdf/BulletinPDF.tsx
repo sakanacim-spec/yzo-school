@@ -13,19 +13,23 @@ interface BulletinTogoPDFProps {
     studentPhoto?: string | null;
 }
 
-// Formatte la date du jour en français
-const getDateFr = (): string => {
+// Formatte la date du jour dans la langue choisie
+const getDateLocalized = (lang: Language): string => {
     const d = new Date();
-    const mois = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-    return `${d.getDate()} ${mois[d.getMonth()]} ${d.getFullYear()}`;
+    const monthsKey = t(lang, 'bulletin.months');
+    // Fallback: the months are stored as a comma-separated string from the i18n array
+    const months = monthsKey ? monthsKey.split(',') : ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 };
 
 export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps>(
     ({ data, schoolName, schoolLogo, schoolStamp, schoolYear, studentPhoto }, ref) => {
     const countryCode = useStore((s) => s.schoolCountry);
     const country = (getCountryName(countryCode) || 'TOGO').toUpperCase();
-    const language = useStore((s) => s.language);
-    const phone = useStore((s) => s.schoolPhone) || t(language as Language, 'bulletin.phoneNotProvided') || 'Téléphone non renseigné';
+    const language = useStore((s) => s.language) as Language;
+    // Shorthand for bulletin translations
+    const b = (key: string) => t(language, `bulletin.${key}`);
+    const phone = useStore((s) => s.schoolPhone) || b('phoneNotProvided');
     const address = useStore((s) => s.schoolAddress) || 'Apéssito';
     const city = address.split(',').pop()?.trim() || 'Lomé';
     const slogan = useStore((s) => s.schoolSlogan) || 'Travail-Rigueur-Succès';
@@ -131,11 +135,11 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         {/* Ligne 1 : Nom & Prénom  |  Matricule */}
                         <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', borderBottom: '1px solid black' }}>
                             <div className="text-[9.5px]" style={{ padding: '3px 6px', borderRight: '1px solid black' }}>
-                                <span className="font-bold uppercase">Nom &amp; Prénom(s) : </span>
+                                <span className="font-bold uppercase">{b('studentName')} : </span>
                                 <span>{data.eleve.nom} {data.eleve.prenom}</span>
                             </div>
                             <div className="text-[9.5px]" style={{ padding: '3px 6px' }}>
-                                <span className="font-bold uppercase">Matricule : </span>
+                                <span className="font-bold uppercase">{b('registrationNumber')} : </span>
                                 <span>{data.eleve.adsn || 'N/A'}</span>
                             </div>
                         </div>
@@ -143,11 +147,11 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         {/* Ligne 2 : Date de naissance  |  Classe */}
                         <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', borderBottom: '1px solid black' }}>
                             <div className="text-[9.5px]" style={{ padding: '3px 6px', borderRight: '1px solid black' }}>
-                                <span className="font-bold uppercase">Date de naissance : </span>
+                                <span className="font-bold uppercase">{b('birthDate')} : </span>
                                 <span>{data.eleve.dateNaissance || 'N/A'}</span>
                             </div>
                             <div className="text-[9.5px]" style={{ padding: '3px 6px' }}>
-                                <span className="font-bold uppercase">Classe : </span>
+                                <span className="font-bold uppercase">{b('class')} : </span>
                                 <span className="font-bold">{data.eleve.classe}</span>
                             </div>
                         </div>
@@ -155,12 +159,12 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         {/* Ligne 3 : Sexe  |  Effectif de la classe */}
                         <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', borderBottom: '1px solid black' }}>
                             <div className="text-[9.5px]" style={{ padding: '3px 6px', borderRight: '1px solid black' }}>
-                                <span className="font-bold uppercase">Sexe : </span>
-                                <span>{data.eleve.sexe === 'F' ? 'Féminin (F)' : 'Masculin (M)'}</span>
+                                <span className="font-bold uppercase">{b('gender')} : </span>
+                                <span>{data.eleve.sexe === 'F' ? b('genderFemale') : b('genderMale')}</span>
                             </div>
                             <div className="text-[9.5px]" style={{ padding: '3px 6px' }}>
-                                <span className="font-bold uppercase">Effectif : </span>
-                                <span className="font-bold">{data.effectifClasse} élèves</span>
+                                <span className="font-bold uppercase">{b('effectif')} : </span>
+                                <span className="font-bold">{data.effectifClasse} {b('students')}</span>
                             </div>
                         </div>
 
@@ -168,9 +172,9 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f8f8', borderTop: 'none' }}>
                             <div className="text-center py-1.5 px-3">
                                 <p className="font-black uppercase tracking-widest text-[16px] leading-tight text-black">
-                                    Bulletin de Notes du {data.periode}
+                                    {b('title')} {data.periode}
                                 </p>
-                                <p className="text-[12px] font-bold text-gray-700 mt-1">Année Scolaire : {schoolYear}</p>
+                                <p className="text-[12px] font-bold text-gray-700 mt-1">{b('schoolYear')} : {schoolYear}</p>
                             </div>
                         </div>
                     </div>
@@ -220,18 +224,18 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                     </colgroup>
                     <thead>
                         <tr className="bg-gray-200 font-bold text-center">
-                            <th className="border-[1.5px] border-black p-0.5">MATIÈRES</th>
-                            <th className="border-[1.5px] border-black p-0.5">CL.<br/>(/20)</th>
-                            <th className="border-[1.5px] border-black p-0.5">DEV.<br/>(/20)</th>
-                            {showClassAvg && <th className="border-[1.5px] border-black p-0.5" style={{ fontSize: '7px' }}>MOY.<br/>CL.</th>}
-                            <th className="border-[1.5px] border-black p-0.5">COMP.<br/>(/20)</th>
-                            <th className="border-[1.5px] border-black p-0.5">MOY.<br/>(/20)</th>
-                            <th className="border-[1.5px] border-black p-0.5">COEF</th>
-                            <th className="border-[1.5px] border-black p-0.5">CxF</th>
-                            {showRank && <th className="border-[1.5px] border-black p-0.5">RANG</th>}
-                            <th className="border-[1.5px] border-black p-0.5">PROFESSEUR</th>
-                            <th className="border-[1.5px] border-black p-0.5">APPRÉCIATION</th>
-                            <th className="border-[1.5px] border-black p-0.5">SIGNATURE</th>
+                            <th className="border-[1.5px] border-black p-0.5">{b('subjects')}</th>
+                            <th className="border-[1.5px] border-black p-0.5">{b('classGrade')}<br/>(/20)</th>
+                            <th className="border-[1.5px] border-black p-0.5">{b('homeworkGrade')}<br/>(/20)</th>
+                            {showClassAvg && <th className="border-[1.5px] border-black p-0.5" style={{ fontSize: '7px' }}>{b('classAvg')}</th>}
+                            <th className="border-[1.5px] border-black p-0.5">{b('compositionGrade')}<br/>(/20)</th>
+                            <th className="border-[1.5px] border-black p-0.5">{b('average')}<br/>(/20)</th>
+                            <th className="border-[1.5px] border-black p-0.5">{b('coeff')}</th>
+                            <th className="border-[1.5px] border-black p-0.5">{b('coeffTimesGrade')}</th>
+                            {showRank && <th className="border-[1.5px] border-black p-0.5">{b('rank')}</th>}
+                            <th className="border-[1.5px] border-black p-0.5">{b('teacher')}</th>
+                            <th className="border-[1.5px] border-black p-0.5">{b('appreciation')}</th>
+                            <th className="border-[1.5px] border-black p-0.5">{b('signature')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -392,33 +396,33 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         {/* 2. STATISTIQUES EXPLICITES DE LA CLASSE (Les informations importantes) */}
                         <div className={`p-2 flex-col justify-center space-y-2 flex-1 bg-[#f8f9fa] ${bulletinTemplate === 'classique' ? 'py-4 space-y-3 text-[10.5px]' : ''}`}>
                             <div className="flex justify-between items-end border-b border-gray-200 pb-0.5">
-                                <span className="uppercase text-[11px] font-black text-black">Moyenne Générale :</span>
+                                <span className="uppercase text-[11px] font-black text-black">{b('generalAverage')} :</span>
                                 <span className={`font-black text-rose-800 leading-none ${bulletinTemplate === 'classique' ? 'text-[16px]' : 'text-[14px]'}`}>{data.moyenneGenerale.toFixed(2)}</span>
                             </div>
                             {showRank && (
                                 <div className="flex justify-between items-end border-b border-gray-200 pb-0.5 mb-1">
-                                    <span className="uppercase text-[11px] font-black text-black">Rang :</span>
+                                    <span className="uppercase text-[11px] font-black text-black">{b('rankLabel')} :</span>
                                     <span className={`font-black text-blue-800 leading-none ${bulletinTemplate === 'classique' ? 'text-[16px]' : 'text-[14px]'}`}>{data.rangGeneral} <span className="text-[10px] font-normal text-gray-500">/ {data.effectifClasse}</span></span>
                                 </div>
                             )}
                             <div className="flex justify-between items-end border-b border-gray-200 pb-0.5">
-                                <span className="text-[10px] font-bold text-gray-800">Plus forte moyenne :</span>
+                                <span className="text-[10px] font-bold text-gray-800">{b('highestAverage')} :</span>
                                 <span className={`font-black text-emerald-700 leading-none ${bulletinTemplate === 'classique' ? 'text-[14px]' : 'text-[12.5px]'}`}>{data.moyenneMax.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-end border-b border-gray-200 pb-0.5">
-                                <span className="text-[10px] font-bold text-gray-800">Plus faible moyenne :</span>
+                                <span className="text-[10px] font-bold text-gray-800">{b('lowestAverage')} :</span>
                                 <span className={`font-black text-red-700 leading-none ${bulletinTemplate === 'classique' ? 'text-[14px]' : 'text-[12.5px]'}`}>{data.moyenneMin.toFixed(2)}</span>
                             </div>
                             {showClassAvg && (
                                 <div className="flex justify-between items-end border-b border-gray-200 pb-0.5">
-                                    <span className="text-[10px] font-bold text-gray-800">Moyenne générale de la classe :</span>
+                                    <span className="text-[10px] font-bold text-gray-800">{b('classGeneralAverage')} :</span>
                                     <span className={`font-black text-blue-700 leading-none ${bulletinTemplate === 'classique' ? 'text-[14px]' : 'text-[12.5px]'}`}>{data.moyenneClasse.toFixed(2)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between items-end pt-1 border-t border-gray-300 mt-2">
                                 <div className="flex gap-6">
-                                    <span className="text-[10px] font-bold text-red-700 uppercase">Absences : <span className="text-[13px]">{data.absences ?? 0}</span></span>
-                                    <span className="text-[10px] font-bold text-orange-700 uppercase">Retards : <span className="text-[13px]">{data.retards ?? 0}</span></span>
+                                    <span className="text-[10px] font-bold text-red-700 uppercase">{b('absences')} : <span className="text-[13px]">{data.absences ?? 0}</span></span>
+                                    <span className="text-[10px] font-bold text-orange-700 uppercase">{b('lates')} : <span className="text-[13px]">{data.retards ?? 0}</span></span>
                                 </div>
                             </div>
                         </div>
@@ -428,17 +432,17 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                     {showAppreciation && (
                         <div style={{ width: '38mm', display: 'flex', flexDirection: 'column' }}>
                             <div className="text-[8px] font-black uppercase text-center" style={{ padding: '2px 4px', background: '#e5e5e5', borderBottom: '1.5px solid black' }}>
-                                APPRÉCIATION
+                                {b('appreciation')}
                             </div>
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', padding: '3px 6px' }}>
                                 {[
-                                    { label: 'Très Bien',    min: 16 },
-                                    { label: 'Bien',         min: 14 },
-                                    { label: 'Assez Bien',   min: 12 },
-                                    { label: 'Passable',     min: 10 },
-                                    { label: 'Insuffisant',  min: 8 },
-                                    { label: 'Faible',       min: 5 },
-                                    { label: 'Médiocre',     min: 0 },
+                                    { label: b('appVeryGood'),    min: 16 },
+                                    { label: b('appGood'),        min: 14 },
+                                    { label: b('appFairlyGood'),  min: 12 },
+                                    { label: b('appPassing'),     min: 10 },
+                                    { label: b('appInsufficient'),min: 8 },
+                                    { label: b('appWeak'),        min: 5 },
+                                    { label: b('appPoor'),        min: 0 },
                                 ].map(({ label, min }, i, arr) => {
                                     const max = arr[i - 1]?.min ?? 21;
                                     const checked = data.moyenneGenerale >= min && data.moyenneGenerale < max;
@@ -464,19 +468,19 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
 
                 {/* DÉCISION DU CONSEIL */}
                 <div className="mt-1.5 mb-1 px-1 flex items-end overflow-hidden whitespace-nowrap">
-                    <span className="text-[10px] font-bold mr-1 flex-shrink-0">Décision du conseil :</span>
+                    <span className="text-[10px] font-bold mr-1 flex-shrink-0">{b('councilDecision')} :</span>
                     <span className="text-[10px] tracking-widest text-black">...................................................................................................................................................................................</span>
                 </div>
 
                 {/* DÉCISIONS & SIGNATURES */}
                 <div className="grid grid-cols-2 gap-4 mt-1" style={{ gridTemplateColumns: '1fr 1fr' }}>
                     <div className="border-[1.5px] border-black relative" style={{ height: '15mm' }}>
-                        <div className="text-[8px] font-black uppercase text-center border-b-[1.5px] border-black" style={{ padding: '2px' }}>LE TITULAIRE DE CLASSE</div>
-                        <p className="italic text-gray-400 font-normal absolute bottom-1 w-full left-0 text-center text-[7.5px]">Cachet et signature</p>
+                        <div className="text-[8px] font-black uppercase text-center border-b-[1.5px] border-black" style={{ padding: '2px' }}>{b('classTeacher')}</div>
+                        <p className="italic text-gray-400 font-normal absolute bottom-1 w-full left-0 text-center text-[7.5px]">{b('stampAndSignature')}</p>
                     </div>
                     <div className="border-[1.5px] border-black relative" style={{ height: '15mm' }}>
-                        <div className="text-[8px] font-black uppercase text-center border-b-[1.5px] border-black" style={{ padding: '2px' }}>LE DIRECTEUR / PROVISEUR</div>
-                        <p className="italic text-gray-400 font-normal absolute bottom-1 w-full left-0 text-center text-[7.5px]">Sceau et signature</p>
+                        <div className="text-[8px] font-black uppercase text-center border-b-[1.5px] border-black" style={{ padding: '2px' }}>{b('directorTitle')}</div>
+                        <p className="italic text-gray-400 font-normal absolute bottom-1 w-full left-0 text-center text-[7.5px]">{b('sealAndSignature')}</p>
                     </div>
                 </div>
 
@@ -484,11 +488,11 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                 <div className="mt-2 flex justify-between items-end">
                     {/* Mention légale */}
                     <p className="text-[7.5px] italic text-gray-400 max-w-[55%]">
-                        Ce bulletin est unique et aucune copie ne sera délivrée. À conserver précieusement par le parent ou tuteur.
+                        {b('legalNotice')}
                     </p>
                     {/* Date de création — plus grande, en bas de page */}
                     <p className="text-[11px] font-bold text-black text-right">
-                        Fait à {city}, le {getDateFr()}
+                        {b('madeIn')} {city}, {b('the')} {getDateLocalized(language)}
                     </p>
                 </div>
 
@@ -500,7 +504,7 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         style={{ height: '8mm', width: 'auto', objectFit: 'contain' }}
                     />
                     <p className="text-[7px] text-gray-400 italic">
-                        Généré via <span className="font-bold">yziow.com</span> — Plateforme de Gestion Scolaire
+                        {b('generatedVia')}
                     </p>
                 </div>
             </div>
