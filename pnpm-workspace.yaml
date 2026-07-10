@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "services/*"
+
+# Autoriser les scripts de build pour les packages de confiance (pnpm v11+)
+allowBuilds:
+  '0': '@nestjs/core'
+  '1': '@swc/core'
+  '2': esbuild
+  '@nestjs/core': set this to true or false

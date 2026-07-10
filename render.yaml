@@ -1,0 +1,47 @@
+services:
+  # ── API NestJS ─────────────────────────────────────────────────
+  - type: web
+    name: saas-api
+    runtime: node
+    region: frankfurt  # EU — conformité RGPD
+    plan: starter      # Always-on (pas de cold start)
+    rootDir: apps/api
+    buildCommand: pnpm install && pnpm build
+    startCommand: node dist/main
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://admin.saas-platform.eu,https://docs.saas-platform.eu
+
+  # ── Admin Portal Next.js ───────────────────────────────────────
+  - type: web
+    name: saas-admin
+    runtime: node
+    region: frankfurt
+    plan: starter
+    rootDir: apps/admin
+    buildCommand: pnpm install && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://saas-api.onrender.com
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false

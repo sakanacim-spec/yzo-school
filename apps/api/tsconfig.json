@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./src",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "paths": {
+      "@saas/types": ["../../packages/types/src/index.ts"],
+      "@saas/validators": ["../../packages/validators/src/index.ts"],
+      "@saas/utils": ["../../packages/utils/src/index.ts"]
+    },
+    // NestJS DTOs avec class-validator n'utilisent pas d'initialiseurs
+    "strictPropertyInitialization": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test"]
+}

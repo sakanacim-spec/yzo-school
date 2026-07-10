@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@saas/types": ["./packages/types/src/index.ts"],
+      "@saas/validators": ["./packages/validators/src/index.ts"],
+      "@saas/utils": ["./packages/utils/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next", "coverage"]
+}

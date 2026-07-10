@@ -1,0 +1,398 @@
+# Architecture — SaaS d'API Modulaire B2B
+
+## Vision & Contexte
+
+Un SaaS **multi-tenant**, **multi-client**, **modulaire**, qui expose des APIs métier à des entreprises clientes (tenants). Yziow est le client pilote, mais la plateforme est **100 % agnostique** du domaine métier de chaque client. Chaque client active uniquement les modules dont il a besoin.
+
+---
+
+## Principes Directeurs
+
+| Principe | Signification |
+|---|---|
+| **Separation of Concerns** | Le SaaS ne connaît pas Yziow ; Yziow consomme le SaaS via des APIs |
+| **Multi-tenancy isolée** | Les données de chaque tenant sont logiquement isolées |
+| **Modulaire & Plug-and-play** | Chaque fonctionnalité est un module activable/désactivable par tenant |
+| **API-First** | Tout est exposé via REST/gRPC — aucune logique UI embarquée |
+| **Observabilité native** | Logs, métriques, traces inclus dès le design |
+| **Sécurité Zero-Trust** | Auth à chaque couche, pas de confiance implicite |
+
+---
+
+## Vue d'Ensemble : Les 3 Couches
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    COUCHE PRÉSENTATION                          │
+│   Admin Portal (SaaS)  │  Developer Portal  │  Client Dashboards│
+└────────────────┬───────────────┬────────────────────────────────┘
+                 │               │
+┌────────────────▼───────────────▼────────────────────────────────┐
+│                    API GATEWAY / ORCHESTRATION                  │
+│   Auth  │  Rate Limiting  │  Routing  │  Versioning  │  Logs    │
+└────────────────┬────────────────────────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────────────────────────┐
+│                    MODULES MÉTIER (Microservices)               │
+│  [Module Auth]  [Module CRM]  [Module Billing]  [Module IA]    │
+│  [Module Notif] [Module Files][Module Analytics][Module Custom] │
+└────────────────┬────────────────────────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────────────────────────┐
+│                    INFRASTRUCTURE                               │
+│   PostgreSQL  │  Redis  │  S3/Blob  │  Message Bus  │  Vault   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Architecture Détaillée
+
+### 1. Multi-Tenancy : Stratégie d'Isolation
+
+> [!IMPORTANT]
+> Choix architectural clé — impacte toute la suite.
+
+**Stratégie retenue : Shared Database + Row-Level Isolation (RLS)**
+
+- Tous les tenants partagent la même base de données
+- Chaque table contient une colonne `tenant_id`
+- PostgreSQL **Row Level Security (RLS)** applique l'isolation automatiquement
+- Avantage : scalabilité économique au démarrage, migration vers DB dédiée possible par tenant premium
+
+```
+tenants
+  id (UUID)
+  slug (ex: "yziow")
+  name
+  plan (free | starter | pro | enterprise)
+  created_at
+
+users
+  id | tenant_id | email | role | ...
+
+[toutes les tables métier]
+  id | tenant_id | ...
+```
+
+**Option Premium (Enterprise)** : Database-per-tenant (schema dédié ou instance dédiée)
+
+---
+
+### 2. API Gateway
+
+Point d'entrée unique. Responsabilités :
+
+| Fonction | Détail |
+|---|---|
+| **Authentication** | Vérification JWT / API Key à chaque requête |
+| **Tenant Resolution** | Extraction du `tenant_id` depuis le token ou le subdomain |
+| **Rate Limiting** | Par tenant, par endpoint, par plan |
+| **Routing** | Dispatch vers le bon microservice |
+| **Versioning** | `/v1/`, `/v2/` — rétrocompatibilité garantie |
+| **Request/Response Logging** | Tous les appels tracés pour audit et facturation |
+| **Circuit Breaker** | Protection si un service downstream tombe |
+
+**Technologie recommandée** : Kong Gateway (open-source) ou Traefik + plugins custom, ou API Gateway maison en Node.js/Go
+
+---
+
+### 3. Catalogue de Modules Métier
+
+Chaque module est un **microservice indépendant** avec sa propre base de données logique.
+
+#### 🔐 Module AUTH
+- Inscription / connexion (email, SSO OAuth2/OIDC)
+- Gestion des rôles (RBAC) : Super Admin, Admin Tenant, User, API Key
+- Sessions, refresh tokens, révocation
+- 2FA (TOTP, SMS)
+- Webhooks d'événements auth
+
+#### 👥 Module CRM (optionnel par tenant)
+- Gestion de contacts / entreprises
+- Pipeline de deals
+- Tags, segments, filtres avancés
+- Importation CSV / intégration externe
+
+#### 💳 Module BILLING
+- Plans & abonnements
+- Gestion des paiements (Stripe intégré)
+- Facturation, invoices PDF
+- Metering (facturation à l'usage)
+- Portail client de gestion d'abonnement
+
+#### 📣 Module NOTIFICATIONS
+- Email (transactionnel via Resend/SendGrid)
+- SMS (Twilio)
+- Push (FCM/APNs)
+- In-app (WebSocket)
+- Templates multi-langue gérables par le tenant
+
+#### 📁 Module FILES
+- Upload / stockage (S3 compatible)
+- Génération d'URLs signées
+- Traitement d'images (resize, compression)
+- Gestion des droits d'accès par fichier
+
+#### 📊 Module ANALYTICS
+- Collecte d'événements (event tracking)
+- Métriques d'usage par tenant
+- Dashboards temps réel
+- Exports (CSV, JSON)
+
+#### 🤖 Module IA (optionnel)
+- Intégration LLM (OpenAI, Anthropic, local)
+- RAG (Retrieval Augmented Generation) sur les données du tenant
+- Pipelines d'automatisation no-code
+
+#### ⚙️ Module WEBHOOKS
+- Le tenant configure des URLs de callback
+- Le SaaS notifie en temps réel (événements métier)
+- Retry automatique, logs de livraison
+
+#### 🔧 Module CUSTOM FIELDS
+- Le tenant peut ajouter des champs dynamiques à n'importe quelle entité
+- Stockage JSON schématisé (JSON Schema validation)
+
+---
+
+### 4. Plan de Données (Data Layer)
+
+```
+┌─────────────────────────────────────┐
+│  PostgreSQL (source de vérité)      │
+│  + Row Level Security               │
+│  + pgvector (pour le module IA)     │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│  Redis                              │
+│  - Cache sessions/tokens            │
+│  - Rate limiting counters           │
+│  - File temporaire de jobs          │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│  Message Bus (RabbitMQ ou Kafka)    │
+│  - Événements inter-modules         │
+│  - Queue de jobs async              │
+│  - Webhooks dispatch                │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│  Object Storage (S3 / MinIO)        │
+│  - Fichiers uploadés                │
+│  - Exports, backups                 │
+└─────────────────────────────────────┘
+```
+
+---
+
+### 5. Sécurité (Zero-Trust Model)
+
+| Couche | Mécanisme |
+|---|---|
+| **Transport** | TLS 1.3 obligatoire partout |
+| **Authentication API** | JWT (RS256) + API Keys hashées (bcrypt) |
+| **Authorization** | RBAC + ABAC (attribut-based) |
+| **Données** | Chiffrement at-rest (AES-256), chiffrement des PII |
+| **Secrets** | HashiCorp Vault / secrets managés |
+| **Audit** | Immutable audit log de toutes les actions sensibles |
+| **CORS / CSP** | Politiques strictes par tenant |
+| **DDoS** | Rate limiting multicouche (Gateway + applicatif) |
+
+---
+
+### 6. Observabilité (OpenTelemetry Stack)
+
+```
+Application → OpenTelemetry Collector
+                    ├── Traces → Jaeger / Tempo
+                    ├── Métriques → Prometheus → Grafana
+                    └── Logs → Loki → Grafana
+```
+
+- **Alerting** : Grafana AlertManager ou PagerDuty
+- **SLA Monitoring** : Uptime per tenant
+- **Business Metrics** : API calls/tenant, revenus, churn
+
+---
+
+### 7. Developer Experience (DX)
+
+Le SaaS doit être **agréable à consommer** pour les développeurs des entreprises clientes.
+
+| Composant | Description |
+|---|---|
+| **Developer Portal** | Documentation interactive (OpenAPI/Swagger) |
+| **API Playground** | Tester les endpoints en live depuis le portail |
+| **SDK** | Bibliothèques officielles (Node, Python, PHP…) |
+| **Webhooks Tester** | Simuler des événements webhook |
+| **Changelog** | Historique des changements d'API |
+| **Status Page** | Disponibilité publique des services |
+
+---
+
+### 8. Admin Portal (Super Admin SaaS)
+
+Interface de gestion de la plateforme par l'équipe interne :
+
+- Vue de tous les tenants (search, filter, état, plan)
+- Activation/désactivation de modules par tenant
+- Monitoring des usages et quotas
+- Gestion des plans & pricing
+- Impersonation (se connecter en tant qu'un tenant pour le support)
+- Logs d'audit globaux
+
+---
+
+### 9. Tenant Onboarding Flow
+
+```
+1. Inscription du tenant
+   └── Création de l'organisation (slug unique)
+   └── Création du Super Admin du tenant
+   └── Plan Free par défaut
+
+2. Configuration initiale (Wizard)
+   └── Choix des modules à activer
+   └── Paramètres de base (nom, logo, locale)
+   └── Génération des clés API
+
+3. Intégration
+   └── Documentation personnalisée selon modules activés
+   └── SDKs disponibles au téléchargement
+   └── Sandbox environnement (données de test)
+```
+
+---
+
+### 10. Modèle de Déploiement
+
+#### Phase 1 — Monorepo Modulaire (MVP)
+- Architecture monorepo avec workspaces (Turborepo / Nx)
+- Services découplés logiquement mais déployés ensemble (monolith modulaire)
+- Permet un refactor vers microservices sans réécriture
+
+```
+saas-platform/
+├── apps/
+│   ├── api-gateway/          # Point d'entrée
+│   ├── admin-portal/         # Dashboard SaaS interne
+│   └── developer-portal/     # Docs + Playground
+├── services/
+│   ├── auth-service/
+│   ├── billing-service/
+│   ├── notification-service/
+│   ├── crm-service/
+│   ├── files-service/
+│   ├── analytics-service/
+│   └── webhook-service/
+├── packages/
+│   ├── shared-types/         # Types TypeScript partagés
+│   ├── db/                   # Prisma schema + migrations
+│   ├── config/               # Variables d'env, feature flags
+│   └── utils/                # Helpers communs
+└── infra/
+    ├── docker/
+    ├── kubernetes/
+    └── terraform/
+```
+
+#### Phase 2 — Microservices (Scale)
+- Chaque service déployé indépendamment (Kubernetes)
+- Service Mesh (Istio) pour la communication inter-services
+- Auto-scaling par service selon la charge
+
+---
+
+### 11. Stack Technologique Recommandée
+
+| Couche | Technologie | Justification |
+|---|---|---|
+| **Runtime principal** | Node.js + TypeScript | Productivité, ecosystem, fullstack TS |
+| **Framework API** | Fastify ou NestJS | Performance (Fastify) ou structure (NestJS) |
+| **ORM** | Prisma | Typage fort, migrations, multi-DB |
+| **Base de données** | PostgreSQL 16 | RLS natif, JSONB, pgvector |
+| **Cache** | Redis 7 | Universel, rapide |
+| **Message Bus** | RabbitMQ (MVP) → Kafka (scale) | Progressif |
+| **Gateway** | Kong ou custom Fastify | Extensible |
+| **Auth** | JWT (RS256) + Passport.js | Standard |
+| **Paiement** | Stripe | Leader du marché |
+| **Email** | Resend | Developer-friendly |
+| **Storage** | AWS S3 ou MinIO (self-hosted) | Flexible |
+| **Infra** | Docker + Kubernetes | Standard industrie |
+| **IaC** | Terraform | Reproductible |
+| **CI/CD** | GitHub Actions | Intégré |
+| **Monitoring** | Grafana Stack (Loki/Tempo/Prometheus) | Gratuit, puissant |
+| **Secrets** | HashiCorp Vault ou Doppler | Sécurisé |
+
+---
+
+### 12. Roadmap par Phase
+
+#### ✅ Phase 0 — Fondations (Semaines 1-4)
+- [ ] Mise en place du monorepo (Turborepo + TypeScript)
+- [ ] Infrastructure de base (Docker Compose local)
+- [ ] Module AUTH complet (inscription, login, JWT, RBAC)
+- [ ] API Gateway basique (routing, auth middleware)
+- [ ] Multi-tenancy (tenant_id partout, RLS PostgreSQL)
+- [ ] Admin Portal v1 (CRUD tenants)
+
+#### 🔄 Phase 1 — Modules Core (Semaines 5-12)
+- [ ] Module BILLING (Stripe, plans, quotas)
+- [ ] Module NOTIFICATIONS (email, webhooks)
+- [ ] Module FILES (upload S3, URLs signées)
+- [ ] Developer Portal (OpenAPI, playground)
+- [ ] SDK TypeScript/JavaScript
+- [ ] Observabilité (logs structurés, métriques)
+
+#### 🚀 Phase 2 — Modules Avancés (Semaines 13-20)
+- [ ] Module CRM
+- [ ] Module ANALYTICS
+- [ ] Module WEBHOOKS avancé
+- [ ] Module CUSTOM FIELDS
+- [ ] SDK Python / PHP
+- [ ] Status Page publique
+
+#### 🌍 Phase 3 — Scale & Entreprise (Semaines 21+)
+- [ ] Module IA (LLM, RAG)
+- [ ] Migration Kubernetes
+- [ ] SSO/SAML Enterprise
+- [ ] SLA contractuels par tenant
+- [ ] Compliance (RGPD, SOC2)
+
+---
+
+## Questions Ouvertes
+
+> [!IMPORTANT]
+> Ces points nécessitent une décision avant le début du développement.
+
+1. **Hébergement** : Cloud public (AWS, GCP, Azure) ou self-hosted (VPS OVH, Hetzner) ?
+2. **Modèle de pricing Yziow** : Accès via API Key ou via subdomain dédié (`yziow.saas-platform.com`) ?
+3. **Langage backend** : Confirmez-vous TypeScript/Node.js, ou préférez-vous Go (plus performant) ou Python (ML-friendly) ?
+4. **Open-source ou propriétaire** : Le SaaS lui-même sera-t-il open-source (type Supabase) ou entièrement fermé ?
+5. **Région de données** : Hébergement EU uniquement (RGPD) ou global ?
+6. **Base de données Yziow** : Yziow aura-t-il des besoins de données très spécifiques qui nécessitent un module custom ?
+
+---
+
+## Relation SaaS ↔ Yziow (Indépendance Garantie)
+
+```
+                    ┌─────────────────┐
+                    │   SAAS PLATFORM │
+                    │  (indépendant)  │
+                    └────────┬────────┘
+                             │ API REST / Webhooks
+                    ┌────────▼────────┐
+                    │     YZIOW       │
+                    │  (tenant pilote)│
+                    └─────────────────┘
+```
+
+- Yziow n'a **aucun code** dans le SaaS
+- Yziow **configure** ses modules via l'Admin Portal ou l'API de management
+- Yziow peut être **remplacé par n'importe quel autre client** sans modifier le SaaS
+- Le SaaS peut onboarder de nouveaux clients **sans toucher au code** de Yziow

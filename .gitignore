@@ -1,0 +1,42 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+.next
+.turbo
+out
+build
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Supabase local
+.supabase
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Test coverage
+coverage
+.nyc_output
+
+# TypeScript incremental
+*.tsbuildinfo
