@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node validate-i18n.js && vite build",
     "preview": "vite preview",
     "start": "node backend/server.js",
     "start-all": "concurrently \"npm run dev\" \"node backend/server.js\""
