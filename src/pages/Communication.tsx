@@ -181,13 +181,13 @@ export const Communication: React.FC = () => {
                             <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t(language as Language, 'communication.messageTitle') || 'Message'}</h2>
                             <div className="flex flex-wrap gap-2">
                                 <button onClick={() => insertVariable('{nom_eleve}')} className="px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-lg hover:bg-indigo-100 transition">
-                                    + {'{nom_eleve}'}
+                                    + {t(language as Language, 'communication.varStudent') || 'Élève'}
                                 </button>
                                 <button onClick={() => insertVariable('{reste_a_payer}')} className="px-3 py-1 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-lg hover:bg-rose-100 transition">
-                                    + {'{reste_a_payer}'}
+                                    + {t(language as Language, 'communication.varRemaining') || 'Reste à payer'}
                                 </button>
                                 <button onClick={() => insertVariable('{classe}')} className="px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-100 transition">
-                                    + {'{classe}'}
+                                    + {t(language as Language, 'communication.varClass') || 'Classe'}
                                 </button>
                             </div>
                         </div>

@@ -365,13 +365,13 @@ export const Paiements: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full xl:w-auto">
             <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-2">
-                <ArrowUpRight className="w-3 h-3 text-emerald-500" /> {t(language as Language, 'payments.totalReceived') || 'Total Perçu'}
+                <ArrowUpRight className="w-3 h-3 text-emerald-500" /> {t(language as Language, 'finance.totalReceived') || 'Total Perçu'}
               </p>
               <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{new Intl.NumberFormat('fr-FR').format(totalPaye)} <span className="text-sm font-bold text-slate-400">F</span></p>
             </div>
             <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-2">
-                <TrendingDown className="w-3 h-3 text-rose-500" /> {t(language as Language, 'payments.remainingToRecover') || 'Reste à recouvrer'}
+                <TrendingDown className="w-3 h-3 text-rose-500" /> {t(language as Language, 'finance.remaining') || 'Reste à recouvrer'}
               </p>
               <p className="text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight">{new Intl.NumberFormat('fr-FR').format(totalRestant)} <span className="text-sm font-bold text-rose-300">F</span></p>
             </div>

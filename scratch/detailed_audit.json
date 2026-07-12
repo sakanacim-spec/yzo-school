@@ -1,0 +1,1440 @@
+{
+  "missingKeys": {
+    "dashboard.stats.totalStudents": [
+      {
+        "file": "Analytics.tsx",
+        "line": 329,
+        "context": "                    </div>\n                    <p className=\"text-xs sm:text-sm text-gray-600\">\n                      {t(language as Language, 'students.remaining') || 'Reste'}: {formatMontant(c.restant)} ({c.effectif} {t(language as Language, 'dashboard.stats.totalStudents') || 'élèves'})\n                    </p>\n                  </div>"
+      },
+      {
+        "file": "Dashboard.tsx",
+        "line": 61,
+        "context": "        <StatCard\n          icon={Users}\n          label={t(language, 'dashboard.stats.totalStudents') || 'Total Élèves'}\n          value={stats.totalEleves.toString()}\n          subtext={(t(language, 'dashboard.stats.cyclesFormat') || 'P:{p} | C:{c} | L:{l}').replace('{p}', stats.totalPrimaire.toString()).replace('{c}', stats.totalCollege.toString()).replace('{l}', stats.totalLycee.toString())}"
+      },
+      {
+        "file": "ImportExport.tsx",
+        "line": 204,
+        "context": "                  <div>\n                    <p className=\"font-medium text-sm sm:text-base\">{t(language as Language, 'importExport.allStudents') || 'Tous les élèves'}</p>\n                    <p className=\"text-xs sm:text-sm text-gray-500\">{students.length} {t(language as Language, 'dashboard.stats.totalStudents') || 'élèves'}</p>\n                  </div>\n                </div>"
+      },
+      {
+        "file": "ImportExport.tsx",
+        "line": 228,
+        "context": "                    <p className=\"font-medium text-sm sm:text-base\">{t(language as Language, 'importExport.unpaidStudents') || 'Élèves non soldés'}</p>\n                    <p className=\"text-xs sm:text-sm text-gray-500\">\n                      {students.filter(s => s.restant > 0).length} {t(language as Language, 'dashboard.stats.totalStudents') || 'élèves'}\n                    </p>\n                  </div>"
+      },
+      {
+        "file": "Reports.tsx",
+        "line": 86,
+        "context": "                  <p className=\"font-medium text-blue-800\">{t(language as Language, 'common.class') || 'Classe'}: {selectedClasse}</p>\n                  <p className=\"text-sm text-blue-600 mt-1\">\n                    {classStudents.length} {t(language as Language, 'dashboard.stats.totalStudents') || 'élèves'} •\n                    {classStudents.filter(s => s.restant === 0).length} {t(language as Language, 'students.statusPaid') || 'soldés'} •\n                    {classStudents.filter(s => s.restant > 0).length} {t(language as Language, 'students.statusUnpaid') || 'non soldés'}"
+      }
+    ],
+    "dashboard.cycles.primaire": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 33,
+        "context": "\n  const cycleData = [\n    { name: t(language, 'dashboard.cycles.primaire') || 'Primaire', value: stats.totalPrimaire, color: '#22c55e' },\n    { name: t(language, 'dashboard.cycles.college') || 'Collège', value: stats.totalCollege, color: '#3b82f6' },\n    { name: t(language, 'dashboard.cycles.lycee') || 'Lycée', value: stats.totalLycee, color: '#1e3a5f' }"
+      },
+      {
+        "file": "Settings.tsx",
+        "line": 201,
+        "context": "            <div className=\"grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4\">\n              <div className=\"bg-green-50 border border-green-100 p-3 sm:p-4 rounded-lg\">\n                <h3 className=\"font-semibold text-green-800 mb-2 text-sm sm:text-base\">{t(language as Language, 'dashboard.cycles.primaire') || 'Primaire'}</h3>\n                <ul className=\"text-xs sm:text-sm text-green-700 space-y-1\">\n                  <li>CP1, CP2, CE1, CE2, CM1: <strong>50 000 {currency}</strong></li>"
+      }
+    ],
+    "dashboard.cycles.college": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 34,
+        "context": "  const cycleData = [\n    { name: t(language, 'dashboard.cycles.primaire') || 'Primaire', value: stats.totalPrimaire, color: '#22c55e' },\n    { name: t(language, 'dashboard.cycles.college') || 'Collège', value: stats.totalCollege, color: '#3b82f6' },\n    { name: t(language, 'dashboard.cycles.lycee') || 'Lycée', value: stats.totalLycee, color: '#1e3a5f' }\n  ].filter(d => (d.value || 0) > 0);"
+      },
+      {
+        "file": "Settings.tsx",
+        "line": 208,
+        "context": "              </div>\n              <div className=\"bg-blue-50 border border-blue-100 p-3 sm:p-4 rounded-lg\">\n                <h3 className=\"font-semibold text-blue-800 mb-2 text-sm sm:text-base\">{t(language as Language, 'dashboard.cycles.college') || 'Collège'}</h3>\n                <ul className=\"text-xs sm:text-sm text-blue-700 space-y-1\">\n                  <li>6EME, 5EME, 4EME: <strong>60 000 {currency}</strong></li>"
+      }
+    ],
+    "dashboard.cycles.lycee": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 35,
+        "context": "    { name: t(language, 'dashboard.cycles.primaire') || 'Primaire', value: stats.totalPrimaire, color: '#22c55e' },\n    { name: t(language, 'dashboard.cycles.college') || 'Collège', value: stats.totalCollege, color: '#3b82f6' },\n    { name: t(language, 'dashboard.cycles.lycee') || 'Lycée', value: stats.totalLycee, color: '#1e3a5f' }\n  ].filter(d => (d.value || 0) > 0);\n"
+      },
+      {
+        "file": "Settings.tsx",
+        "line": 215,
+        "context": "              </div>\n              <div className=\"bg-purple-50 border border-purple-100 p-3 sm:p-4 rounded-lg\">\n                <h3 className=\"font-semibold text-purple-800 mb-2 text-sm sm:text-base\">{t(language as Language, 'dashboard.cycles.lycee') || 'Lycée'}</h3>\n                <ul className=\"text-xs sm:text-sm text-purple-700 space-y-1\">\n                  <li>2nde S, 2nde A4: <strong>75 000 {currency}</strong></li>"
+      }
+    ],
+    "dashboard.status.soldes": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 39,
+        "context": "\n  const statusData = [\n    { name: t(language, 'dashboard.status.soldes') || 'Soldés', value: stats.elevesSoldes, color: '#22c55e' },\n    { name: t(language, 'dashboard.status.non_soldes') || 'Non Soldés', value: stats.elevesNonSoldes, color: '#ef4444' }\n  ];"
+      }
+    ],
+    "dashboard.status.non_soldes": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 40,
+        "context": "  const statusData = [\n    { name: t(language, 'dashboard.status.soldes') || 'Soldés', value: stats.elevesSoldes, color: '#22c55e' },\n    { name: t(language, 'dashboard.status.non_soldes') || 'Non Soldés', value: stats.elevesNonSoldes, color: '#ef4444' }\n  ];\n"
+      }
+    ],
+    "dashboard.stats.cyclesFormat": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 63,
+        "context": "          label={t(language, 'dashboard.stats.totalStudents') || 'Total Élèves'}\n          value={stats.totalEleves.toString()}\n          subtext={(t(language, 'dashboard.stats.cyclesFormat') || 'P:{p} | C:{c} | L:{l}').replace('{p}', stats.totalPrimaire.toString()).replace('{c}', stats.totalCollege.toString()).replace('{l}', stats.totalLycee.toString())}\n          color=\"blue\"\n        />"
+      }
+    ],
+    "dashboard.stats.expectedTuition": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 68,
+        "context": "        <StatCard\n          icon={Wallet}\n          label={t(language, 'dashboard.stats.expectedTuition') || 'Écolage Attendu'}\n          value={formatMontant(stats.totalEcolageAttendu)}\n          subtext={t(language, 'dashboard.stats.totalTuitionDesc') || 'Total des frais de scolarité'}"
+      }
+    ],
+    "dashboard.stats.totalTuitionDesc": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 70,
+        "context": "          label={t(language, 'dashboard.stats.expectedTuition') || 'Écolage Attendu'}\n          value={formatMontant(stats.totalEcolageAttendu)}\n          subtext={t(language, 'dashboard.stats.totalTuitionDesc') || 'Total des frais de scolarité'}\n          color=\"slate\"\n        />"
+      }
+    ],
+    "dashboard.stats.amountPaid": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 75,
+        "context": "        <StatCard\n          icon={CheckCircle2}\n          label={t(language, 'dashboard.stats.amountPaid') || 'Montant Payé'}\n          value={formatMontant(stats.totalDejaPaye)}\n          subtext={(t(language, 'dashboard.stats.studentsPaid') || '{count} élèves soldés').replace('{count}', stats.elevesSoldes.toString())}"
+      }
+    ],
+    "dashboard.stats.studentsPaid": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 77,
+        "context": "          label={t(language, 'dashboard.stats.amountPaid') || 'Montant Payé'}\n          value={formatMontant(stats.totalDejaPaye)}\n          subtext={(t(language, 'dashboard.stats.studentsPaid') || '{count} élèves soldés').replace('{count}', stats.elevesSoldes.toString())}\n          color=\"green\"\n        />"
+      }
+    ],
+    "dashboard.stats.recoveryRate": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 82,
+        "context": "        <StatCard\n          icon={TrendingUp}\n          label={t(language, 'dashboard.stats.recoveryRate') || 'Taux de Recouvrement'}\n          value={`${stats.tauxRecouvrement}%`}\n          subtext={(t(language, 'dashboard.stats.remaining') || 'Reste : {amount}').replace('{amount}', formatMontant(stats.totalRestant))}"
+      }
+    ],
+    "dashboard.stats.remaining": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 84,
+        "context": "          label={t(language, 'dashboard.stats.recoveryRate') || 'Taux de Recouvrement'}\n          value={`${stats.tauxRecouvrement}%`}\n          subtext={(t(language, 'dashboard.stats.remaining') || 'Reste : {amount}').replace('{amount}', formatMontant(stats.totalRestant))}\n          color=\"emerald\"\n        />"
+      }
+    ],
+    "dashboard.charts.recoveryByClass": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 95,
+        "context": "          <h3 className=\"text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2\">\n            <BookOpen className=\"w-5 h-5\" />\n            {t(language, 'dashboard.charts.recoveryByClass') || 'Taux de recouvrement par classe'}\n          </h3>\n          {topClasses.length > 0 ? ("
+      }
+    ],
+    "dashboard.charts.rate": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 104,
+        "context": "                <YAxis unit=\"%\" />\n                <Tooltip \n                  formatter={(value) => [`${value}%`, t(language, 'dashboard.charts.rate') || 'Taux']}\n                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}\n                />"
+      }
+    ],
+    "dashboard.charts.noData": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 112,
+        "context": "          ) : (\n            <div className=\"h-[300px] flex items-center justify-center text-gray-400\">\n              <p>{t(language, 'dashboard.charts.noData') || 'Aucune donnée disponible'}</p>\n            </div>\n          )}"
+      },
+      {
+        "file": "Dashboard.tsx",
+        "line": 147,
+        "context": "            ) : (\n              <div className=\"h-[150px] flex items-center justify-center text-gray-400 text-sm\">\n                {t(language, 'dashboard.charts.noData') || 'Aucune donnée'}\n              </div>\n            )}"
+      },
+      {
+        "file": "Dashboard.tsx",
+        "line": 180,
+        "context": "            ) : (\n              <div className=\"h-[150px] flex items-center justify-center text-gray-400 text-sm\">\n                {t(language, 'dashboard.charts.noData') || 'Aucune donnée'}\n              </div>\n            )}"
+      }
+    ],
+    "dashboard.charts.byCycle": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 123,
+        "context": "            <h3 className=\"text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2\">\n              <GraduationCap className=\"w-5 h-5\" />\n              {t(language, 'dashboard.charts.byCycle') || 'Par cycle'}\n            </h3>\n            {cycleData.length > 0 ? ("
+      }
+    ],
+    "dashboard.charts.paymentStatus": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 156,
+        "context": "            <h3 className=\"text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2\">\n              <AlertCircle className=\"w-5 h-5\" />\n              {t(language, 'dashboard.charts.paymentStatus') || 'Statut paiements'}\n            </h3>\n            {stats.totalEleves > 0 ? ("
+      }
+    ],
+    "dashboard.table.rankingTitle": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 190,
+        "context": "      <div className=\"bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-shadow overflow-hidden\">\n        <h3 className=\"text-lg font-semibold text-gray-800 mb-4\">\n          {t(language, 'dashboard.table.rankingTitle') || 'Classement des classes (par taux de recouvrement)'}\n        </h3>\n        {classStats.length > 0 ? ("
+      }
+    ],
+    "dashboard.table.rank": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 197,
+        "context": "              <thead>\n                <tr className=\"border-b\">\n                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.rank') || 'Rang'}</th>\n                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.class') || 'Classe'}</th>\n                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.cycle') || 'Cycle'}</th>"
+      }
+    ],
+    "dashboard.table.class": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 198,
+        "context": "                <tr className=\"border-b\">\n                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.rank') || 'Rang'}</th>\n                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.class') || 'Classe'}</th>\n                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.cycle') || 'Cycle'}</th>\n                  <th className=\"text-center py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.count') || 'Effectif'}</th>"
+      }
+    ],
+    "dashboard.table.cycle": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 199,
+        "context": "                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.rank') || 'Rang'}</th>\n                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.class') || 'Classe'}</th>\n                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.cycle') || 'Cycle'}</th>\n                  <th className=\"text-center py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.count') || 'Effectif'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.expected') || 'Attendu'}</th>"
+      },
+      {
+        "file": "StudentDetail.tsx",
+        "line": 230,
+        "context": "                  {[\n                    { label: t(language, 'common.class') || 'Classe', value: student.classe },\n                    { label: t(language, 'dashboard.table.cycle') || 'Cycle', value: student.cycle },\n                    { label: t(language, 'common.previousSchool') || 'École de provenance', value: student.ecoleProvenance || 'N/A' },\n                    { label: t(language, 'settings.schoolYear') || 'Année scolaire', value: schoolYear },"
+      }
+    ],
+    "dashboard.table.count": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 200,
+        "context": "                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.class') || 'Classe'}</th>\n                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.cycle') || 'Cycle'}</th>\n                  <th className=\"text-center py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.count') || 'Effectif'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.expected') || 'Attendu'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.paid') || 'Payé'}</th>"
+      }
+    ],
+    "dashboard.table.expected": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 201,
+        "context": "                  <th className=\"text-left py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.cycle') || 'Cycle'}</th>\n                  <th className=\"text-center py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.count') || 'Effectif'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.expected') || 'Attendu'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.paid') || 'Payé'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.remaining') || 'Restant'}</th>"
+      }
+    ],
+    "dashboard.table.paid": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 202,
+        "context": "                  <th className=\"text-center py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.count') || 'Effectif'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.expected') || 'Attendu'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.paid') || 'Payé'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.remaining') || 'Restant'}</th>\n                  <th className=\"text-center py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.rate') || 'Taux'}</th>"
+      }
+    ],
+    "dashboard.table.remaining": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 203,
+        "context": "                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.expected') || 'Attendu'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.paid') || 'Payé'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.remaining') || 'Restant'}</th>\n                  <th className=\"text-center py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.rate') || 'Taux'}</th>\n                </tr>"
+      }
+    ],
+    "dashboard.table.rate": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 204,
+        "context": "                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.paid') || 'Payé'}</th>\n                  <th className=\"text-right py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.remaining') || 'Restant'}</th>\n                  <th className=\"text-center py-3 px-4 font-semibold text-gray-600\">{t(language, 'dashboard.table.rate') || 'Taux'}</th>\n                </tr>\n              </thead>"
+      }
+    ],
+    "dashboard.table.noData": [
+      {
+        "file": "Dashboard.tsx",
+        "line": 258,
+        "context": "        ) : (\n          <p className=\"text-gray-400 text-center py-8\">\n            {t(language, 'dashboard.table.noData') || 'Aucun élève enregistré. Importez des données pour voir les statistiques.'}\n          </p>\n        )}"
+      },
+      {
+        "file": "Students.tsx",
+        "line": 353,
+        "context": "            <p className=\"text-gray-500 mb-6\">\n              {students.length === 0 \n                ? (t(lang, 'dashboard.table.noData') || 'Importez un fichier Excel pour commencer à gérer vos élèves.')\n                : (t(lang, 'students.noStudents') || 'Modifiez vos filtres pour voir plus de résultats.')\n              }"
+      }
+    ],
+    "dashboard.table.student": [
+      {
+        "file": "Finance.tsx",
+        "line": 206,
+        "context": "                <thead>\n                  <tr className=\"border-b border-gray-200\">\n                    <th className=\"text-left py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm\">{t(language as Language, 'dashboard.table.student') || 'Élève'}</th>\n                    <th className=\"text-left py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm\">{t(language as Language, 'common.class') || 'Classe'}</th>\n                    <th className=\"text-right py-3 px-3 sm:px-4 font-semibold text-gray-600 text-xs sm:text-sm\">{t(language as Language, 'students.fees') || 'Écolage'}</th>"
+      }
+    ],
+    ": ": [
+      {
+        "file": "fr.ts",
+        "line": 1886,
+        "context": "  },\n  \")\": {\n    \"filter(Boolean) : [];\\n    return { cleanDesc, completedIds };\\n};\\n\\nconst getDueDateLabel = (dateStr: string | undefined, language: Language) => {\\n    if (!dateStr) return null;\\n    const d = new Date(dateStr);\\n    if (!isValid(d)) return null;\\n    if (isToday(d)) return { label: t(language, \": \"Aujourd'hui !\"\n  }\n};"
+      }
+    ],
+    "schedule.days.": [
+      {
+        "file": "EmploiDuTemps.tsx",
+        "line": 83,
+        "context": "\n    // Construire le tableau\n    const head = [[t(language, 'schedule.time') || 'Heure', ...jours.map(j => t(language, 'schedule.days.' + j.toLowerCase()) || j)]];\n    const body: string[][] = [];\n"
+      },
+      {
+        "file": "EmploiDuTemps.tsx",
+        "line": 372,
+        "context": "                                {joursActifs.map(jour => (\n                                    <div key={jour} className=\"p-4 text-center\">\n                                        <p className=\"font-black text-slate-800 dark:text-white text-sm\">{t(language as Language, 'schedule.days.' + jour.toLowerCase()) || jour}</p>\n                                        <p className=\"text-[10px] text-slate-400 font-semibold\">\n                                            {currentSeances.filter(s => s.jour === jour).length} {t(language as Language, 'schedule.classes') || 'cours'}"
+      },
+      {
+        "file": "EmploiDuTemps.tsx",
+        "line": 518,
+        "context": "                                        className=\"w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold outline-none\"\n                                    >\n                                        {joursActifs.map(j => <option key={j} value={j}>{t(language as Language, 'schedule.days.' + j.toLowerCase()) || j}</option>)}\n                                    </select>\n                                </div>"
+      }
+    ],
+    "schedule.colors.": [
+      {
+        "file": "EmploiDuTemps.tsx",
+        "line": 576,
+        "context": "                                            onClick={() => setForm({ ...form, couleur: c.cls })}\n                                            className={`w-8 h-8 rounded-full ${c.cls} transition-all ${form.couleur === c.cls ? 'ring-4 ring-offset-2 ring-indigo-500 scale-110' : 'hover:scale-110'}`}\n                                            title={t(language as Language, 'schedule.colors.' + c.label.toLowerCase().replace(/\\s/g, '')) || c.label}\n                                        />\n                                    ))}"
+      }
+    ],
+    "staff.roles.professeur": [
+      {
+        "file": "GestionPersonnel.tsx",
+        "line": 151,
+        "context": "                                className=\"w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-700 dark:text-indigo-400\"\n                            >\n                                <option value=\"professeur\">{t(language as Language, 'staff.roles.professeur') || 'Professeur / Enseignant'}</option>\n                                <option value=\"surveillant\">{t(language as Language, 'staff.roles.surveillant') || 'Surveillant'}</option>\n                                <option value=\"censeur\">{t(language as Language, 'staff.roles.censeur') || 'Censeur'}</option>"
+      }
+    ],
+    "staff.roles.surveillant": [
+      {
+        "file": "GestionPersonnel.tsx",
+        "line": 152,
+        "context": "                            >\n                                <option value=\"professeur\">{t(language as Language, 'staff.roles.professeur') || 'Professeur / Enseignant'}</option>\n                                <option value=\"surveillant\">{t(language as Language, 'staff.roles.surveillant') || 'Surveillant'}</option>\n                                <option value=\"censeur\">{t(language as Language, 'staff.roles.censeur') || 'Censeur'}</option>\n                                <option value=\"comptable\">{t(language as Language, 'staff.roles.comptable') || 'Comptable'}</option>"
+      }
+    ],
+    "staff.roles.censeur": [
+      {
+        "file": "GestionPersonnel.tsx",
+        "line": 153,
+        "context": "                                <option value=\"professeur\">{t(language as Language, 'staff.roles.professeur') || 'Professeur / Enseignant'}</option>\n                                <option value=\"surveillant\">{t(language as Language, 'staff.roles.surveillant') || 'Surveillant'}</option>\n                                <option value=\"censeur\">{t(language as Language, 'staff.roles.censeur') || 'Censeur'}</option>\n                                <option value=\"comptable\">{t(language as Language, 'staff.roles.comptable') || 'Comptable'}</option>\n                                <option value=\"superviseur\">{t(language as Language, 'staff.roles.superviseur') || 'Superviseur'}</option>"
+      }
+    ],
+    "staff.roles.comptable": [
+      {
+        "file": "GestionPersonnel.tsx",
+        "line": 154,
+        "context": "                                <option value=\"surveillant\">{t(language as Language, 'staff.roles.surveillant') || 'Surveillant'}</option>\n                                <option value=\"censeur\">{t(language as Language, 'staff.roles.censeur') || 'Censeur'}</option>\n                                <option value=\"comptable\">{t(language as Language, 'staff.roles.comptable') || 'Comptable'}</option>\n                                <option value=\"superviseur\">{t(language as Language, 'staff.roles.superviseur') || 'Superviseur'}</option>\n                                <option value=\"secretaire\">{t(language as Language, 'staff.roles.secretaire') || 'Secrétaire'}</option>"
+      }
+    ],
+    "staff.roles.superviseur": [
+      {
+        "file": "GestionPersonnel.tsx",
+        "line": 155,
+        "context": "                                <option value=\"censeur\">{t(language as Language, 'staff.roles.censeur') || 'Censeur'}</option>\n                                <option value=\"comptable\">{t(language as Language, 'staff.roles.comptable') || 'Comptable'}</option>\n                                <option value=\"superviseur\">{t(language as Language, 'staff.roles.superviseur') || 'Superviseur'}</option>\n                                <option value=\"secretaire\">{t(language as Language, 'staff.roles.secretaire') || 'Secrétaire'}</option>\n                                <option value=\"admin\">{t(language as Language, 'staff.roles.admin') || 'Administrateur'}</option>"
+      }
+    ],
+    "staff.roles.secretaire": [
+      {
+        "file": "GestionPersonnel.tsx",
+        "line": 156,
+        "context": "                                <option value=\"comptable\">{t(language as Language, 'staff.roles.comptable') || 'Comptable'}</option>\n                                <option value=\"superviseur\">{t(language as Language, 'staff.roles.superviseur') || 'Superviseur'}</option>\n                                <option value=\"secretaire\">{t(language as Language, 'staff.roles.secretaire') || 'Secrétaire'}</option>\n                                <option value=\"admin\">{t(language as Language, 'staff.roles.admin') || 'Administrateur'}</option>\n                            </select>"
+      }
+    ],
+    "staff.roles.admin": [
+      {
+        "file": "GestionPersonnel.tsx",
+        "line": 157,
+        "context": "                                <option value=\"superviseur\">{t(language as Language, 'staff.roles.superviseur') || 'Superviseur'}</option>\n                                <option value=\"secretaire\">{t(language as Language, 'staff.roles.secretaire') || 'Secrétaire'}</option>\n                                <option value=\"admin\">{t(language as Language, 'staff.roles.admin') || 'Administrateur'}</option>\n                            </select>\n                        </div>"
+      }
+    ],
+    "activity.actions.": [
+      {
+        "file": "HistoriqueActivites.tsx",
+        "line": 113,
+        "context": "                        {actions.map(a => {\r\n                            const style = getActionStyle(a);\r\n                            return <option key={a} value={a}>{t(language as Language, 'activity.actions.' + a) || style.label}</option>;\r\n                        })}\r\n                    </select>\r"
+      },
+      {
+        "file": "HistoriqueActivites.tsx",
+        "line": 171,
+        "context": "                                        <div className=\"flex items-center gap-2 flex-wrap\">\r\n                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${style.bg} ${style.color}`}>\r\n                                                {t(language as Language, 'activity.actions.' + log.action) || style.label}\r\n                                            </span>\r\n                                            <span className=\"text-[10px] text-gray-400 font-medium\">\r"
+      }
+    ],
+    "parentNotes.appreciation.excellent": [
+      {
+        "file": "ParentNotes.tsx",
+        "line": 17,
+        "context": "const getAppreciation = (avg: number | null, language: Language): { label: string; color: string } => {\n    if (avg === null) return { label: '—', color: 'text-slate-400' };\n    if (avg >= 18) return { label: t(language, 'parentNotes.appreciation.excellent') || 'Excellent', color: 'text-emerald-600' };\n    if (avg >= 16) return { label: t(language, 'parentNotes.appreciation.veryGood') || 'Très Bien', color: 'text-emerald-500' };\n    if (avg >= 14) return { label: t(language, 'parentNotes.appreciation.good') || 'Bien', color: 'text-blue-600' };"
+      }
+    ],
+    "parentNotes.appreciation.veryGood": [
+      {
+        "file": "ParentNotes.tsx",
+        "line": 18,
+        "context": "    if (avg === null) return { label: '—', color: 'text-slate-400' };\n    if (avg >= 18) return { label: t(language, 'parentNotes.appreciation.excellent') || 'Excellent', color: 'text-emerald-600' };\n    if (avg >= 16) return { label: t(language, 'parentNotes.appreciation.veryGood') || 'Très Bien', color: 'text-emerald-500' };\n    if (avg >= 14) return { label: t(language, 'parentNotes.appreciation.good') || 'Bien', color: 'text-blue-600' };\n    if (avg >= 12) return { label: t(language, 'parentNotes.appreciation.satisfactory') || 'Assez Bien', color: 'text-blue-500' };"
+      }
+    ],
+    "parentNotes.appreciation.good": [
+      {
+        "file": "ParentNotes.tsx",
+        "line": 19,
+        "context": "    if (avg >= 18) return { label: t(language, 'parentNotes.appreciation.excellent') || 'Excellent', color: 'text-emerald-600' };\n    if (avg >= 16) return { label: t(language, 'parentNotes.appreciation.veryGood') || 'Très Bien', color: 'text-emerald-500' };\n    if (avg >= 14) return { label: t(language, 'parentNotes.appreciation.good') || 'Bien', color: 'text-blue-600' };\n    if (avg >= 12) return { label: t(language, 'parentNotes.appreciation.satisfactory') || 'Assez Bien', color: 'text-blue-500' };\n    if (avg >= 10) return { label: t(language, 'parentNotes.appreciation.passable') || 'Passable', color: 'text-amber-600' };"
+      }
+    ],
+    "parentNotes.appreciation.satisfactory": [
+      {
+        "file": "ParentNotes.tsx",
+        "line": 20,
+        "context": "    if (avg >= 16) return { label: t(language, 'parentNotes.appreciation.veryGood') || 'Très Bien', color: 'text-emerald-500' };\n    if (avg >= 14) return { label: t(language, 'parentNotes.appreciation.good') || 'Bien', color: 'text-blue-600' };\n    if (avg >= 12) return { label: t(language, 'parentNotes.appreciation.satisfactory') || 'Assez Bien', color: 'text-blue-500' };\n    if (avg >= 10) return { label: t(language, 'parentNotes.appreciation.passable') || 'Passable', color: 'text-amber-600' };\n    if (avg >= 8)  return { label: t(language, 'parentNotes.appreciation.insufficient') || 'Insuffisant', color: 'text-orange-600' };"
+      }
+    ],
+    "parentNotes.appreciation.passable": [
+      {
+        "file": "ParentNotes.tsx",
+        "line": 21,
+        "context": "    if (avg >= 14) return { label: t(language, 'parentNotes.appreciation.good') || 'Bien', color: 'text-blue-600' };\n    if (avg >= 12) return { label: t(language, 'parentNotes.appreciation.satisfactory') || 'Assez Bien', color: 'text-blue-500' };\n    if (avg >= 10) return { label: t(language, 'parentNotes.appreciation.passable') || 'Passable', color: 'text-amber-600' };\n    if (avg >= 8)  return { label: t(language, 'parentNotes.appreciation.insufficient') || 'Insuffisant', color: 'text-orange-600' };\n    return { label: t(language, 'parentNotes.appreciation.veryInsufficient') || 'Très Insuffisant', color: 'text-rose-600' };"
+      }
+    ],
+    "parentNotes.appreciation.insufficient": [
+      {
+        "file": "ParentNotes.tsx",
+        "line": 22,
+        "context": "    if (avg >= 12) return { label: t(language, 'parentNotes.appreciation.satisfactory') || 'Assez Bien', color: 'text-blue-500' };\n    if (avg >= 10) return { label: t(language, 'parentNotes.appreciation.passable') || 'Passable', color: 'text-amber-600' };\n    if (avg >= 8)  return { label: t(language, 'parentNotes.appreciation.insufficient') || 'Insuffisant', color: 'text-orange-600' };\n    return { label: t(language, 'parentNotes.appreciation.veryInsufficient') || 'Très Insuffisant', color: 'text-rose-600' };\n};"
+      }
+    ],
+    "parentNotes.appreciation.veryInsufficient": [
+      {
+        "file": "ParentNotes.tsx",
+        "line": 23,
+        "context": "    if (avg >= 10) return { label: t(language, 'parentNotes.appreciation.passable') || 'Passable', color: 'text-amber-600' };\n    if (avg >= 8)  return { label: t(language, 'parentNotes.appreciation.insufficient') || 'Insuffisant', color: 'text-orange-600' };\n    return { label: t(language, 'parentNotes.appreciation.veryInsufficient') || 'Très Insuffisant', color: 'text-rose-600' };\n};\n"
+      }
+    ],
+    "profResources.form.title": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 199,
+        "context": "                        <form onSubmit={handleSave} className=\"p-6 space-y-4\">\n                            <div>\n                                <label className=\"block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1\">{t(language as Language, 'profResources.form.title') || 'Titre de la ressource *'}</label>\n                                <input\n                                    type=\"text\""
+      }
+    ],
+    "profResources.form.class": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 211,
+        "context": "                            <div className=\"grid grid-cols-2 gap-4\">\n                                <div>\n                                    <label className=\"block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1\">{t(language as Language, 'profResources.form.class') || 'Classe *'}</label>\n                                    <select\n                                        required"
+      }
+    ],
+    "profResources.form.select": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 218,
+        "context": "                                        className=\"w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none\"\n                                    >\n                                        <option value=\"\">{t(language as Language, 'profResources.form.select') || 'Sélectionner'}</option>\n                                        {myClasses.map(c => <option key={c} value={c}>{c}</option>)}\n                                    </select>"
+      },
+      {
+        "file": "ProfRessources.tsx",
+        "line": 231,
+        "context": "                                        className=\"w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50\"\n                                    >\n                                        <option value=\"\">{t(language as Language, 'profResources.form.select') || 'Sélectionner'}</option>\n                                        {availableMatieres.map(m => <option key={m} value={m}>{m}</option>)}\n                                    </select>"
+      }
+    ],
+    "profResources.form.subject": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 223,
+        "context": "                                </div>\n                                <div>\n                                    <label className=\"block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1\">{t(language as Language, 'profResources.form.subject') || 'Matière *'}</label>\n                                    <select\n                                        required"
+      }
+    ],
+    "profResources.form.contentType": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 238,
+        "context": "\n                            <div>\n                                <label className=\"block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1\">{t(language as Language, 'profResources.form.contentType') || 'Type de contenu *'}</label>\n                                <select\n                                    value={form.type}"
+      }
+    ],
+    "profResources.form.pdf": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 244,
+        "context": "                                    className=\"w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none\"\n                                >\n                                    <option value=\"pdf\">{t(language as Language, 'profResources.form.pdf') || 'Document PDF'}</option>\n                                    <option value=\"document\">{t(language as Language, 'profResources.form.document') || 'Fichier Word/Excel'}</option>\n                                    <option value=\"video\">{t(language as Language, 'common.video') || 'Vidéo'}</option>"
+      }
+    ],
+    "profResources.form.document": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 245,
+        "context": "                                >\n                                    <option value=\"pdf\">{t(language as Language, 'profResources.form.pdf') || 'Document PDF'}</option>\n                                    <option value=\"document\">{t(language as Language, 'profResources.form.document') || 'Fichier Word/Excel'}</option>\n                                    <option value=\"video\">{t(language as Language, 'common.video') || 'Vidéo'}</option>\n                                    <option value=\"link\">{t(language as Language, 'profResources.form.link') || 'Lien externe'}</option>"
+      }
+    ],
+    "profResources.form.link": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 247,
+        "context": "                                    <option value=\"document\">{t(language as Language, 'profResources.form.document') || 'Fichier Word/Excel'}</option>\n                                    <option value=\"video\">{t(language as Language, 'common.video') || 'Vidéo'}</option>\n                                    <option value=\"link\">{t(language as Language, 'profResources.form.link') || 'Lien externe'}</option>\n                                </select>\n                            </div>"
+      }
+    ],
+    "profResources.form.url": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 253,
+        "context": "                            {form.type === 'link' || form.type === 'video' ? (\n                                <div>\n                                    <label className=\"block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1\">{t(language as Language, 'profResources.form.url') || 'URL / Lien *'}</label>\n                                    <input\n                                        type=\"url\""
+      }
+    ],
+    "profResources.form.file": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 265,
+        "context": "                            ) : (\n                                <div>\n                                    <label className=\"block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1\">{t(language as Language, 'profResources.form.file') || 'Fichier *'}</label>\n                                    <input\n                                        type=\"file\""
+      }
+    ],
+    "profResources.form.description": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 277,
+        "context": "\n                            <div>\n                                <label className=\"block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1\">{t(language as Language, 'profResources.form.description') || 'Description (Optionnel)'}</label>\n                                <textarea\n                                    rows={3}"
+      }
+    ],
+    "profResources.form.publish": [
+      {
+        "file": "ProfRessources.tsx",
+        "line": 291,
+        "context": "                                    className=\"w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition-all\"\n                                >\n                                    {t(language as Language, 'profResources.form.publish') || 'Publier la ressource'}\n                                </button>\n                            </div>"
+      }
+    ],
+    "public.careers.val1.title": [
+      {
+        "file": "Careers.tsx",
+        "line": 18,
+        "context": "    {\n      icon: <Heart className=\"w-6 h-6 text-rose-500\" />,\n      title: t(language as Language, 'public.careers.val1.title') || \"Passion pour l'Éducation\",\n      desc: t(language as Language, 'public.careers.val1.desc') || \"Nous construisons des outils qui ont un impact direct sur la réussite des élèves et le quotidien des enseignants.\"\n    },"
+      }
+    ],
+    "public.careers.val1.desc": [
+      {
+        "file": "Careers.tsx",
+        "line": 19,
+        "context": "      icon: <Heart className=\"w-6 h-6 text-rose-500\" />,\n      title: t(language as Language, 'public.careers.val1.title') || \"Passion pour l'Éducation\",\n      desc: t(language as Language, 'public.careers.val1.desc') || \"Nous construisons des outils qui ont un impact direct sur la réussite des élèves et le quotidien des enseignants.\"\n    },\n    {"
+      }
+    ],
+    "public.careers.val2.title": [
+      {
+        "file": "Careers.tsx",
+        "line": 23,
+        "context": "    {\n      icon: <Zap className=\"w-6 h-6 text-orange-500\" />,\n      title: t(language as Language, 'public.careers.val2.title') || \"Innovation Rapide\",\n      desc: t(language as Language, 'public.careers.val2.desc') || \"Nous itérons vite et n'avons pas peur de remettre en question le statu quo pour offrir les meilleures solutions.\"\n    },"
+      }
+    ],
+    "public.careers.val2.desc": [
+      {
+        "file": "Careers.tsx",
+        "line": 24,
+        "context": "      icon: <Zap className=\"w-6 h-6 text-orange-500\" />,\n      title: t(language as Language, 'public.careers.val2.title') || \"Innovation Rapide\",\n      desc: t(language as Language, 'public.careers.val2.desc') || \"Nous itérons vite et n'avons pas peur de remettre en question le statu quo pour offrir les meilleures solutions.\"\n    },\n    {"
+      }
+    ],
+    "public.careers.val3.title": [
+      {
+        "file": "Careers.tsx",
+        "line": 28,
+        "context": "    {\n      icon: <Globe className=\"w-6 h-6 text-blue-500\" />,\n      title: t(language as Language, 'public.careers.val3.title') || \"Impact Global\",\n      desc: t(language as Language, 'public.careers.val3.desc') || \"Avec des bureaux en Espagne et au Bénin, nous pensons notre plateforme pour qu'elle s'adapte à tous les contextes.\"\n    }"
+      }
+    ],
+    "public.careers.val3.desc": [
+      {
+        "file": "Careers.tsx",
+        "line": 29,
+        "context": "      icon: <Globe className=\"w-6 h-6 text-blue-500\" />,\n      title: t(language as Language, 'public.careers.val3.title') || \"Impact Global\",\n      desc: t(language as Language, 'public.careers.val3.desc') || \"Avec des bureaux en Espagne et au Bénin, nous pensons notre plateforme pour qu'elle s'adapte à tous les contextes.\"\n    }\n  ];"
+      }
+    ],
+    "public.careers.job1.title": [
+      {
+        "file": "Careers.tsx",
+        "line": 35,
+        "context": "  const JOB_OPENINGS = [\n    {\n      title: t(language as Language, 'public.careers.job1.title') || \"Commercial(e) Terrain B2B\",\n      location: t(language as Language, 'public.careers.job1.location') || \"Cotonou, Bénin\",\n      type: t(language as Language, 'public.careers.job1.type') || \"Temps plein\","
+      }
+    ],
+    "public.careers.job1.location": [
+      {
+        "file": "Careers.tsx",
+        "line": 36,
+        "context": "    {\n      title: t(language as Language, 'public.careers.job1.title') || \"Commercial(e) Terrain B2B\",\n      location: t(language as Language, 'public.careers.job1.location') || \"Cotonou, Bénin\",\n      type: t(language as Language, 'public.careers.job1.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job1.department') || \"Ventes\","
+      }
+    ],
+    "public.careers.job1.type": [
+      {
+        "file": "Careers.tsx",
+        "line": 37,
+        "context": "      title: t(language as Language, 'public.careers.job1.title') || \"Commercial(e) Terrain B2B\",\n      location: t(language as Language, 'public.careers.job1.location') || \"Cotonou, Bénin\",\n      type: t(language as Language, 'public.careers.job1.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job1.department') || \"Ventes\",\n      desc: t(language as Language, 'public.careers.job1.desc') || \"Développez notre réseau d'écoles partenaires en présentant la solution Yziow aux directeurs d'établissements.\""
+      }
+    ],
+    "public.careers.job1.department": [
+      {
+        "file": "Careers.tsx",
+        "line": 38,
+        "context": "      location: t(language as Language, 'public.careers.job1.location') || \"Cotonou, Bénin\",\n      type: t(language as Language, 'public.careers.job1.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job1.department') || \"Ventes\",\n      desc: t(language as Language, 'public.careers.job1.desc') || \"Développez notre réseau d'écoles partenaires en présentant la solution Yziow aux directeurs d'établissements.\"\n    },"
+      }
+    ],
+    "public.careers.job1.desc": [
+      {
+        "file": "Careers.tsx",
+        "line": 39,
+        "context": "      type: t(language as Language, 'public.careers.job1.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job1.department') || \"Ventes\",\n      desc: t(language as Language, 'public.careers.job1.desc') || \"Développez notre réseau d'écoles partenaires en présentant la solution Yziow aux directeurs d'établissements.\"\n    },\n    {"
+      }
+    ],
+    "public.careers.job2.title": [
+      {
+        "file": "Careers.tsx",
+        "line": 42,
+        "context": "    },\n    {\n      title: t(language as Language, 'public.careers.job2.title') || \"Développeur(se) Full-Stack React/Node\",\n      location: t(language as Language, 'public.careers.job2.location') || \"Télétravail / Espagne\",\n      type: t(language as Language, 'public.careers.job2.type') || \"Temps plein\","
+      }
+    ],
+    "public.careers.job2.location": [
+      {
+        "file": "Careers.tsx",
+        "line": 43,
+        "context": "    {\n      title: t(language as Language, 'public.careers.job2.title') || \"Développeur(se) Full-Stack React/Node\",\n      location: t(language as Language, 'public.careers.job2.location') || \"Télétravail / Espagne\",\n      type: t(language as Language, 'public.careers.job2.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job2.department') || \"Ingénierie\","
+      }
+    ],
+    "public.careers.job2.type": [
+      {
+        "file": "Careers.tsx",
+        "line": 44,
+        "context": "      title: t(language as Language, 'public.careers.job2.title') || \"Développeur(se) Full-Stack React/Node\",\n      location: t(language as Language, 'public.careers.job2.location') || \"Télétravail / Espagne\",\n      type: t(language as Language, 'public.careers.job2.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job2.department') || \"Ingénierie\",\n      desc: t(language as Language, 'public.careers.job2.desc') || \"Participez à la construction et à l'optimisation des fonctionnalités clés de la plateforme.\""
+      }
+    ],
+    "public.careers.job2.department": [
+      {
+        "file": "Careers.tsx",
+        "line": 45,
+        "context": "      location: t(language as Language, 'public.careers.job2.location') || \"Télétravail / Espagne\",\n      type: t(language as Language, 'public.careers.job2.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job2.department') || \"Ingénierie\",\n      desc: t(language as Language, 'public.careers.job2.desc') || \"Participez à la construction et à l'optimisation des fonctionnalités clés de la plateforme.\"\n    },"
+      }
+    ],
+    "public.careers.job2.desc": [
+      {
+        "file": "Careers.tsx",
+        "line": 46,
+        "context": "      type: t(language as Language, 'public.careers.job2.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job2.department') || \"Ingénierie\",\n      desc: t(language as Language, 'public.careers.job2.desc') || \"Participez à la construction et à l'optimisation des fonctionnalités clés de la plateforme.\"\n    },\n    {"
+      }
+    ],
+    "public.careers.job3.title": [
+      {
+        "file": "Careers.tsx",
+        "line": 49,
+        "context": "    },\n    {\n      title: t(language as Language, 'public.careers.job3.title') || \"Chargé(e) de Support Client\",\n      location: t(language as Language, 'public.careers.job3.location') || \"Cotonou, Bénin\",\n      type: t(language as Language, 'public.careers.job3.type') || \"Temps plein\","
+      }
+    ],
+    "public.careers.job3.location": [
+      {
+        "file": "Careers.tsx",
+        "line": 50,
+        "context": "    {\n      title: t(language as Language, 'public.careers.job3.title') || \"Chargé(e) de Support Client\",\n      location: t(language as Language, 'public.careers.job3.location') || \"Cotonou, Bénin\",\n      type: t(language as Language, 'public.careers.job3.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job3.department') || \"Support\","
+      }
+    ],
+    "public.careers.job3.type": [
+      {
+        "file": "Careers.tsx",
+        "line": 51,
+        "context": "      title: t(language as Language, 'public.careers.job3.title') || \"Chargé(e) de Support Client\",\n      location: t(language as Language, 'public.careers.job3.location') || \"Cotonou, Bénin\",\n      type: t(language as Language, 'public.careers.job3.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job3.department') || \"Support\",\n      desc: t(language as Language, 'public.careers.job3.desc') || \"Accompagnez nos écoles partenaires dans le déploiement de la solution et répondez à leurs questions quotidiennes.\""
+      }
+    ],
+    "public.careers.job3.department": [
+      {
+        "file": "Careers.tsx",
+        "line": 52,
+        "context": "      location: t(language as Language, 'public.careers.job3.location') || \"Cotonou, Bénin\",\n      type: t(language as Language, 'public.careers.job3.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job3.department') || \"Support\",\n      desc: t(language as Language, 'public.careers.job3.desc') || \"Accompagnez nos écoles partenaires dans le déploiement de la solution et répondez à leurs questions quotidiennes.\"\n    },"
+      }
+    ],
+    "public.careers.job3.desc": [
+      {
+        "file": "Careers.tsx",
+        "line": 53,
+        "context": "      type: t(language as Language, 'public.careers.job3.type') || \"Temps plein\",\n      department: t(language as Language, 'public.careers.job3.department') || \"Support\",\n      desc: t(language as Language, 'public.careers.job3.desc') || \"Accompagnez nos écoles partenaires dans le déploiement de la solution et répondez à leurs questions quotidiennes.\"\n    },\n    {"
+      }
+    ],
+    "public.careers.job4.title": [
+      {
+        "file": "Careers.tsx",
+        "line": 56,
+        "context": "    },\n    {\n      title: t(language as Language, 'public.careers.job4.title') || \"Représentant(e) Commercial(e) International(e)\",\n      location: t(language as Language, 'public.careers.job4.location') || \"International (Autres Pays)\",\n      type: t(language as Language, 'public.careers.job4.type') || \"Indépendant / Temps plein\","
+      }
+    ],
+    "public.careers.job4.location": [
+      {
+        "file": "Careers.tsx",
+        "line": 57,
+        "context": "    {\n      title: t(language as Language, 'public.careers.job4.title') || \"Représentant(e) Commercial(e) International(e)\",\n      location: t(language as Language, 'public.careers.job4.location') || \"International (Autres Pays)\",\n      type: t(language as Language, 'public.careers.job4.type') || \"Indépendant / Temps plein\",\n      department: t(language as Language, 'public.careers.job4.department') || \"Ventes & Expansion\","
+      }
+    ],
+    "public.careers.job4.type": [
+      {
+        "file": "Careers.tsx",
+        "line": 58,
+        "context": "      title: t(language as Language, 'public.careers.job4.title') || \"Représentant(e) Commercial(e) International(e)\",\n      location: t(language as Language, 'public.careers.job4.location') || \"International (Autres Pays)\",\n      type: t(language as Language, 'public.careers.job4.type') || \"Indépendant / Temps plein\",\n      department: t(language as Language, 'public.careers.job4.department') || \"Ventes & Expansion\",\n      desc: t(language as Language, 'public.careers.job4.desc') || \"Devenez l'ambassadeur de Yziow dans votre pays. Développez notre réseau d'écoles partenaires au-delà de l'Espagne et du Bénin.\""
+      }
+    ],
+    "public.careers.job4.department": [
+      {
+        "file": "Careers.tsx",
+        "line": 59,
+        "context": "      location: t(language as Language, 'public.careers.job4.location') || \"International (Autres Pays)\",\n      type: t(language as Language, 'public.careers.job4.type') || \"Indépendant / Temps plein\",\n      department: t(language as Language, 'public.careers.job4.department') || \"Ventes & Expansion\",\n      desc: t(language as Language, 'public.careers.job4.desc') || \"Devenez l'ambassadeur de Yziow dans votre pays. Développez notre réseau d'écoles partenaires au-delà de l'Espagne et du Bénin.\"\n    }"
+      }
+    ],
+    "public.careers.job4.desc": [
+      {
+        "file": "Careers.tsx",
+        "line": 60,
+        "context": "      type: t(language as Language, 'public.careers.job4.type') || \"Indépendant / Temps plein\",\n      department: t(language as Language, 'public.careers.job4.department') || \"Ventes & Expansion\",\n      desc: t(language as Language, 'public.careers.job4.desc') || \"Devenez l'ambassadeur de Yziow dans votre pays. Développez notre réseau d'écoles partenaires au-delà de l'Espagne et du Bénin.\"\n    }\n  ];"
+      }
+    ],
+    "public.careers.success": [
+      {
+        "file": "Careers.tsx",
+        "line": 104,
+        "context": "      setFormEmail('');\n      setFormMessage('');\n      alert(t(language as Language, 'public.careers.success') || \"Votre candidature a bien été envoyée ! Nous vous contacterons très prochainement.\");\n    } catch (error) {\n      alert(t(language as Language, 'public.careers.error') || \"Une erreur est survenue lors de l'envoi de la candidature. Veuillez réessayer.\");"
+      }
+    ],
+    "public.careers.error": [
+      {
+        "file": "Careers.tsx",
+        "line": 106,
+        "context": "      alert(t(language as Language, 'public.careers.success') || \"Votre candidature a bien été envoyée ! Nous vous contacterons très prochainement.\");\n    } catch (error) {\n      alert(t(language as Language, 'public.careers.error') || \"Une erreur est survenue lors de l'envoi de la candidature. Veuillez réessayer.\");\n    } finally {\n      setIsSubmitting(false);"
+      }
+    ],
+    "public.careers.joinUs": [
+      {
+        "file": "Careers.tsx",
+        "line": 132,
+        "context": "          \n          <div className=\"text-center max-w-2xl mx-auto space-y-4 mb-20\">\n            <h2 className=\"text-sm font-black text-[#f97316] tracking-widest uppercase mb-1\">{t(language as Language, 'public.careers.joinUs') || \"Rejoignez-nous\"}</h2>\n            <h1 className=\"text-4xl md:text-5xl font-black text-slate-900 tracking-tight\">\n              {t(language as Language, 'public.careers.buildSchool') || \"Construisons l'école de demain\"}"
+      }
+    ],
+    "public.careers.buildSchool": [
+      {
+        "file": "Careers.tsx",
+        "line": 134,
+        "context": "            <h2 className=\"text-sm font-black text-[#f97316] tracking-widest uppercase mb-1\">{t(language as Language, 'public.careers.joinUs') || \"Rejoignez-nous\"}</h2>\n            <h1 className=\"text-4xl md:text-5xl font-black text-slate-900 tracking-tight\">\n              {t(language as Language, 'public.careers.buildSchool') || \"Construisons l'école de demain\"}\n            </h1>\n            <p className=\"text-base text-slate-500 font-medium leading-relaxed mt-4\">"
+      }
+    ],
+    "public.careers.heroDesc": [
+      {
+        "file": "Careers.tsx",
+        "line": 137,
+        "context": "            </h1>\n            <p className=\"text-base text-slate-500 font-medium leading-relaxed mt-4\">\n              {t(language as Language, 'public.careers.heroDesc') || \"Chez Yziow, nous cherchons des esprits brillants et passionnés pour transformer l'éducation en Afrique et en Europe.\"}\n            </p>\n          </div>"
+      }
+    ],
+    "public.careers.openPositions": [
+      {
+        "file": "Careers.tsx",
+        "line": 162,
+        "context": "                <Briefcase className=\"w-6 h-6 text-[#f97316]\" />\n              </div>\n              <h2 className=\"text-2xl font-black text-slate-900\">{t(language as Language, 'public.careers.openPositions') || \"Postes ouverts\"}</h2>\n            </div>\n"
+      }
+    ],
+    "public.careers.apply": [
+      {
+        "file": "Careers.tsx",
+        "line": 186,
+        "context": "                    className=\"shrink-0 px-6 py-3 bg-slate-50 text-slate-700 hover:text-white hover:bg-[#f97316] font-bold text-sm rounded-xl transition-colors flex items-center gap-2 group-hover:bg-[#f97316] group-hover:text-white\"\n                  >\n                    {t(language as Language, 'public.careers.apply') || \"Postuler\"} <ChevronRight className=\"w-4 h-4\" />\n                  </button>\n                </div>"
+      },
+      {
+        "file": "Careers.tsx",
+        "line": 217,
+        "context": "            <div className=\"p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50\">\n              <div>\n                <h3 className=\"text-lg font-black text-slate-900\">{t(language as Language, 'public.careers.apply') || \"Postuler\"}</h3>\n                <p className=\"text-sm font-medium text-[#f97316] mt-1\">{selectedJob}</p>\n              </div>"
+      }
+    ],
+    "public.careers.noIdealJob": [
+      {
+        "file": "Careers.tsx",
+        "line": 194,
+        "context": "            <div className=\"mt-12 bg-slate-900 rounded-3xl p-8 md:p-12 text-center text-white relative overflow-hidden\">\n              <div className=\"absolute top-0 right-0 w-64 h-64 bg-[#f97316] rounded-full blur-3xl opacity-20 -translate-y-1/2 translate-x-1/2\"></div>\n              <h3 className=\"text-2xl font-black mb-4 relative z-10\">{t(language as Language, 'public.careers.noIdealJob') || \"Vous ne trouvez pas votre poste idéal ?\"}</h3>\n              <p className=\"text-slate-400 font-medium mb-8 max-w-xl mx-auto relative z-10\">\n                {t(language as Language, 'public.careers.unsolicitedDesc') || \"Nous sommes toujours ouverts aux candidatures spontanées. Envoyez-nous votre CV et une courte présentation de vos motivations.\"}"
+      }
+    ],
+    "public.careers.unsolicitedDesc": [
+      {
+        "file": "Careers.tsx",
+        "line": 196,
+        "context": "              <h3 className=\"text-2xl font-black mb-4 relative z-10\">{t(language as Language, 'public.careers.noIdealJob') || \"Vous ne trouvez pas votre poste idéal ?\"}</h3>\n              <p className=\"text-slate-400 font-medium mb-8 max-w-xl mx-auto relative z-10\">\n                {t(language as Language, 'public.careers.unsolicitedDesc') || \"Nous sommes toujours ouverts aux candidatures spontanées. Envoyez-nous votre CV et une courte présentation de vos motivations.\"}\n              </p>\n              <button "
+      }
+    ],
+    "public.careers.unsolicitedJob": [
+      {
+        "file": "Careers.tsx",
+        "line": 199,
+        "context": "              </p>\n              <button \n                onClick={() => setSelectedJob(t(language as Language, 'public.careers.unsolicitedJob') || \"Candidature Spontanée\")}\n                className=\"inline-flex items-center justify-center px-8 py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-bold shadow-lg shadow-orange-500/20 active:scale-95 transition-all relative z-10\"\n              >"
+      }
+    ],
+    "public.careers.sendUnsolicited": [
+      {
+        "file": "Careers.tsx",
+        "line": 202,
+        "context": "                className=\"inline-flex items-center justify-center px-8 py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-bold shadow-lg shadow-orange-500/20 active:scale-95 transition-all relative z-10\"\n              >\n                {t(language as Language, 'public.careers.sendUnsolicited') || \"Envoyer une candidature spontanée\"}\n              </button>\n            </div>"
+      }
+    ],
+    "public.careers.fullName": [
+      {
+        "file": "Careers.tsx",
+        "line": 231,
+        "context": "              <form onSubmit={handleSubmit} className=\"space-y-5\">\n                <div>\n                  <label className=\"block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide\">{t(language as Language, 'public.careers.fullName') || \"Nom complet\"}</label>\n                  <input \n                    type=\"text\" "
+      },
+      {
+        "file": "Contact.tsx",
+        "line": 134,
+        "context": "              <form onSubmit={handleContactSubmit} className=\"space-y-6\">\n                <div>\n                  <label className=\"block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide\">{t(language as Language, 'public.careers.fullName') || \"Nom complet\"}</label>\n                  <input \n                    type=\"text\" "
+      }
+    ],
+    "public.careers.country": [
+      {
+        "file": "Careers.tsx",
+        "line": 242,
+        "context": "                </div>\n                <div>\n                  <label className=\"block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide\">{t(language as Language, 'public.careers.country') || \"Pays de résidence\"}</label>\n                  <input \n                    type=\"text\" "
+      },
+      {
+        "file": "Contact.tsx",
+        "line": 145,
+        "context": "                </div>\n                <div>\n                  <label className=\"block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide\">{t(language as Language, 'public.careers.country') || \"Pays de résidence\"}</label>\n                  <input \n                    type=\"text\" "
+      }
+    ],
+    "public.careers.email": [
+      {
+        "file": "Careers.tsx",
+        "line": 253,
+        "context": "                </div>\n                <div>\n                  <label className=\"block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide\">{t(language as Language, 'public.careers.email') || \"Adresse email\"}</label>\n                  <input \n                    type=\"email\" "
+      },
+      {
+        "file": "Contact.tsx",
+        "line": 156,
+        "context": "                </div>\n                <div>\n                  <label className=\"block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide\">{t(language as Language, 'public.careers.email') || \"Adresse email\"}</label>\n                  <input \n                    type=\"email\" "
+      }
+    ],
+    "public.careers.message": [
+      {
+        "file": "Careers.tsx",
+        "line": 264,
+        "context": "                </div>\n                <div>\n                  <label className=\"block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide\">{t(language as Language, 'public.careers.message') || \"Votre message / Lettre de motivation\"}</label>\n                  <textarea \n                    required"
+      }
+    ],
+    "public.careers.sending": [
+      {
+        "file": "Careers.tsx",
+        "line": 280,
+        "context": "                    className=\"w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-bold tracking-wide shadow-lg shadow-orange-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70\"\n                  >\n                    {isSubmitting ? (t(language as Language, 'public.careers.sending') || 'Envoi en cours...') : (\n                      <>{t(language as Language, 'public.careers.sendApplication') || 'Envoyer ma candidature'} <Send className=\"w-4 h-4\" /></>\n                    )}"
+      },
+      {
+        "file": "Contact.tsx",
+        "line": 182,
+        "context": "                  className=\"w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-bold tracking-wide shadow-lg shadow-orange-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70\"\n                >\n                  {formSubmitted ? (t(language as Language, 'public.careers.sending') || 'Envoi en cours...') : (\n                    <>{t(language as Language, 'public.contact.sendMessage') || 'Envoyer le message'} <Send className=\"w-4 h-4\" /></>\n                  )}"
+      }
+    ],
+    "public.careers.sendApplication": [
+      {
+        "file": "Careers.tsx",
+        "line": 281,
+        "context": "                  >\n                    {isSubmitting ? (t(language as Language, 'public.careers.sending') || 'Envoi en cours...') : (\n                      <>{t(language as Language, 'public.careers.sendApplication') || 'Envoyer ma candidature'} <Send className=\"w-4 h-4\" /></>\n                    )}\n                  </button>"
+      }
+    ],
+    "public.contact.success": [
+      {
+        "file": "Contact.tsx",
+        "line": 54,
+        "context": "      setContactEmail('');\n      setContactMessage('');\n      alert(t(language as Language, 'public.contact.success') || \"Votre message a bien été envoyé ! Notre équipe vous contactera dans les plus brefs délais.\");\n    } catch (error) {\n      alert(t(language as Language, 'public.contact.error') || \"Une erreur est survenue lors de l'envoi du message. Veuillez réessayer.\");"
+      }
+    ],
+    "public.contact.error": [
+      {
+        "file": "Contact.tsx",
+        "line": 56,
+        "context": "      alert(t(language as Language, 'public.contact.success') || \"Votre message a bien été envoyé ! Notre équipe vous contactera dans les plus brefs délais.\");\n    } catch (error) {\n      alert(t(language as Language, 'public.contact.error') || \"Une erreur est survenue lors de l'envoi du message. Veuillez réessayer.\");\n    } finally {\n      setIsSubmitting(false);"
+      }
+    ],
+    "public.contact.support": [
+      {
+        "file": "Contact.tsx",
+        "line": 81,
+        "context": "        <div className=\"max-w-7xl mx-auto px-6 relative z-10\">\n          <div className=\"text-center max-w-2xl mx-auto space-y-4 mb-16\">\n            <h2 className=\"text-sm font-black text-[#f97316] tracking-widest uppercase\">{t(language as Language, 'public.contact.support') || \"Assistance & Support\"}</h2>\n            <h3 className=\"text-3xl md:text-4xl font-black text-slate-900 tracking-tight\">\n              {t(language as Language, 'public.contact.title') || \"Contactez notre équipe\"}"
+      }
+    ],
+    "public.contact.title": [
+      {
+        "file": "Contact.tsx",
+        "line": 83,
+        "context": "            <h2 className=\"text-sm font-black text-[#f97316] tracking-widest uppercase\">{t(language as Language, 'public.contact.support') || \"Assistance & Support\"}</h2>\n            <h3 className=\"text-3xl md:text-4xl font-black text-slate-900 tracking-tight\">\n              {t(language as Language, 'public.contact.title') || \"Contactez notre équipe\"}\n            </h3>\n            <p className=\"text-sm text-slate-500 font-semibold leading-relaxed\">"
+      }
+    ],
+    "public.contact.desc": [
+      {
+        "file": "Contact.tsx",
+        "line": 86,
+        "context": "            </h3>\n            <p className=\"text-sm text-slate-500 font-semibold leading-relaxed\">\n              {t(language as Language, 'public.contact.desc') || \"Une question ? Un besoin d'accompagnement pour déployer Yziow dans votre établissement ? Remplissez le formulaire ci-dessous.\"}\n            </p>\n          </div>"
+      }
+    ],
+    "public.contact.email": [
+      {
+        "file": "Contact.tsx",
+        "line": 98,
+        "context": "                </div>\n                <div>\n                  <h4 className=\"text-lg font-black text-slate-900 mb-1\">{t(language as Language, 'public.contact.email') || \"Email\"}</h4>\n                  <p className=\"text-sm text-slate-500 font-medium\">contact@yziow.com</p>\n                  <p className=\"text-sm text-slate-500 font-medium\">support@yziow.com</p>"
+      }
+    ],
+    "public.contact.phone": [
+      {
+        "file": "Contact.tsx",
+        "line": 109,
+        "context": "                </div>\n                <div>\n                  <h4 className=\"text-lg font-black text-slate-900 mb-1\">{t(language as Language, 'public.contact.phone') || \"Téléphone\"}</h4>\n                  <p className=\"text-sm text-slate-500 font-medium\">+34 647 563 748</p>\n                  <p className=\"text-sm text-slate-500 font-medium\">+229 01 97 76 99 91</p>"
+      }
+    ],
+    "public.contact.hours": [
+      {
+        "file": "Contact.tsx",
+        "line": 112,
+        "context": "                  <p className=\"text-sm text-slate-500 font-medium\">+34 647 563 748</p>\n                  <p className=\"text-sm text-slate-500 font-medium\">+229 01 97 76 99 91</p>\n                  <p className=\"text-xs text-slate-400 mt-1\">{t(language as Language, 'public.contact.hours') || \"Lundi au Vendredi, 8h - 18h\"}</p>\n                </div>\n              </div>"
+      }
+    ],
+    "public.contact.offices": [
+      {
+        "file": "Contact.tsx",
+        "line": 121,
+        "context": "                </div>\n                <div>\n                  <h4 className=\"text-lg font-black text-slate-900 mb-1\">{t(language as Language, 'public.contact.offices') || \"Bureaux\"}</h4>\n                  <p className=\"text-sm text-slate-500 font-medium leading-relaxed\">\n                    {t(language as Language, 'public.contact.spain') || \"Espagne\"}<br />"
+      }
+    ],
+    "public.contact.spain": [
+      {
+        "file": "Contact.tsx",
+        "line": 123,
+        "context": "                  <h4 className=\"text-lg font-black text-slate-900 mb-1\">{t(language as Language, 'public.contact.offices') || \"Bureaux\"}</h4>\n                  <p className=\"text-sm text-slate-500 font-medium leading-relaxed\">\n                    {t(language as Language, 'public.contact.spain') || \"Espagne\"}<br />\n                    Cotonou, Bénin\n                  </p>"
+      }
+    ],
+    "public.contact.message": [
+      {
+        "file": "Contact.tsx",
+        "line": 167,
+        "context": "                </div>\n                <div>\n                  <label className=\"block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide\">{t(language as Language, 'public.contact.message') || \"Message\"}</label>\n                  <textarea \n                    required"
+      }
+    ],
+    "public.contact.messagePlaceholder": [
+      {
+        "file": "Contact.tsx",
+        "line": 174,
+        "context": "                    rows={4}\n                    className=\"w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium resize-none\"\n                    placeholder={t(language as Language, 'public.contact.messagePlaceholder') || \"Comment pouvons-nous vous aider ?\"}\n                  ></textarea>\n                </div>"
+      }
+    ],
+    "public.contact.sendMessage": [
+      {
+        "file": "Contact.tsx",
+        "line": 183,
+        "context": "                >\n                  {formSubmitted ? (t(language as Language, 'public.careers.sending') || 'Envoi en cours...') : (\n                    <>{t(language as Language, 'public.contact.sendMessage') || 'Envoyer le message'} <Send className=\"w-4 h-4\" /></>\n                  )}\n                </button>"
+      }
+    ],
+    "public.legal.cgu.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 19,
+        "context": "  const CONTENT = {\n    cgu: {\n      title: t(language as Language, 'public.legal.cgu.title') || \"Conditions Générales d'Utilisation\",\n      icon: <FileText className=\"w-8 h-8 text-[#f97316]\" />,\n      sections: ["
+      }
+    ],
+    "public.legal.cgu.sec1.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 23,
+        "context": "      sections: [\n        {\n          title: t(language as Language, 'public.legal.cgu.sec1.title') || \"1. Acceptation des conditions\",\n          content: t(language as Language, 'public.legal.cgu.sec1.content') || \"En accédant à la plateforme Yziow, vous acceptez d'être lié par les présentes conditions générales d'utilisation. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser nos services.\"\n        },"
+      }
+    ],
+    "public.legal.cgu.sec1.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 24,
+        "context": "        {\n          title: t(language as Language, 'public.legal.cgu.sec1.title') || \"1. Acceptation des conditions\",\n          content: t(language as Language, 'public.legal.cgu.sec1.content') || \"En accédant à la plateforme Yziow, vous acceptez d'être lié par les présentes conditions générales d'utilisation. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser nos services.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.cgu.sec2.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 27,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.cgu.sec2.title') || \"2. Description du service\",\n          content: t(language as Language, 'public.legal.cgu.sec2.content') || \"Yziow fournit une plateforme complète de gestion scolaire permettant le suivi des élèves, des paiements, des présences et la communication entre les différents acteurs de la vie scolaire.\"\n        },"
+      }
+    ],
+    "public.legal.cgu.sec2.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 28,
+        "context": "        {\n          title: t(language as Language, 'public.legal.cgu.sec2.title') || \"2. Description du service\",\n          content: t(language as Language, 'public.legal.cgu.sec2.content') || \"Yziow fournit une plateforme complète de gestion scolaire permettant le suivi des élèves, des paiements, des présences et la communication entre les différents acteurs de la vie scolaire.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.cgu.sec3.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 31,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.cgu.sec3.title') || \"3. Engagements de l'utilisateur\",\n          content: t(language as Language, 'public.legal.cgu.sec3.content') || \"L'utilisateur s'engage à fournir des informations exactes lors de son inscription, à maintenir la confidentialité de ses identifiants de connexion, et à utiliser la plateforme dans le respect des lois en vigueur.\"\n        },"
+      }
+    ],
+    "public.legal.cgu.sec3.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 32,
+        "context": "        {\n          title: t(language as Language, 'public.legal.cgu.sec3.title') || \"3. Engagements de l'utilisateur\",\n          content: t(language as Language, 'public.legal.cgu.sec3.content') || \"L'utilisateur s'engage à fournir des informations exactes lors de son inscription, à maintenir la confidentialité de ses identifiants de connexion, et à utiliser la plateforme dans le respect des lois en vigueur.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.cgu.sec4.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 35,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.cgu.sec4.title') || \"4. Propriété intellectuelle\",\n          content: t(language as Language, 'public.legal.cgu.sec4.content') || \"Tous les contenus, logos, marques et éléments logiciels de la plateforme Yziow sont notre propriété exclusive. Toute reproduction non autorisée est strictement interdite.\"\n        },"
+      }
+    ],
+    "public.legal.cgu.sec4.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 36,
+        "context": "        {\n          title: t(language as Language, 'public.legal.cgu.sec4.title') || \"4. Propriété intellectuelle\",\n          content: t(language as Language, 'public.legal.cgu.sec4.content') || \"Tous les contenus, logos, marques et éléments logiciels de la plateforme Yziow sont notre propriété exclusive. Toute reproduction non autorisée est strictement interdite.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.cgu.sec5.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 39,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.cgu.sec5.title') || \"5. Modification des services\",\n          content: t(language as Language, 'public.legal.cgu.sec5.content') || \"Nous nous réservons le droit de modifier, suspendre ou interrompre temporairement ou définitivement le service, sans préavis, pour des raisons de maintenance ou de mise à jour.\"\n        }"
+      }
+    ],
+    "public.legal.cgu.sec5.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 40,
+        "context": "        {\n          title: t(language as Language, 'public.legal.cgu.sec5.title') || \"5. Modification des services\",\n          content: t(language as Language, 'public.legal.cgu.sec5.content') || \"Nous nous réservons le droit de modifier, suspendre ou interrompre temporairement ou définitivement le service, sans préavis, pour des raisons de maintenance ou de mise à jour.\"\n        }\n      ]"
+      }
+    ],
+    "public.legal.privacy.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 45,
+        "context": "    },\n    privacy: {\n      title: t(language as Language, 'public.legal.privacy.title') || \"Politique de Confidentialité\",\n      icon: <Shield className=\"w-8 h-8 text-[#f97316]\" />,\n      sections: ["
+      }
+    ],
+    "public.legal.privacy.sec1.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 49,
+        "context": "      sections: [\n        {\n          title: t(language as Language, 'public.legal.privacy.sec1.title') || \"1. Collecte des données\",\n          content: t(language as Language, 'public.legal.privacy.sec1.content') || \"Nous collectons uniquement les données strictement nécessaires au bon fonctionnement de la plateforme (noms, coordonnées, notes, présences, historique de paiement). Ces données sont fournies par les établissements partenaires.\"\n        },"
+      }
+    ],
+    "public.legal.privacy.sec1.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 50,
+        "context": "        {\n          title: t(language as Language, 'public.legal.privacy.sec1.title') || \"1. Collecte des données\",\n          content: t(language as Language, 'public.legal.privacy.sec1.content') || \"Nous collectons uniquement les données strictement nécessaires au bon fonctionnement de la plateforme (noms, coordonnées, notes, présences, historique de paiement). Ces données sont fournies par les établissements partenaires.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.privacy.sec2.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 53,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.privacy.sec2.title') || \"2. Utilisation des données\",\n          content: t(language as Language, 'public.legal.privacy.sec2.content') || \"Les données collectées sont utilisées exclusivement pour fournir le service Yziow (génération de bulletins, envoi de notifications, reçus de paiement). Nous ne vendons en aucun cas vos données personnelles à des tiers.\"\n        },"
+      }
+    ],
+    "public.legal.privacy.sec2.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 54,
+        "context": "        {\n          title: t(language as Language, 'public.legal.privacy.sec2.title') || \"2. Utilisation des données\",\n          content: t(language as Language, 'public.legal.privacy.sec2.content') || \"Les données collectées sont utilisées exclusivement pour fournir le service Yziow (génération de bulletins, envoi de notifications, reçus de paiement). Nous ne vendons en aucun cas vos données personnelles à des tiers.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.privacy.sec3.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 57,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.privacy.sec3.title') || \"3. Sécurité des données\",\n          content: t(language as Language, 'public.legal.privacy.sec3.content') || \"Toutes les données transitant sur notre plateforme sont chiffrées de bout en bout avec les standards de sécurité les plus élevés. Nos serveurs garantissent une protection optimale contre toute tentative d'intrusion.\"\n        },"
+      }
+    ],
+    "public.legal.privacy.sec3.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 58,
+        "context": "        {\n          title: t(language as Language, 'public.legal.privacy.sec3.title') || \"3. Sécurité des données\",\n          content: t(language as Language, 'public.legal.privacy.sec3.content') || \"Toutes les données transitant sur notre plateforme sont chiffrées de bout en bout avec les standards de sécurité les plus élevés. Nos serveurs garantissent une protection optimale contre toute tentative d'intrusion.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.privacy.sec4.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 61,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.privacy.sec4.title') || \"4. Droits des utilisateurs\",\n          content: t(language as Language, 'public.legal.privacy.sec4.content') || \"Conformément à la réglementation sur la protection des données, vous disposez d'un droit d'accès, de rectification et de suppression de vos données personnelles.\"\n        },"
+      }
+    ],
+    "public.legal.privacy.sec4.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 62,
+        "context": "        {\n          title: t(language as Language, 'public.legal.privacy.sec4.title') || \"4. Droits des utilisateurs\",\n          content: t(language as Language, 'public.legal.privacy.sec4.content') || \"Conformément à la réglementation sur la protection des données, vous disposez d'un droit d'accès, de rectification et de suppression de vos données personnelles.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.privacy.sec5.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 65,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.privacy.sec5.title') || \"5. Cookies\",\n          content: t(language as Language, 'public.legal.privacy.sec5.content') || \"Nous utilisons uniquement les cookies techniques nécessaires au maintien de votre session et à la sécurité de l'application. Aucun cookie de pistage publicitaire n'est utilisé.\"\n        }"
+      }
+    ],
+    "public.legal.privacy.sec5.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 66,
+        "context": "        {\n          title: t(language as Language, 'public.legal.privacy.sec5.title') || \"5. Cookies\",\n          content: t(language as Language, 'public.legal.privacy.sec5.content') || \"Nous utilisons uniquement les cookies techniques nécessaires au maintien de votre session et à la sécurité de l'application. Aucun cookie de pistage publicitaire n'est utilisé.\"\n        }\n      ]"
+      }
+    ],
+    "public.legal.mentions.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 71,
+        "context": "    },\n    legal: {\n      title: t(language as Language, 'public.legal.mentions.title') || \"Mentions Légales\",\n      icon: <Scale className=\"w-8 h-8 text-[#f97316]\" />,\n      sections: ["
+      }
+    ],
+    "public.legal.mentions.sec1.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 75,
+        "context": "      sections: [\n        {\n          title: t(language as Language, 'public.legal.mentions.sec1.title') || \"1. Éditeur de la plateforme\",\n          content: t(language as Language, 'public.legal.mentions.sec1.content') || \"La plateforme Yziow est éditée par YZIOW CORP, une entreprise de technologies éducatives (EdTech).\\n\\nAdresses : Espagne & Bénin (Cotonou)\\nEmail : contact@yziow.com\\nTéléphone : +34 647 563 748 / +229 01 97 76 99 91\"\n        },"
+      }
+    ],
+    "public.legal.mentions.sec1.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 76,
+        "context": "        {\n          title: t(language as Language, 'public.legal.mentions.sec1.title') || \"1. Éditeur de la plateforme\",\n          content: t(language as Language, 'public.legal.mentions.sec1.content') || \"La plateforme Yziow est éditée par YZIOW CORP, une entreprise de technologies éducatives (EdTech).\\n\\nAdresses : Espagne & Bénin (Cotonou)\\nEmail : contact@yziow.com\\nTéléphone : +34 647 563 748 / +229 01 97 76 99 91\"\n        },\n        {"
+      }
+    ],
+    "public.legal.mentions.sec2.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 79,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.mentions.sec2.title') || \"2. Hébergement\",\n          content: t(language as Language, 'public.legal.mentions.sec2.content') || \"L'hébergement de la plateforme est assuré par des fournisseurs Cloud reconnus, garantissant la haute disponibilité et la sécurité des infrastructures, en respectant les normes de souveraineté des données.\"\n        },"
+      }
+    ],
+    "public.legal.mentions.sec2.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 80,
+        "context": "        {\n          title: t(language as Language, 'public.legal.mentions.sec2.title') || \"2. Hébergement\",\n          content: t(language as Language, 'public.legal.mentions.sec2.content') || \"L'hébergement de la plateforme est assuré par des fournisseurs Cloud reconnus, garantissant la haute disponibilité et la sécurité des infrastructures, en respectant les normes de souveraineté des données.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.mentions.sec3.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 83,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.mentions.sec3.title') || \"3. Accréditations\",\n          content: t(language as Language, 'public.legal.mentions.sec3.content') || \"Yziow met en œuvre tous les moyens nécessaires pour assurer la sécurité des paiements intégrés et agit en conformité avec les directives locales sur les transactions électroniques.\"\n        },"
+      }
+    ],
+    "public.legal.mentions.sec3.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 84,
+        "context": "        {\n          title: t(language as Language, 'public.legal.mentions.sec3.title') || \"3. Accréditations\",\n          content: t(language as Language, 'public.legal.mentions.sec3.content') || \"Yziow met en œuvre tous les moyens nécessaires pour assurer la sécurité des paiements intégrés et agit en conformité avec les directives locales sur les transactions électroniques.\"\n        },\n        {"
+      }
+    ],
+    "public.legal.mentions.sec4.title": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 87,
+        "context": "        },\n        {\n          title: t(language as Language, 'public.legal.mentions.sec4.title') || \"4. Droit applicable\",\n          content: t(language as Language, 'public.legal.mentions.sec4.content') || \"Les présentes mentions légales sont soumises au droit du Bénin. En cas de litige, les tribunaux compétents seront ceux du siège social de l'entreprise.\"\n        }"
+      }
+    ],
+    "public.legal.mentions.sec4.content": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 88,
+        "context": "        {\n          title: t(language as Language, 'public.legal.mentions.sec4.title') || \"4. Droit applicable\",\n          content: t(language as Language, 'public.legal.mentions.sec4.content') || \"Les présentes mentions légales sont soumises au droit du Bénin. En cas de litige, les tribunaux compétents seront ceux du siège social de l'entreprise.\"\n        }\n      ]"
+      }
+    ],
+    "public.legal.info": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 123,
+        "context": "            </div>\n            <div>\n              <h2 className=\"text-sm font-black text-[#f97316] tracking-widest uppercase mb-1\">{t(language as Language, 'public.legal.info') || \"Informations Légales\"}</h2>\n              <h1 className=\"text-3xl md:text-4xl font-black text-slate-900 tracking-tight\">\n                {content.title}"
+      }
+    ],
+    "public.legal.lastUpdate": [
+      {
+        "file": "LegalPage.tsx",
+        "line": 142,
+        "context": "\n          <div className=\"mt-12 text-center text-sm font-bold text-slate-400\">\n            {t(language as Language, 'public.legal.lastUpdate') || \"Dernière mise à jour : Juillet 2026\"}\n          </div>\n        </div>"
+      }
+    ],
+    "grades.appreciation.veryGood": [
+      {
+        "file": "SaisieNotes.tsx",
+        "line": 230,
+        "context": "    const getAppreciation = (avg: number | null) => {\n        if (avg === null) return '--';\n        if (avg >= 16) return t(language as Language, 'grades.appreciation.veryGood') || 'Très Bien';\n        if (avg >= 14) return t(language as Language, 'grades.appreciation.good') || 'Bien';\n        if (avg >= 12) return t(language as Language, 'grades.appreciation.fairlyGood') || 'Assez Bien';"
+      }
+    ],
+    "grades.appreciation.good": [
+      {
+        "file": "SaisieNotes.tsx",
+        "line": 231,
+        "context": "        if (avg === null) return '--';\n        if (avg >= 16) return t(language as Language, 'grades.appreciation.veryGood') || 'Très Bien';\n        if (avg >= 14) return t(language as Language, 'grades.appreciation.good') || 'Bien';\n        if (avg >= 12) return t(language as Language, 'grades.appreciation.fairlyGood') || 'Assez Bien';\n        if (avg >= 10) return t(language as Language, 'grades.appreciation.passable') || 'Passable';"
+      }
+    ],
+    "grades.appreciation.fairlyGood": [
+      {
+        "file": "SaisieNotes.tsx",
+        "line": 232,
+        "context": "        if (avg >= 16) return t(language as Language, 'grades.appreciation.veryGood') || 'Très Bien';\n        if (avg >= 14) return t(language as Language, 'grades.appreciation.good') || 'Bien';\n        if (avg >= 12) return t(language as Language, 'grades.appreciation.fairlyGood') || 'Assez Bien';\n        if (avg >= 10) return t(language as Language, 'grades.appreciation.passable') || 'Passable';\n        if (avg >= 8) return t(language as Language, 'grades.appreciation.insufficient') || 'Insuffisant';"
+      }
+    ],
+    "grades.appreciation.passable": [
+      {
+        "file": "SaisieNotes.tsx",
+        "line": 233,
+        "context": "        if (avg >= 14) return t(language as Language, 'grades.appreciation.good') || 'Bien';\n        if (avg >= 12) return t(language as Language, 'grades.appreciation.fairlyGood') || 'Assez Bien';\n        if (avg >= 10) return t(language as Language, 'grades.appreciation.passable') || 'Passable';\n        if (avg >= 8) return t(language as Language, 'grades.appreciation.insufficient') || 'Insuffisant';\n        return t(language as Language, 'grades.appreciation.poor') || 'Médiocre';"
+      }
+    ],
+    "grades.appreciation.insufficient": [
+      {
+        "file": "SaisieNotes.tsx",
+        "line": 234,
+        "context": "        if (avg >= 12) return t(language as Language, 'grades.appreciation.fairlyGood') || 'Assez Bien';\n        if (avg >= 10) return t(language as Language, 'grades.appreciation.passable') || 'Passable';\n        if (avg >= 8) return t(language as Language, 'grades.appreciation.insufficient') || 'Insuffisant';\n        return t(language as Language, 'grades.appreciation.poor') || 'Médiocre';\n    };"
+      }
+    ],
+    "grades.appreciation.poor": [
+      {
+        "file": "SaisieNotes.tsx",
+        "line": 235,
+        "context": "        if (avg >= 10) return t(language as Language, 'grades.appreciation.passable') || 'Passable';\n        if (avg >= 8) return t(language as Language, 'grades.appreciation.insufficient') || 'Insuffisant';\n        return t(language as Language, 'grades.appreciation.poor') || 'Médiocre';\n    };\n    "
+      }
+    ],
+    "salaries.status.notGenerated": [
+      {
+        "file": "Salaires.tsx",
+        "line": 139,
+        "context": "                                            <td className=\"p-4 text-center\">\n                                                {!payroll ? (\n                                                    <span className=\"text-slate-400 text-sm\">{t(language as Language, 'salaries.status.notGenerated') || 'Non généré'}</span>\n                                                ) : payroll.statut === 'Payé' ? (\n                                                    <span className=\"inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400\">"
+      }
+    ]
+  },
+  "unusedKeys": [
+    "nav.eleves",
+    "nav.parents_list",
+    "nav.paiements",
+    "nav.recouvrement",
+    "nav.depenses",
+    "nav.gestion_academique",
+    "nav.bulletins",
+    "nav.verification_recu",
+    "nav.analyses",
+    "nav.documents",
+    "nav.historique_activites",
+    "nav.annonces",
+    "nav.communication",
+    "nav.gestion_personnel",
+    "nav.salaires",
+    "nav.import_export",
+    "nav.parametres",
+    "nav.parent_dashboard",
+    "nav.parent_historique",
+    "nav.parent_recus",
+    "nav.parent_badges",
+    "nav.parent_notes",
+    "nav.parent_devoirs_presence",
+    "nav.parent_ressources",
+    "nav.prof_ressources",
+    "groups.Principal",
+    "groups.Gestion",
+    "groups.Finance",
+    "groups.Sécurité & Accès",
+    "groups.Académique",
+    "groups.Outils",
+    "groups.Communication",
+    "groups.Administration",
+    "header.searchPlaceholder",
+    "header.darkMode",
+    "header.lightMode",
+    "header.profile",
+    "auth.schoolCodeEx",
+    "auth.phoneEx",
+    "auth.passwordPlaceholderMobile",
+    "login.title",
+    "login.subtitle",
+    "login.schoolLabel",
+    "login.schoolPlaceholder",
+    "login.phoneLabel",
+    "login.phonePlaceholder",
+    "login.passwordLabel",
+    "login.passwordPlaceholder",
+    "login.loginButton",
+    "login.loggingIn",
+    "login.superadminTab",
+    "login.schoolTab",
+    "login.createAccount",
+    "login.forgotPassword",
+    "login.noAccount",
+    "login.registerSchool",
+    "login.welcomeTitle",
+    "login.welcomeSubtitle",
+    "login.feature1",
+    "login.feature2",
+    "login.feature3",
+    "login.feature4",
+    "login.skipStep",
+    "login.backToHome",
+    "login.together",
+    "register.title",
+    "register.schoolInfo",
+    "register.schoolName",
+    "register.schoolNamePlaceholder",
+    "register.schoolType",
+    "register.schoolTypePrimary",
+    "register.schoolTypeCollege",
+    "register.schoolTypeLycee",
+    "register.schoolTypeComplex",
+    "register.schoolTypeUniversity",
+    "register.schoolTypeOther",
+    "register.country",
+    "register.countryPlaceholder",
+    "register.city",
+    "register.cityPlaceholder",
+    "register.address",
+    "register.addressPlaceholder",
+    "register.schoolPhone",
+    "register.schoolPhonePlaceholder",
+    "register.schoolEmail",
+    "register.schoolEmailPlaceholder",
+    "register.directorInfo",
+    "register.directorName",
+    "register.directorNamePlaceholder",
+    "register.directorPhone",
+    "register.directorPhonePlaceholder",
+    "register.directorPassword",
+    "register.directorPasswordPlaceholder",
+    "register.preferredLanguage",
+    "register.langFr",
+    "register.langEn",
+    "register.langEs",
+    "register.langAr",
+    "register.terms",
+    "register.privacy",
+    "register.createButton",
+    "register.creating",
+    "register.successTitle",
+    "register.successMessage",
+    "register.backToLogin",
+    "register.typeSelectPlaceholder",
+    "register.ministryPlaceholder",
+    "register.sloganPlaceholder",
+    "common.search",
+    "common.success",
+    "common.confirm",
+    "common.next",
+    "common.previous",
+    "common.required",
+    "common.selectAll",
+    "common.email",
+    "common.country",
+    "common.language",
+    "common.print",
+    "common.refresh",
+    "common.sync",
+    "common.filter",
+    "common.total",
+    "common.remaining",
+    "common.cycle",
+    "common.payment",
+    "common.payments",
+    "common.year",
+    "common.currency",
+    "dashboard.totalCollected",
+    "dashboard.recentPayments",
+    "dashboard.studentsByClass",
+    "dashboard.alerts",
+    "dashboard.addStudent",
+    "dashboard.scanAttendance",
+    "dashboard.viewAll",
+    "dashboard.welcome",
+    "dashboard.trialDays",
+    "dashboard.trialExpired",
+    "dashboard.stats",
+    "dashboard.cycles",
+    "dashboard.status",
+    "dashboard.charts",
+    "dashboard.table",
+    "students.title",
+    "students.filterCycle",
+    "students.notRepeating",
+    "students.newStudent",
+    "students.oldStudent",
+    "students.deleteStudent",
+    "students.totalStudents",
+    "payments.title",
+    "payments.date",
+    "settings.logo",
+    "settings.stamp",
+    "settings.currency",
+    "settings.language",
+    "settings.saveSettings",
+    "settings.country",
+    "errors.required",
+    "errors.invalidPhone",
+    "errors.invalidEmail",
+    "errors.invalidName",
+    "errors.minPassword",
+    "errors.termsRequired",
+    "errors.privacyRequired",
+    "errors.schoolTypeRequired",
+    "errors.countryRequired",
+    "errors.genericError",
+    "errors.loginFailed",
+    "errors.registerFailed",
+    "errors.networkError",
+    "bulletin.title",
+    "bulletin.schoolYear",
+    "bulletin.studentName",
+    "bulletin.registrationNumber",
+    "bulletin.birthDate",
+    "bulletin.class",
+    "bulletin.gender",
+    "bulletin.genderMale",
+    "bulletin.genderFemale",
+    "bulletin.effectif",
+    "bulletin.students",
+    "bulletin.subjects",
+    "bulletin.classGrade",
+    "bulletin.homeworkGrade",
+    "bulletin.classAvg",
+    "bulletin.compositionGrade",
+    "bulletin.average",
+    "bulletin.coeff",
+    "bulletin.coeffTimesGrade",
+    "bulletin.rank",
+    "bulletin.teacher",
+    "bulletin.appreciation",
+    "bulletin.signature",
+    "bulletin.generalAverage",
+    "bulletin.rankLabel",
+    "bulletin.highestAverage",
+    "bulletin.lowestAverage",
+    "bulletin.classGeneralAverage",
+    "bulletin.absences",
+    "bulletin.lates",
+    "bulletin.councilDecision",
+    "bulletin.classTeacher",
+    "bulletin.stampAndSignature",
+    "bulletin.directorTitle",
+    "bulletin.sealAndSignature",
+    "bulletin.legalNotice",
+    "bulletin.madeIn",
+    "bulletin.the",
+    "bulletin.generatedVia",
+    "bulletin.appVeryGood",
+    "bulletin.appGood",
+    "bulletin.appFairlyGood",
+    "bulletin.appPassing",
+    "bulletin.appInsufficient",
+    "bulletin.appWeak",
+    "bulletin.appPoor",
+    "bulletin.annualAverage",
+    "bulletin.annualRank",
+    "bulletin.phoneNotProvided",
+    "staff.roles",
+    "parent.homework",
+    "parent.urgent",
+    "schedule.days",
+    "schedule.colors",
+    "activity.actions",
+    "parentNotes.appreciation",
+    "profResources.form",
+    "public.careers",
+    "public.contact",
+    "public.legal",
+    "grades.appreciation",
+    "salaries.status",
+    "personnel.deleteAccount",
+    ").filter(Boolean) : [];\n    return { cleanDesc, completedIds };\n};\n\nconst getDueDateLabel = (dateStr: string | undefined, language: Language) => {\n    if (!dateStr) return null;\n    const d = new Date(dateStr);\n    if (!isValid(d)) return null;\n    if (isToday(d)) return { label: t(language, "
+  ],
+  "dynamicUsageMap": {
+    "groups.": [
+      "Layout.tsx"
+    ],
+    "nav.": [
+      "Layout.tsx",
+      "Layout.tsx",
+      "Layout.tsx"
+    ],
+    "bulletin.": [
+      "BulletinPDF.tsx"
+    ]
+  }
+}
