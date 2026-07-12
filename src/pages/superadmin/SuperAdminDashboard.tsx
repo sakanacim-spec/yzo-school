@@ -434,7 +434,7 @@ export const SuperAdminDashboard: React.FC = () => {
         <div className="flex items-center gap-3 relative z-10">
           <button onClick={load}
             className="p-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all border border-slate-700/50 hover:shadow-lg"
-            title="Actualiser">
+            title={t(language as Language, 'superadmin.refresh') || 'Actualiser'}>
             <RefreshCw className="w-5 h-5" />
           </button>
           <button onClick={() => setShowCreateModal(true)}

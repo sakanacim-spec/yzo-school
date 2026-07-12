@@ -390,15 +390,15 @@ export const Dashboard: React.FC = () => {
 
                 <div className="space-y-4 mb-8">
                   <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Attendu</span>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{t(language as Language, 'dashboard.expected') || 'Attendu'}</span>
                     <span className="font-black text-slate-900 dark:text-white">{maskValue(formatMontant(cs.ecolage, currency))}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
-                    <span className="text-xs font-bold text-emerald-600 uppercase tracking-wide">Perçu</span>
+                    <span className="text-xs font-bold text-emerald-600 uppercase tracking-wide">{t(language as Language, 'dashboard.collected') || 'Perçu'}</span>
                     <span className="font-black text-emerald-600">{maskValue(formatMontant(cs.paye, currency))}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 rounded-xl bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30">
-                    <span className="text-xs font-bold text-rose-600 uppercase tracking-wide">Reste</span>
+                    <span className="text-xs font-bold text-rose-600 uppercase tracking-wide">{t(language as Language, 'dashboard.remaining') || 'Reste'}</span>
                     <span className="font-black text-rose-600">{maskValue(formatMontant(cs.restant, currency))}</span>
                   </div>
                 </div>

@@ -310,7 +310,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                     </div>
                     <h1 className="text-4xl font-black text-[#1e293b] tracking-tight">yziow</h1>
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">
-                        PLATEFORME DE GESTION SCOLAIRE
+                        {t(language as Language, 'login.platformTitle') || 'PLATEFORME DE GESTION SCOLAIRE'}
                     </p>
                 </div>
 
@@ -426,7 +426,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         Ensemble,
                       </h2>
                       <h3 className="text-2xl font-black text-[#431407] mb-4 leading-tight">
-                        pour la réussite de chaque élève.
+                        {t(language as Language, 'login.forStudentSuccess') || 'pour la réussite de chaque élève.'}
                       </h3>
                       
                       <p className="text-xs font-semibold text-white/95 leading-relaxed max-w-[420px] mb-6">
@@ -440,8 +440,8 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                               <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mb-2">
                                   <BarChart2 className="w-5 h-5 text-[#f97316]" />
                               </div>
-                              <h4 className="text-[10px] font-black text-slate-800 leading-tight mb-1">Notes et bulletins en temps réel</h4>
-                              <p className="text-[8px] text-slate-400 font-semibold leading-tight">Consultez les résultats dès leur publication.</p>
+                              <h4 className="text-[10px] font-black text-slate-800 leading-tight mb-1">{t(language as Language, 'login.gradesRealtime') || 'Notes et bulletins en temps réel'}</h4>
+                              <p className="text-[8px] text-slate-400 font-semibold leading-tight">{t(language as Language, 'login.consultResults') || 'Consultez les résultats dès leur publication.'}</p>
                           </div>
                           
                           {/* Présences */}
@@ -449,8 +449,8 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                               <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mb-2">
                                   <MapPin className="w-5 h-5 text-[#f97316]" />
                               </div>
-                              <h4 className="text-[10px] font-black text-slate-800 leading-tight mb-1">Présences et absences instantanées</h4>
-                              <p className="text-[8px] text-slate-400 font-semibold leading-tight">Soyez informé des absences, retards et présences.</p>
+                              <h4 className="text-[10px] font-black text-slate-800 leading-tight mb-1">{t(language as Language, 'login.attendanceRealtime') || 'Présences et absences instantanées'}</h4>
+                              <p className="text-[8px] text-slate-400 font-semibold leading-tight">{t(language as Language, 'login.beInformed') || 'Soyez informé des absences, retards et présences.'}</p>
                           </div>
 
                           {/* Échanges */}
@@ -458,8 +458,8 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                               <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mb-2">
                                   <MessageSquare className="w-5 h-5 text-[#f97316]" />
                               </div>
-                              <h4 className="text-[10px] font-black text-slate-800 leading-tight mb-1">Échanges simples avec l'école</h4>
-                              <p className="text-[8px] text-slate-400 font-semibold leading-tight">Communiquez facilement avec les enseignants et l'administration.</p>
+                              <h4 className="text-[10px] font-black text-slate-800 leading-tight mb-1">{t(language as Language, 'login.easyExchanges') || 'Échanges simples avec l\'école'}</h4>
+                              <p className="text-[8px] text-slate-400 font-semibold leading-tight">{t(language as Language, 'login.communicateEasily') || 'Communiquez facilement avec les enseignants et l\'administration.'}</p>
                           </div>
                       </div>
 
@@ -515,7 +515,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                   {/* Footer Pill */}
                   <div className="w-full mt-4 relative z-10">
                       <div className="bg-[#ffedd5] rounded-2xl py-2.5 px-4 flex items-center justify-center gap-2 text-[10px] font-bold text-[#431407] border border-orange-100">
-                          <span className="text-rose-500">❤️</span> Parce que chaque enfant mérite le meilleur suivi pour réussir. <span className="text-amber-500">⭐</span>
+                          <span className="text-rose-500">❤️</span> {t(language as Language, 'login.bestFollowup') || 'Parce que chaque enfant mérite le meilleur suivi pour réussir.'} <span className="text-amber-500">⭐</span>
                       </div>
                   </div>
 

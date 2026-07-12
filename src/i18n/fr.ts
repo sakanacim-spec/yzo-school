@@ -139,7 +139,19 @@ export const fr = {
     "feature1": "Gestion des élèves et paiements",
     "feature2": "Bulletins et notes en ligne",
     "feature3": "Présences par QR code",
-    "feature4": "Communication avec les parents"
+    "feature4": "Communication avec les parents",
+    "skipStep": "Passer cette étape pour le moment",
+    "backToHome": "← Retour à l'accueil",
+    "platformTitle": "PLATEFORME DE GESTION SCOLAIRE",
+    "together": "Ensemble,",
+    "forStudentSuccess": "pour la réussite de chaque élève.",
+    "gradesRealtime": "Notes et bulletins en temps réel",
+    "consultResults": "Consultez les résultats dès leur publication.",
+    "attendanceRealtime": "Présences et absences instantanées",
+    "beInformed": "Soyez informé des absences, retards et présences.",
+    "easyExchanges": "Échanges simples avec l'école",
+    "communicateEasily": "Communiquez facilement avec les enseignants et l'administration.",
+    "bestFollowup": "Parce que chaque enfant mérite le meilleur suivi pour réussir."
   },
   "register": {
     "title": "Inscrire mon établissement",
@@ -184,7 +196,9 @@ export const fr = {
     "backToLogin": "Retour à la connexion",
     "typeSelectPlaceholder": "-- Sélectionnez le type --",
     "ministryEx": "Ex: Ministère de l'Éducation Nationale",
-    "sloganEx": "Ex: L'excellence pour tous"
+    "sloganEx": "Ex: L'excellence pour tous",
+    "ministryPlaceholder": "Ministère de tutelle",
+    "sloganPlaceholder": "Slogan de l'établissement"
   },
   "common": {
     "save": "Enregistrer",
@@ -322,7 +336,7 @@ export const fr = {
     "title": "Tableau de bord",
     "totalStudents": "Total Élèves",
     "totalCollected": "Total Encaissé",
-    "remaining": "Restant à percevoir",
+    "remaining": "Reste",
     "recoveryRate": "Taux de recouvrement",
     "recentPayments": "Paiements récents",
     "studentsByClass": "Élèves par classe",
@@ -418,7 +432,9 @@ export const fr = {
     "payments": "Paiements",
     "presences": "Présences",
     "parents_active": "Parents Actifs",
-    "settledVsUnsettled": "Soldés vs Non Soldés"
+    "settledVsUnsettled": "Soldés vs Non Soldés",
+    "expected": "Attendu",
+    "collected": "Perçu"
   },
   "students": {
     "title": "Gestion des Élèves",
@@ -989,7 +1005,9 @@ export const fr = {
     "child": "Enfant",
     "noPayment": "Aucun paiement.",
     "dateAndTime": "Date & Heure",
-    "noPresence": "Aucun pointage."
+    "noPresence": "Aucun pointage.",
+    "homework": "devoir",
+    "urgent": "urgent"
   },
   "privacy": {
     "title": "Charte de Confidentialité",
@@ -1837,7 +1855,8 @@ export const fr = {
     "deleteBtn": "SUPPRIMER",
     "confirmStatusToggle": "Confirmer le changement de statut",
     "confirmDeleteWarn": "Attention, cette action est irréversible.",
-    "confirmDeletePrompt": "Confirmer la suppression"
+    "confirmDeletePrompt": "Confirmer la suppression",
+    "refresh": "Actualiser"
   },
   "verification": {
     "title": "Vérification de reçu",
@@ -1859,5 +1878,8 @@ export const fr = {
     "step2": "2. Ou scannez le QR Code imprimé sur le reçu",
     "step3": "3. Le système vérifiera l'authenticité du reçu",
     "step4": "4. Toutes les informations du paiement seront affichées"
+  },
+  "personnel": {
+    "deleteAccount": "Supprimer ce compte"
   }
 };
