@@ -1881,5 +1881,8 @@ export const fr = {
   },
   "personnel": {
     "deleteAccount": "Supprimer ce compte"
+  },
+  ")": {
+    "filter(Boolean) : [];\n    return { cleanDesc, completedIds };\n};\n\nconst getDueDateLabel = (dateStr: string | undefined, language: Language) => {\n    if (!dateStr) return null;\n    const d = new Date(dateStr);\n    if (!isValid(d)) return null;\n    if (isToday(d)) return { label: t(language, ": "Aujourd'hui !"
   }
 };
