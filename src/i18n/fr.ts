@@ -43,7 +43,8 @@ export const fr = {
     "reports": "Rapports PDF",
     "analytics": "Analyses",
     "settings": "Paramètres",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "contact_school": "Contacter l'établissement"
   },
   "groups": {
     "Principal": "Principal",
@@ -63,7 +64,8 @@ export const fr = {
     "profile": "Mon Profil",
     "logout": "Déconnexion",
     "syncing": "Synchronisation...",
-    "refresh": "Actualiser"
+    "refresh": "Actualiser",
+    "privacy": "Confidentialité"
   },
   "auth": {
     "otpSendError": "Erreur lors de l'envoi du code OTP.",
@@ -112,7 +114,8 @@ export const fr = {
     "connectedEducation": "Éducation Connectée",
     "forgotPassword": "Mot de passe oublié",
     "phonePlaceholder": "Numéro de téléphone",
-    "backToLogin": "Retour à la connexion"
+    "backToLogin": "Retour à la connexion",
+    "phone": "Téléphone"
   },
   "login": {
     "title": "Connexion",
@@ -413,7 +416,9 @@ export const fr = {
     },
     "noData": "Aucune donnée",
     "payments": "Paiements",
-    "presences": "Présences"
+    "presences": "Présences",
+    "parents_active": "Parents Actifs",
+    "settledVsUnsettled": "Soldés vs Non Soldés"
   },
   "students": {
     "title": "Gestion des Élèves",
@@ -511,7 +516,10 @@ export const fr = {
     "totalReceived": "Total Perçu",
     "remainingToRecover": "Reste à recouvrer",
     "settledStatus": "Soldés",
-    "pendingStatus": "En attente"
+    "pendingStatus": "En attente",
+    "importSuccess": "Élèves importés avec succès",
+    "whatsappDefaultSettled": "Bonjour, nous vous confirmons que votre solde est réglé. Merci.",
+    "whatsappDefaultUnsettled": "Bonjour, sauf erreur de notre part, vous avez un solde en attente."
   },
   "payments": {
     "title": "Paiements",
@@ -834,7 +842,9 @@ export const fr = {
     "dropoutDetectionStrugglingStudents": "Détection Décrochage — Élèves en difficulté",
     "averageLessThan8": "Moyenne générale inférieure à 8/20",
     "currentAverage": "Moyenne Actuelle",
-    "parentContact": "Contact Parent"
+    "parentContact": "Contact Parent",
+    "amountsCollectedVsRemaining": "Montants encaissés vs restants ({{currency}})",
+    "realSituation": "Situation réelle"
   },
   "finance": {
     "revenueByCycle": "Revenus par Cycle",
@@ -1007,7 +1017,8 @@ export const fr = {
     "section4Desc1": "Conformément à la réglementation sur la protection de la vie privée, vous disposez d\\",
     "section4Desc2": "Pour exercer ces droits, vous pouvez contacter directement l\\",
     "footerText": "Yziow est hébergé sur des serveurs sécurisés et utilise la technologie Supabase Postgres.",
-    "understoodBtn": "J'ai compris"
+    "understoodBtn": "J'ai compris",
+    "intro": "Politique de confidentialité"
   },
   "reports": {
     "bulkWhatsAppSent": "${messages.length} messages à envoyer. Le premier est ouvert. Copiez les autres numéros depuis la liste.",
@@ -1026,7 +1037,8 @@ export const fr = {
     "allClasses": "Toutes les classes"
   },
   "sidebar": {
-    "subtitle": "Gestion Scolaire"
+    "subtitle": "Gestion Scolaire",
+    "managed_by": "Géré par"
   },
   "announcements": {
     "information": "Information",
@@ -1063,7 +1075,9 @@ export const fr = {
     "confirmedRead": "Confirmée lue",
     "readPending": "Lecture en attente",
     "removeFromList": "Retirer de la liste",
-    "deletePermanently": "Supprimer définitivement"
+    "deletePermanently": "Supprimer définitivement",
+    "confirmHide": "Masquer cette annonce ?",
+    "confirmDelete": "Supprimer cette annonce ?"
   },
   "reportCards": {
     "generatorTitle": "Générateur de Bulletins (Modèle Officiel DRE)",
@@ -1134,7 +1148,15 @@ export const fr = {
     "sendError": "Erreur lors de l'envoi",
     "recipients": "Destinataires",
     "noMatchingStudents": "Aucun élève ne correspond à vos filtres ou n'a de numéro renseigné.",
-    "remaining": "Reste:"
+    "remaining": "Reste:",
+    "whatsappWarning": "Attention, WhatsApp nécessite l'application installée",
+    "confirmSms": "Confirmer l'envoi du SMS",
+    "confirmPush": "Confirmer l'envoi Push",
+    "pushFailed": "Échec de l'envoi Push",
+    "previewLength": "Aperçu de la longueur",
+    "pushBtn": "Envoyer notification Push",
+    "smsBtn": "Envoyer SMS",
+    "messagesSentSuccess": "Messages envoyés avec succès"
   },
   "expenses": {
     "fillRequiredFields": "Veuillez remplir les champs obligatoires.",
@@ -1191,7 +1213,9 @@ export const fr = {
     "statusUnsettled": "Non soldé",
     "reset": "Réinitialiser",
     "recordsAvailable": "fiches disponibles",
-    "noMatchingRecords": "Aucune fiche ne correspond à ces critères."
+    "noMatchingRecords": "Aucune fiche ne correspond à ces critères.",
+    "defaultRemMessage": "Nous vous remercions pour votre paiement.",
+    "defaultRapMessage": "Veuillez régulariser votre solde."
   },
   "schedule": {
     "scheduleProf": "Emploi du temps — {{prof}}",
@@ -1225,7 +1249,9 @@ export const fr = {
     "endTime": "Heure de fin",
     "durationMinutes": "Durée : {{duration}} minutes",
     "color": "Couleur",
-    "saveSession": "Sauvegarder la séance"
+    "saveSession": "Sauvegarder la séance",
+    "days": "Jours",
+    "colors": "Couleurs"
   },
   "academic": {
     "subjectAlreadyAssigned": "Cette matière est déjà enseignée dans cette classe.",
@@ -1270,7 +1296,8 @@ export const fr = {
     "allUsers": "Tous utilisateurs",
     "entries": "entrées",
     "entry": "entrée",
-    "noActivity": "Aucune activité enregistrée"
+    "noActivity": "Aucune activité enregistrée",
+    "actions": "Actions"
   },
   "parentBadges": {
     "loading": "Récupération de vos trophées...",
@@ -1473,7 +1500,8 @@ export const fr = {
     "absents": "Absent(s)",
     "noStudent": "Aucun élève dans cette classe.",
     "save": "Enregistrer l'appel",
-    "selectClassToStart": "Sélectionnez une classe pour commencer l'appel"
+    "selectClassToStart": "Sélectionnez une classe pour commencer l'appel",
+    "success": "Présences enregistrées avec succès"
   },
   "public": {
     "backToHome": "Retour à l'accueil",
@@ -1806,7 +1834,10 @@ export const fr = {
     "reactivateBtn": "RÉACTIVER",
     "suspendBtn": "SUSPENDRE",
     "deleteSchool": "Détruire cette école",
-    "deleteBtn": "SUPPRIMER"
+    "deleteBtn": "SUPPRIMER",
+    "confirmStatusToggle": "Confirmer le changement de statut",
+    "confirmDeleteWarn": "Attention, cette action est irréversible.",
+    "confirmDeletePrompt": "Confirmer la suppression"
   },
   "verification": {
     "title": "Vérification de reçu",
