@@ -556,15 +556,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   }}
                   className="h-10 pl-3 pr-8 rounded-[16px] bg-white dark:bg-slate-800 border-0 text-[12px] font-bold text-slate-700 dark:text-slate-300 shadow-[0_2px_10px_rgba(0,0,0,0.04)] focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer appearance-none transition-all duration-300 hover:text-amber-500"
                 >
-                  <option value="fr">🇫🇷 FR</option>
-                  <option value="en">🇬🇧 EN</option>
-                  <option value="es">🇪🇸 ES</option>
-                  <option value="ar">🇸🇦 AR</option>
-                  <option value="it">🇮🇹 IT</option>
-                  <option value="de">🇩🇪 DE</option>
-                  <option value="pt">🇵🇹 PT</option>
-                  <option value="zh">🇨🇳 ZH</option>
-                  <option value="ru">🇷🇺 RU</option>
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="en">🇬🇧 English</option>
+                  <option value="es">🇪🇸 Español</option>
+                  <option value="ar">🇸🇦 العربية</option>
+                  <option value="it">🇮🇹 Italiano</option>
+                  <option value="de">🇩🇪 Deutsch</option>
+                  <option value="pt">🇵🇹 Português</option>
+                  <option value="zh">🇨🇳 中文</option>
+                  <option value="ru">🇷🇺 Русский</option>
                 </select>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400 text-[10px]">
                   ▼
