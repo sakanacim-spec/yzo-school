@@ -61,8 +61,8 @@ router.post('/', async (req, res) => {
                 }
             };
 
-            // Process unique texts with a basic concurrency limit of 3
-            const concurrencyLimit = 3;
+            // Process unique texts with a concurrency limit of 15
+            const concurrencyLimit = 15;
             for (let i = 0; i < uniqueTexts.length; i += concurrencyLimit) {
                 const chunk = uniqueTexts.slice(i, i + concurrencyLimit);
                 
@@ -96,11 +96,7 @@ router.post('/', async (req, res) => {
                     // Fallback ultime SANS préfixe (on renvoie le texte source)
                     translationMap.set(t, t);
                 }));
-                
-                // Small delay between chunks to avoid hitting absolute rate limits too fast
-                if (i + concurrencyLimit < uniqueTexts.length) {
-                    await new Promise(resolve => setTimeout(resolve, 300));
-                }
+                // Supprimé le délai artificiel pour accélérer la résolution locale et en production
             }
 
             // Reconstruct the array in original order
