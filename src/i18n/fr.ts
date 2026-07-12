@@ -57,11 +57,7 @@ export const fr = {
     "Administration": "Administration"
   },
   "header": {
-    "searchPlaceholder": "Rechercher un élève, un reçu, etc...",
     "support": "Assistance",
-    "darkMode": "Mode Sombre",
-    "lightMode": "Mode Clair",
-    "profile": "Mon Profil",
     "logout": "Déconnexion",
     "syncing": "Synchronisation...",
     "refresh": "Actualiser",
@@ -84,7 +80,6 @@ export const fr = {
     "didNotReceiveCode": "Je n'ai pas reçu le code",
     "parentRegister": "Inscription Parent",
     "schoolCode": "Code de l'école (School Slug)",
-    "schoolCodeEx": "ex: mon_ecole_2025",
     "askCodeAdmin": "Demandez ce code à l'administration de votre école.",
     "fullNameParent": "Nom Complet (Parent)",
     "fullNameEx": "ex: Koffi Kouassi",
@@ -99,8 +94,6 @@ export const fr = {
     "welcomeBack": "De retour ? 👋",
     "welcomeBackDesc": "Connectez-vous pour accéder au tableau de bord et gérer votre établissement.",
     "fastFreeSecure": "C'est rapide, gratuit et sécurisé.",
-    "phoneEx": "+33 6 12 34 56 78",
-    "passwordPlaceholderMobile": "••••••",
     "forgotPasswordBtn": "Mot de passe oublié ?",
     "privacyAndData": "Confidentialité & Données",
     "trialExpiredWarning": "⚠️ Période d'essai expirée",
@@ -118,32 +111,7 @@ export const fr = {
     "phone": "Téléphone"
   },
   "login": {
-    "title": "Connexion",
-    "subtitle": "Plateforme de gestion scolaire",
-    "schoolLabel": "Établissement",
-    "schoolPlaceholder": "Sélectionnez votre établissement",
-    "phoneLabel": "Téléphone (Identifiant)",
-    "phonePlaceholder": "Ex: +22890000000",
-    "passwordLabel": "Mot de passe",
-    "passwordPlaceholder": "Votre mot de passe",
-    "loginButton": "Se connecter",
-    "loggingIn": "Connexion...",
-    "superadminTab": "SuperAdmin",
-    "schoolTab": "Établissement",
-    "createAccount": "Créer un compte",
-    "forgotPassword": "Mot de passe oublié ?",
-    "noAccount": "Pas encore inscrit ?",
-    "registerSchool": "Inscrire mon établissement",
-    "welcomeTitle": "Bienvenue sur Ysiow",
-    "welcomeSubtitle": "La plateforme complète pour gérer votre établissement scolaire.",
-    "feature1": "Gestion des élèves et paiements",
-    "feature2": "Bulletins et notes en ligne",
-    "feature3": "Présences par QR code",
-    "feature4": "Communication avec les parents",
-    "skipStep": "Passer cette étape pour le moment",
-    "backToHome": "← Retour à l'accueil",
     "platformTitle": "PLATEFORME DE GESTION SCOLAIRE",
-    "together": "Ensemble,",
     "forStudentSuccess": "pour la réussite de chaque élève.",
     "gradesRealtime": "Notes et bulletins en temps réel",
     "consultResults": "Consultez les résultats dès leur publication.",
@@ -154,51 +122,8 @@ export const fr = {
     "bestFollowup": "Parce que chaque enfant mérite le meilleur suivi pour réussir."
   },
   "register": {
-    "title": "Inscrire mon établissement",
-    "schoolInfo": "Informations de l'établissement",
-    "schoolName": "Nom de l'établissement",
-    "schoolNamePlaceholder": "Ex: Complexe Scolaire d'Excellence",
-    "schoolType": "Type d'établissement",
-    "schoolTypePrimary": "École Primaire",
-    "schoolTypeCollege": "Collège",
-    "schoolTypeLycee": "Lycée",
-    "schoolTypeComplex": "Complexe Scolaire (Primaire à Lycée)",
-    "schoolTypeUniversity": "Université / Grande École",
-    "schoolTypeOther": "Autre",
-    "country": "Pays",
-    "countryPlaceholder": "Sélectionnez votre pays",
-    "city": "Ville",
-    "cityPlaceholder": "Ex: Lomé",
-    "address": "Adresse de l'établissement",
-    "addressPlaceholder": "Ex: Quartier Tokoin, Rue 12",
-    "schoolPhone": "Téléphone de l'établissement",
-    "schoolPhonePlaceholder": "Ex: +22822000000",
-    "schoolEmail": "Email de l'établissement",
-    "schoolEmailPlaceholder": "Ex: direction@ecole.tg",
-    "directorInfo": "Informations du Directeur / Administrateur",
-    "directorName": "Nom complet du Directeur",
-    "directorNamePlaceholder": "Ex: Jean Dupont",
-    "directorPhone": "Téléphone (Identifiant de connexion)",
-    "directorPhonePlaceholder": "Ex: +22890000000",
-    "directorPassword": "Mot de passe",
-    "directorPasswordPlaceholder": "Min. 6 caractères",
-    "preferredLanguage": "Langue préférée de la plateforme",
-    "langFr": "Français",
-    "langEn": "English",
-    "langEs": "Español",
-    "langAr": "العربية",
-    "terms": "J'accepte les Conditions d'Utilisation de la plateforme.",
-    "privacy": "Je consens au traitement des données de mon établissement.",
-    "createButton": "Créer mon établissement",
-    "creating": "Création en cours...",
-    "successTitle": "Établissement créé !",
-    "successMessage": "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
-    "backToLogin": "Retour à la connexion",
-    "typeSelectPlaceholder": "-- Sélectionnez le type --",
     "ministryEx": "Ex: Ministère de l'Éducation Nationale",
-    "sloganEx": "Ex: L'excellence pour tous",
-    "ministryPlaceholder": "Ministère de tutelle",
-    "sloganPlaceholder": "Slogan de l'établissement"
+    "sloganEx": "Ex: L'excellence pour tous"
   },
   "common": {
     "save": "Enregistrer",
@@ -206,19 +131,12 @@ export const fr = {
     "delete": "Supprimer",
     "edit": "Modifier",
     "add": "Ajouter",
-    "search": "Rechercher",
     "loading": "Chargement...",
     "error": "Erreur",
-    "success": "Succès",
-    "confirm": "Confirmer",
     "yes": "Oui",
     "no": "Non",
     "close": "Fermer",
     "back": "Retour",
-    "next": "Suivant",
-    "previous": "Précédent",
-    "required": "Champ requis",
-    "selectAll": "Tout sélectionner",
     "noData": "Aucune donnée",
     "actions": "Actions",
     "status": "Statut",
@@ -226,27 +144,13 @@ export const fr = {
     "amount": "Montant",
     "name": "Nom",
     "phone": "Téléphone",
-    "email": "Email",
     "address": "Adresse",
-    "country": "Pays",
-    "language": "Langue",
-    "print": "Imprimer",
     "export": "Exporter",
     "import": "Importer",
-    "refresh": "Actualiser",
-    "sync": "Synchroniser",
-    "filter": "Filtrer",
-    "total": "Total",
     "paid": "Payé",
-    "remaining": "Restant",
     "class": "Classe",
-    "cycle": "Cycle",
     "student": "Élève",
     "students": "Élèves",
-    "payment": "Paiement",
-    "payments": "Paiements",
-    "year": "Année",
-    "currency": "Devise",
     "requiredFields": "Tous les champs sont requis.",
     "later": "Plus tard",
     "or": "ou",
@@ -335,20 +239,10 @@ export const fr = {
   "dashboard": {
     "title": "Tableau de bord",
     "totalStudents": "Total Élèves",
-    "totalCollected": "Total Encaissé",
     "remaining": "Reste",
     "recoveryRate": "Taux de recouvrement",
-    "recentPayments": "Paiements récents",
-    "studentsByClass": "Élèves par classe",
-    "alerts": "Alertes",
     "quickActions": "Actions rapides",
-    "addStudent": "Inscrire un élève",
-    "scanAttendance": "Scanner Présence",
     "generateReport": "Rapport PDF",
-    "viewAll": "Voir tout",
-    "welcome": "Bienvenue",
-    "trialDays": "jours d'essai restants",
-    "trialExpired": "Période d'essai expirée",
     "strategicDashboard": "Tableau de bord stratégique",
     "visionAnd": "Vision &",
     "performance": "Performance",
@@ -388,15 +282,23 @@ export const fr = {
     "total": "Total",
     "paid": "Payé",
     "remains": "Restant",
+    "subtitle": "Vue d'ensemble de la gestion financière",
+    "noData": "Aucune donnée",
+    "payments": "Paiements",
+    "presences": "Présences",
+    "parents_active": "Parents Actifs",
+    "settledVsUnsettled": "Soldés vs Non Soldés",
+    "expected": "Attendu",
+    "collected": "Perçu",
     "stats": {
-      "totalStudents": "élèves",
-      "cyclesFormat": "P:{p} | C:{c} | L:{l}",
-      "expectedTuition": "Écolage Attendu",
-      "totalTuitionDesc": "Total des frais de scolarité",
-      "amountPaid": "Montant Payé",
-      "studentsPaid": "{count} élèves soldés",
-      "recoveryRate": "Taux de Recouvrement",
-      "remaining": "Reste : {amount}"
+      "totalStudents": "Total Élèves",
+      "cyclesFormat": "Répartition par cycles",
+      "expectedTuition": "Scolarité attendue",
+      "totalTuitionDesc": "Scolarité totale théorique",
+      "amountPaid": "Montant payé",
+      "studentsPaid": "Élèves soldés",
+      "recoveryRate": "Taux de recouvrement",
+      "remaining": "Reste à payer"
     },
     "cycles": {
       "primaire": "Primaire",
@@ -407,41 +309,31 @@ export const fr = {
       "soldes": "Soldés",
       "non_soldes": "Non Soldés"
     },
-    "subtitle": "Vue d'ensemble de la gestion financière",
     "charts": {
-      "recoveryByClass": "Taux de recouvrement par classe",
-      "rate": "Taux",
-      "noData": "Aucune donnée",
-      "byCycle": "Par cycle",
-      "paymentStatus": "Statut paiements"
+      "recoveryByClass": "Recouvrement par classe",
+      "rate": "Taux (%)",
+      "noData": "Aucune donnée disponible",
+      "byCycle": "Répartition par cycle",
+      "paymentStatus": "Statut des paiements"
     },
     "table": {
-      "rankingTitle": "Classement des classes (par taux de recouvrement)",
+      "rankingTitle": "Classement des classes",
       "rank": "Rang",
       "class": "Classe",
       "cycle": "Cycle",
       "count": "Effectif",
       "expected": "Attendu",
-      "paid": "Payé",
-      "remaining": "Restant",
+      "paid": "Encaissé",
+      "remaining": "Reste",
       "rate": "Taux",
-      "noData": "Importez un fichier Excel pour commencer à gérer vos élèves.",
+      "noData": "Aucune donnée",
       "student": "Élève"
-    },
-    "noData": "Aucune donnée",
-    "payments": "Paiements",
-    "presences": "Présences",
-    "parents_active": "Parents Actifs",
-    "settledVsUnsettled": "Soldés vs Non Soldés",
-    "expected": "Attendu",
-    "collected": "Perçu"
+    }
   },
   "students": {
-    "title": "Gestion des Élèves",
     "addNew": "Nouvelle inscription",
     "search": "Rechercher un élève...",
     "filterClass": "Filtrer par classe",
-    "filterCycle": "Filtrer par cycle",
     "filterStatus": "Filtrer par statut",
     "lastName": "Nom",
     "firstName": "Prénom",
@@ -456,16 +348,11 @@ export const fr = {
     "male": "Masculin",
     "female": "Féminin",
     "repeating": "Redoublant",
-    "notRepeating": "Non redoublant",
-    "newStudent": "Nouveau",
-    "oldStudent": "Ancien",
     "registerPayment": "Enregistrer un paiement",
     "viewDetail": "Voir détails",
     "editStudent": "Modifier",
-    "deleteStudent": "Supprimer",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer cet élève ?",
     "noStudents": "Aucun élève trouvé.",
-    "totalStudents": "Total : {count} élèves",
     "noResults": "Aucun élève trouvé.",
     "informations": "Informations",
     "personalInfo": "Informations personnelles",
@@ -538,10 +425,8 @@ export const fr = {
     "whatsappDefaultUnsettled": "Bonjour, sauf erreur de notre part, vous avez un solde en attente."
   },
   "payments": {
-    "title": "Paiements",
     "addPayment": "Nouveau paiement",
     "amount": "Montant",
-    "date": "Date",
     "receipt": "Reçu",
     "method": "Mode de paiement",
     "cash": "Espèces",
@@ -607,14 +492,8 @@ export const fr = {
     "address": "Adresse",
     "phone": "Téléphone",
     "email": "Email",
-    "logo": "Logo",
-    "stamp": "Cachet officiel",
-    "currency": "Devise",
-    "language": "Langue de l'interface",
-    "saveSettings": "Enregistrer les paramètres",
     "thankYouMessage": "Message de remerciement",
     "reminderMessage": "Message de rappel",
-    "country": "Pays",
     "importError": "Erreur lors de l'importation",
     "cloudCleanedSuccess": "Cloud nettoyé et synchronisé avec succès !",
     "cloudCleanFailed": "Échec du nettoyage Cloud.",
@@ -706,21 +585,7 @@ export const fr = {
     "logsCleared": "Logs d'activité vidés.",
     "purgeLogs": "Purger Logs"
   },
-  "errors": {
-    "required": "Ce champ est requis.",
-    "invalidPhone": "Format invalide. Utilisez le format international (ex: +22890000000).",
-    "invalidEmail": "Adresse email invalide.",
-    "invalidName": "Veuillez saisir votre prénom ET votre nom de famille.",
-    "minPassword": "Le mot de passe doit contenir au moins 6 caractères.",
-    "termsRequired": "Vous devez accepter les conditions d'utilisation.",
-    "privacyRequired": "Vous devez accepter la politique de confidentialité.",
-    "schoolTypeRequired": "Veuillez sélectionner un type d'établissement.",
-    "countryRequired": "Veuillez sélectionner votre pays.",
-    "genericError": "Une erreur est survenue. Veuillez réessayer.",
-    "loginFailed": "Erreur inconnue lors de la connexion.",
-    "registerFailed": "L'inscription a échoué.",
-    "networkError": "Problème de connexion réseau."
-  },
+  "errors": {},
   "support": {
     "title": "Nouvelle discussion",
     "subtitle": "Choisissez le service à contacter",
@@ -942,18 +807,18 @@ export const fr = {
     "teacherNameNote": "Pour un professeur, ce nom doit correspondre à celui dans la gestion académique.",
     "validPhoneTitle": "Veuillez entrer un numéro valide (chiffres et symbole + uniquement)",
     "phonePlaceholder": "Numéro pour la connexion",
+    "adminTeacherAccounts": "Comptes Administrateurs & Professeurs",
+    "noStaffRegistered": "Aucun personnel enregistré",
+    "useFormToCreate": "Utilisez le formulaire pour créer le premier compte.",
     "roles": {
-      "professeur": "Professeur / Enseignant",
+      "professeur": "Professeur",
       "surveillant": "Surveillant",
       "censeur": "Censeur",
       "comptable": "Comptable",
       "superviseur": "Superviseur",
       "secretaire": "Secrétaire",
       "admin": "Administrateur"
-    },
-    "adminTeacherAccounts": "Comptes Administrateurs & Professeurs",
-    "noStaffRegistered": "Aucun personnel enregistré",
-    "useFormToCreate": "Utilisez le formulaire pour créer le premier compte."
+    }
   },
   "importExport": {
     "title": "Import / Export Excel",
@@ -1005,9 +870,7 @@ export const fr = {
     "child": "Enfant",
     "noPayment": "Aucun paiement.",
     "dateAndTime": "Date & Heure",
-    "noPresence": "Aucun pointage.",
-    "homework": "devoir",
-    "urgent": "urgent"
+    "noPresence": "Aucun pointage."
   },
   "privacy": {
     "title": "Charte de Confidentialité",
@@ -1267,9 +1130,7 @@ export const fr = {
     "endTime": "Heure de fin",
     "durationMinutes": "Durée : {{duration}} minutes",
     "color": "Couleur",
-    "saveSession": "Sauvegarder la séance",
-    "days": "Jours",
-    "colors": "Couleurs"
+    "saveSession": "Sauvegarder la séance"
   },
   "academic": {
     "subjectAlreadyAssigned": "Cette matière est déjà enseignée dans cette classe.",
@@ -1314,8 +1175,7 @@ export const fr = {
     "allUsers": "Tous utilisateurs",
     "entries": "entrées",
     "entry": "entrée",
-    "noActivity": "Aucune activité enregistrée",
-    "actions": "Actions"
+    "noActivity": "Aucune activité enregistrée"
   },
   "parentBadges": {
     "loading": "Récupération de vos trophées...",
@@ -1396,15 +1256,6 @@ export const fr = {
     "noMessages": "Vous n'avez aucun message pour le moment."
   },
   "parentNotes": {
-    "appreciation": {
-      "excellent": "Excellent",
-      "veryGood": "Très Bien",
-      "good": "Bien",
-      "satisfactory": "Assez Bien",
-      "passable": "Passable",
-      "insufficient": "Insuffisant",
-      "veryInsufficient": "Très Insuffisant"
-    },
     "noLinkedChild": "Aucun enfant lié",
     "noLinkedChildDesc": "Liez vos enfants depuis le tableau de bord pour voir leurs résultats scolaires.",
     "title": "Relevé de Notes",
@@ -1412,7 +1263,16 @@ export const fr = {
     "updating": "Actualisation...",
     "pdfReport": "Relevé PDF",
     "noGradesRecorded": "Aucune note enregistrée pour cette période.",
-    "profUndefined": "Prof. non défini"
+    "profUndefined": "Prof. non défini",
+    "appreciation": {
+      "excellent": "Excellent",
+      "veryGood": "Très bien",
+      "good": "Bien",
+      "satisfactory": "Satisfaisant",
+      "passable": "Passable",
+      "insufficient": "Insuffisant",
+      "veryInsufficient": "Très insuffisant"
+    }
   },
   "parentRecus": {
     "errorLoading": "Impossible de charger vos reçus.",
@@ -1493,18 +1353,18 @@ export const fr = {
     "allClasses": "Toutes les classes",
     "noResources": "Aucune ressource trouvée. Cliquez sur \"Ajouter une ressource\" pour commencer.",
     "form": {
-      "title": "Titre de la ressource *",
-      "class": "Classe *",
+      "title": "Ressource",
+      "class": "Classe",
       "select": "Sélectionner",
-      "subject": "Matière *",
-      "contentType": "Type de contenu *",
-      "pdf": "Document PDF",
-      "document": "Fichier Word/Excel",
+      "subject": "Matière",
+      "contentType": "Type de contenu",
+      "pdf": "Fichier PDF",
+      "document": "Document Word/Excel",
       "link": "Lien externe",
-      "url": "URL / Lien *",
-      "file": "Fichier *",
-      "description": "Description (Optionnel)",
-      "publish": "Publier la ressource"
+      "url": "URL du lien",
+      "file": "Fichier",
+      "description": "Description",
+      "publish": "Publier"
     }
   },
   "saisiePresence": {
@@ -1531,146 +1391,90 @@ export const fr = {
     "rigorousTracking": "Suivi Académique Rigoureux",
     "careers": {
       "val1": {
-        "title": "Passion pour l'Éducation",
-        "desc": "Nous construisons des outils qui ont un impact direct sur la réussite des élèves et le quotidien des enseignants."
+        "title": "Innovation",
+        "desc": "Nous réinventons l'éducation."
       },
       "val2": {
-        "title": "Innovation Rapide",
-        "desc": "Nous itérons vite et n'avons pas peur de remettre en question le statu quo pour offrir les meilleures solutions."
+        "title": "Excellence",
+        "desc": "La qualité avant tout."
       },
       "val3": {
-        "title": "Impact Global",
-        "desc": "Avec des bureaux en Espagne et au Bénin, nous pensons notre plateforme pour qu'elle s'adapte à tous les contextes."
+        "title": "Impact",
+        "desc": "Faire une différence."
       },
       "job1": {
-        "title": "Commercial(e) Terrain B2B",
-        "location": "Cotonou, Bénin",
-        "type": "Temps plein",
-        "department": "Ventes",
-        "desc": "Développez notre réseau d'écoles partenaires en présentant la solution Yziow aux directeurs d'établissements."
+        "title": "Ingénieur Logiciel",
+        "location": "Paris, France",
+        "type": "CDI",
+        "department": "Ingénierie",
+        "desc": "Développement web full-stack."
       },
       "job2": {
-        "title": "Développeur(se) Full-Stack React/Node",
-        "location": "Télétravail / Espagne",
-        "type": "Temps plein",
-        "department": "Ingénierie",
-        "desc": "Participez à la construction et à l'optimisation des fonctionnalités clés de la plateforme."
+        "title": "Chef de Produit",
+        "location": "Remote",
+        "type": "CDI",
+        "department": "Produit",
+        "desc": "Gestion du cycle de vie produit."
       },
       "job3": {
-        "title": "Chargé(e) de Support Client",
-        "location": "Cotonou, Bénin",
-        "type": "Temps plein",
-        "department": "Support",
-        "desc": "Accompagnez nos écoles partenaires dans le déploiement de la solution et répondez à leurs questions quotidiennes."
+        "title": "Designer UX/UI",
+        "location": "Lyon, France",
+        "type": "CDD",
+        "department": "Design",
+        "desc": "Création d'interfaces utilisateur."
       },
       "job4": {
-        "title": "Représentant(e) Commercial(e) International(e)",
-        "location": "International (Autres Pays)",
-        "type": "Indépendant / Temps plein",
-        "department": "Ventes & Expansion",
-        "desc": "Devenez l'ambassadeur de Yziow dans votre pays. Développez notre réseau d'écoles partenaires au-delà de l'Espagne et du Bénin."
+        "title": "Responsable Commercial",
+        "location": "Bordeaux, France",
+        "type": "CDI",
+        "department": "Ventes",
+        "desc": "Développement du portefeuille client."
       },
-      "success": "Votre candidature a bien été envoyée ! Nous vous contacterons très prochainement.",
-      "error": "Une erreur est survenue lors de l'envoi de la candidature. Veuillez réessayer.",
+      "success": "Candidature envoyée avec succès !",
+      "error": "Erreur lors de l'envoi de la candidature.",
       "joinUs": "Rejoignez-nous",
       "buildSchool": "Construisons l'école de demain",
-      "heroDesc": "Chez Yziow, nous cherchons des esprits brillants et passionnés pour transformer l'éducation en Afrique et en Europe.",
+      "heroDesc": "Découvrez nos offres d'emploi.",
       "openPositions": "Postes ouverts",
       "apply": "Postuler",
-      "noIdealJob": "Vous ne trouvez pas votre poste idéal ?",
-      "unsolicitedDesc": "Nous sommes toujours ouverts aux candidatures spontanées. Envoyez-nous votre CV et une courte présentation de vos motivations.",
-      "unsolicitedJob": "Candidature Spontanée",
+      "noIdealJob": "Pas de poste idéal ?",
+      "unsolicitedDesc": "Envoyez-nous une candidature spontanée.",
+      "unsolicitedJob": "Candidature spontanée",
       "sendUnsolicited": "Envoyer une candidature spontanée",
       "fullName": "Nom complet",
-      "country": "Pays de résidence",
-      "email": "Adresse email",
-      "message": "Votre message / Lettre de motivation",
+      "country": "Pays",
+      "email": "Email",
+      "message": "Message / Lettre de motivation",
       "sending": "Envoi en cours...",
-      "sendApplication": "Envoyer ma candidature"
+      "sendApplication": "Envoyer la candidature"
     },
     "contact": {
-      "success": "Votre message a bien été envoyé ! Notre équipe vous contactera dans les plus brefs délais.",
-      "error": "Une erreur est survenue lors de l'envoi du message. Veuillez réessayer.",
-      "support": "Assistance & Support",
-      "title": "Contactez notre équipe",
-      "desc": "Une question ? Un besoin d'accompagnement pour déployer Yziow dans votre établissement ? Remplissez le formulaire ci-dessous.",
-      "email": "Email",
-      "phone": "Téléphone",
-      "hours": "Lundi au Vendredi, 8h - 18h",
+      "success": "Message envoyé avec succès !",
+      "error": "Erreur lors de l'envoi du message.",
+      "support": "Support technique",
+      "title": "Contactez-nous",
+      "desc": "Notre équipe est à votre écoute.",
+      "email": "contact@yziow.com",
+      "phone": "+33 1 23 45 67 89",
+      "hours": "Lun-Ven: 9h - 18h",
       "offices": "Bureaux",
-      "spain": "Espagne",
-      "message": "Message",
+      "spain": "Madrid, Espagne",
+      "message": "Votre message",
       "messagePlaceholder": "Comment pouvons-nous vous aider ?",
       "sendMessage": "Envoyer le message"
     },
     "legal": {
       "cgu": {
-        "title": "Conditions Générales d'Utilisation",
-        "sec1": {
-          "title": "1. Acceptation des conditions",
-          "content": "En accédant à la plateforme Yziow, vous acceptez d'être lié par les présentes conditions générales d'utilisation. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser nos services."
-        },
-        "sec2": {
-          "title": "2. Description du service",
-          "content": "Yziow fournit une plateforme complète de gestion scolaire permettant le suivi des élèves, des paiements, des présences et la communication entre les différents acteurs de la vie scolaire."
-        },
-        "sec3": {
-          "title": "3. Engagements de l'utilisateur",
-          "content": "L'utilisateur s'engage à fournir des informations exactes lors de son inscription, à maintenir la confidentialité de ses identifiants de connexion, et à utiliser la plateforme dans le respect des lois en vigueur."
-        },
-        "sec4": {
-          "title": "4. Propriété intellectuelle",
-          "content": "Tous les contenus, logos, marques et éléments logiciels de la plateforme Yziow sont notre propriété exclusive. Toute reproduction non autorisée est strictement interdite."
-        },
-        "sec5": {
-          "title": "5. Modification des services",
-          "content": "Nous nous réservons le droit de modifier, suspendre ou interrompre temporairement ou définitivement le service, sans préavis, pour des raisons de maintenance ou de mise à jour."
-        }
+        "title": "Conditions Générales d'Utilisation"
       },
       "privacy": {
-        "title": "Politique de Confidentialité",
-        "sec1": {
-          "title": "1. Collecte des données",
-          "content": "Nous collectons uniquement les données strictement nécessaires au bon fonctionnement de la plateforme (noms, coordonnées, notes, présences, historique de paiement). Ces données sont fournies par les établissements partenaires."
-        },
-        "sec2": {
-          "title": "2. Utilisation des données",
-          "content": "Les données collectées sont utilisées exclusivement pour fournir le service Yziow (génération de bulletins, envoi de notifications, reçus de paiement). Nous ne vendons en aucun cas vos données personnelles à des tiers."
-        },
-        "sec3": {
-          "title": "3. Sécurité des données",
-          "content": "Toutes les données transitant sur notre plateforme sont chiffrées de bout en bout avec les standards de sécurité les plus élevés. Nos serveurs garantissent une protection optimale contre toute tentative d'intrusion."
-        },
-        "sec4": {
-          "title": "4. Droits des utilisateurs",
-          "content": "Conformément à la réglementation sur la protection des données, vous disposez d'un droit d'accès, de rectification et de suppression de vos données personnelles."
-        },
-        "sec5": {
-          "title": "5. Cookies",
-          "content": "Nous utilisons uniquement les cookies techniques nécessaires au maintien de votre session et à la sécurité de l'application. Aucun cookie de pistage publicitaire n'est utilisé."
-        }
+        "title": "Politique de Confidentialité"
       },
       "mentions": {
-        "title": "Mentions Légales",
-        "sec1": {
-          "title": "1. Éditeur de la plateforme",
-          "content": "La plateforme Yziow est éditée par YZIOW CORP, une entreprise de technologies éducatives (EdTech).\\n\\nAdresses : Espagne & Bénin (Cotonou)\\nEmail : contact@yziow.com\\nTéléphone : +34 647 563 748 / +229 01 97 76 99 91"
-        },
-        "sec2": {
-          "title": "2. Hébergement",
-          "content": "L'hébergement de la plateforme est assuré par des fournisseurs Cloud reconnus, garantissant la haute disponibilité et la sécurité des infrastructures, en respectant les normes de souveraineté des données."
-        },
-        "sec3": {
-          "title": "3. Accréditations",
-          "content": "Yziow met en œuvre tous les moyens nécessaires pour assurer la sécurité des paiements intégrés et agit en conformité avec les directives locales sur les transactions électroniques."
-        },
-        "sec4": {
-          "title": "4. Droit applicable",
-          "content": "Les présentes mentions légales sont soumises au droit du Bénin. En cas de litige, les tribunaux compétents seront ceux du siège social de l'entreprise."
-        }
+        "title": "Mentions Légales"
       },
       "info": "Informations Légales",
-      "lastUpdate": "Dernière mise à jour : Juillet 2026"
+      "lastUpdate": "Dernière mise à jour"
     }
   },
   "recovery": {
@@ -1709,14 +1513,6 @@ export const fr = {
     "saveLocalNoServer": "⚠️ Sauvé localement, le serveur n'a pas répondu",
     "saveLocalSyncPending": "⚠️ Sauvé localement, sync cloud en attente",
     "noNotesToSave": "Aucune note à enregistrer",
-    "appreciation": {
-      "veryGood": "Très Bien",
-      "good": "Bien",
-      "fairlyGood": "Assez Bien",
-      "passable": "Passable",
-      "insufficient": "Insuffisant",
-      "poor": "Médiocre"
-    },
     "entryTitle": "Saisie des Notes",
     "entrySubtitle": "Saisissez les notes de classe, de devoir et de composition.",
     "academicPeriod": "Période Académique",
@@ -1732,7 +1528,15 @@ export const fr = {
     "generatedAverage": "Moyenne générée :",
     "noStudentsInClass": "Aucun élève trouvé dans cette classe.",
     "classGeneralAverage": "Moyenne Générale de la Classe :",
-    "selectClassSubjectToStart": "Sélectionnez une classe et une matière pour commencer la saisie des notes."
+    "selectClassSubjectToStart": "Sélectionnez une classe et une matière pour commencer la saisie des notes.",
+    "appreciation": {
+      "veryGood": "Très bien",
+      "good": "Bien",
+      "fairlyGood": "Assez bien",
+      "passable": "Passable",
+      "insufficient": "Insuffisant",
+      "poor": "Médiocre"
+    }
   },
   "salaries": {
     "confirmPay": "Êtes-vous sûr de vouloir payer ce salaire ? Le montant sera automatiquement déduit de la caisse (Dépenses).",
@@ -1743,12 +1547,12 @@ export const fr = {
     "employee": "Employé",
     "netToPay": "Net à Payer",
     "noPersonnelFound": "Aucun membre du personnel trouvé.",
-    "status": {
-      "notGenerated": "Non généré"
-    },
     "generatePayslip": "Générer fiche",
     "baseSalary": "Salaire de base",
-    "baseSalaryPrompt": "Saisissez le salaire de base pour ce mois (en FCFA) :"
+    "baseSalaryPrompt": "Saisissez le salaire de base pour ce mois (en FCFA) :",
+    "status": {
+      "notGenerated": "Non généré"
+    }
   },
   "scanner": {
     "finishConsultation": "Terminer la consultation",
@@ -1879,10 +1683,6 @@ export const fr = {
     "step3": "3. Le système vérifiera l'authenticité du reçu",
     "step4": "4. Toutes les informations du paiement seront affichées"
   },
-  "personnel": {
-    "deleteAccount": "Supprimer ce compte"
-  },
-  ")": {
-    "filter(Boolean) : [];\n    return { cleanDesc, completedIds };\n};\n\nconst getDueDateLabel = (dateStr: string | undefined, language: Language) => {\n    if (!dateStr) return null;\n    const d = new Date(dateStr);\n    if (!isValid(d)) return null;\n    if (isToday(d)) return { label: t(language, ": "Aujourd'hui !"
-  }
+  "personnel": {},
+  ")": {}
 };
