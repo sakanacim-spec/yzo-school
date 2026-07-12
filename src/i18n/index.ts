@@ -104,10 +104,13 @@ export function t(lang: Language, path: string, vars?: Record<string, string | n
     defaultVal = defaultVal?.[part];
     if (defaultVal === undefined) break;
   }
-  const fallbackStr = typeof defaultVal === 'string' ? defaultVal : path;
+  
+  // Le système ne doit plus jamais afficher de clés brutes à l'utilisateur (ex: 'settings.system')
+  // Si la valeur par défaut est absente de fr.ts, on utilise undefined (laisse l'UI utiliser le fallback `||`)
+  const fallbackStr = typeof defaultVal === 'string' ? defaultVal : undefined;
 
   // 4. Si la langue n'est pas le français, lancer la traduction dynamique asynchrone
-  if (lang !== 'fr' && !pendingTranslations.has(`${lang}:${path}`)) {
+  if (lang !== 'fr' && fallbackStr && !pendingTranslations.has(`${lang}:${path}`)) {
     pendingTranslations.add(`${lang}:${path}`);
 
     translationApi.translate(fallbackStr, lang, 'fr')
@@ -131,6 +134,10 @@ export function t(lang: Language, path: string, vars?: Record<string, string | n
         pendingTranslations.delete(`${lang}:${path}`);
       });
   }
+
+  // Si fallbackStr est undefined (clé introuvable partout), on retourne undefined as any 
+  // pour que le fallback React `t('..') || 'Texte'` prenne le relais.
+  if (fallbackStr === undefined) return undefined as any;
 
   return replaceVars(fallbackStr, vars);
 }
