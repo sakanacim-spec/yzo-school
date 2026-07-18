@@ -8,7 +8,7 @@ services:
     rootDir: apps/api
     buildCommand: cd ../.. && pnpm install && pnpm --filter @saas/api... build
     startCommand: node dist/main
-    healthCheckPath: /health
+    healthCheckPath: /v1/health
     envVars:
       - key: NODE_ENV
         value: production
