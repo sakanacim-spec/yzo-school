@@ -32,6 +32,15 @@
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@11.10.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@sentry/node-cpu-profiler",
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
       "eslint --fix",
