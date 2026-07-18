@@ -6,7 +6,7 @@ services:
     region: frankfurt  # EU — conformité RGPD
     plan: starter      # Always-on (pas de cold start)
     rootDir: apps/api
-    buildCommand: cd ../.. && pnpm install && pnpm --filter @saas/api build
+    buildCommand: cd ../.. && pnpm install && pnpm --filter @saas/api... build
     startCommand: node dist/main
     healthCheckPath: /health
     envVars:
@@ -38,7 +38,7 @@ services:
     region: frankfurt
     plan: starter
     rootDir: apps/admin-portal
-    buildCommand: cd ../.. && pnpm install && pnpm --filter admin-portal build
+    buildCommand: cd ../.. && pnpm install && pnpm --filter admin-portal... build
     startCommand: pnpm --filter admin-portal start
     envVars:
       - key: NEXT_PUBLIC_API_URL
