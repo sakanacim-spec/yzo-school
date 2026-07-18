@@ -6,7 +6,7 @@ services:
     region: frankfurt  # EU — conformité RGPD
     plan: starter      # Always-on (pas de cold start)
     rootDir: apps/api
-    buildCommand: pnpm install && pnpm build
+    buildCommand: cd ../.. && pnpm install && pnpm --filter @saas/api build
     startCommand: node dist/main
     healthCheckPath: /health
     envVars:
@@ -37,9 +37,9 @@ services:
     runtime: node
     region: frankfurt
     plan: starter
-    rootDir: apps/admin
-    buildCommand: pnpm install && pnpm build
-    startCommand: pnpm start
+    rootDir: apps/admin-portal
+    buildCommand: cd ../.. && pnpm install && pnpm --filter admin-portal build
+    startCommand: pnpm --filter admin-portal start
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://saas-api.onrender.com
