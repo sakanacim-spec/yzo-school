@@ -4,12 +4,9 @@ packages:
   - "services/*"
 
 allowBuilds:
-  '0': '@nestjs/core'
-  '1': '@swc/core'
-  '2': esbuild
-  '3': sharp
-  '4': unrs-resolver
-  '@nestjs/core': set this to true or false
-  '@sentry/node-cpu-profiler': set this to true or false
-  esbuild: set this to true or false
-  unrs-resolver: set this to true or false
+  "@nestjs/core": true
+  "@swc/core": true
+  "esbuild": true
+  "sharp": true
+  "unrs-resolver": true
+  "@sentry/node-cpu-profiler": true
