@@ -1,0 +1,6 @@
+{
+  "invalid_api_key": "Clé API invalide ou manquante",
+  "missing_tenant": "L'identifiant du locataire (Tenant ID) est manquant",
+  "invalid_credentials": "Email ou mot de passe incorrect",
+  "forbidden": "Vous n'avez pas accès à cette ressource"
+}

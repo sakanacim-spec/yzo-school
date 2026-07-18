@@ -39,3 +39,31 @@ VALUES
   ('00000000-0000-0000-0000-000000000001', 'Lycée Averroès',        'LAV-003',
     '{"type":"lycee","city":"Marrakech","capacity":800}')
 ON CONFLICT (tenant_id, code) DO NOTHING;
+
+-- ── Plans d'abonnement (Billing) ──────────────────────────────
+INSERT INTO public.saas_billing_plans (id, name, description, price_amount, currency, modules, quotas, stripe_price_id)
+VALUES 
+  ('10000000-0000-0000-0000-000000000001', 'Free', 'Plan gratuit pour tester', 0, 'EUR', 
+   '{"auth", "organizations", "users"}', 
+   '{"max_users": 5}', 
+   NULL),
+  ('10000000-0000-0000-0000-000000000002', 'Pro', 'Plan standard pour PME', 2900, 'EUR', 
+   '{"auth", "organizations", "users", "roles", "files", "knowledge_base"}', 
+   '{"max_users": 50, "max_ai_tokens": 10000}', 
+   'price_1ProPlanId'),
+  ('10000000-0000-0000-0000-000000000003', 'Enterprise', 'Illimité avec IA avancée', 9900, 'EUR', 
+   '{"auth", "organizations", "users", "roles", "files", "knowledge_base", "ai_concierge", "api_keys", "audit_logs"}', 
+   '{"max_users": 10000, "max_ai_tokens": 1000000}', 
+   'price_1EnterprisePlanId')
+ON CONFLICT (id) DO NOTHING;
+
+-- ── Abonnement actif pour Yziow (Enterprise) ─────────────────
+INSERT INTO public.saas_subscriptions (id, tenant_id, plan_id, status, gateway, gateway_subscription_id)
+VALUES (
+  '20000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000003',
+  'active',
+  'stripe',
+  'sub_1StripeMockId'
+) ON CONFLICT (tenant_id) DO NOTHING;

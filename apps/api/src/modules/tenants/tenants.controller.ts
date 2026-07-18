@@ -32,4 +32,13 @@ export class TenantsController {
   ) {
     return this.service.updatePlan(id, plan);
   }
+
+  @Patch(':id/modules')
+  @ApiOperation({ summary: '[Super Admin] Activer ou désactiver des modules pour un tenant' })
+  updateModules(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('modules') modules: string[],
+  ) {
+    return this.service.updateModules(id, modules);
+  }
 }

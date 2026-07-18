@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_ADMIN_CLIENT, SUPABASE_CLIENT } from './supabase.module';
+import { SUPABASE_ADMIN_CLIENT, SUPABASE_CLIENT } from './supabase.tokens';
 
 /**
  * Service Supabase injectable dans tous les modules.

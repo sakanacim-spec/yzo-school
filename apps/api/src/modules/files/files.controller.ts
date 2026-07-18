@@ -2,10 +2,13 @@ import { Controller, Get, Post, Delete, Body, Param, Query, ParseUUIDPipe } from
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FilesService } from './files.service';
 import { CurrentUser, AuthUser, TenantId } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RequireModule } from '../../common/decorators/require-module.decorator';
 
 @ApiTags('Files')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'files', version: '1' })
+@RequireModule('files')
 export class FilesController {
   constructor(private readonly service: FilesService) {}
 

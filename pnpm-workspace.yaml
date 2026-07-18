@@ -3,9 +3,13 @@ packages:
   - "packages/*"
   - "services/*"
 
-# Autoriser les scripts de build pour les packages de confiance (pnpm v11+)
 allowBuilds:
   '0': '@nestjs/core'
   '1': '@swc/core'
   '2': esbuild
+  '3': sharp
+  '4': unrs-resolver
   '@nestjs/core': set this to true or false
+  '@sentry/node-cpu-profiler': set this to true or false
+  esbuild: set this to true or false
+  unrs-resolver: set this to true or false

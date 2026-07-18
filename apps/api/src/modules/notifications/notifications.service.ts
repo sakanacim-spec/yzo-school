@@ -26,23 +26,28 @@ export interface SendNotificationOptions {
  */
 @Injectable()
 export class NotificationsService {
-  private readonly resend: Resend;
   private readonly fromEmail: string;
 
   constructor(
     private readonly repo: NotificationsRepository,
     private readonly config: ConfigService,
   ) {
-    this.resend = new Resend(this.config.get<string>('RESEND_API_KEY', ''));
     this.fromEmail = this.config.get<string>(
       'RESEND_FROM_EMAIL',
       'noreply@saas-platform.eu',
     );
   }
 
+  /** Retourne une instance Resend (lazy — ne crashe pas si clé absente au démarrage) */
+  private getResend(): Resend {
+    const key = this.config.get<string>('RESEND_API_KEY', '');
+    if (!key) throw new Error('RESEND_API_KEY non configurée. Ajoutez-la dans votre .env');
+    return new Resend(key);
+  }
+
   /** Envoi email transactionnel via Resend (externe à Supabase) */
   async sendEmail(options: SendEmailOptions) {
-    const { data, error } = await this.resend.emails.send({
+    const { data, error } = await this.getResend().emails.send({
       from: options.from ?? this.fromEmail,
       to: Array.isArray(options.to) ? options.to : [options.to],
       subject: options.subject,

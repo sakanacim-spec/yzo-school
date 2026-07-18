@@ -33,7 +33,7 @@ export const CurrentUser = createParamDecorator(
  */
 export const TenantId = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): string => {
-    const request = ctx.switchToHttp().getRequest<{ tenantId: string }>();
-    return request.tenantId;
+    const request = ctx.switchToHttp().getRequest<{ user: AuthUser }>();
+    return request.user?.tenant_id;
   },
 );

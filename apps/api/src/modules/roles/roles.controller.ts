@@ -1,12 +1,14 @@
 import { Controller, Get, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RolesService } from './roles.service';
-import { TenantId } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, TenantId } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequireModule } from '../../common/decorators/require-module.decorator';
 
 @ApiTags('Roles')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'roles', version: '1' })
+@RequireModule('roles')
 export class RolesController {
   constructor(private readonly service: RolesService) {}
 

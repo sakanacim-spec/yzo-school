@@ -1,0 +1,106 @@
+[
+  {
+    "name": "Health Ping (100 VUs)",
+    "connections": 100,
+    "path": "/v1/health/ping",
+    "authenticated": false,
+    "requestsPerSec": 697.1,
+    "throughputMbPerSec": "0.47",
+    "latencyP50": 123,
+    "latencyP99": 441,
+    "errorRate": "0.00%",
+    "totalSent": 7071,
+    "totalErrors": 0,
+    "statusCodes": {
+      "200": {
+        "count": 6971
+      }
+    }
+  },
+  {
+    "name": "Health Ping (300 VUs)",
+    "connections": 300,
+    "path": "/v1/health/ping",
+    "authenticated": false,
+    "requestsPerSec": 719.9,
+    "throughputMbPerSec": "0.48",
+    "latencyP50": 151,
+    "latencyP99": 2089,
+    "errorRate": "0.00%",
+    "totalSent": 7499,
+    "totalErrors": 0,
+    "statusCodes": {
+      "200": {
+        "count": 7199
+      }
+    }
+  },
+  {
+    "name": "Health Ping (500 VUs)",
+    "connections": 500,
+    "path": "/v1/health/ping",
+    "authenticated": false,
+    "requestsPerSec": 623.3,
+    "throughputMbPerSec": "0.42",
+    "latencyP50": 144,
+    "latencyP99": 2936,
+    "errorRate": "0.00%",
+    "totalSent": 6733,
+    "totalErrors": 0,
+    "statusCodes": {
+      "200": {
+        "count": 6233
+      }
+    }
+  },
+  {
+    "name": "Global KPIs (100 VUs)",
+    "connections": 100,
+    "path": "/v1/superadmin/kpis/global",
+    "authenticated": true,
+    "requestsPerSec": 0,
+    "throughputMbPerSec": "0.00",
+    "latencyP50": 0,
+    "latencyP99": 0,
+    "errorRate": "50.00%",
+    "totalSent": 200,
+    "totalErrors": 100,
+    "statusCodes": {}
+  },
+  {
+    "name": "Global KPIs (300 VUs)",
+    "connections": 300,
+    "path": "/v1/superadmin/kpis/global",
+    "authenticated": true,
+    "requestsPerSec": 23.4,
+    "throughputMbPerSec": "0.02",
+    "latencyP50": 2322,
+    "latencyP99": 4525,
+    "errorRate": "30.65%",
+    "totalSent": 770,
+    "totalErrors": 236,
+    "statusCodes": {
+      "401": {
+        "count": 234
+      }
+    }
+  },
+  {
+    "name": "Global KPIs (500 VUs)",
+    "connections": 500,
+    "path": "/v1/superadmin/kpis/global",
+    "authenticated": true,
+    "requestsPerSec": 27.9,
+    "throughputMbPerSec": "0.02",
+    "latencyP50": 4469,
+    "latencyP99": 10117,
+    "errorRate": "11.88%",
+    "totalSent": 884,
+    "totalErrors": 105,
+    "statusCodes": {
+      "401": {
+        "count": 279
+      }
+    }
+  }
+]

@@ -2,10 +2,13 @@ import { Controller, Get, Post, Patch, Body, Param, Query, HttpCode, HttpStatus,
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser, AuthUser, TenantId } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RequireModule } from '../../common/decorators/require-module.decorator';
 
 @ApiTags('Notifications')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'notifications', version: '1' })
+@RequireModule('notifications')
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}
 

@@ -1,0 +1,6 @@
+{
+  "invalid_api_key": "Invalid or missing API key",
+  "missing_tenant": "Tenant ID is missing",
+  "invalid_credentials": "Email or password incorrect",
+  "forbidden": "You do not have access to this resource"
+}

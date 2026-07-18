@@ -84,8 +84,12 @@ CREATE TABLE IF NOT EXISTS public.saas_user_roles (
   org_id      UUID REFERENCES public.saas_organizations(id) ON DELETE CASCADE,
   granted_by  UUID REFERENCES public.saas_profiles(id),
   granted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (user_id, role_id, COALESCE(org_id, '00000000-0000-0000-0000-000000000000'::UUID))
+  PRIMARY KEY (user_id, role_id)
 );
+
+-- Un utilisateur ne peut avoir le même rôle qu'une fois par org (NULL inclus)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_user_roles_unique
+  ON public.saas_user_roles (user_id, role_id, COALESCE(org_id, '00000000-0000-0000-0000-000000000000'::UUID));
 
 -- ── SAAS_NOTIFICATIONS ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.saas_notifications (

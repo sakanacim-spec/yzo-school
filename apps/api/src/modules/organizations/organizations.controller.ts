@@ -9,10 +9,12 @@ import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { TenantId } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequireModule } from '../../common/decorators/require-module.decorator';
 
 @ApiTags('Organizations')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'organizations', version: '1' })
+@RequireModule('organizations')
 export class OrganizationsController {
   constructor(private readonly service: OrganizationsService) {}
 

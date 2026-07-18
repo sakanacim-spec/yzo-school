@@ -1,3 +1,4 @@
+import './instrument'; // Doit être le tout premier import !
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
@@ -7,16 +8,30 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import helmet from '@fastify/helmet';
+import { Logger } from 'nestjs-pino';
+import { DatabaseExceptionFilter } from './common/filters/database-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ logger: true }),
+    new FastifyAdapter(),
   );
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+
+  // Sécurité: Intégration de Helmet
+  await app.register(helmet, {
+    contentSecurityPolicy: false,
+  });
+
+  // Logging: Remplacement du logger par Pino
+  app.useLogger(app.get(Logger));
+
+  // Enregistrement du filtre global contre les fuites d'erreurs SQL / BDD
+  app.useGlobalFilters(new DatabaseExceptionFilter());
 
   // ── Validation globale ─────────────────────────────────────────
   app.useGlobalPipes(
@@ -56,6 +71,7 @@ async function bootstrap() {
         'JWT',
       )
       .addApiKey({ type: 'apiKey', in: 'header', name: 'X-API-Key' }, 'API-KEY')
+      .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'x-api-key')
       .addTag('Auth', 'Authentification et gestion des sessions')
       .addTag('Tenants', 'Gestion des tenants (clients du SaaS)')
       .addTag('Organizations', 'Gestion des organisations (ex: écoles)')

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SAAS_SUPABASE_ADMIN_CLIENT, SAAS_SUPABASE_CLIENT } from '../supabase/supabase.module';
+import { SAAS_SUPABASE_ADMIN_CLIENT, SAAS_SUPABASE_CLIENT } from '../supabase/supabase.tokens';
 
 /**
  * SupabaseRepository<T> — Couche d'abstraction entre les services NestJS

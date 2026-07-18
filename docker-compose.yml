@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oziow-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      # Lier ces variables avec un fichier .env externe (env_file)
+      - PORT=3000
+    env_file:
+      - apps/api/.env
+    restart: unless-stopped

@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../../common/supabase/supabase.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -10,6 +11,7 @@ export class AuthService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly config: ConfigService,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
   /**
@@ -54,15 +56,27 @@ export class AuthService {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
+    const tenantId = data.user?.app_metadata?.tenant_id;
+    const userId = data.user?.id;
+
+    if (tenantId && userId) {
+      this.auditLogs.log({
+        tenantId,
+        actorId: userId,
+        action: 'user.login',
+        severity: 'INFO',
+      });
+    }
+
     return {
       accessToken: data.session.access_token,
       refreshToken: data.session.refresh_token,
       expiresIn: data.session.expires_in,
       user: {
-        id: data.user?.id,
+        id: userId,
         email: data.user?.email,
         role: data.user?.app_metadata?.role,
-        tenantId: data.user?.app_metadata?.tenant_id,
+        tenantId,
       },
     };
   }

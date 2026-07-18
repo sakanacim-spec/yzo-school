@@ -1,0 +1,20 @@
+project_id = "oziow"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+
+[studio]
+enabled = false
+
+[analytics]
+enabled = false
+
+[storage]
+enabled = false
+
+[realtime]
+enabled = false

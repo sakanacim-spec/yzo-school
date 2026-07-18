@@ -28,6 +28,8 @@ services:
         sync: false
       - key: CORS_ORIGINS
         value: https://admin.saas-platform.eu,https://docs.saas-platform.eu
+      - key: OPENAI_API_KEY
+        sync: false
 
   # ── Admin Portal Next.js ───────────────────────────────────────
   - type: web

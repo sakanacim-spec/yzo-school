@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Request,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -13,6 +14,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { I18n, I18nContext } from 'nestjs-i18n';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -39,11 +41,18 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Se connecter et obtenir les tokens' })
-  @ApiResponse({ status: 200, description: 'Connexion réussie, tokens retournés' })
-  @ApiResponse({ status: 401, description: 'Identifiants invalides' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  @ApiOperation({ summary: 'Connexion (Login)' })
+  @ApiResponse({ status: 200, description: 'Connexion réussie avec tokens' })
+  @ApiResponse({ status: 401, description: 'Email ou mot de passe incorrect' })
+  async login(@Body() dto: LoginDto, @I18n() i18n: I18nContext) {
+    try {
+      return await this.authService.login(dto);
+    } catch (error: any) {
+      if (error instanceof UnauthorizedException) {
+        throw new UnauthorizedException(i18n.t('errors.invalid_credentials'));
+      }
+      throw error;
+    }
   }
 
   /** Rafraîchissement du token d'accès */

@@ -26,6 +26,17 @@ const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_FROM_NUMBER: z.string().optional(),
 
+  // OpenAI (optionnel en dev, recommandé pour RAG)
+  OPENAI_API_KEY: z.string().optional(),
+
+  // Stripe & Paystack (Billing)
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  PAYSTACK_SECRET_KEY: z.string().optional(),
+
+  // Reset Password URL
+  RESET_PASSWORD_URL: z.string().url().default('http://localhost:3001/reset-password'),
+
   // Rate Limiting
   THROTTLE_TTL: z.coerce.number().default(60_000),
   THROTTLE_LIMIT: z.coerce.number().default(100),
