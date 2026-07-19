@@ -1,6 +1,34 @@
-import React from 'react';
+"use client";
+
+import React, { useState } from 'react';
+import { useAuth } from "@oziow/ui";
 
 export default function AdminLogin() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { supabase } = useAuth();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        alert(error.message);
+      } else {
+        window.location.href = "/dashboard";
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Une erreur inattendue est survenue.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 relative overflow-hidden text-white">
       {/* Background Gradients */}
@@ -14,14 +42,17 @@ export default function AdminLogin() {
           <p className="text-sm text-gray-400">SaaS Platform Management Portal</p>
         </div>
 
-        <form className="space-y-5">
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
               Email Address
             </label>
             <input 
               type="email" 
+              required
               placeholder="admin@oziow.com" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2.5 bg-gray-950/50 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
@@ -32,17 +63,21 @@ export default function AdminLogin() {
             </label>
             <input 
               type="password" 
+              required
               placeholder="••••••••" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2.5 bg-gray-950/50 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
 
           <div className="pt-2">
             <button 
-              type="button"
-              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg shadow-lg shadow-indigo-500/30 transition-all duration-200 transform hover:-translate-y-0.5"
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg shadow-lg shadow-indigo-500/30 transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Sign In to Platform
+              {loading ? "Connexion..." : "Sign In to Platform"}
             </button>
           </div>
         </form>
