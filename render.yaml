@@ -47,3 +47,16 @@ services:
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         sync: false
+
+  # ── Marketing Portal (oziow.com) ────────────────────────────────
+  - type: web
+    name: oziow-marketing
+    runtime: node
+    region: frankfurt
+    plan: starter
+    rootDir: apps/marketing
+    buildCommand: cd ../.. && pnpm install && pnpm --filter marketing... build
+    startCommand: pnpm --filter marketing start
+    envVars:
+      - key: NODE_ENV
+        value: production
