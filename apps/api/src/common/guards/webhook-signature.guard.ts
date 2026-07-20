@@ -21,17 +21,34 @@ export class WebhookSignatureGuard implements CanActivate {
       throw new UnauthorizedException('Signature webhook cryptographique manquante.');
     }
 
-    // Validation de signature Stripe ou Paystack HMAC SHA256
-    const secret = process.env[`${provider.toUpperCase()}_WEBHOOK_SECRET`] || 'default_secret';
-    if (secret && request.rawBody) {
-      const computedHash = crypto.createHmac('sha256', secret).update(request.rawBody).digest('hex');
-      if (signature !== computedHash && !signature.includes(computedHash)) {
-        this.logger.error(`Échec de vérification cryptographique webhook ${provider}`);
-        throw new UnauthorizedException('Signature cryptographique du webhook invalide.');
-      }
+    // Validation avec clé principale et clé secondaire de rotation
+    const primarySecret = process.env[`${provider.toUpperCase()}_WEBHOOK_SECRET`] || 'default_secret';
+    const secondarySecret = process.env[`${provider.toUpperCase()}_WEBHOOK_SECRET_OLD`];
+
+    const isValidPrimary = this.verifyHmac(provider, signature, request.rawBody, primarySecret);
+    const isValidSecondary = secondarySecret ? this.verifyHmac(provider, signature, request.rawBody, secondarySecret) : false;
+
+    if (!isValidPrimary && !isValidSecondary) {
+      this.logger.error(`Échec de vérification cryptographique webhook ${provider} (clés principale et de rotation rejetées)`);
+      throw new UnauthorizedException('Signature cryptographique du webhook invalide.');
+    }
+
+    if (isValidSecondary) {
+      this.logger.warn(`Webhook ${provider} validé via la clé secondaire de rotation. Pensez à finaliser la rotation du secret.`);
     }
 
     request.webhookSignatureVerified = true;
     return true;
+  }
+
+  private verifyHmac(provider: string, signature: string, rawBody: any, secret: string): boolean {
+    if (!secret || !rawBody) return false;
+    try {
+      const algorithm = provider.toLowerCase() === 'paystack' ? 'sha512' : 'sha256';
+      const computedHash = crypto.createHmac(algorithm, secret).update(rawBody).digest('hex');
+      return signature === computedHash || signature.includes(computedHash);
+    } catch {
+      return false;
+    }
   }
 }

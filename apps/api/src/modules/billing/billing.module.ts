@@ -17,6 +17,7 @@ import { PaymentIntentStateMachine } from './payment-intent-state-machine.servic
 import { PaymentProviderRegistry } from './payment-provider-registry.service';
 
 import { DunningEngineService } from './dunning-engine.service';
+import { BillingMetricsService } from './billing-metrics.service';
 
 @Module({
   imports: [AuditLogsModule],
@@ -33,6 +34,7 @@ import { DunningEngineService } from './dunning-engine.service';
     OutboxPollerService,
     ReconciliationService,
     DunningEngineService,
+    BillingMetricsService,
   ],
   exports: [
     BillingService,
@@ -42,6 +44,7 @@ import { DunningEngineService } from './dunning-engine.service';
     PaymentProviderRegistry,
     ReconciliationService,
     DunningEngineService,
+    BillingMetricsService,
   ],
 })
 export class BillingModule {}
