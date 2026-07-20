@@ -6,10 +6,12 @@ import { StripeProvider } from './providers/stripe.provider';
 import { PaystackProvider } from './providers/paystack.provider';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
+import { InvoiceNumberGenerator } from './invoice-number.generator';
+
 @Module({
   imports: [AuditLogsModule],
   controllers: [BillingController, WebhooksController],
-  providers: [BillingService, StripeProvider, PaystackProvider],
-  exports: [BillingService],
+  providers: [BillingService, StripeProvider, PaystackProvider, InvoiceNumberGenerator],
+  exports: [BillingService, InvoiceNumberGenerator],
 })
 export class BillingModule {}
