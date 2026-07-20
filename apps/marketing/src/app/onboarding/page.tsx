@@ -37,6 +37,15 @@ function OnboardingWizard() {
     setOrgSlug(generatedSlug);
   };
 
+  const handleSlugChange = (rawSlug: string) => {
+    const sanitized = rawSlug
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9-]+/g, "");
+    setOrgSlug(sanitized);
+  };
+
   const selectedSaas = SAAS_REGISTRY.find((s) => s.id === selectedSaasId) || SAAS_REGISTRY[0];
 
   const handleNext = (e: React.FormEvent) => {
@@ -82,6 +91,9 @@ function OnboardingWizard() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.message && data.message.toLowerCase().includes("email")) {
+          setStep(1);
+        }
         throw new Error(data.message || "Erreur lors de la création de l'espace professionnel.");
       }
 
@@ -252,7 +264,7 @@ function OnboardingWizard() {
               type="text"
               required
               value={orgSlug}
-              onChange={(e) => setOrgSlug(e.target.value)}
+              onChange={(e) => handleSlugChange(e.target.value)}
               placeholder="ex: groupe-scolaire-lumiere"
               className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm font-mono text-indigo-300 focus:border-indigo-500 focus:outline-none"
             />

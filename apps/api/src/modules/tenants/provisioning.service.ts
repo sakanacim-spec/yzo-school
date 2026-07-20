@@ -153,6 +153,9 @@ export class ProvisioningService {
       if (createdTenantId) {
         await this.db.from('saas_tenants').delete().eq('id', createdTenantId);
       }
+      if (createdUserId && !payload.userId) {
+        await this.db.auth.admin.deleteUser(createdUserId);
+      }
       throw err;
     }
   }
