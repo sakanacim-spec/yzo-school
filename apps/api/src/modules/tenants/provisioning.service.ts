@@ -1,4 +1,5 @@
 import { Inject, Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SAAS_SUPABASE_ADMIN_CLIENT } from '../../common/supabase/supabase.tokens';
 import { SHARED_SAAS_REGISTRY } from '@saas/types';
@@ -19,6 +20,7 @@ export class ProvisioningService {
   constructor(
     @Inject(SAAS_SUPABASE_ADMIN_CLIENT)
     private readonly db: SupabaseClient,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async provisionTenant(payload: ProvisionPayload) {
@@ -125,6 +127,14 @@ export class ProvisioningService {
       if (appError) {
         throw new InternalServerErrorException(`Erreur raccordement SaaS app: ${appError.message}`);
       }
+
+      // Émettre l'événement système via EventBus
+      this.eventEmitter.emit('tenant.created', {
+        tenantId: createdTenantId,
+        userId: createdUserId,
+        actorEmail: email,
+        payload: { orgName, orgSlug, saasId, country, currency },
+      });
 
       return {
         success: true,
