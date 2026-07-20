@@ -12,18 +12,32 @@ import { OutboxPollerService } from './outbox-poller.service';
 
 import { ReconciliationService } from './reconciliation.service';
 
+import { MockPaymentProvider } from '../../common/providers/payment.provider';
+import { PaymentIntentStateMachine } from './payment-intent-state-machine.service';
+import { PaymentProviderRegistry } from './payment-provider-registry.service';
+
 @Module({
   imports: [AuditLogsModule],
   controllers: [BillingController, WebhooksController],
   providers: [
     BillingService,
+    MockPaymentProvider,
     StripeProvider,
     PaystackProvider,
     InvoiceNumberGenerator,
     SubscriptionStateMachine,
+    PaymentIntentStateMachine,
+    PaymentProviderRegistry,
     OutboxPollerService,
     ReconciliationService,
   ],
-  exports: [BillingService, InvoiceNumberGenerator, SubscriptionStateMachine, ReconciliationService],
+  exports: [
+    BillingService,
+    InvoiceNumberGenerator,
+    SubscriptionStateMachine,
+    PaymentIntentStateMachine,
+    PaymentProviderRegistry,
+    ReconciliationService,
+  ],
 })
 export class BillingModule {}
