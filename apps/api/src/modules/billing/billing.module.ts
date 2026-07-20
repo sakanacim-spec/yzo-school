@@ -16,6 +16,8 @@ import { MockPaymentProvider } from '../../common/providers/payment.provider';
 import { PaymentIntentStateMachine } from './payment-intent-state-machine.service';
 import { PaymentProviderRegistry } from './payment-provider-registry.service';
 
+import { DunningEngineService } from './dunning-engine.service';
+
 @Module({
   imports: [AuditLogsModule],
   controllers: [BillingController, WebhooksController],
@@ -30,6 +32,7 @@ import { PaymentProviderRegistry } from './payment-provider-registry.service';
     PaymentProviderRegistry,
     OutboxPollerService,
     ReconciliationService,
+    DunningEngineService,
   ],
   exports: [
     BillingService,
@@ -38,6 +41,7 @@ import { PaymentProviderRegistry } from './payment-provider-registry.service';
     PaymentIntentStateMachine,
     PaymentProviderRegistry,
     ReconciliationService,
+    DunningEngineService,
   ],
 })
 export class BillingModule {}
