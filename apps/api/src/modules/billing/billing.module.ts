@@ -10,6 +10,8 @@ import { InvoiceNumberGenerator } from './invoice-number.generator';
 import { SubscriptionStateMachine } from './subscription-state-machine.service';
 import { OutboxPollerService } from './outbox-poller.service';
 
+import { ReconciliationService } from './reconciliation.service';
+
 @Module({
   imports: [AuditLogsModule],
   controllers: [BillingController, WebhooksController],
@@ -20,7 +22,8 @@ import { OutboxPollerService } from './outbox-poller.service';
     InvoiceNumberGenerator,
     SubscriptionStateMachine,
     OutboxPollerService,
+    ReconciliationService,
   ],
-  exports: [BillingService, InvoiceNumberGenerator, SubscriptionStateMachine],
+  exports: [BillingService, InvoiceNumberGenerator, SubscriptionStateMachine, ReconciliationService],
 })
 export class BillingModule {}
