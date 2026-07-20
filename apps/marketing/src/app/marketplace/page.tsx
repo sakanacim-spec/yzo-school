@@ -43,9 +43,9 @@ export default function MarketplacePage() {
                   <div className="flex items-center justify-between">
                     <span className="text-3xl">{saas.icon}</span>
                     <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      saas.status === "live" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-slate-500"
+                      saas.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-slate-500"
                     }`}>
-                      {saas.status === "live" ? "Disponible" : "Bientôt"}
+                      {saas.status === "active" ? "Disponible" : "Bientôt"}
                     </span>
                   </div>
                   <h3 className="mt-4 text-lg font-bold text-white">{saas.name}</h3>

@@ -82,9 +82,9 @@ export default function HomePage() {
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-4xl">{saas.icon}</span>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    saas.status === "live" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-slate-500"
+                    saas.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-slate-500"
                   }`}>
-                    {saas.status === "live" ? "✅ Disponible" : "🚀 En préparation"}
+                    {saas.status === "active" ? "✅ Disponible" : "🚀 En préparation"}
                   </span>
                 </div>
                 <h3 className="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">

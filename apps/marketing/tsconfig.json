@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@saas/types": [
+        "../../packages/types/src/index.ts"
       ]
     }
   },

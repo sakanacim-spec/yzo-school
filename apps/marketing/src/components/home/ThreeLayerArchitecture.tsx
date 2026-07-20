@@ -85,8 +85,8 @@ export function ThreeLayerArchitecture() {
               <h3 className="text-xl font-bold text-white">Les Clients Finaux &amp; Utilisateurs</h3>
               <p className="mt-1 text-sm text-slate-400">{selectedSaas.description}</p>
             </div>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${selectedSaas.status === "live" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-slate-400"}`}>
-              {selectedSaas.status === "live" ? "✅ Solution Active" : "🚀 En Préparation"}
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${selectedSaas.status === "active" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-slate-400"}`}>
+              {selectedSaas.status === "active" ? "✅ Solution Active" : "🚀 En Préparation"}
             </span>
           </div>
 

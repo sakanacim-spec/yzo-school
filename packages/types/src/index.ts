@@ -2,6 +2,9 @@
 // @saas/types — Types TypeScript partagés dans tout le monorepo
 // ============================================================
 
+export * from './saas-registry';
+
+
 // ── Tenant ────────────────────────────────────────────────────
 export type TenantPlan = 'free' | 'starter' | 'pro' | 'enterprise';
 
