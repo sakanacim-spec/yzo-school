@@ -25,6 +25,7 @@ import { ModuleGuard } from './common/guards/module.guard';
 import { I18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
 import { I18nTenantResolver } from './modules/i18n/i18n-tenant.resolver';
 import * as path from 'path';
+import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuditModule } from './modules/audit/audit.module';
@@ -64,6 +65,7 @@ import { SentryModule } from '@sentry/nestjs/setup';
     // ── Infrastructure partagée (Global) ───────────────────────
     SupabaseModule,
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     AuditModule,
 
     // ── Modules Métier MVP ─────────────────────────────────────

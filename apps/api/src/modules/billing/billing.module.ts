@@ -7,11 +7,20 @@ import { PaystackProvider } from './providers/paystack.provider';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 import { InvoiceNumberGenerator } from './invoice-number.generator';
+import { SubscriptionStateMachine } from './subscription-state-machine.service';
+import { OutboxPollerService } from './outbox-poller.service';
 
 @Module({
   imports: [AuditLogsModule],
   controllers: [BillingController, WebhooksController],
-  providers: [BillingService, StripeProvider, PaystackProvider, InvoiceNumberGenerator],
-  exports: [BillingService, InvoiceNumberGenerator],
+  providers: [
+    BillingService,
+    StripeProvider,
+    PaystackProvider,
+    InvoiceNumberGenerator,
+    SubscriptionStateMachine,
+    OutboxPollerService,
+  ],
+  exports: [BillingService, InvoiceNumberGenerator, SubscriptionStateMachine],
 })
 export class BillingModule {}
