@@ -18,6 +18,7 @@ import { PaymentProviderRegistry } from './payment-provider-registry.service';
 
 import { DunningEngineService } from './dunning-engine.service';
 import { BillingMetricsService } from './billing-metrics.service';
+import { PrometheusMetricsService } from './prometheus-metrics.service';
 
 @Module({
   imports: [AuditLogsModule],
@@ -35,6 +36,7 @@ import { BillingMetricsService } from './billing-metrics.service';
     ReconciliationService,
     DunningEngineService,
     BillingMetricsService,
+    PrometheusMetricsService,
   ],
   exports: [
     BillingService,
@@ -45,6 +47,7 @@ import { BillingMetricsService } from './billing-metrics.service';
     ReconciliationService,
     DunningEngineService,
     BillingMetricsService,
+    PrometheusMetricsService,
   ],
 })
 export class BillingModule {}
