@@ -1,9 +1,10 @@
-import { Injectable, InternalServerErrorException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../common/supabase/supabase.service';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class SuperadminService {
+  private readonly logger = new Logger(SuperadminService.name);
   private isRefreshing = false;
 
   constructor(
@@ -157,8 +158,8 @@ export class SuperadminService {
       token,
       expires_at: expiresAt
     };
-    } catch (err) {
-      console.error("ERROR IN CREATE IMPERSONATION SESSION:", err);
+    } catch (err: any) {
+      this.logger.error(`Erreur création session impersonation: ${err.message}`);
       throw err;
     }
   }
