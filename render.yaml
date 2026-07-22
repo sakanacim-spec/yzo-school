@@ -2,12 +2,9 @@ services:
   # ── API NestJS ─────────────────────────────────────────────────
   - type: web
     name: saas-api
-    runtime: node
+    runtime: docker
     region: frankfurt  # EU — conformité RGPD
     plan: starter      # Always-on (pas de cold start)
-    rootDir: apps/api
-    buildCommand: cd ../.. && pnpm install && pnpm --filter @saas/api... build
-    startCommand: node dist/main
     healthCheckPath: /v1/health
     envVars:
       - key: NODE_ENV
