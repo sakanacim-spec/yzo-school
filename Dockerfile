@@ -25,6 +25,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 # Récupération de l'application élaguée
 COPY --from=deployer /app/pruned .
+# Copie explicite du dossier dist (ignoré par pnpm deploy car dans .gitignore)
+COPY --from=builder /app/apps/api/dist ./dist
 # Exposer le port API par défaut
 EXPOSE 3000
 CMD ["node", "dist/main"]
