@@ -23,10 +23,12 @@ RUN pnpm --filter @saas/api --prod deploy pruned --legacy
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# Installer tsx pour exécuter les dépendances locales en TypeScript
+RUN npm install -g tsx
 # Récupération de l'application élaguée
 COPY --from=deployer /app/pruned .
 # Copie explicite du dossier dist (ignoré par pnpm deploy car dans .gitignore)
 COPY --from=builder /app/apps/api/dist ./dist
 # Exposer le port API par défaut
 EXPOSE 3000
-CMD ["node", "dist/main"]
+CMD ["tsx", "dist/main.js"]
