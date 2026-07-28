@@ -8,6 +8,60 @@ export interface Country {
   name_en: string;
   dialCode: string;  // Indicatif téléphonique
   flag: string;      // Emoji drapeau
+  currency?: string;
+  symbol?: string;
+}
+
+// ── Grille tarifaire par élève / mois selon le cycle ─────────
+export const PRICING_TIERS = {
+  maternelle_primaire: { id: 'maternelle_primaire', label_fr: 'Maternelle & Primaire', price_fcfa_monthly: 100 },
+  college_secondaire: { id: 'college_secondaire', label_fr: 'Collège & Secondaire', price_fcfa_monthly: 150 },
+  superieur_formation: { id: 'superieur_formation', label_fr: 'Université & Supérieur', price_fcfa_monthly: 200 }
+};
+
+export interface CountryCurrencyInfo {
+  code: string;
+  currency: string;
+  symbol: string;
+  exchangeRateFromFCFA: number; // 1 FCFA = X local currency
+}
+
+const COUNTRY_CURRENCIES: Record<string, CountryCurrencyInfo> = {
+  BJ: { code: 'BJ', currency: 'XOF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  TG: { code: 'TG', currency: 'XOF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  CI: { code: 'CI', currency: 'XOF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  BF: { code: 'BF', currency: 'XOF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  SN: { code: 'SN', currency: 'XOF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  ML: { code: 'ML', currency: 'XOF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  NE: { code: 'NE', currency: 'XOF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  CM: { code: 'CM', currency: 'XAF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  GA: { code: 'GA', currency: 'XAF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  CG: { code: 'CG', currency: 'XAF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  TD: { code: 'TD', currency: 'XAF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  CF: { code: 'CF', currency: 'XAF', symbol: 'FCFA', exchangeRateFromFCFA: 1 },
+  GN: { code: 'GN', currency: 'GNF', symbol: 'GNF', exchangeRateFromFCFA: 14.5 },
+  CD: { code: 'CD', currency: 'USD', symbol: '$', exchangeRateFromFCFA: 0.00165 },
+  NG: { code: 'NG', currency: 'NGN', symbol: '₦', exchangeRateFromFCFA: 2.45 },
+  GH: { code: 'GH', currency: 'GHS', symbol: 'GH₵', exchangeRateFromFCFA: 0.025 },
+  FR: { code: 'FR', currency: 'EUR', symbol: '€', exchangeRateFromFCFA: 0.00152 },
+  BE: { code: 'BE', currency: 'EUR', symbol: '€', exchangeRateFromFCFA: 0.00152 },
+  CA: { code: 'CA', currency: 'CAD', symbol: 'CA$', exchangeRateFromFCFA: 0.0022 },
+  US: { code: 'US', currency: 'USD', symbol: '$', exchangeRateFromFCFA: 0.00165 },
+};
+
+export function getCountryCurrencyInfo(countryCode?: string): CountryCurrencyInfo {
+  const code = (countryCode || 'TG').toUpperCase();
+  return COUNTRY_CURRENCIES[code] || { code, currency: 'XOF', symbol: 'FCFA', exchangeRateFromFCFA: 1 };
+}
+
+export function formatCurrencyAmount(amountFcfa: number, countryCode?: string): string {
+  const info = getCountryCurrencyInfo(countryCode);
+  const localAmount = amountFcfa * info.exchangeRateFromFCFA;
+
+  if (info.currency === 'XOF' || info.currency === 'XAF' || info.currency === 'GNF') {
+    return `${Math.round(localAmount).toLocaleString('fr-FR')} ${info.symbol}`;
+  }
+  return `${info.symbol} ${localAmount.toFixed(2)}`;
 }
 
 export const COUNTRIES: Country[] = [

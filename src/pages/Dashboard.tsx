@@ -18,6 +18,7 @@ import {
 } from '../services/analyticsService';
 import { generateRapportMensuelPDF } from '@/utils/reportGenerator';
 import { DashboardSkeleton } from '../components/SkeletonLoaders';
+import { SchoolSubscriptionWidget } from '../components/SchoolSubscriptionWidget';
 
 import { formatMontant } from '../utils/helpers';
 import { t } from '../i18n';
@@ -333,6 +334,9 @@ export const Dashboard: React.FC = () => {
           trend={privacyMode ? undefined : `${tauxPresence}% ${t(language as Language, 'dashboard.attendanceRate') || 'de présence'}`}
         />
       </div>
+
+      {/* ── WIDGET ABONNEMENT ET TARIFICATION ETABLISSEMENT ── */}
+      <SchoolSubscriptionWidget />
 
       {/* ── RECOVERY BAR ── */}
       <div className="pro-card p-8 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl">

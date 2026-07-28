@@ -6,7 +6,12 @@ const { supabase } = require('../utils/supabase');
 const Joi = require('joi');
 const crypto = require('crypto');
 
-const PRICE_PER_STUDENT = 2000; // FCFA
+// Grille tarifaire mensuelle par élève selon le cycle (10 mois par an)
+const PRICING_RATES_MONTHLY = {
+    maternelle_primaire: 100, // FCFA / élève / mois
+    college_secondaire: 150,  // FCFA / élève / mois
+    superieur_formation: 200  // FCFA / élève / mois
+};
 
 // ── GET /api/superadmin/schools ─────────────────────────────────
 // Liste toutes les écoles inscrites avec leurs stats
@@ -24,12 +29,31 @@ async function getAllSchools(req, res) {
             schools.map(async (school) => {
                 let studentCount = 0;
                 let userCount = 0;
+                let estimatedAnnualRevenue = 0;
                 
                 try {
-                    const { count: sCount } = await supabase
+                    const { data: studentsData } = await supabase
                         .from(`students_${school.slug}`)
-                        .select('*', { count: 'exact', head: true });
-                    studentCount = sCount || 0;
+                        .select('classe');
+                    
+                    studentCount = studentsData ? studentsData.length : 0;
+                    
+                    // Calcul par niveau
+                    (studentsData || []).forEach(st => {
+                        const className = (st.classe || '').toLowerCase();
+                        if (className.includes('maternelle') || className.includes('ci') || className.includes('cp') || className.includes('ce1') || className.includes('ce2') || className.includes('cm1') || className.includes('cm2') || className.includes('primaire')) {
+                            estimatedAnnualRevenue += PRICING_RATES_MONTHLY.maternelle_primaire * 10;
+                        } else if (className.includes('licence') || className.includes('master') || className.includes('doctorat') || className.includes('univ') || className.includes('fac') || className.includes('bts') || className.includes('institut')) {
+                            estimatedAnnualRevenue += PRICING_RATES_MONTHLY.superieur_formation * 10;
+                        } else {
+                            estimatedAnnualRevenue += PRICING_RATES_MONTHLY.college_secondaire * 10;
+                        }
+                    });
+
+                    // Si pas encore d'élèves saisis, estimation moyenne (150 FCFA/mois * 10 mois = 1500 FCFA/an/élève)
+                    if (studentCount === 0) {
+                        estimatedAnnualRevenue = 0;
+                    }
                     
                     const { count: uCount } = await supabase
                         .from(`profiles_${school.slug}`)
@@ -43,7 +67,7 @@ async function getAllSchools(req, res) {
                     ...school,
                     student_count: studentCount || 0,
                     user_count: userCount || 0,
-                    revenue: (studentCount || 0) * PRICE_PER_STUDENT,
+                    revenue: estimatedAnnualRevenue,
                     trial_days_left: school.status === 'trial'
                         ? Math.max(0, Math.ceil((new Date(school.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)))
                         : 0
