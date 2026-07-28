@@ -440,7 +440,7 @@ export const useStore = create<AppState>()(
             result = JSON.parse(text);
           } catch (parseErr) {
             console.error('Login response not JSON:', text);
-            throw new Error('Réponse API invalide');
+            throw new Error('Le serveur backend est en cours de démarrage. Veuillez ré-essayer dans 15 secondes.');
           }
 
           // Gérer les erreurs spécifiques multi-tenant
