@@ -1438,7 +1438,8 @@ export const useStore = create<AppState>()(
         console.log('🌐 [Settings] Fetching public settings...');
         try {
           const res = await fetch(`${API_BASE_URL}/settings`);
-          if (res.ok) {
+          const contentType = res.headers.get('content-type');
+          if (res.ok && contentType && contentType.includes('application/json')) {
             const data = await res.json();
             console.log('🌐 [Settings] Data received:', data);
             if (data) {
