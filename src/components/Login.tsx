@@ -380,9 +380,18 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                 )}
                 {error && <div className="text-rose-500 text-[10px] italic text-center font-bold px-4 pb-2">{error}</div>}
 
-                <button type="submit" disabled={loading} className="w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl font-bold text-xs tracking-wide shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2">
-                    <Lock className="w-4 h-4" />
-                  {(T.login?.loginButton || 'SE CONNECTER').toUpperCase()}
+                <button type="submit" disabled={loading} className={`w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl font-bold text-xs tracking-wide shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      CHARGEMENT...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      {(T.login?.loginButton || 'SE CONNECTER').toUpperCase()}
+                    </>
+                  )}
                 </button>
                 
                 <div className="flex items-center gap-4 my-5 w-full">
