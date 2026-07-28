@@ -224,7 +224,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+        <div className="fixed bottom-6 right-6 z-[99999] flex flex-col items-end pointer-events-auto">
             {/* Fenêtre du Chatbot */}
             {isOpen && (
                 <div className="w-[360px] sm:w-[400px] h-[520px] bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden mb-4 animate-scaleUp">

@@ -5,6 +5,7 @@ import {
   Globe, ArrowRight, Lock, Building2, ChevronDown, CheckCircle,
   Facebook, Twitter, Linkedin, Instagram
 } from 'lucide-react';
+import { GuideAssistantWidget } from './GuideAssistantWidget';
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -387,6 +388,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
           </div>
         </div>
       </footer>
+
+      {/* Assistant virtuel d'accueil */}
+      <GuideAssistantWidget 
+        onOpenRegisterSchool={onLogin}
+        onOpenRegisterParent={onLogin}
+        onOpenLogin={onLogin}
+      />
     </div>
   );
 };
