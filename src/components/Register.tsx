@@ -32,7 +32,7 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
   const [schoolEmail, setSchoolEmail] = useState('');
   const [slogan, setSlogan] = useState('');
   const [ministry, setMinistry] = useState('');
-  const [preferredLanguage, setPreferredLanguage] = useState<'fr' | 'en' | 'es' | 'ar'>(language);
+  const [preferredLanguage, setPreferredLanguage] = useState<Language>(language);
 
   // Admin States
   const [adminNom, setAdminNom] = useState('');

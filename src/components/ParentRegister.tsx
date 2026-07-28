@@ -16,7 +16,7 @@ function translateBackendError(msg: string, lang: Language): string {
     const lower = msg.toLowerCase();
 
     if (lower.includes('établissement inconnu') || lower.includes('unknown school') || lower.includes('etablissement inconnu')) {
-        const map: Record<Language, string> = {
+        const map: Partial<Record<Language, string>> = {
             fr: 'Établissement inconnu. Vérifiez le code de votre école.',
             en: 'Unknown school. Please check your school code.',
             es: 'Institución desconocida. Verifica el código de tu escuela.',
@@ -25,7 +25,7 @@ function translateBackendError(msg: string, lang: Language): string {
         return map[lang] || msg;
     }
     if (lower.includes('numéro de téléphone est déjà') || lower.includes('already registered') || lower.includes('phone') && lower.includes('exist')) {
-        const map: Record<Language, string> = {
+        const map: Partial<Record<Language, string>> = {
             fr: 'Ce numéro de téléphone est déjà enregistré. Connectez-vous.',
             en: 'This phone number is already registered. Please log in.',
             es: 'Este número de teléfono ya está registrado. Inicia sesión.',
@@ -34,7 +34,7 @@ function translateBackendError(msg: string, lang: Language): string {
         return map[lang] || msg;
     }
     if (lower.includes('suspendu') || lower.includes('suspended')) {
-        const map: Record<Language, string> = {
+        const map: Partial<Record<Language, string>> = {
             fr: "L'établissement est suspendu.",
             en: 'This school account is suspended.',
             es: 'Esta institución está suspendida.',
@@ -43,7 +43,7 @@ function translateBackendError(msg: string, lang: Language): string {
         return map[lang] || msg;
     }
     if (lower.includes('mot de passe') && lower.includes('6') || lower.includes('password') && lower.includes('6')) {
-        const map: Record<Language, string> = {
+        const map: Partial<Record<Language, string>> = {
             fr: 'Le mot de passe doit contenir au moins 6 caractères.',
             en: 'Password must be at least 6 characters.',
             es: 'La contraseña debe tener al menos 6 caracteres.',
@@ -107,7 +107,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
 
     // Success screen
     if (success) {
-        const successMessages: Record<Language, { title: string; body: string }> = {
+        const successMessages: Partial<Record<Language, { title: string; body: string }>> = {
             fr: { title: 'Compte créé avec succès !', body: 'Vous allez être redirigé vers la connexion.' },
             en: { title: 'Account created successfully!', body: 'Redirecting you to login.' },
             es: { title: '¡Cuenta creada con éxito!', body: 'Serás redirigido al inicio de sesión.' },

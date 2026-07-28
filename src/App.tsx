@@ -12,6 +12,7 @@ import { About } from './pages/public/About';
 import { Contact } from './pages/public/Contact';
 import { Careers } from './pages/public/Careers';
 import { LegalPage, LegalPageType } from './pages/public/LegalPage';
+import { GuideAssistantWidget } from './components/GuideAssistantWidget';
 
 // Lazy loading for pages to reduce initial bundle size
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -139,6 +140,7 @@ const PageContent: React.FC = () => {
 export function App() {
   const isAuthenticated = useStore((s) => s.isAuthenticated);
   const fetchAllFromBackend = useStore((s) => s.fetchAllFromBackend);
+  const translationVersion = useStore((s) => s.translationVersion);
 
   // ── Chargement des paramètres publics (Logo, Nom App) ────────
   React.useEffect(() => {
@@ -220,10 +222,17 @@ export function App() {
       return <LegalPage type={publicPage as LegalPageType} onBack={() => setPublicPage('landing')} />;
     }
     return (
-      <LandingPage 
-        onLogin={() => setPublicPage('login')} 
-        onNavigate={(page) => setPublicPage(page as any)}
-      />
+      <>
+        <LandingPage 
+          onLogin={() => setPublicPage('login')} 
+          onNavigate={(page) => setPublicPage(page as any)}
+        />
+        <GuideAssistantWidget 
+          onOpenRegisterSchool={() => setPublicPage('login')}
+          onOpenRegisterParent={() => setPublicPage('login')}
+          onOpenLogin={() => setPublicPage('login')}
+        />
+      </>
     );
   }
 
