@@ -92,28 +92,28 @@ app.use((err, req, res, _next) => {
     res.status(500).json({ error: 'Erreur interne du serveur.', detail: err.message });
 });
 
-if (require.main === module) {
-  const server = app.listen(PORT, () => {
-      console.log(`\n${'='.repeat(60)}`);
-      console.log(`🚀 Yziow Backend démarré`);
-      console.log(`${'='.repeat(60)}`);
-      console.log(`📡 Serveur: http://localhost:${PORT}`);
-      console.log(`🛡️  Base de données: Supabase PostgreSQL`);
-      console.log(`🔑 Auth: JWT ${process.env.JWT_SECRET ? '(configuré)' : '(DÉFAUT)'}`);
-      console.log(`📁 Node env: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`💬 Routes actives: /api/auth, /api/parent, /api/students, /api/sync, /api/chat, /api/notifications, /api/announcements`);
-      console.log(`🏥 Health check: /api/health`);
-      console.log(`${'='.repeat(60)}\n`);
-  });
+// ── Démarrage ─────────────────────────────────────────────────
+const server = app.listen(PORT, () => {
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`🚀 Yziow Backend démarré`);
+    console.log(`${'='.repeat(60)}`);
+    console.log(`📡 Serveur: http://localhost:${PORT}`);
+    console.log(`🛡️  Base de données: Supabase PostgreSQL`);
+    console.log(`🔑 Auth: JWT ${process.env.JWT_SECRET ? '(configuré)' : '(DÉFAUT)'}`);
+    console.log(`📁 Node env: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`💬 Routes actives: /api/auth, /api/parent, /api/students, /api/sync, /api/chat, /api/notifications, /api/announcements`);
+    console.log(`🏥 Health check: /api/health`);
+    console.log(`${'='.repeat(60)}\n`);
+});
 
-  server.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-          console.error(`❌ Le port ${PORT} est déjà utilisé. Utilisez un autre port.`);
-      } else {
-          console.error(`❌ Erreur au démarrage du serveur:`, err);
-      }
-      process.exit(1);
-  });
-}
+// Gestion des erreurs de démarrage
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Le port ${PORT} est déjà utilisé. Utilisez un autre port.`);
+    } else {
+        console.error(`❌ Erreur au démarrage du serveur:`, err);
+    }
+    process.exit(1);
+});
 
 module.exports = app;
