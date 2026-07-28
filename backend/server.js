@@ -12,8 +12,10 @@ const { supabase } = require('./utils/supabase');
 const { PORT } = require('./config');
 
 // ── Créer les dossiers nécessaires ───────────────────────────
-const uploadsDir = path.join(__dirname, 'uploads', 'messages');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!process.env.VERCEL) {
+    const uploadsDir = path.join(__dirname, 'uploads', 'messages');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // ── Application Express ───────────────────────────────────────
 const app = express();
