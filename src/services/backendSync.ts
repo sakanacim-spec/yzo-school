@@ -71,7 +71,9 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
             schoolCountry,
             paymentGateway: settings?.paymentGateway,
             paymentPublicKey: settings?.paymentPublicKey,
-            paymentSecretKey: settings?.paymentSecretKey
+            paymentSecretKey: settings?.paymentSecretKey,
+            payoutMomoNumber: settings?.payoutMomoNumber,
+            payoutMethod: settings?.payoutMethod
         };
     }
 

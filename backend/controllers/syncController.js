@@ -304,6 +304,7 @@ async function syncFromFrontend(req, res) {
                     ministry: appSettings.schoolMinistry !== undefined ? appSettings.schoolMinistry : null,
                     country: appSettings.schoolCountry !== undefined ? appSettings.schoolCountry : null,
                     payout_momo_number: appSettings.payoutMomoNumber !== undefined ? appSettings.payoutMomoNumber : null,
+                    payout_method: appSettings.payoutMethod !== undefined ? appSettings.payoutMethod : 'momo',
                 }).eq('slug', schoolSlug);
 
                 if (schoolUpdateErr) console.error('❌ [Sync POST] Erreur MAJ schools:', schoolUpdateErr.message);
@@ -642,6 +643,7 @@ async function syncToFrontend(req, res) {
                 schoolMinistry: appSettings?.school_ministry || schoolData?.ministry || null,
                 schoolCountry: appSettings?.school_country || schoolData?.country || null,
                 payoutMomoNumber: schoolData?.payout_momo_number || null,
+                payoutMethod: schoolData?.payout_method || 'momo',
                 subscriptionPlan: schoolData?.subscription_plan || null,
                 paidTranchesCount: schoolData?.paid_tranches_count || 0,
                 settings: appSettings?.settings || null

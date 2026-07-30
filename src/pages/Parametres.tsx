@@ -30,11 +30,11 @@ export const Parametres: React.FC = () => {
   const bulletinShowClassAverage = useStore((s) => s.settings?.bulletinShowClassAverage ?? true);
   const bulletinShowAppreciation = useStore((s) => s.settings?.bulletinShowAppreciation ?? true);
 
-  const paymentGateway = useStore((s) => s.settings?.paymentGateway ?? 'none');
-  const paymentPublicKey = useStore((s) => s.settings?.paymentPublicKey ?? null);
-  const paymentSecretKey = useStore((s) => s.settings?.paymentSecretKey ?? null);
-
-  const payoutMomoNumber = useStore((s) => s.settings?.payoutMomoNumber ?? null);
+  const paymentGateway = useStore((s) => s.settings?.paymentGateway);
+  const paymentPublicKey = useStore((s) => s.settings?.paymentPublicKey);
+  const paymentSecretKey = useStore((s) => s.settings?.paymentSecretKey);
+  const payoutMomoNumber = useStore((s) => s.settings?.payoutMomoNumber);
+  const payoutMethod = useStore((s) => s.settings?.payoutMethod);
 
   const [localSchool, setLocalSchool] = useState(schoolName || '');
   const [localAddress, setLocalAddress] = useState(schoolAddress || '');
@@ -60,6 +60,7 @@ export const Parametres: React.FC = () => {
   const [localPaymentPublicKey, setLocalPaymentPublicKey] = useState(paymentPublicKey || '');
   const [localPaymentSecretKey, setLocalPaymentSecretKey] = useState(paymentSecretKey || '');
   const [localPayoutMomoNumber, setLocalPayoutMomoNumber] = useState(payoutMomoNumber || '');
+  const [localPayoutMethod, setLocalPayoutMethod] = useState<'momo' | 'rib'>(payoutMethod || 'momo');
 
   const [saved, setSaved] = useState(false);
 
@@ -98,7 +99,8 @@ export const Parametres: React.FC = () => {
     setLocalPaymentPublicKey(paymentPublicKey || '');
     setLocalPaymentSecretKey(paymentSecretKey || '');
     setLocalPayoutMomoNumber(payoutMomoNumber || '');
-  }, [schoolName, schoolAddress, schoolPhone, schoolSlogan, schoolMinistry, schoolYear, messageRemerciement, messageRappel, bulletinTemplate, bulletinShowPhoto, bulletinShowRank, bulletinShowClassAverage, bulletinShowAppreciation, paymentGateway, paymentPublicKey, paymentSecretKey, payoutMomoNumber]);
+    setLocalPayoutMethod(payoutMethod || 'momo');
+  }, [schoolName, schoolAddress, schoolPhone, schoolSlogan, schoolMinistry, schoolYear, messageRemerciement, messageRappel, bulletinTemplate, bulletinShowPhoto, bulletinShowRank, bulletinShowClassAverage, bulletinShowAppreciation, paymentGateway, paymentPublicKey, paymentSecretKey, payoutMomoNumber, payoutMethod]);
   
   const [logoPreview, setLogoPreview] = useState<string | null>(schoolLogo);
   const [logoError, setLogoError] = useState('');
@@ -279,6 +281,7 @@ export const Parametres: React.FC = () => {
       paymentPublicKey: localPaymentPublicKey,
       paymentSecretKey: localPaymentSecretKey,
       payoutMomoNumber: localPayoutMomoNumber,
+      payoutMethod: localPayoutMethod,
       evalConfigs: localEvalConfigs
     });
 
@@ -888,13 +891,29 @@ export const Parametres: React.FC = () => {
                     
                     <div>
                       <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                        Numéro de retrait Yziow Pay (Mobile Money ou RIB)
+                        Méthode de réception
+                      </label>
+                      <div className="flex gap-4 mb-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" name="payoutMethod" value="momo" checked={localPayoutMethod === 'momo'} onChange={() => setLocalPayoutMethod('momo')} className="text-indigo-600 focus:ring-indigo-500" />
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Mobile Money</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" name="payoutMethod" value="rib" checked={localPayoutMethod === 'rib'} onChange={() => setLocalPayoutMethod('rib')} className="text-indigo-600 focus:ring-indigo-500" />
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Virement Bancaire (RIB)</span>
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
+                        {localPayoutMethod === 'momo' ? 'Numéro Mobile Money Yziow Pay' : 'RIB / IBAN Yziow Pay'}
                       </label>
                       <input
                         type="text"
                         value={localPayoutMomoNumber}
                         onChange={(e) => setLocalPayoutMomoNumber(e.target.value)}
-                        placeholder="Ex: +229 97 XX XX XX"
+                        placeholder={localPayoutMethod === 'momo' ? "Ex: +229 97 XX XX XX" : "Ex: BJ061 01001 001234567890 12"}
                         className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono"
                       />
                     </div>

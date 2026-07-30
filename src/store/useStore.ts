@@ -112,6 +112,7 @@ export interface AppState {
     paymentPublicKey?: string | null,
     paymentSecretKey?: string | null,
     payoutMomoNumber?: string | null,
+    payoutMethod?: 'momo' | 'rib',
     evalConfigs?: EvalConfig[]
   }) => Promise<void>;
   settings: AppSettings;
@@ -747,7 +748,7 @@ export const useStore = create<AppState>()(
           const { 
             bulletinTemplate, bulletinShowPhoto, bulletinShowRank, 
             bulletinShowClassAverage, bulletinShowAppreciation,
-            paymentGateway, paymentPublicKey, paymentSecretKey, payoutMomoNumber,
+            paymentGateway, paymentPublicKey, paymentSecretKey, payoutMomoNumber, payoutMethod,
             ...rootSettings 
           } = newSettings as any;
           
@@ -763,7 +764,8 @@ export const useStore = create<AppState>()(
               ...(paymentGateway !== undefined && { paymentGateway }),
               ...(paymentPublicKey !== undefined && { paymentPublicKey }),
               ...(paymentSecretKey !== undefined && { paymentSecretKey }),
-              ...(payoutMomoNumber !== undefined && { payoutMomoNumber })
+              ...(payoutMomoNumber !== undefined && { payoutMomoNumber }),
+              ...(payoutMethod !== undefined && { payoutMethod })
             }
           };
         });
@@ -803,6 +805,7 @@ export const useStore = create<AppState>()(
         paymentPublicKey: null,
         paymentSecretKey: null,
         payoutMomoNumber: null,
+        payoutMethod: 'momo',
         evalConfigs: DEFAULT_EVAL_CONFIGS,
       },
       updateSettings: (newSettings) => set({ settings: newSettings }),

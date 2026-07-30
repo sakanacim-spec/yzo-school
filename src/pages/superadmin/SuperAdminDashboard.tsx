@@ -1018,9 +1018,12 @@ export const SuperAdminDashboard: React.FC = () => {
                     </td>
                     <td className="py-4 px-4">
                       {school.payout_momo_number ? (
-                        <span className="inline-block bg-slate-800 border border-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-mono">
-                          {school.payout_momo_number}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">{school.payout_method === 'rib' ? 'RIB/IBAN' : 'Mobile Money'}</span>
+                          <span className="inline-block bg-slate-800 border border-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-mono">
+                            {school.payout_momo_number}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-xs text-slate-600 italic">Non configuré</span>
                       )}
