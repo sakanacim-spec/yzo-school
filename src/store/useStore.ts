@@ -548,7 +548,30 @@ export const useStore = create<AppState>()(
           announcementReads: [],
           matieres: [],
           classeMatieres: [],
-          notes: []
+          notes: [],
+          schoolName: '',
+          schoolAddress: null,
+          schoolPhone: null,
+          schoolSlogan: null,
+          schoolMinistry: null,
+          schoolYear: '',
+          messageRemerciement: '',
+          messageRappel: '',
+          schoolLogo: null,
+          schoolStamp: null,
+          settings: {
+            bulletinTemplate: 'officiel',
+            bulletinShowPhoto: true,
+            bulletinShowRank: true,
+            bulletinShowClassAverage: true,
+            bulletinShowAppreciation: true,
+            paymentGateway: 'none',
+            paymentPublicKey: null,
+            paymentSecretKey: null,
+            payoutMomoNumber: null,
+            payoutMethod: 'momo',
+            evalConfigs: []
+          }
         });
       },
 

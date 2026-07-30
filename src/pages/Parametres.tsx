@@ -39,13 +39,8 @@ export const Parametres: React.FC = () => {
   const [localSchool, setLocalSchool] = useState(schoolName || '');
   const [localAddress, setLocalAddress] = useState(schoolAddress || '');
   const [localPhone, setLocalPhone] = useState(schoolPhone || '');
-  // Slogan/Ministry: lire depuis Zustand ou fallback sur localStorage direct
-  const [localSlogan, setLocalSlogan] = useState(
-    schoolSlogan || localStorage.getItem('school_identity_slogan') || ''
-  );
-  const [localMinistry, setLocalMinistry] = useState(
-    schoolMinistry || localStorage.getItem('school_identity_ministry') || ''
-  );
+  const [localSlogan, setLocalSlogan] = useState(schoolSlogan || '');
+  const [localMinistry, setLocalMinistry] = useState(schoolMinistry || '');
   const [localYear, setLocalYear] = useState(schoolYear || '');
   const [localRem, setLocalRem] = useState(messageRemerciement || '');
   const [localRap, setLocalRap] = useState(messageRappel || '');
@@ -252,14 +247,6 @@ export const Parametres: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 💾 Sauvegarde directe dans localStorage comme filet de sécurité absolu
-    try {
-      localStorage.setItem('school_identity_slogan', localSlogan || '');
-      localStorage.setItem('school_identity_ministry', localMinistry || '');
-      localStorage.setItem('school_identity_address', localAddress || '');
-      localStorage.setItem('school_identity_phone', localPhone || '');
-    } catch (_) {}
     
     await updateAllSettings({
       schoolName: localSchool,
