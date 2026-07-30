@@ -13,6 +13,11 @@ async function register(req, res) {
     if (password.length < 6) {
         return res.status(400).json({ error: 'Le mot de passe doit faire au moins 6 caractères.' });
     }
+    
+    const phoneDigits = telephone.replace(/\D/g, '');
+    if (phoneDigits.length < 8) {
+        return res.status(400).json({ error: 'Le numéro de téléphone est invalide.' });
+    }
 
     try {
         // Vérifier si le téléphone existe déjà
@@ -83,6 +88,10 @@ async function login(req, res) {
 
         if (!affiliate) {
             return res.status(401).json({ error: 'Identifiants incorrects.' });
+        }
+
+        if (affiliate.status === 'suspended') {
+            return res.status(403).json({ error: 'Votre compte ambassadeur a été suspendu. Veuillez nous contacter.' });
         }
 
         const valid = await bcrypt.compare(password, affiliate.password_hash);

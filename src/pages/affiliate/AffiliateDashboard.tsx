@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, LogOut, Copy, Check, Link, TrendingUp, Users, Wallet, CreditCard, Clock, CheckCircle } from 'lucide-react';
+import { GraduationCap, LogOut, Copy, Check, Link, TrendingUp, Users, Wallet, CreditCard, Clock, CheckCircle } from 'lucide-react';
 import { API_BASE_URL } from '../../config';
 
 interface DashboardData {
@@ -85,12 +85,12 @@ export const AffiliateDashboard: React.FC = () => {
       {/* Navbar */}
       <nav className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
-            <Briefcase className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 bg-gradient-to-br from-[#f97316] to-[#ea580c] rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30">
+            <GraduationCap className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-lg leading-tight text-slate-900">Yziow <span className="text-[#f97316]">Partners</span></h1>
-            <p className="text-xs text-slate-500">Espace Ambassadeur</p>
+            <h1 className="font-black text-2xl leading-tight text-[#0f172a] tracking-tight">yziow</h1>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">Partners</p>
           </div>
         </div>
         

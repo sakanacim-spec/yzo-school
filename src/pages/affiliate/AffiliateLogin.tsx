@@ -55,12 +55,19 @@ export const AffiliateLogin: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (regPhone.length < 8) {
+      setError("Le numéro de téléphone doit comporter au moins 8 chiffres.");
+      return;
+    }
     setLoading(true); setError('');
     try {
+      const selectedCountryInfo = getSortedCountries('fr').find(c => c.code === country);
+      const fullPhone = selectedCountryInfo ? `${selectedCountryInfo.dialCode} ${regPhone}` : regPhone;
+
       const res = await fetch(`${API_BASE_URL}/affiliate/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, telephone: regPhone, password: regPassword, country, photo_url: photoBase64 })
+        body: JSON.stringify({ nom, telephone: fullPhone, password: regPassword, country, photo_url: photoBase64 })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -155,12 +162,6 @@ export const AffiliateLogin: React.FC = () => {
                 placeholder="Ex: Jean Dupont" />
             </div>
             <div>
-              <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Numéro de téléphone</label>
-              <input type="text" value={regPhone} onChange={e => setRegPhone(e.target.value)} required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium"
-                placeholder="Ex: 90000000" />
-            </div>
-            <div>
               <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Pays</label>
               <select value={country} onChange={e => setCountry(e.target.value)} required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium">
@@ -168,6 +169,17 @@ export const AffiliateLogin: React.FC = () => {
                   <option key={c.code} value={c.code}>{c.flag} {c.name_fr}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Numéro de téléphone</label>
+              <div className="flex bg-slate-50 border border-slate-200 rounded-xl focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/20 overflow-hidden transition-all">
+                <div className="bg-slate-100 px-4 flex items-center border-r border-slate-200 font-bold text-slate-600">
+                  {getSortedCountries('fr').find(c => c.code === country)?.flag} {getSortedCountries('fr').find(c => c.code === country)?.dialCode}
+                </div>
+                <input type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value.replace(/\D/g, ''))} required minLength={8}
+                  className="w-full bg-transparent px-4 py-3 text-slate-800 focus:outline-none font-medium"
+                  placeholder="Ex: 90000000" />
+              </div>
             </div>
             <div>
               <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Créer un mot de passe</label>
