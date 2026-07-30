@@ -1155,6 +1155,27 @@ export const Parametres: React.FC = () => {
 
         </div>
       </div>
+      
+      {/* ── CONGRATULATORY SUCCESS POPUP ── */}
+      {saved && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
+            <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px] transition-opacity duration-300"></div>
+            <div className="relative bg-white dark:bg-slate-900 border border-emerald-100 dark:border-emerald-500/30 rounded-3xl p-8 shadow-2xl shadow-emerald-500/20 max-w-sm w-full transform transition-all duration-500 scale-100 animate-in fade-in zoom-in-50 slide-in-from-bottom-10 pointer-events-auto">
+                <div className="absolute -top-10 left-1/2 -translate-x-1/2">
+                    <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40 animate-bounce">
+                        <CheckCircle className="w-10 h-10 text-white" />
+                    </div>
+                </div>
+                <div className="mt-8 text-center">
+                    <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">Félicitations ! 🎉</h3>
+                    <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
+                        Vos modifications ont été enregistrées avec succès.
+                    </p>
+                </div>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 };
