@@ -10,7 +10,12 @@ const {
     updateSchool,
     deleteSchool,
     getGlobalStats,
-    impersonateSchool
+    impersonateSchool,
+    paySubscriptionInit,
+    recordDisbursement,
+    updateCommissionRate,
+    getAffiliates,
+    payoutAffiliate
 } = require('../controllers/superAdminController');
 
 // Toutes ces routes sont protégées par le double middleware :
@@ -24,5 +29,17 @@ router.put('/schools/:id', authenticateToken, requireSuperAdmin, updateSchool);
 router.patch('/schools/:id/status', authenticateToken, requireSuperAdmin, updateSchoolStatus);
 router.delete('/schools/:id', authenticateToken, requireSuperAdmin, deleteSchool);
 router.post('/schools/:id/impersonate', authenticateToken, requireSuperAdmin, impersonateSchool);
+
+// Route accessible par les directeurs pour initialiser le paiement de leur abonnement SaaS via FedaPay
+router.post('/schools/:slug/pay-init', authenticateToken, paySubscriptionInit);
+
+// Routes pour la gestion des reversements et commissions
+router.post('/schools/:id/disburse', authenticateToken, requireSuperAdmin, recordDisbursement);
+router.patch('/schools/:id/commission', authenticateToken, requireSuperAdmin, updateCommissionRate);
+
+// Routes pour la gestion des ambassadeurs
+router.get('/affiliates', authenticateToken, requireSuperAdmin, getAffiliates);
+router.post('/affiliates/:id/payout', authenticateToken, requireSuperAdmin, payoutAffiliate);
+
 
 module.exports = router;

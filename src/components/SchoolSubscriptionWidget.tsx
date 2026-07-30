@@ -8,6 +8,8 @@ import { getCountryCurrencyInfo, formatCurrencyAmount } from '../data/countries'
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+import { API_BASE_URL } from '../config';
+
 interface LevelBreakdown {
   maternelle_primaire: number;
   college_secondaire: number;
@@ -15,12 +17,27 @@ interface LevelBreakdown {
 }
 
 export const SchoolSubscriptionWidget: React.FC = () => {
-  const { user, students, classes, schoolName } = useStore();
-  const [paymentMode, setPaymentMode] = useState<'annual' | 'tranche'>('annual');
+  const { user, students, classes, schoolName, settings } = useStore();
+  const lockedPlan = settings?.subscriptionPlan;
+  const dbPaidTranchesCount = settings?.paidTranchesCount || 0;
+
+  const [paymentMode, setPaymentMode] = useState<'annual' | 'tranche'>(lockedPlan || 'annual');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paidTranches, setPaidTranches] = useState<number[]>([]);
+  const [paidTranches, setPaidTranches] = useState<number[]>(
+    dbPaidTranchesCount > 0 ? Array.from({length: dbPaidTranchesCount}, (_, i) => i + 1) : []
+  );
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [lastPayment, setLastPayment] = useState<any>(null);
+
+  // Mettre à jour si les settings arrivent après le montage
+  React.useEffect(() => {
+    if (lockedPlan) {
+      setPaymentMode(lockedPlan);
+    }
+    if (dbPaidTranchesCount > 0) {
+      setPaidTranches(Array.from({length: dbPaidTranchesCount}, (_, i) => i + 1));
+    }
+  }, [lockedPlan, dbPaidTranchesCount]);
 
   // Seul le directeur / admin d'école ou superadmin peut voir cette section
   if (!user || (user.role !== 'directeur' && user.role !== 'admin' && user.role !== 'superadmin')) {
@@ -50,8 +67,10 @@ export const SchoolSubscriptionWidget: React.FC = () => {
   });
 
   // Total élèves (si pas encore d'élèves saisis, simulation avec 50 élèves par défaut)
-  const totalStudents = Math.max(students.length, 50);
-  const effectiveBreakdown = students.length > 0 ? breakdown : {
+  const isSimulation = students.length === 0;
+  const totalStudents = isSimulation ? 50 : students.length;
+  
+  const effectiveBreakdown = !isSimulation ? breakdown : {
     maternelle_primaire: Math.round(totalStudents * 0.4),
     college_secondaire: Math.round(totalStudents * 0.4),
     superieur_formation: Math.round(totalStudents * 0.2)
@@ -72,35 +91,44 @@ export const SchoolSubscriptionWidget: React.FC = () => {
   // Montant d'une tranche trimestrielle (3 tranches par an)
   const trancheAmountFcfa = Math.round(totalAnnualFcfa / 3);
 
-  const handleSimulatePayment = (type: 'annual' | 'tranche', trancheNum?: number) => {
+  const handleSimulatePayment = async (type: 'annual' | 'tranche', trancheNum?: number) => {
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
+    
+    try {
       const amountFcfa = type === 'annual' ? finalAnnualFcfa : trancheAmountFcfa;
-      const ref = `YZ-PAY-${Date.now().toString().slice(-6)}`;
       
-      if (type === 'tranche' && trancheNum) {
-        setPaidTranches((prev) => [...prev, trancheNum]);
-      } else if (type === 'annual') {
-        setPaidTranches([1, 2, 3]);
+      const token = localStorage.getItem('parent_token');
+      const schoolSlug = user.school_slug || user.schoolName;
+
+      // 1. Initialiser le paiement avec FedaPay via le backend Super Admin
+      const res = await fetch(`${API_BASE_URL}/superadmin/schools/${schoolSlug}/pay-init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amountFcfa,
+          planType: type
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Erreur lors de l\'initialisation du paiement');
       }
 
-      const paymentRecord = {
-        reference: ref,
-        date: new Date().toLocaleDateString('fr-FR'),
-        school: schoolName || user.school_name || 'Établissement',
-        director: user.nom || 'Directeur',
-        type: type === 'annual' ? 'Paiement Annuel Comptant (Bonus -10%)' : `Tranche N°${trancheNum || 1}`,
-        amountFcfa,
-        formattedAmount: formatCurrencyAmount(amountFcfa, countryCode),
-        country: countryCode,
-        totalStudents
-      };
-
-      setLastPayment(paymentRecord);
-      setShowReceiptModal(true);
-      generateYziowReceiptPDF(paymentRecord);
-    }, 1000);
+      // 2. Rediriger l'utilisateur vers la page de paiement FedaPay
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('URL de paiement non reçue.');
+      }
+    } catch (err: any) {
+      alert("Une erreur est survenue : " + err.message);
+      setIsProcessing(false);
+    }
   };
 
   const generateYziowReceiptPDF = (payment: any) => {
@@ -253,26 +281,34 @@ export const SchoolSubscriptionWidget: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2 p-1.5 bg-black/30 rounded-xl border border-white/10">
-            <button
-              onClick={() => setPaymentMode('annual')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                paymentMode === 'annual'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Comptant Annuel (-10%)
-            </button>
-            <button
-              onClick={() => setPaymentMode('tranche')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                paymentMode === 'tranche'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Par Tranches (3x)
-            </button>
+            {!lockedPlan ? (
+              <>
+                <button
+                  onClick={() => setPaymentMode('annual')}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                    paymentMode === 'annual'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Comptant Annuel (-10%)
+                </button>
+                <button
+                  onClick={() => setPaymentMode('tranche')}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                    paymentMode === 'tranche'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Par Tranches (3x)
+                </button>
+              </>
+            ) : (
+              <span className="px-4 py-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                Mode de paiement verrouillé : {lockedPlan === 'annual' ? 'Comptant Annuel' : 'Par Tranches'}
+              </span>
+            )}
           </div>
         </div>
 

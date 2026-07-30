@@ -146,7 +146,9 @@ export interface AppSettings extends AdminSettings {
   schoolEmail?: string; // Utilisé dans pdfUtils.ts
   schoolSlogan?: string; // Slogan de l'école
   schoolMinistry?: string; // Ministère de tutelle
-  schoolCountry?: string; // Pays de provenance
+  schoolCountry?: string | null; // Pays de provenance
+  subscriptionPlan?: 'annual' | 'tranche' | null;
+  paidTranchesCount?: number;
   schoolLogo?: string | null;
   schoolStamp?: string | null;
   academicYear?: string; // Utilisé dans pdfUtils.ts

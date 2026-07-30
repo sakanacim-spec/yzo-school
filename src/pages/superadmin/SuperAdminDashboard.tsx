@@ -47,6 +47,10 @@ interface SchoolWithStats extends School {
   student_count: number;
   user_count: number;
   revenue: number;
+  total_revenue_paid: number;
+  platform_collected_amount: number;
+  platform_disbursed_amount: number;
+  platform_commission_rate: number;
   trial_days_left: number;
 }
 
@@ -59,6 +63,9 @@ interface GlobalStats {
   total_students: number;
   total_users: number;
   total_revenue: number;
+  total_revenue_paid: number;
+  platform_collected_amount: number;
+  platform_disbursed_amount: number;
   price_per_student: number;
 }
 
@@ -75,7 +82,8 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
     admin_nom: '', admin_telephone: '', admin_password: '',
     accepted_terms: false,
     accepted_privacy_policy: false,
-    marketing_consent: false
+    marketing_consent: false,
+    referral_code: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -212,6 +220,18 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
             </div>
           </div>
 
+          {/* Affiliation / Parrainage */}
+          <div className="border-t border-slate-700 pt-6">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Affiliation / Parrainage (Optionnel)</h3>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Code de l'ambassadeur</label>
+              <input type="text" value={form.referral_code} onChange={e => setForm(f => ({ ...f, referral_code: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ex: AMB-JEAN5432" />
+              <p className="text-xs text-slate-500 mt-1">Laissez vide si l'école n'a pas été parrainée.</p>
+            </div>
+          </div>
+
           {/* Section Confidentialité et Consentement */}
           <div className="border-t border-slate-700 pt-6">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">{t(language as Language, 'superadmin.privacyTitle') || "Confidentialité & Protection des données"}</h3>
@@ -281,20 +301,70 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
 
 // ── DASHBOARD PRINCIPAL ───────────────────────────────────────
 export const SuperAdminDashboard: React.FC = () => {
-  const { language } = useStore();
+  const { language, user } = useStore();
   const [schools, setSchools] = useState<SchoolWithStats[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState<GlobalStats | null>(null);
+  const [affiliates, setAffiliates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs'>('ecoles');
+
+  const handleUpdateCommission = async (school: SchoolWithStats, newRate: number) => {
+    setActionLoading(`comm_${school.id}`);
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/schools/${school.id}/commission`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ rate: newRate })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await load();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDisburse = async (school: SchoolWithStats) => {
+    const netTotal = (school.platform_collected_amount || 0) * (1 - (school.platform_commission_rate !== undefined ? school.platform_commission_rate : 5) / 100);
+    const amountToDisburse = netTotal - (school.platform_disbursed_amount || 0);
+    
+    if (amountToDisburse <= 0) {
+      alert("Aucun montant à reverser.");
+      return;
+    }
+    const confirm = window.confirm(`Voulez-vous marquer ${formatFCFA(amountToDisburse)} comme reversés à ${school.name} ? (Veuillez faire le transfert d'abord)`);
+    if (!confirm) return;
+
+    setActionLoading(`disb_${school.id}`);
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/schools/${school.id}/disburse`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount: amountToDisburse })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert(data.message);
+      await load();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [schoolsRes, statsRes] = await Promise.all([
+      const [schoolsRes, statsRes, affiliatesRes] = await Promise.all([
         fetch(`${API_BASE_URL}/superadmin/schools`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/superadmin/stats`, { headers: getAuthHeaders() })
+        fetch(`${API_BASE_URL}/superadmin/stats`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/superadmin/affiliates`, { headers: getAuthHeaders() })
       ]);
       if (schoolsRes.ok) {
         const d = await schoolsRes.json();
@@ -303,6 +373,10 @@ export const SuperAdminDashboard: React.FC = () => {
       if (statsRes.ok) {
         const d = await statsRes.json();
         setStats(d);
+      }
+      if (affiliatesRes.ok) {
+        const d = await affiliatesRes.json();
+        setAffiliates(d.affiliates || []);
       }
     } catch (err) {
       console.error('SuperAdmin load error:', err);
@@ -395,6 +469,26 @@ export const SuperAdminDashboard: React.FC = () => {
     }
   };
 
+  const handlePayoutAffiliate = async (affiliateId: string, amount: number) => {
+    if (!confirm(`Confirmer le retrait de ${amount} FCFA pour cet ambassadeur ?`)) return;
+    setActionLoading(affiliateId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/affiliates/${affiliateId}/payout`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert('Paiement enregistré avec succès.');
+      await load();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors du paiement');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -447,7 +541,7 @@ export const SuperAdminDashboard: React.FC = () => {
 
       {/* Stats globales */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
             {
               label: t(language as Language, 'superadmin.totalSchools') || 'Total Écoles', value: stats.total_schools, icon: <Building2 className="w-5 h-5" />,
@@ -458,8 +552,12 @@ export const SuperAdminDashboard: React.FC = () => {
               color: 'from-emerald-500 to-teal-500', sub: `${stats.total_users} ${t(language as Language, 'superadmin.usersSub') || 'utilisateurs'}`
             },
             {
-              label: t(language as Language, 'superadmin.revenue') || "Chiffre d'affaires", value: formatFCFA(stats.total_revenue), icon: <Wallet className="w-5 h-5" />,
-              color: 'from-purple-500 to-violet-500', sub: `${stats.price_per_student.toLocaleString()} ${t(language as Language, 'superadmin.revenueSub') || 'FCFA/élève'}`
+              label: "Revenus Attendus (Brut)", value: formatFCFA(stats.total_revenue), icon: <Wallet className="w-5 h-5" />,
+              color: 'from-purple-500 to-violet-500', sub: `Avec remise -10%: ${formatFCFA(stats.total_revenue * 0.9)}`
+            },
+            {
+              label: "Revenus Encaissés", value: formatFCFA(stats.total_revenue_paid), icon: <Wallet className="w-5 h-5" />,
+              color: 'from-amber-500 to-orange-500', sub: `Abonnements réels`
             },
             {
               label: t(language as Language, 'superadmin.alerts') || 'Alertes', value: stats.expired_trials + stats.suspended_schools, icon: <AlertTriangle className="w-5 h-5" />,
@@ -472,9 +570,9 @@ export const SuperAdminDashboard: React.FC = () => {
                   {card.icon}
                 </div>
               </div>
-              <p className="text-2xl font-black text-white">{card.value}</p>
-              <p className="text-slate-400 text-sm font-medium">{card.label}</p>
-              <p className="text-slate-500 text-xs mt-1">{card.sub}</p>
+              <p className="text-xl lg:text-2xl font-black text-white">{card.value}</p>
+              <p className="text-slate-400 text-xs sm:text-sm font-medium">{card.label}</p>
+              <p className="text-slate-500 text-[10px] sm:text-xs mt-1">{card.sub}</p>
             </div>
           ))}
         </div>
@@ -491,8 +589,43 @@ export const SuperAdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Liste des écoles */}
+      {/* Onglets */}
+      <div className="flex items-center gap-2 mt-4">
+        <button
+          onClick={() => setActiveTab('ecoles')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeTab === 'ecoles'
+              ? 'bg-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          {t(language as Language, 'superadmin.registeredSchools') || "Établissements"}
+        </button>
+        <button
+          onClick={() => setActiveTab('reversements')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeTab === 'reversements'
+              ? 'bg-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          Gestion des Reversements
+        </button>
+        <button
+          onClick={() => setActiveTab('ambassadeurs')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeTab === 'ambassadeurs'
+              ? 'bg-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          Ambassadeurs
+        </button>
+      </div>
+
+      {activeTab === 'ecoles' ? (
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        {/* Liste des écoles */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-slate-800 gap-4">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-bold text-white">{t(language as Language, 'superadmin.registeredSchools') || "Établissements enregistrés"}</h2>
@@ -573,7 +706,11 @@ export const SuperAdminDashboard: React.FC = () => {
                         </div>
                         <div className="text-center">
                           <p className="text-emerald-400 font-bold text-lg">{formatFCFA(school.revenue)}</p>
-                          <p className="text-slate-500 text-xs">{t(language as Language, 'superadmin.revenuePerMonth') || "Revenus/mois"}</p>
+                          <p className="text-slate-500 text-xs">{t(language as Language, 'superadmin.revenueExpected') || "Attendu/an"}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-amber-400 font-bold text-lg">{formatFCFA(school.total_revenue_paid)}</p>
+                          <p className="text-slate-500 text-xs">{t(language as Language, 'superadmin.revenuePaid') || "Encaissé"}</p>
                         </div>
                         {school.status === 'trial' && (
                           <div className="text-center">
@@ -633,6 +770,148 @@ export const SuperAdminDashboard: React.FC = () => {
           </div>
         )}
       </div>
+      ) : activeTab === 'reversements' ? (
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden p-6">
+        {/* Onglet Reversements */}
+        <h2 className="text-xl font-bold text-white mb-6">Fonds collectés et Reversements</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800 text-slate-400 text-sm uppercase">
+                <th className="pb-3 px-4 font-semibold">École</th>
+                <th className="pb-3 px-4 font-semibold">Total Collecté</th>
+                <th className="pb-3 px-4 font-semibold w-40">Commission (%)</th>
+                <th className="pb-3 px-4 font-semibold">Net École</th>
+                <th className="pb-3 px-4 font-semibold">Déjà Reversé</th>
+                <th className="pb-3 px-4 font-semibold text-amber-400">Reste à payer</th>
+                <th className="pb-3 px-4 font-semibold text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50 text-sm">
+              {filteredSchools.map(school => {
+                const collected = school.platform_collected_amount || 0;
+                const rate = school.platform_commission_rate !== undefined ? school.platform_commission_rate : 5;
+                const net = collected * (1 - rate / 100);
+                const disbursed = school.platform_disbursed_amount || 0;
+                const due = Math.max(0, net - disbursed);
+                const isDue = due > 0;
+
+                return (
+                  <tr key={school.id} className="hover:bg-slate-800/20 transition-colors">
+                    <td className="py-4 px-4">
+                      <p className="font-bold text-white">{school.name}</p>
+                      <p className="text-xs text-slate-500">/{school.slug}</p>
+                    </td>
+                    <td className="py-4 px-4 font-medium text-slate-300">
+                      {formatFCFA(collected)}
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="number" 
+                          min="0" max="100" step="0.5"
+                          defaultValue={rate}
+                          onBlur={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val) && val !== rate) {
+                              handleUpdateCommission(school, val);
+                            }
+                          }}
+                          className="w-16 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="text-slate-400">%</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 font-medium text-emerald-400">
+                      {formatFCFA(net)}
+                    </td>
+                    <td className="py-4 px-4 font-medium text-slate-400">
+                      {formatFCFA(disbursed)}
+                    </td>
+                    <td className="py-4 px-4 font-bold text-amber-400">
+                      {formatFCFA(due)}
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <button 
+                        onClick={() => handleDisburse(school)}
+                        disabled={!isDue || actionLoading === `disb_${school.id}`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          isDue 
+                            ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-md' 
+                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {actionLoading === `disb_${school.id}` ? 'En cours...' : 'Reverser'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredSchools.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-slate-500">Aucune école trouvée.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      ) : activeTab === 'ambassadeurs' ? (
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        {/* Gestion des Ambassadeurs */}
+        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">Gestion des Ambassadeurs</h2>
+          <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-lg text-sm font-bold">{affiliates.length} affilié(s)</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-slate-800/50 text-slate-400 font-medium">
+              <tr>
+                <th className="py-3 px-4">Ambassadeur</th>
+                <th className="py-3 px-4">Téléphone</th>
+                <th className="py-3 px-4">Code / Lien</th>
+                <th className="py-3 px-4">Taux</th>
+                <th className="py-3 px-4">Gains Totaux</th>
+                <th className="py-3 px-4 text-emerald-400">Solde Actuel</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {affiliates.map((affiliate: any) => (
+                <tr key={affiliate.id} className="hover:bg-slate-800/20 transition-colors">
+                  <td className="py-4 px-4">
+                    <p className="font-bold text-white">{affiliate.nom}</p>
+                  </td>
+                  <td className="py-4 px-4 text-slate-300">{affiliate.telephone}</td>
+                  <td className="py-4 px-4 text-blue-400 font-mono text-xs">{affiliate.referral_code}</td>
+                  <td className="py-4 px-4 text-slate-400">{affiliate.commission_rate}%</td>
+                  <td className="py-4 px-4 font-medium text-slate-300">{formatFCFA(affiliate.total_earned)}</td>
+                  <td className="py-4 px-4 font-bold text-emerald-400">{formatFCFA(affiliate.wallet_balance)}</td>
+                  <td className="py-4 px-4 text-right">
+                    <button
+                      onClick={() => handlePayoutAffiliate(affiliate.id, affiliate.wallet_balance)}
+                      disabled={!affiliate.wallet_balance || Number(affiliate.wallet_balance) <= 0 || actionLoading === affiliate.id}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        Number(affiliate.wallet_balance) > 0
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md'
+                          : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {actionLoading === affiliate.id ? 'En cours...' : 'Payer Retrait'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {affiliates.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-slate-500">Aucun ambassadeur inscrit.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      ) : null}
 
       {/* Modal création */}
       {showCreateModal && (

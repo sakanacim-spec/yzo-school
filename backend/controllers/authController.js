@@ -61,7 +61,8 @@ const schoolRegisterSchema = Joi.object({
     preferred_language: Joi.string().valid('fr', 'en', 'es', 'ar').default('fr'),
     accepted_terms: Joi.boolean().allow(null),
     accepted_privacy_policy: Joi.boolean().allow(null),
-    marketing_consent: Joi.boolean().allow(null)
+    marketing_consent: Joi.boolean().allow(null),
+    referral_code: Joi.string().trim().allow('', null)
 });
 
 function getIpHash(req) {
@@ -206,6 +207,19 @@ async function registerSchool(req, res) {
 
         const ipHash = getIpHash(req);
 
+        // Recherche de l'ambassadeur si un code est fourni
+        let affiliateId = null;
+        if (validatedData.referral_code) {
+            const { data: affiliate } = await supabase
+                .from('affiliates')
+                .select('id')
+                .eq('referral_code', validatedData.referral_code.trim())
+                .single();
+            if (affiliate) {
+                affiliateId = affiliate.id;
+            }
+        }
+
         // 1. Créer l'école avec tous les champs internationaux
         const schoolPayload = {
             name: validatedData.school_name.trim(),
@@ -219,7 +233,8 @@ async function registerSchool(req, res) {
             ministry: validatedData.ministry || null,
             preferred_language: validatedData.preferred_language || 'fr',
             status: 'trial',
-            trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +2 mois
+            trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 jours
+            affiliate_id: affiliateId
         };
 
         const { data: school, error: schoolErr } = await supabase

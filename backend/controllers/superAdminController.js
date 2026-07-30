@@ -68,6 +68,11 @@ async function getAllSchools(req, res) {
                     student_count: studentCount || 0,
                     user_count: userCount || 0,
                     revenue: estimatedAnnualRevenue,
+                    revenue: estimatedAnnualRevenue,
+                    total_revenue_paid: school.total_revenue_paid || 0,
+                    platform_collected_amount: school.platform_collected_amount || 0,
+                    platform_disbursed_amount: school.platform_disbursed_amount || 0,
+                    platform_commission_rate: school.platform_commission_rate !== undefined ? school.platform_commission_rate : 5.0,
                     trial_days_left: school.status === 'trial'
                         ? Math.max(0, Math.ceil((new Date(school.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)))
                         : 0
@@ -78,6 +83,7 @@ async function getAllSchools(req, res) {
         // Calcul du chiffre d'affaires global
         const totalRevenue = schoolsWithStats.reduce((sum, s) => sum + s.revenue, 0);
         const totalStudents = schoolsWithStats.reduce((sum, s) => sum + s.student_count, 0);
+        const totalRevenuePaid = schoolsWithStats.reduce((sum, s) => sum + s.total_revenue_paid, 0);
 
         return res.json({
             schools: schoolsWithStats,
@@ -88,7 +94,7 @@ async function getAllSchools(req, res) {
                 suspended_schools: schools.filter(s => s.status === 'suspended').length,
                 total_students: totalStudents,
                 total_revenue: totalRevenue,
-                price_per_student: PRICE_PER_STUDENT
+                total_revenue_paid: totalRevenuePaid
             }
         });
     } catch (err) {
@@ -129,7 +135,8 @@ const schoolCreateSchema = Joi.object({
     accepted_privacy_policy: Joi.boolean().valid(true).required().messages({
         'any.only': 'Vous devez accepter la politique de confidentialité.'
     }),
-    marketing_consent: Joi.boolean().default(false)
+    marketing_consent: Joi.boolean().default(false),
+    referral_code: Joi.string().trim().allow('', null)
 });
 
 function getIpHash(req) {
@@ -170,6 +177,19 @@ async function createSchool(req, res) {
         const ipHash = getIpHash(req);
         const consentedAt = new Date().toISOString();
 
+        // Recherche de l'ambassadeur si un code est fourni
+        let affiliateId = null;
+        if (validatedData.referral_code) {
+            const { data: affiliate } = await supabase
+                .from('affiliates')
+                .select('id')
+                .eq('referral_code', validatedData.referral_code.trim())
+                .single();
+            if (affiliate) {
+                affiliateId = affiliate.id;
+            }
+        }
+
         // 1. Créer l'école avec tous les champs
         const schoolPayload = {
             name: validatedData.name.trim(),
@@ -181,7 +201,8 @@ async function createSchool(req, res) {
             email: validatedData.email || null,
             preferred_language: validatedData.preferred_language || 'fr',
             status: 'trial',
-            trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +2 mois
+            trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 jours
+            affiliate_id: affiliateId
         };
 
         const { data: school, error: schoolErr } = await supabase
@@ -192,32 +213,29 @@ async function createSchool(req, res) {
 
         if (schoolErr) throw schoolErr;
 
-        // 2. Créer le jeu de tables avec l'appel RPC
-        const { error: rpcErr } = await supabase.rpc('create_school_tables', { school_slug: cleanSlug });
-        if (rpcErr) throw rpcErr;
-
-        // Attendre que la base recharge son schéma (1s par sécurité)
-        await new Promise(r => setTimeout(r, 1000));
-
-        // 3. Créer le compte SchoolAdmin (directeur) dans SA NOUVELLE TABLE
+        // 2. Créer le jeu de tables avec l'appel RPC et y insérer le directeur
         const bcrypt = require('bcryptjs');
         const hashed = await bcrypt.hash(validatedData.admin_password, 10);
 
-        // Mass assignment protection
-        const adminPayload = {
-            nom: validatedData.admin_nom.trim(),
-            telephone: validatedData.admin_telephone.trim(),
-            password: hashed,
-            role: 'directeur'
-        };
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('create_school_tables', { 
+            school_slug: cleanSlug,
+            admin_nom: validatedData.admin_nom.trim(),
+            admin_telephone: validatedData.admin_telephone.trim(),
+            admin_password: hashed
+        });
+        
+        if (rpcErr) throw rpcErr;
 
-        const { data: adminUser, error: adminErr } = await supabase
-            .from(`profiles_${cleanSlug}`)
-            .insert(adminPayload)
-            .select()
-            .single();
+        // Le directeur est retourné par l'appel RPC
+        const adminUser = rpcData;
 
-        if (adminErr) throw adminErr;
+        // Enregistrer la première activité
+        await supabase.from('activities').insert({
+            school_slug: cleanSlug,
+            user_id: adminUser.id,
+            action: 'Création initiale du compte par le Super Admin',
+            target: 'Système'
+        });
 
         console.log(`🏫 Nouvelle école créée: ${school.name} (${school.slug}), Admin: ${adminUser.nom}`);
 
@@ -305,17 +323,31 @@ async function getGlobalStats(req, res) {
             .from('schools').select('*', { count: 'exact', head: true });
 
         const { data: schools } = await supabase
-            .from('schools').select('slug, status, trial_ends_at');
+            .from('schools').select('slug, status, trial_ends_at, total_revenue_paid, platform_collected_amount, platform_disbursed_amount');
 
         let totalStudents = 0;
         let totalUsers = 0;
+        let totalRevenue = 0;
 
         if (schools) {
             for (let s of schools) {
                 try {
-                    const { count: sCount } = await supabase.from(`students_${s.slug}`).select('*', { count: 'exact', head: true });
+                    const { data: studentsData } = await supabase.from(`students_${s.slug}`).select('classe');
                     const { count: uCount } = await supabase.from(`profiles_${s.slug}`).select('*', { count: 'exact', head: true });
-                    totalStudents += (sCount || 0);
+                    
+                    if (studentsData) {
+                        totalStudents += studentsData.length;
+                        studentsData.forEach(st => {
+                            const className = (st.classe || '').toLowerCase();
+                            if (className.includes('maternelle') || className.includes('ci') || className.includes('cp') || className.includes('ce1') || className.includes('ce2') || className.includes('cm1') || className.includes('cm2') || className.includes('primaire')) {
+                                totalRevenue += PRICING_RATES_MONTHLY.maternelle_primaire * 10;
+                            } else if (className.includes('licence') || className.includes('master') || className.includes('doctorat') || className.includes('univ') || className.includes('fac') || className.includes('bts') || className.includes('institut')) {
+                                totalRevenue += PRICING_RATES_MONTHLY.superieur_formation * 10;
+                            } else {
+                                totalRevenue += PRICING_RATES_MONTHLY.college_secondaire * 10;
+                            }
+                        });
+                    }
                     totalUsers += (uCount || 0);
                 } catch(e) {}
             }
@@ -330,6 +362,10 @@ async function getGlobalStats(req, res) {
             s.status === 'trial' && new Date(s.trial_ends_at) < new Date()
         ).length || 0;
 
+        const totalRevenuePaid = schools?.reduce((sum, s) => sum + (Number(s.total_revenue_paid) || 0), 0) || 0;
+        const platformCollectedAmount = schools?.reduce((sum, s) => sum + (Number(s.platform_collected_amount) || 0), 0) || 0;
+        const platformDisbursedAmount = schools?.reduce((sum, s) => sum + (Number(s.platform_disbursed_amount) || 0), 0) || 0;
+
         return res.json({
             total_schools: totalSchools || 0,
             active_schools: activeCount,
@@ -338,8 +374,10 @@ async function getGlobalStats(req, res) {
             expired_trials: expiredTrials,
             total_students: totalStudents || 0,
             total_users: totalUsers || 0,
-            total_revenue: (totalStudents || 0) * PRICE_PER_STUDENT,
-            price_per_student: PRICE_PER_STUDENT,
+            total_revenue: totalRevenue, 
+            total_revenue_paid: totalRevenuePaid,
+            platform_collected_amount: platformCollectedAmount,
+            platform_disbursed_amount: platformDisbursedAmount,
             currency: 'FCFA'
         });
     } catch (err) {
@@ -444,4 +482,171 @@ async function impersonateSchool(req, res) {
     }
 }
 
-module.exports = { getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool };
+// ── GET /superadmin/affiliates ──────────────────────────────
+async function getAffiliates(req, res) {
+    try {
+        const { data: affiliates, error } = await supabase
+            .from('affiliates')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return res.json({ affiliates: affiliates || [] });
+    } catch (err) {
+        console.error('SuperAdmin getAffiliates Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la récupération des ambassadeurs.' });
+    }
+}
+
+// ── POST /superadmin/affiliates/:id/payout ────────────────────
+async function payoutAffiliate(req, res) {
+    const affiliateId = req.params.id;
+    const { amount } = req.body;
+
+    if (!amount || amount <= 0) {
+        return res.status(400).json({ error: 'Montant invalide.' });
+    }
+
+    try {
+        const { data: affiliate } = await supabase
+            .from('affiliates')
+            .select('wallet_balance')
+            .eq('id', affiliateId)
+            .single();
+        
+        if (!affiliate) {
+            return res.status(404).json({ error: 'Ambassadeur non trouvé.' });
+        }
+        if (Number(affiliate.wallet_balance) < amount) {
+            return res.status(400).json({ error: 'Solde insuffisant.' });
+        }
+
+        const newBalance = Number(affiliate.wallet_balance) - Number(amount);
+
+        // Mettre à jour le solde
+        await supabase
+            .from('affiliates')
+            .update({ wallet_balance: newBalance })
+            .eq('id', affiliateId);
+
+        // Enregistrer la transaction de retrait
+        await supabase
+            .from('affiliate_transactions')
+            .insert({
+                affiliate_id: affiliateId,
+                type: 'payout',
+                amount: amount,
+                description: 'Retrait de commission payé par Mobile Money / Espèces'
+            });
+
+        return res.json({ message: 'Paiement enregistré avec succès.', newBalance });
+    } catch (err) {
+        console.error('SuperAdmin payoutAffiliate Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors du paiement.' });
+    }
+}
+
+module.exports = { getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, paySubscriptionInit, recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate };
+
+// ==========================================
+// NOUVELLES ROUTES / FONCTIONNALITÉS
+// ==========================================
+
+async function paySubscriptionInit(req, res) {
+    const { slug } = req.params;
+    const { amountFcfa, planType } = req.body;
+
+    if (!amountFcfa) {
+        return res.status(400).json({ error: 'Le montant est requis.' });
+    }
+
+    try {
+        const { FedaPay, Transaction } = require('fedapay');
+        FedaPay.setApiKey(process.env.FEDAPAY_SAAS_SECRET_KEY);
+        FedaPay.setEnvironment(process.env.FEDAPAY_SAAS_ENVIRONMENT || 'sandbox');
+
+        const { data: school } = await supabase.from('schools').select('*').eq('slug', slug).single();
+        if (!school) return res.status(404).json({ error: 'Établissement introuvable.' });
+
+        const { data: admin } = await supabase.from(`profiles_${slug}`).select('*').eq('id', req.user.id).single();
+
+        const transaction = await Transaction.create({
+            description: `Paiement abonnement SaaS - ${school.name}`,
+            amount: parseInt(amountFcfa, 10),
+            currency: { iso: "XOF" },
+            callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?payment=success`,
+            customer: {
+                lastname: admin?.nom || 'Admin',
+                firstname: '',
+                email: school.email || 'admin@yziow.com',
+                phone_number: {
+                    number: admin?.telephone || '',
+                    country: 'BJ'
+                }
+            },
+            custom_metadata: {
+                schoolSlug: slug,
+                type: 'saas_subscription',
+                planType: planType || 'tranche'
+            }
+        });
+
+        const token = await transaction.generateToken();
+        return res.json({ url: token.url });
+    } catch (err) {
+        console.error('SuperAdmin paySubscriptionInit Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la génération du lien de paiement.' });
+    }
+}
+
+// Enregistrer un reversement (virement) effectué vers une école
+async function recordDisbursement(req, res) {
+    const { id } = req.params;
+    const { amount } = req.body;
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+        return res.status(400).json({ error: 'Montant invalide.' });
+    }
+
+    try {
+        const { data: school, error } = await supabase
+            .from('schools')
+            .select('platform_disbursed_amount')
+            .eq('id', id)
+            .single();
+
+        if (error || !school) return res.status(404).json({ error: 'École introuvable.' });
+
+        const newTotal = (Number(school.platform_disbursed_amount) || 0) + Number(amount);
+
+        await supabase
+            .from('schools')
+            .update({ platform_disbursed_amount: newTotal })
+            .eq('id', id);
+
+        return res.json({ success: true, message: 'Reversement enregistré.', platform_disbursed_amount: newTotal });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+}
+
+// Mettre à jour le taux de commission d'une école
+async function updateCommissionRate(req, res) {
+    const { id } = req.params;
+    const { rate } = req.body;
+
+    if (rate === undefined || isNaN(rate) || rate < 0 || rate > 100) {
+        return res.status(400).json({ error: 'Taux invalide.' });
+    }
+
+    try {
+        await supabase
+            .from('schools')
+            .update({ platform_commission_rate: Number(rate) })
+            .eq('id', id);
+
+        return res.json({ success: true, message: 'Taux de commission mis à jour.' });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+}

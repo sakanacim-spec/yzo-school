@@ -23,6 +23,8 @@ const Analyses = lazy(() => import('./pages/Analyses').then(m => ({ default: m.A
 const Documents = lazy(() => import('./pages/Documents').then(m => ({ default: m.Documents })));
 const Parametres = lazy(() => import('./pages/Parametres').then(m => ({ default: m.Parametres })));
 const Recouvrement = lazy(() => import('./pages/Recouvrement').then(m => ({ default: m.Recouvrement })));
+const AffiliateLogin = lazy(() => import('./pages/affiliate/AffiliateLogin').then(m => ({ default: m.AffiliateLogin })));
+const AffiliateDashboard = lazy(() => import('./pages/affiliate/AffiliateDashboard').then(m => ({ default: m.AffiliateDashboard })));
 const ScanPresence = lazy(() => import('./pages/ScanPresence').then(m => ({ default: m.ScanPresence })));
 const ScanSortie = lazy(() => import('./pages/ScanSortie').then(m => ({ default: m.ScanSortie })));
 const ScanInformation = lazy(() => import('./pages/ScanInformation'));
@@ -214,6 +216,22 @@ export function App() {
     }
     if (publicPage === 'contact') {
       return <Contact onBack={() => setPublicPage('landing')} />;
+    }
+    
+    // --- Routes Affiliés ---
+    if (window.location.pathname === '/ambassadeur') {
+      return (
+        <Suspense fallback={<LoadingSpinner />}>
+           <AffiliateLogin />
+        </Suspense>
+      );
+    }
+    if (window.location.pathname === '/ambassadeur/dashboard') {
+      return (
+        <Suspense fallback={<LoadingSpinner />}>
+           <AffiliateDashboard />
+        </Suspense>
+      );
     }
     if (publicPage === 'careers') {
       return <Careers onBack={() => setPublicPage('landing')} />;

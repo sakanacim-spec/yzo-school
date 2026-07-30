@@ -40,6 +40,7 @@ app.use('/api/parent', require('./routes/parent'));
 app.use('/api/students', require('./routes/students'));
 app.use('/api/sync', require('./routes/sync'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/assistant', require('./routes/assistant')); // 🤖 IA Assistant
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/translate', require('./routes/translation'));
@@ -47,6 +48,7 @@ app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/personnel', require('./routes/personnel'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/superadmin', require('./routes/superAdmin')); // 👑 Routes propriétaire SaaS
+app.use('/api/affiliate', require('./routes/affiliate')); // 🤝 Routes pour les apporteurs d'affaires
 app.use('/api/public', require('./routes/public')); // 🌐 Routes publiques (Formulaires)
 
 // Route publique pour lister les écoles dans le login

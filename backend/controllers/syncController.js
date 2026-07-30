@@ -557,7 +557,7 @@ async function syncToFrontend(req, res) {
         // Fetch school identity from the schools table (source of truth for address, phone, slogan, ministry)
         const { data: schoolData } = await supabase
             .from('schools')
-            .select('name, country, address, phone, slogan, ministry')
+            .select('name, country, address, phone, slogan, ministry, subscription_plan, paid_tranches_count')
             .eq('slug', schoolSlug)
             .single();
         
@@ -640,6 +640,8 @@ async function syncToFrontend(req, res) {
                 schoolSlogan: appSettings?.school_slogan || schoolData?.slogan || null,
                 schoolMinistry: appSettings?.school_ministry || schoolData?.ministry || null,
                 schoolCountry: appSettings?.school_country || schoolData?.country || null,
+                subscriptionPlan: schoolData?.subscription_plan || null,
+                paidTranchesCount: schoolData?.paid_tranches_count || 0,
                 settings: appSettings?.settings || null
             },
             announcements: (announcements || []).map(a => ({
