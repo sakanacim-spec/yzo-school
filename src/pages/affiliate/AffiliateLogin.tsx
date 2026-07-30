@@ -109,9 +109,9 @@ export const AffiliateLogin: React.FC = () => {
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Numéro de téléphone</label>
-              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} required
+              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium"
-                placeholder="Ex: 90000000" />
+                placeholder="Votre numéro de téléphone" />
             </div>
             <div>
               <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Mot de passe</label>
@@ -166,19 +166,20 @@ export const AffiliateLogin: React.FC = () => {
               <select value={country} onChange={e => setCountry(e.target.value)} required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium">
                 {getSortedCountries('fr').map(c => (
-                  <option key={c.code} value={c.code}>{c.flag} {c.name_fr}</option>
+                  <option key={c.code} value={c.code}>{c.name_fr}</option>
                 ))}
               </select>
             </div>
             <div>
               <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Numéro de téléphone</label>
               <div className="flex bg-slate-50 border border-slate-200 rounded-xl focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/20 overflow-hidden transition-all">
-                <div className="bg-slate-100 px-4 flex items-center border-r border-slate-200 font-bold text-slate-600">
-                  {getSortedCountries('fr').find(c => c.code === country)?.flag} {getSortedCountries('fr').find(c => c.code === country)?.dialCode}
+                <div className="bg-slate-100 px-4 flex items-center gap-2 border-r border-slate-200 font-bold text-slate-600">
+                  <img src={`https://flagcdn.com/w20/${country.toLowerCase()}.png`} alt="flag" className="w-5 h-auto rounded-sm shadow-sm" />
+                  <span>{getSortedCountries('fr').find(c => c.code === country)?.dialCode}</span>
                 </div>
                 <input type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value.replace(/\D/g, ''))} required minLength={8}
                   className="w-full bg-transparent px-4 py-3 text-slate-800 focus:outline-none font-medium"
-                  placeholder="Ex: 90000000" />
+                  placeholder="Saisissez votre numéro" />
               </div>
             </div>
             <div>
