@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { GraduationCap, LogOut, Copy, Check, Link, TrendingUp, Users, Wallet, CreditCard, Clock, CheckCircle } from 'lucide-react';
+import { GraduationCap, LogOut, Copy, Check, Link, TrendingUp, Users, Wallet, CreditCard, Clock, CheckCircle, Search } from 'lucide-react';
 import { API_BASE_URL } from '../../config';
 
 interface DashboardData {
@@ -32,6 +32,7 @@ export const AffiliateDashboard: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('affiliate_token');
@@ -79,6 +80,8 @@ export const AffiliateDashboard: React.FC = () => {
   }
 
   if (!data) return null;
+
+  const filteredSchools = data.schools.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-medium">
@@ -182,21 +185,44 @@ export const AffiliateDashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Liste des écoles */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-            <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-500" /> Vos Écoles
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-500" /> Vos Écoles
+              </h3>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Rechercher une école..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 text-slate-800"
+                />
+              </div>
+            </div>
             
-            {data.schools.length === 0 ? (
+            {filteredSchools.length === 0 ? (
               <div className="text-center py-12 px-4 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200">
                   <Users className="w-8 h-8 text-slate-400" />
                 </div>
-                <h4 className="text-slate-700 font-bold mb-2">Aucune école parrainée</h4>
-                <p className="text-slate-500 text-sm font-medium">Partagez votre lien de parrainage pour recruter votre première école !</p>
+                {data.schools.length === 0 ? (
+                  <>
+                    <h4 className="text-slate-700 font-bold mb-2">Aucune école parrainée</h4>
+                    <p className="text-slate-500 text-sm font-medium">Partagez votre lien de parrainage pour recruter votre première école !</p>
+                  </>
+                ) : (
+                  <>
+                    <h4 className="text-slate-700 font-bold mb-2">Aucun résultat</h4>
+                    <p className="text-slate-500 text-sm font-medium">Aucune école ne correspond à "{searchQuery}"</p>
+                  </>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
-                {data.schools.map(school => (
+                {filteredSchools.map(school => (
                   <div key={school.id} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors border border-slate-100">
                     <div>
                       <p className="font-bold text-slate-800">{school.name}</p>
