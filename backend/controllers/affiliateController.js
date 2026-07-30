@@ -5,10 +5,10 @@ const { JWT_SECRET, JWT_EXPIRES } = require('../config');
 
 // Inscription d'un ambassadeur
 async function register(req, res) {
-    const { nom, telephone, password } = req.body;
+    const { nom, telephone, password, country, photo_url } = req.body;
 
-    if (!nom || !telephone || !password) {
-        return res.status(400).json({ error: 'Tous les champs sont requis (nom, telephone, password).' });
+    if (!nom || !telephone || !password || !country) {
+        return res.status(400).json({ error: 'Tous les champs sont requis (nom, telephone, password, pays).' });
     }
     if (password.length < 6) {
         return res.status(400).json({ error: 'Le mot de passe doit faire au moins 6 caractères.' });
@@ -39,7 +39,9 @@ async function register(req, res) {
                 nom,
                 telephone,
                 password_hash,
-                referral_code: referralCode
+                referral_code: referralCode,
+                country,
+                photo_url
             })
             .select()
             .single();
@@ -56,7 +58,7 @@ async function register(req, res) {
         return res.status(201).json({
             message: 'Compte ambassadeur créé avec succès.',
             token,
-            affiliate: { id: affiliate.id, nom: affiliate.nom, telephone: affiliate.telephone, referral_code: affiliate.referral_code, wallet_balance: affiliate.wallet_balance }
+            affiliate: { id: affiliate.id, nom: affiliate.nom, telephone: affiliate.telephone, referral_code: affiliate.referral_code, wallet_balance: affiliate.wallet_balance, country: affiliate.country, photo_url: affiliate.photo_url }
         });
     } catch (err) {
         console.error('Affiliate Register Error:', err.message);
@@ -97,7 +99,7 @@ async function login(req, res) {
         return res.json({
             message: 'Connexion réussie',
             token,
-            affiliate: { id: affiliate.id, nom: affiliate.nom, telephone: affiliate.telephone, referral_code: affiliate.referral_code, wallet_balance: affiliate.wallet_balance }
+            affiliate: { id: affiliate.id, nom: affiliate.nom, telephone: affiliate.telephone, referral_code: affiliate.referral_code, wallet_balance: affiliate.wallet_balance, country: affiliate.country, photo_url: affiliate.photo_url }
         });
     } catch (err) {
         console.error('Affiliate Login Error:', err.message);
@@ -113,7 +115,7 @@ async function getDashboard(req, res) {
         // 1. Informations de l'ambassadeur
         const { data: affiliate, error: affErr } = await supabase
             .from('affiliates')
-            .select('nom, telephone, referral_code, commission_rate, wallet_balance, total_earned')
+            .select('nom, telephone, referral_code, commission_rate, wallet_balance, total_earned, country, photo_url')
             .eq('id', affiliateId)
             .single();
 

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Briefcase, ArrowRight, RefreshCw, AlertTriangle, UserPlus, LogIn } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Briefcase, ArrowRight, RefreshCw, AlertTriangle, UserPlus, LogIn, Upload } from 'lucide-react';
 import { API_BASE_URL } from '../../config';
+import { getSortedCountries } from '../../data/countries';
 
 export const AffiliateLogin: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,6 +14,9 @@ export const AffiliateLogin: React.FC = () => {
   const [nom, setNom] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [country, setCountry] = useState('BJ');
+  const [photoBase64, setPhotoBase64] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,6 +42,17 @@ export const AffiliateLogin: React.FC = () => {
     }
   };
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoBase64(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError('');
@@ -45,7 +60,7 @@ export const AffiliateLogin: React.FC = () => {
       const res = await fetch(`${API_BASE_URL}/affiliate/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, telephone: regPhone, password: regPassword })
+        body: JSON.stringify({ nom, telephone: regPhone, password: regPassword, country, photo_url: photoBase64 })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -110,7 +125,29 @@ export const AffiliateLogin: React.FC = () => {
             </p>
           </form>
         ) : (
-          <form onSubmit={handleRegister} className="space-y-5">
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div>
+              <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Photo d'identité (Optionnel)</label>
+              <div className="flex items-center gap-4">
+                <div 
+                  className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-orange-500 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {photoBase64 ? (
+                    <img src={photoBase64} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <Upload className="w-6 h-6 text-slate-400" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="text-sm font-bold text-[#f97316] hover:underline">
+                    Ajouter une photo
+                  </button>
+                  <p className="text-xs text-slate-500 mt-1">S'affichera dans votre tableau de bord.</p>
+                </div>
+                <input type="file" accept="image/*" ref={fileInputRef} onChange={handlePhotoUpload} className="hidden" />
+              </div>
+            </div>
             <div>
               <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Nom complet</label>
               <input type="text" value={nom} onChange={e => setNom(e.target.value)} required
@@ -122,6 +159,15 @@ export const AffiliateLogin: React.FC = () => {
               <input type="text" value={regPhone} onChange={e => setRegPhone(e.target.value)} required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium"
                 placeholder="Ex: 90000000" />
+            </div>
+            <div>
+              <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Pays</label>
+              <select value={country} onChange={e => setCountry(e.target.value)} required
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium">
+                {getSortedCountries('fr').map(c => (
+                  <option key={c.code} value={c.code}>{c.flag} {c.name_fr}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Créer un mot de passe</label>
