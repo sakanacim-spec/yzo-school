@@ -868,11 +868,12 @@ export const SuperAdminDashboard: React.FC = () => {
             <thead className="bg-slate-800/50 text-slate-400 font-medium">
               <tr>
                 <th className="py-3 px-4">Ambassadeur</th>
-                <th className="py-3 px-4">Téléphone</th>
+                <th className="py-3 px-4">Contact</th>
                 <th className="py-3 px-4">Code / Lien</th>
                 <th className="py-3 px-4">Taux</th>
                 <th className="py-3 px-4">Gains Totaux</th>
                 <th className="py-3 px-4 text-emerald-400">Solde Actuel</th>
+                <th className="py-3 px-4 text-center">Statut</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -880,25 +881,61 @@ export const SuperAdminDashboard: React.FC = () => {
               {affiliates.map((affiliate: any) => (
                 <tr key={affiliate.id} className="hover:bg-slate-800/20 transition-colors">
                   <td className="py-4 px-4">
-                    <p className="font-bold text-white">{affiliate.nom}</p>
+                    <div className="flex items-center gap-3">
+                      {affiliate.photo_url ? (
+                        <img src={affiliate.photo_url} alt="Photo" className="w-8 h-8 rounded-full object-cover border border-slate-600" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700">
+                          <Users className="w-4 h-4 text-slate-500" />
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-bold text-white">{affiliate.nom}</p>
+                        {affiliate.country && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <img src={`https://flagcdn.com/w20/${affiliate.country.toLowerCase()}.png`} alt="flag" className="w-3 h-auto rounded-sm" />
+                            <span className="text-xs text-slate-500">{affiliate.country}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </td>
-                  <td className="py-4 px-4 text-slate-300">{affiliate.telephone}</td>
+                  <td className="py-4 px-4">
+                    <p className="text-slate-300">{affiliate.telephone}</p>
+                    {affiliate.email && <p className="text-xs text-slate-500">{affiliate.email}</p>}
+                  </td>
                   <td className="py-4 px-4 text-blue-400 font-mono text-xs">{affiliate.referral_code}</td>
                   <td className="py-4 px-4 text-slate-400">{affiliate.commission_rate}%</td>
                   <td className="py-4 px-4 font-medium text-slate-300">{formatFCFA(affiliate.total_earned)}</td>
                   <td className="py-4 px-4 font-bold text-emerald-400">{formatFCFA(affiliate.wallet_balance)}</td>
+                  <td className="py-4 px-4 text-center">
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                      (!affiliate.status || affiliate.status === 'active') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                    }`}>
+                      {(!affiliate.status || affiliate.status === 'active') ? 'Actif' : 'Suspendu'}
+                    </span>
+                  </td>
                   <td className="py-4 px-4 text-right">
-                    <button
-                      onClick={() => handlePayoutAffiliate(affiliate.id, affiliate.wallet_balance)}
-                      disabled={!affiliate.wallet_balance || Number(affiliate.wallet_balance) <= 0 || actionLoading === affiliate.id}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        Number(affiliate.wallet_balance) > 0
-                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md'
-                          : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {actionLoading === affiliate.id ? 'En cours...' : 'Payer Retrait'}
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handleUpdateAffiliateStatus(affiliate.id, affiliate.status || 'active')}
+                        disabled={actionLoading === affiliate.id}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all border border-slate-700"
+                      >
+                        {(!affiliate.status || affiliate.status === 'active') ? 'Suspendre' : 'Réactiver'}
+                      </button>
+                      <button
+                        onClick={() => handlePayoutAffiliate(affiliate.id, affiliate.wallet_balance)}
+                        disabled={!affiliate.wallet_balance || Number(affiliate.wallet_balance) <= 0 || actionLoading === affiliate.id}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          Number(affiliate.wallet_balance) > 0
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md'
+                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {actionLoading === affiliate.id ? 'En cours...' : 'Payer Retrait'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -546,7 +546,32 @@ async function payoutAffiliate(req, res) {
     }
 }
 
-module.exports = { getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, paySubscriptionInit, recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate };
+// ── PATCH /superadmin/affiliates/:id/status ────────────────────
+async function updateAffiliateStatus(req, res) {
+    const affiliateId = req.params.id;
+    const { status } = req.body; // 'active' or 'suspended'
+
+    if (!['active', 'suspended'].includes(status)) {
+        return res.status(400).json({ error: 'Statut invalide.' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('affiliates')
+            .update({ status })
+            .eq('id', affiliateId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return res.json({ message: `Le compte ambassadeur est maintenant ${status}.`, affiliate: data });
+    } catch (err) {
+        console.error('SuperAdmin updateAffiliateStatus Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la mise à jour du statut.' });
+    }
+}
+
+module.exports = { getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, paySubscriptionInit, recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus };
 
 // ==========================================
 // NOUVELLES ROUTES / FONCTIONNALITÉS
