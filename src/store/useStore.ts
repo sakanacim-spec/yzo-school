@@ -1300,6 +1300,13 @@ export const useStore = create<AppState>()(
               schoolSlogan: data.appSettings.schoolSlogan || get().schoolSlogan || null,
               schoolMinistry: data.appSettings.schoolMinistry || get().schoolMinistry || null,
               schoolCountry: data.appSettings.schoolCountry || get().schoolCountry || null,
+              settings: {
+                ...get().settings,
+                payoutMomoNumber: data.appSettings.payoutMomoNumber || get().settings.payoutMomoNumber,
+                payoutMethod: data.appSettings.payoutMethod || get().settings.payoutMethod,
+                paymentGateway: data.appSettings.paymentGateway || get().settings.paymentGateway,
+                paymentPublicKey: data.appSettings.paymentPublicKey || get().settings.paymentPublicKey,
+              }
             });
             console.log('✅ [Sync] Paramètres appliqués ! Logo:', !!get().schoolLogo, '| Sceau:', !!get().schoolStamp);
           } else {
