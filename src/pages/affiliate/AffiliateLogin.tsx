@@ -114,7 +114,10 @@ export const AffiliateLogin: React.FC = () => {
                 placeholder="Votre numéro de téléphone" />
             </div>
             <div>
-              <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Mot de passe</label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-xs font-black text-slate-700 uppercase tracking-wide">Mot de passe</label>
+                <button type="button" onClick={() => alert("Veuillez contacter l'administration de Yziow (support@yziow.com ou WhatsApp) pour réinitialiser votre mot de passe.")} className="text-xs font-bold text-[#f97316] hover:underline">Mot de passe oublié ?</button>
+              </div>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium"
                 placeholder="Votre mot de passe secret" />
