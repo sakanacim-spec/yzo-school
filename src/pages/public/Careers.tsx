@@ -51,13 +51,6 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
       type: t(language as Language, 'public.careers.job3.type') || "Temps plein",
       department: t(language as Language, 'public.careers.job3.department') || "Support",
       desc: t(language as Language, 'public.careers.job3.desc') || "Accompagnez nos écoles partenaires dans le déploiement de la solution et répondez à leurs questions quotidiennes."
-    },
-    {
-      title: t(language as Language, 'public.careers.job4.title') || "Représentant(e) Commercial(e) International(e)",
-      location: t(language as Language, 'public.careers.job4.location') || "International (Autres Pays)",
-      type: t(language as Language, 'public.careers.job4.type') || "Indépendant / Temps plein",
-      department: t(language as Language, 'public.careers.job4.department') || "Ventes & Expansion",
-      desc: t(language as Language, 'public.careers.job4.desc') || "Devenez l'ambassadeur de Yziow dans votre pays. Développez notre réseau d'écoles partenaires au-delà de l'Espagne et du Bénin."
     }
   ];
   const [formName, setFormName] = useState('');
@@ -201,6 +194,19 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
               >
                 {t(language as Language, 'public.careers.sendUnsolicited') || "Envoyer une candidature spontanée"}
               </button>
+            </div>
+
+            <div className="mt-8 bg-orange-50 border border-orange-200 rounded-3xl p-8 md:p-12 text-center text-slate-800 relative overflow-hidden">
+              <h3 className="text-2xl font-black mb-4">{t(language as Language, 'public.careers.affiliateTitle') || "Vous préférez le bouche-à-oreille ?"}</h3>
+              <p className="text-slate-600 font-medium mb-8 max-w-xl mx-auto">
+                {t(language as Language, 'public.careers.affiliateDesc') || "Devenez partenaire ! Recommandez Yziow autour de vous (écoles, directeurs, connaissances) et gagnez des commissions automatiques sur chaque abonnement. Sans contrainte horaire ni entretien d'embauche."}
+              </p>
+              <a 
+                href="/ambassadeur"
+                className="inline-flex items-center justify-center px-8 py-4 bg-white border-2 border-[#f97316] text-[#f97316] hover:bg-[#f97316] hover:text-white rounded-xl text-sm font-bold shadow-lg shadow-orange-500/10 active:scale-95 transition-all"
+              >
+                {t(language as Language, 'public.careers.affiliateBtn') || "Découvrir le programme d'Affiliation"}
+              </a>
             </div>
 
           </div>
