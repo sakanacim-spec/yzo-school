@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, School, MessageSquare, Shield, Info,
-  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight
+  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight, CheckCircle
 } from 'lucide-react';
 import { GestionPersonnel } from '../components/GestionPersonnel';
 import { BACKEND_URL } from '../config';
@@ -922,9 +922,10 @@ export const Parametres: React.FC = () => {
                   <div className="flex justify-end border-t border-slate-200 dark:border-slate-700 pt-6">
                     <button
                       type="submit"
-                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] flex items-center gap-2 transform hover:-translate-y-0.5"
+                      className={`px-6 py-2.5 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] flex items-center gap-2 transform hover:-translate-y-0.5 ${saved ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                     >
-                      <Save className="w-4 h-4" /> {t(language as Language, 'common.save') || 'Sauvegarder'}
+                      {saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                      {saved ? 'Enregistré !' : (t(language as Language, 'common.save') || 'Sauvegarder')}
                     </button>
                   </div>
                 </form>
