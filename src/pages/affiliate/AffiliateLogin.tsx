@@ -15,7 +15,8 @@ export const AffiliateLogin: React.FC = () => {
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [country, setCountry] = useState('BJ');
-  const [photoBase64, setPhotoBase64] = useState('');
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [loading, setLoading] = useState(false);
@@ -67,7 +68,7 @@ export const AffiliateLogin: React.FC = () => {
       const res = await fetch(`${API_BASE_URL}/affiliate/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, telephone: fullPhone, password: regPassword, country, photo_url: photoBase64 })
+        body: JSON.stringify({ nom, telephone: fullPhone, email, password: regPassword, country, photo_url: photoBase64 })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -163,6 +164,12 @@ export const AffiliateLogin: React.FC = () => {
               <input type="text" value={nom} onChange={e => setNom(e.target.value)} required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium"
                 placeholder="Ex: Jean Dupont" />
+            </div>
+            <div>
+              <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Adresse Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium"
+                placeholder="Ex: jean@example.com" />
             </div>
             <div>
               <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">Pays</label>

@@ -5,10 +5,10 @@ const { JWT_SECRET, JWT_EXPIRES } = require('../config');
 
 // Inscription d'un ambassadeur
 async function register(req, res) {
-    const { nom, telephone, password, country, photo_url } = req.body;
+    const { nom, telephone, email, password, country, photo_url } = req.body;
 
-    if (!nom || !telephone || !password || !country) {
-        return res.status(400).json({ error: 'Tous les champs sont requis (nom, telephone, password, pays).' });
+    if (!nom || !telephone || !password || !country || !email) {
+        return res.status(400).json({ error: 'Tous les champs sont requis (nom, email, telephone, password, pays).' });
     }
     if (password.length < 6) {
         return res.status(400).json({ error: 'Le mot de passe doit faire au moins 6 caractères.' });
@@ -31,6 +31,18 @@ async function register(req, res) {
             return res.status(409).json({ error: 'Un ambassadeur utilise déjà ce numéro de téléphone.' });
         }
 
+        // Vérifier si l'email existe déjà
+        if (email) {
+            const { data: existingEmail } = await supabase
+                .from('affiliates')
+                .select('id')
+                .eq('email', email)
+                .single();
+            if (existingEmail) {
+                return res.status(409).json({ error: 'Cet email est déjà utilisé par un autre ambassadeur.' });
+            }
+        }
+
         // Générer le code de parrainage (ex: YZIOW-JOEL-1234)
         const namePart = nom.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4);
         const randomPart = Math.floor(1000 + Math.random() * 9000);
@@ -46,7 +58,8 @@ async function register(req, res) {
                 password_hash,
                 referral_code: referralCode,
                 country,
-                photo_url
+                photo_url,
+                email
             })
             .select()
             .single();

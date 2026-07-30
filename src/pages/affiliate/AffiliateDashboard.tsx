@@ -159,7 +159,11 @@ export const AffiliateDashboard: React.FC = () => {
             <div className="relative z-10">
               <p className="text-slate-500 text-sm font-bold mb-1 uppercase tracking-wider">Solde Disponible</p>
               <h3 className="text-4xl font-black text-emerald-500">{Number(data.affiliate.wallet_balance).toLocaleString('fr-FR')} <span className="text-xl text-slate-400">FCFA</span></h3>
-              <p className="text-xs text-slate-500 mt-4">Contactez l'administration pour retirer vos fonds par Mobile Money.</p>
+              <div className="mt-4 p-3 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                  <strong className="text-emerald-700">Règle de paiement :</strong> Le solde est retirable à partir de <strong>20 000 FCFA</strong>. Les paiements s'effectuent le <strong>5 de chaque mois</strong>.
+                </p>
+              </div>
             </div>
           </div>
           
