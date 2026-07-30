@@ -972,6 +972,7 @@ export const SuperAdminDashboard: React.FC = () => {
                 <th className="pb-3 px-4 font-semibold">Total Collecté</th>
                 <th className="pb-3 px-4 font-semibold w-40">Commission (%)</th>
                 <th className="pb-3 px-4 font-semibold">Net École</th>
+                <th className="pb-3 px-4 font-semibold">Numéro Retrait (Yziow Pay)</th>
                 <th className="pb-3 px-4 font-semibold">Déjà Reversé</th>
                 <th className="pb-3 px-4 font-semibold text-amber-400">Reste à payer</th>
                 <th className="pb-3 px-4 font-semibold text-right">Action</th>
@@ -1014,6 +1015,15 @@ export const SuperAdminDashboard: React.FC = () => {
                     </td>
                     <td className="py-4 px-4 font-medium text-emerald-400">
                       {formatFCFA(net)}
+                    </td>
+                    <td className="py-4 px-4">
+                      {school.payout_momo_number ? (
+                        <span className="inline-block bg-slate-800 border border-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-mono">
+                          {school.payout_momo_number}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-600 italic">Non configuré</span>
+                      )}
                     </td>
                     <td className="py-4 px-4 font-medium text-slate-400">
                       {formatFCFA(disbursed)}
@@ -1137,8 +1147,7 @@ export const SuperAdminDashboard: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </div>
-      </div>
+        </div>
       ) : activeTab === 'historique' ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
           <div className="p-6 border-b border-slate-800">

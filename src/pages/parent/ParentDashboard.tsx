@@ -198,7 +198,7 @@ const ChildCard: React.FC<ChildCardProps> = ({
                                     className="w-full flex items-center justify-center gap-2 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-sm disabled:opacity-50"
                                 >
                                     <Zap className="w-3.5 h-3.5" />
-                                    {loadingPayment === child.id ? (t(language as Language, 'common.loading') || 'Chargement...') : (t(language as Language, 'parentDashboard.payOnline') || 'Payer en ligne')}
+                                    {loadingPayment === child.id ? (t(language as Language, 'common.loading') || 'Chargement...') : (t(language as Language, 'parentDashboard.payOnline') || 'Payer par Yziow Pay')}
                                 </button>
                             )}
                             {restant > 0 && !paymentEnabled && (

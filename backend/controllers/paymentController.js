@@ -28,23 +28,20 @@ async function createTransaction(req, res) {
 
         if (!student) return res.status(404).json({ error: "Élève introuvable." });
 
-        // 1.5 Récupérer la configuration de paiement de l'établissement
-        const { data: appSettings } = await supabase
-            .from(`app_settings_${schoolSlug}`)
-            .select('payment_gateway, payment_secret_key')
-            .eq('id', 'global_settings')
-            .single();
-
+        // --- MODE YZIOW PAY CENTRALISÉ ---
+        // On force TOUJOURS l'utilisation de la clé FedaPay du SuperAdmin
         let secretKey = process.env.FEDAPAY_SECRET_KEY || 'sk_sandbox_default';
         let isLive = process.env.FEDAPAY_ENVIRONMENT === 'live';
-        let isPlatformKey = true;
-
-        if (appSettings && appSettings.payment_gateway === 'fedapay' && appSettings.payment_secret_key) {
-            secretKey = appSettings.payment_secret_key;
-            isLive = secretKey.startsWith('sk_live');
-            isPlatformKey = false;
-        } else if (appSettings && appSettings.payment_gateway && appSettings.payment_gateway !== 'fedapay' && appSettings.payment_gateway !== 'none') {
-             return res.status(400).json({ error: "Ce portail n'utilise pas FedaPay. L'intégration de la passerelle sélectionnée est en cours de développement." });
+        
+        // Si le SuperAdmin a configuré ses clés dans les Paramètres SaaS globaux, on les utilise en priorité
+        const { data: globalSettings } = await supabase.from('global_settings').select('*');
+        if (globalSettings) {
+            const platformGateway = globalSettings.find(s => s.key === 'payment_gateway')?.value;
+            const platformSecret = globalSettings.find(s => s.key === 'payment_secret_key')?.value;
+            if (platformGateway === 'fedapay' && platformSecret) {
+                secretKey = platformSecret;
+                isLive = secretKey.startsWith('sk_live');
+            }
         }
 
         FedaPay.setApiKey(secretKey);
@@ -67,10 +64,10 @@ async function createTransaction(req, res) {
             },
             // Stocker des métadonnées pour le Webhook
             custom_metadata: {
-                studentId: studentId,
-                schoolSlug: schoolSlug,
+                studentId,
+                schoolSlug,
                 parentId: req.user.id,
-                collected_by_platform: isPlatformKey
+                collected_by_platform: true // FORCÉ à TRUE pour le modèle centralisé Yziow Pay
             }
         });
 

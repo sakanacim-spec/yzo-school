@@ -15,8 +15,20 @@ const {
     recordDisbursement,
     updateCommissionRate,
     getAffiliates,
-    payoutAffiliate
+    payoutAffiliate,
+    updateAffiliateStatus,
+    getSettings,
+    updateSettings,
+    getTransactions,
+    getGlobalAnnouncements,
+    createGlobalAnnouncement
 } = require('../controllers/superAdminController');
+
+const {
+    getSuperAdminInbox,
+    sendSuperAdminMessage,
+    markSuperAdminRead
+} = require('../controllers/supportController');
 
 // Toutes ces routes sont protégées par le double middleware :
 // 1. authenticateToken : vérifie le JWT
@@ -40,6 +52,18 @@ router.patch('/schools/:id/commission', authenticateToken, requireSuperAdmin, up
 // Routes pour la gestion des ambassadeurs
 router.get('/affiliates', authenticateToken, requireSuperAdmin, getAffiliates);
 router.post('/affiliates/:id/payout', authenticateToken, requireSuperAdmin, payoutAffiliate);
+router.patch('/affiliates/:id/status', authenticateToken, requireSuperAdmin, updateAffiliateStatus);
 
+// Routes pour les fonctionnalités SaaS Globales
+router.get('/settings', authenticateToken, requireSuperAdmin, getSettings);
+router.put('/settings', authenticateToken, requireSuperAdmin, updateSettings);
+router.get('/transactions', authenticateToken, requireSuperAdmin, getTransactions);
+router.get('/announcements', authenticateToken, requireSuperAdmin, getGlobalAnnouncements);
+router.post('/announcements', authenticateToken, requireSuperAdmin, createGlobalAnnouncement);
+
+// Routes pour le Support Client
+router.get('/support/inbox', authenticateToken, requireSuperAdmin, getSuperAdminInbox);
+router.post('/support/send/:schoolId', authenticateToken, requireSuperAdmin, sendSuperAdminMessage);
+router.post('/support/read/:schoolId', authenticateToken, requireSuperAdmin, markSuperAdminRead);
 
 module.exports = router;

@@ -34,6 +34,8 @@ export const Parametres: React.FC = () => {
   const paymentPublicKey = useStore((s) => s.settings?.paymentPublicKey ?? null);
   const paymentSecretKey = useStore((s) => s.settings?.paymentSecretKey ?? null);
 
+  const payoutMomoNumber = useStore((s) => s.settings?.payoutMomoNumber ?? null);
+
   const [localSchool, setLocalSchool] = useState(schoolName || '');
   const [localAddress, setLocalAddress] = useState(schoolAddress || '');
   const [localPhone, setLocalPhone] = useState(schoolPhone || '');
@@ -54,9 +56,10 @@ export const Parametres: React.FC = () => {
   const [localBulletinShowClassAverage, setLocalBulletinShowClassAverage] = useState(bulletinShowClassAverage);
   const [localBulletinShowAppreciation, setLocalBulletinShowAppreciation] = useState(bulletinShowAppreciation);
 
-  const [localPaymentGateway, setLocalPaymentGateway] = useState<'fedapay'|'paystack'|'stripe'|'none'>(paymentGateway);
+  const [localPaymentGateway, setLocalPaymentGateway] = useState<'fedapay'|'paystack'|'stripe'|'none'>('fedapay'); // Toujours fedapay pour Yziow Pay
   const [localPaymentPublicKey, setLocalPaymentPublicKey] = useState(paymentPublicKey || '');
   const [localPaymentSecretKey, setLocalPaymentSecretKey] = useState(paymentSecretKey || '');
+  const [localPayoutMomoNumber, setLocalPayoutMomoNumber] = useState(payoutMomoNumber || '');
 
   const [saved, setSaved] = useState(false);
 
@@ -91,10 +94,11 @@ export const Parametres: React.FC = () => {
     setLocalBulletinShowRank(bulletinShowRank);
     setLocalBulletinShowClassAverage(bulletinShowClassAverage);
     setLocalBulletinShowAppreciation(bulletinShowAppreciation);
-    setLocalPaymentGateway(paymentGateway);
+    setLocalPaymentGateway('fedapay');
     setLocalPaymentPublicKey(paymentPublicKey || '');
     setLocalPaymentSecretKey(paymentSecretKey || '');
-  }, [schoolName, schoolAddress, schoolPhone, schoolSlogan, schoolMinistry, schoolYear, messageRemerciement, messageRappel, bulletinTemplate, bulletinShowPhoto, bulletinShowRank, bulletinShowClassAverage, bulletinShowAppreciation, paymentGateway, paymentPublicKey, paymentSecretKey]);
+    setLocalPayoutMomoNumber(payoutMomoNumber || '');
+  }, [schoolName, schoolAddress, schoolPhone, schoolSlogan, schoolMinistry, schoolYear, messageRemerciement, messageRappel, bulletinTemplate, bulletinShowPhoto, bulletinShowRank, bulletinShowClassAverage, bulletinShowAppreciation, paymentGateway, paymentPublicKey, paymentSecretKey, payoutMomoNumber]);
   
   const [logoPreview, setLogoPreview] = useState<string | null>(schoolLogo);
   const [logoError, setLogoError] = useState('');
@@ -271,9 +275,10 @@ export const Parametres: React.FC = () => {
       bulletinShowRank: localBulletinShowRank,
       bulletinShowClassAverage: localBulletinShowClassAverage,
       bulletinShowAppreciation: localBulletinShowAppreciation,
-      paymentGateway: localPaymentGateway,
+      paymentGateway: 'fedapay',
       paymentPublicKey: localPaymentPublicKey,
       paymentSecretKey: localPaymentSecretKey,
+      payoutMomoNumber: localPayoutMomoNumber,
       evalConfigs: localEvalConfigs
     });
 
@@ -861,73 +866,38 @@ export const Parametres: React.FC = () => {
                 </div>
             )}
             
-            {/* 💳 PASSERELLES DE PAIEMENT (Réservé Directeur Général / Admin) */}
+            {/* 💳 YZIOW PAY (Réservé Directeur Général / Admin) */}
             {(user?.role === 'directeur_general' || user?.role === 'directeur' || user?.role === 'admin') && (
               <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800">
                 <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3 mb-6">
                   <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
                     <Database className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  {t(language as Language, 'settings.onlinePaymentGateway') || 'Passerelle de Paiement en Ligne'}
+                  Configuration Yziow Pay (Reversements)
                 </h3>
                 
                 <form onSubmit={handleSave} className="space-y-6">
                   <div className="grid grid-cols-1 gap-6">
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900 p-4 rounded-xl flex gap-3">
+                      <AlertCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-500 shrink-0 mt-0.5" />
+                      <div className="text-xs text-indigo-800 dark:text-indigo-400 leading-relaxed font-medium">
+                        <strong className="block mb-1 text-sm">Recevez vos paiements avec Yziow Pay</strong>
+                        Vos parents peuvent payer en ligne en toute sécurité via notre infrastructure centralisée Yziow Pay. Renseignez ici le <strong>Numéro Mobile Money</strong> ou le <strong>RIB</strong> sur lequel vous souhaitez recevoir les versements de vos fonds collectés. (Sécurisé par Global Marketing and Technology).
+                      </div>
+                    </div>
+                    
                     <div>
                       <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                        {t(language as Language, 'settings.paymentProvider') || 'Fournisseur de Paiement'}
+                        Numéro de retrait Yziow Pay (Mobile Money ou RIB)
                       </label>
-                      <select
-                        value={localPaymentGateway}
-                        onChange={(e) => setLocalPaymentGateway(e.target.value as any)}
-                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                      >
-                        <option value="none">{t(language as Language, 'settings.disabledNoOnlinePayment') || 'Désactivé (Aucun paiement en ligne)'}</option>
-                        <option value="fedapay">{t(language as Language, 'settings.fedapay') || 'FedaPay (Mobile Money Afrique de l\'Ouest)'}</option>
-                        <option value="paystack">{t(language as Language, 'settings.paystack') || 'Paystack (Afrique)'}</option>
-                        <option value="stripe">{t(language as Language, 'settings.stripe') || 'Stripe (Cartes Bancaires Internationales)'}</option>
-                      </select>
+                      <input
+                        type="text"
+                        value={localPayoutMomoNumber}
+                        onChange={(e) => setLocalPayoutMomoNumber(e.target.value)}
+                        placeholder="Ex: +229 97 XX XX XX"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono"
+                      />
                     </div>
-
-                    {localPaymentGateway !== 'none' && (
-                      <>
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900 p-4 rounded-xl flex gap-3">
-                          <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 shrink-0 mt-0.5" />
-                          <div className="text-xs text-yellow-800 dark:text-yellow-400 leading-relaxed font-medium">
-                            <strong className="block mb-1 text-sm">{t(language as Language, 'settings.secureApiKeys') || 'Clés API Sécurisées'}</strong>
-                            {t(language as Language, 'settings.apiKeysDesc') || 'Assurez-vous de renseigner les clés Live (Production) pour recevoir des paiements réels. Les clés secrètes sont chiffrées et envoyées au serveur, elles n\'apparaîtront jamais côté parent.'}
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                              {t(language as Language, 'settings.publicKey') || 'Clé Publique (Public Key)'}
-                            </label>
-                            <input
-                              type="text"
-                              value={localPaymentPublicKey}
-                              onChange={(e) => setLocalPaymentPublicKey(e.target.value)}
-                              placeholder="pk_live_..."
-                              className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                              {t(language as Language, 'settings.secretKey') || 'Clé Secrète (Secret Key)'}
-                            </label>
-                            <input
-                              type="password"
-                              value={localPaymentSecretKey}
-                              onChange={(e) => setLocalPaymentSecretKey(e.target.value)}
-                              placeholder="sk_live_..."
-                              className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono"
-                            />
-                          </div>
-                        </div>
-                      </>
-                    )}
                   </div>
                   
                   <div className="flex justify-end border-t border-slate-200 dark:border-slate-700 pt-6">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { API_BASE_URL } from '../config';
-import { getAuthHeaders } from '../services/api';
+import { getAuthHeaders } from '../services/apiHelpers';
 import { Send, MessageSquare, ShieldCheck } from 'lucide-react';
 
 export const SupportPage: React.FC = () => {

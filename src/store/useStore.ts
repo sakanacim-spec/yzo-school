@@ -111,6 +111,7 @@ export interface AppState {
     paymentGateway?: 'fedapay' | 'paystack' | 'stripe' | 'none',
     paymentPublicKey?: string | null,
     paymentSecretKey?: string | null,
+    payoutMomoNumber?: string | null,
     evalConfigs?: EvalConfig[]
   }) => Promise<void>;
   settings: AppSettings;
@@ -746,7 +747,7 @@ export const useStore = create<AppState>()(
           const { 
             bulletinTemplate, bulletinShowPhoto, bulletinShowRank, 
             bulletinShowClassAverage, bulletinShowAppreciation,
-            paymentGateway, paymentPublicKey, paymentSecretKey,
+            paymentGateway, paymentPublicKey, paymentSecretKey, payoutMomoNumber,
             ...rootSettings 
           } = newSettings as any;
           
@@ -761,7 +762,8 @@ export const useStore = create<AppState>()(
               ...(bulletinShowAppreciation !== undefined && { bulletinShowAppreciation }),
               ...(paymentGateway !== undefined && { paymentGateway }),
               ...(paymentPublicKey !== undefined && { paymentPublicKey }),
-              ...(paymentSecretKey !== undefined && { paymentSecretKey })
+              ...(paymentSecretKey !== undefined && { paymentSecretKey }),
+              ...(payoutMomoNumber !== undefined && { payoutMomoNumber })
             }
           };
         });
@@ -797,9 +799,10 @@ export const useStore = create<AppState>()(
         bulletinShowRank: true,
         bulletinShowClassAverage: true,
         bulletinShowAppreciation: true,
-        paymentGateway: 'none',
+        paymentGateway: 'fedapay',
         paymentPublicKey: null,
         paymentSecretKey: null,
+        payoutMomoNumber: null,
         evalConfigs: DEFAULT_EVAL_CONFIGS,
       },
       updateSettings: (newSettings) => set({ settings: newSettings }),
