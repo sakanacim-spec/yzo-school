@@ -306,10 +306,14 @@ export const SuperAdminDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState<GlobalStats | null>(null);
   const [affiliates, setAffiliates] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any>({});
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs'>('ecoles');
+  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres'>('ecoles');
 
   const handleUpdateCommission = async (school: SchoolWithStats, newRate: number) => {
     setActionLoading(`comm_${school.id}`);
@@ -361,10 +365,13 @@ export const SuperAdminDashboard: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [schoolsRes, statsRes, affiliatesRes] = await Promise.all([
+      const [schoolsRes, statsRes, affiliatesRes, settingsRes, transRes, annRes] = await Promise.all([
         fetch(`${API_BASE_URL}/superadmin/schools`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/stats`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/superadmin/affiliates`, { headers: getAuthHeaders() })
+        fetch(`${API_BASE_URL}/superadmin/affiliates`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/superadmin/settings`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/superadmin/transactions`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/superadmin/announcements`, { headers: getAuthHeaders() })
       ]);
       if (schoolsRes.ok) {
         const d = await schoolsRes.json();
@@ -377,6 +384,17 @@ export const SuperAdminDashboard: React.FC = () => {
       if (affiliatesRes.ok) {
         const d = await affiliatesRes.json();
         setAffiliates(d.affiliates || []);
+      }
+      if (settingsRes.ok) {
+        setSettings(await settingsRes.json());
+      }
+      if (transRes.ok) {
+        const d = await transRes.json();
+        setTransactions(d.transactions || []);
+      }
+      if (annRes.ok) {
+        const d = await annRes.json();
+        setAnnouncements(d.announcements || []);
       }
     } catch (err) {
       console.error('SuperAdmin load error:', err);
@@ -430,6 +448,53 @@ export const SuperAdminDashboard: React.FC = () => {
       await load();
     } catch (err: any) {
       alert(err.message || (t(language as Language, 'superadmin.deleteError') || 'Erreur lors de la suppression'));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateSettings = async (key: string, value: string) => {
+    setActionLoading('settings');
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/settings`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ [key]: value })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert(data.message);
+      await load();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la mise à jour des paramètres');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCreateAnnouncement = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const title = formData.get('title') as string;
+    const content = formData.get('content') as string;
+    const type = formData.get('type') as string;
+
+    if (!title || !content) return;
+
+    setActionLoading('announcement');
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/announcements`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ title, content, type })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert(data.message);
+      (e.target as HTMLFormElement).reset();
+      await load();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la publication');
     } finally {
       setActionLoading(null);
     }
@@ -578,6 +643,40 @@ export const SuperAdminDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Analytics visuels */}
+      {stats && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+              <h3 className="text-white font-bold mb-6">Répartition des Écoles</h3>
+              <div className="flex h-4 rounded-full overflow-hidden mb-3 bg-slate-800">
+                 <div style={{ width: `${(stats.active_schools / Math.max(1, stats.total_schools)) * 100}%` }} className="bg-emerald-500"></div>
+                 <div style={{ width: `${(stats.suspended_schools / Math.max(1, stats.total_schools)) * 100}%` }} className="bg-red-500"></div>
+                 <div style={{ width: `${(stats.expired_trials / Math.max(1, stats.total_schools)) * 100}%` }} className="bg-amber-500"></div>
+              </div>
+              <div className="flex flex-wrap justify-between text-xs text-slate-400">
+                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Actives ({stats.active_schools})</div>
+                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Suspendues ({stats.suspended_schools})</div>
+                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Essais expirés ({stats.expired_trials})</div>
+              </div>
+           </div>
+           
+           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+              <h3 className="text-white font-bold mb-6">Taux de recouvrement global</h3>
+              <div className="flex items-center justify-between mb-2">
+                 <span className="text-2xl font-black text-white">{Math.round((stats.total_revenue_paid / Math.max(1, stats.total_revenue)) * 100)}%</span>
+                 <span className="text-sm text-slate-400">des revenus attendus</span>
+              </div>
+              <div className="w-full h-4 bg-slate-800 rounded-full overflow-hidden mb-2">
+                 <div 
+                    style={{ width: `${Math.min(100, (stats.total_revenue_paid / Math.max(1, stats.total_revenue)) * 100)}%` }} 
+                    className="h-full bg-gradient-to-r from-amber-500 to-orange-500"
+                 ></div>
+              </div>
+              <p className="text-xs text-slate-500">Objectif: 100% de recouvrement des abonnements</p>
+           </div>
+        </div>
+      )}
+
       {/* Alertes */}
       {stats && stats.expired_trials > 0 && (
         <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-400">
@@ -590,7 +689,7 @@ export const SuperAdminDashboard: React.FC = () => {
       )}
 
       {/* Onglets */}
-      <div className="flex items-center gap-2 mt-4">
+      <div className="flex flex-wrap items-center gap-2 mt-4">
         <button
           onClick={() => setActiveTab('ecoles')}
           className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
@@ -620,6 +719,36 @@ export const SuperAdminDashboard: React.FC = () => {
           }`}
         >
           Ambassadeurs
+        </button>
+        <button
+          onClick={() => setActiveTab('historique')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeTab === 'historique'
+              ? 'bg-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          Historique
+        </button>
+        <button
+          onClick={() => setActiveTab('annonces')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeTab === 'annonces'
+              ? 'bg-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          Annonces
+        </button>
+        <button
+          onClick={() => setActiveTab('parametres')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeTab === 'parametres'
+              ? 'bg-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          Paramètres
         </button>
       </div>
 
@@ -948,6 +1077,162 @@ export const SuperAdminDashboard: React.FC = () => {
           </table>
         </div>
       </div>
+      </div>
+      ) : activeTab === 'historique' ? (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="p-6 border-b border-slate-800">
+            <h2 className="text-lg font-bold text-white">Historique des Transactions SaaS</h2>
+            <p className="text-sm text-slate-400">Suivi des paiements des écoles (Abonnements, Frais).</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-slate-800/50 text-slate-400 font-medium">
+                <tr>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">École</th>
+                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4">Méthode</th>
+                  <th className="py-3 px-4 text-emerald-400">Montant</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {transactions.map((t: any) => (
+                  <tr key={t.id} className="hover:bg-slate-800/20">
+                    <td className="py-4 px-4 text-slate-300">
+                      {new Date(t.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="py-4 px-4 font-bold text-white">{t.schools?.name || 'Inconnue'}</td>
+                    <td className="py-4 px-4 text-slate-400">
+                      {t.type === 'subscription' ? 'Abonnement SaaS' : t.type}
+                    </td>
+                    <td className="py-4 px-4 text-slate-400">{t.payment_method || 'Non précisé'}</td>
+                    <td className="py-4 px-4 font-bold text-emerald-400">+{formatFCFA(t.amount)}</td>
+                  </tr>
+                ))}
+                {transactions.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-500">Aucune transaction enregistrée.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === 'annonces' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h2 className="text-lg font-bold text-white mb-6">Publier une Annonce</h2>
+            <form onSubmit={handleCreateAnnouncement} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Titre de l'annonce</label>
+                <input type="text" name="title" required
+                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ex: Maintenance serveur ce soir" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Type</label>
+                <select name="type" className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="info">Information (Bleu)</option>
+                  <option value="warning">Avertissement (Orange)</option>
+                  <option value="success">Succès / Nouveauté (Vert)</option>
+                  <option value="error">Urgent (Rouge)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Contenu du message</label>
+                <textarea name="content" required rows={5}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ce message apparaîtra sur le tableau de bord de tous les directeurs..." />
+              </div>
+              <button type="submit" disabled={actionLoading === 'announcement'}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50">
+                {actionLoading === 'announcement' ? 'Publication...' : 'Publier à toutes les écoles'}
+              </button>
+            </form>
+          </div>
+          
+          <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+            <div className="p-6 border-b border-slate-800">
+              <h2 className="text-lg font-bold text-white">Annonces Précédentes</h2>
+            </div>
+            <div className="divide-y divide-slate-800/50">
+              {announcements.map((ann: any) => (
+                <div key={ann.id} className="p-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                      ann.type === 'warning' ? 'bg-amber-500/20 text-amber-400' :
+                      ann.type === 'error' ? 'bg-red-500/20 text-red-400' :
+                      ann.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' :
+                      'bg-blue-500/20 text-blue-400'
+                    }`}>
+                      {ann.type.toUpperCase()}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {new Date(ann.created_at).toLocaleDateString('fr-FR')}
+                    </span>
+                  </div>
+                  <h3 className="text-white font-bold mb-1">{ann.title}</h3>
+                  <p className="text-sm text-slate-400">{ann.content}</p>
+                </div>
+              ))}
+              {announcements.length === 0 && (
+                <div className="p-8 text-center text-slate-500">Aucune annonce publiée.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'parametres' ? (
+        <div className="max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6">
+          <h2 className="text-lg font-bold text-white mb-2">Configuration de la Plateforme SaaS</h2>
+          <p className="text-sm text-slate-400 mb-8">Modifiez ici les paramètres globaux appliqués par défaut aux nouvelles inscriptions.</p>
+
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-slate-800 rounded-xl bg-slate-800/20">
+              <div>
+                <h4 className="font-bold text-white">Commission Ambassadeur par défaut</h4>
+                <p className="text-sm text-slate-400">Le pourcentage reversé aux ambassadeurs (ex: 20%).</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="number" 
+                  value={settings.default_commission_rate || ''}
+                  onChange={(e) => setSettings({ ...settings, default_commission_rate: e.target.value })}
+                  className="w-24 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button 
+                  onClick={() => handleUpdateSettings('default_commission_rate', settings.default_commission_rate)}
+                  disabled={actionLoading === 'settings'}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Sauver
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-slate-800 rounded-xl bg-slate-800/20">
+              <div>
+                <h4 className="font-bold text-white">Prix Abonnement SaaS (FCFA)</h4>
+                <p className="text-sm text-slate-400">Prix de base affiché pour l'abonnement annuel.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="number" 
+                  value={settings.subscription_price_fcfa || ''}
+                  onChange={(e) => setSettings({ ...settings, subscription_price_fcfa: e.target.value })}
+                  className="w-32 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button 
+                  onClick={() => handleUpdateSettings('subscription_price_fcfa', settings.subscription_price_fcfa)}
+                  disabled={actionLoading === 'settings'}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Sauver
+                </button>
+              </div>
+            </div>
+            
+          </div>
+        </div>
       ) : null}
 
       {/* Modal création */}

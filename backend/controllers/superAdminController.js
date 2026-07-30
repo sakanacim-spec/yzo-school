@@ -571,11 +571,106 @@ async function updateAffiliateStatus(req, res) {
     }
 }
 
-module.exports = { getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, paySubscriptionInit, recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus };
+module.exports = { 
+    getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, 
+    paySubscriptionInit, recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus,
+    getSettings, updateSettings, getTransactions, getGlobalAnnouncements, createGlobalAnnouncement
+};
 
 // ==========================================
-// NOUVELLES ROUTES / FONCTIONNALITÉS
+// ── SAAS PLATFORM FEATURES ────────────────
 // ==========================================
+
+// ── GET /superadmin/settings ────────────────────
+async function getSettings(req, res) {
+    try {
+        const { data, error } = await supabase.from('global_settings').select('*');
+        if (error) throw error;
+        
+        // Convert to a simple key-value object
+        const settings = {};
+        data.forEach(item => {
+            settings[item.key] = item.value;
+        });
+        return res.json(settings);
+    } catch (err) {
+        console.error('SuperAdmin getSettings Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la récupération des paramètres.' });
+    }
+}
+
+// ── PUT /superadmin/settings ────────────────────
+async function updateSettings(req, res) {
+    const updates = req.body; // e.g. { default_commission_rate: 25, subscription_price_fcfa: 200000 }
+    try {
+        const promises = Object.keys(updates).map(key => {
+            return supabase.from('global_settings')
+                .upsert({ key, value: updates[key] }, { onConflict: 'key' });
+        });
+        await Promise.all(promises);
+        return res.json({ message: 'Paramètres mis à jour avec succès.' });
+    } catch (err) {
+        console.error('SuperAdmin updateSettings Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la mise à jour des paramètres.' });
+    }
+}
+
+// ── GET /superadmin/transactions ────────────────
+async function getTransactions(req, res) {
+    try {
+        const { data, error } = await supabase
+            .from('saas_transactions')
+            .select(`
+                *,
+                schools ( name, slug )
+            `)
+            .order('created_at', { ascending: false })
+            .limit(100);
+        
+        if (error) throw error;
+        return res.json({ transactions: data || [] });
+    } catch (err) {
+        console.error('SuperAdmin getTransactions Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la récupération des transactions.' });
+    }
+}
+
+// ── GET /superadmin/announcements ───────────────
+async function getGlobalAnnouncements(req, res) {
+    try {
+        const { data, error } = await supabase
+            .from('global_announcements')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return res.json({ announcements: data || [] });
+    } catch (err) {
+        console.error('SuperAdmin getGlobalAnnouncements Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la récupération des annonces.' });
+    }
+}
+
+// ── POST /superadmin/announcements ──────────────
+async function createGlobalAnnouncement(req, res) {
+    const { title, content, type } = req.body;
+    if (!title || !content) {
+        return res.status(400).json({ error: 'Le titre et le contenu sont requis.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('global_announcements')
+            .insert({ title, content, type: type || 'info' })
+            .select()
+            .single();
+            
+        if (error) throw error;
+        return res.status(201).json({ message: 'Annonce publiée avec succès.', announcement: data });
+    } catch (err) {
+        console.error('SuperAdmin createGlobalAnnouncement Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la publication de l\'annonce.' });
+    }
+}
 
 async function paySubscriptionInit(req, res) {
     const { slug } = req.params;
