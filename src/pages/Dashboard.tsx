@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { isBackendAvailable } from '../services/backendSync';
+import { API_BASE_URL } from '../config';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -89,6 +90,7 @@ const CustomTooltip: React.FC<{ active?: boolean; payload?: { name: string; valu
 };
 
 export const Dashboard: React.FC = () => {
+  const [globalAnnouncements, setGlobalAnnouncements] = React.useState<any[]>([]);
   const { language } = useStore();
   const students = useStore((s) => s.students);
   const classes = useStore((s) => s.classes) || [];
@@ -116,6 +118,20 @@ export const Dashboard: React.FC = () => {
       };
       initSync();
     }
+
+    // Fetch global announcements
+    const fetchGlobalAnn = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/public/announcements/global`);
+        if (res.ok) {
+          const data = await res.json();
+          setGlobalAnnouncements(data.announcements || []);
+        }
+      } catch (e) {
+        console.error("Failed to fetch global announcements", e);
+      }
+    };
+    fetchGlobalAnn();
   }, []);
 
   const recouvrement = useMemo(() => computeRecouvrement(students), [students]);
@@ -223,9 +239,29 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 pb-20 max-w-[1600px] mx-auto">
-      {/* ── HERO BANNER ── */}
-      <div className="relative pro-card p-8 lg:p-10 overflow-hidden group bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl">
+    <div className="space-y-6 lg:space-y-8 animate-fadeIn max-w-[1600px] mx-auto pb-24">
+      {/* Global Announcements */}
+      {globalAnnouncements.length > 0 && (
+        <div className="space-y-3 mb-6">
+          {globalAnnouncements.map((ann) => (
+            <div key={ann.id} className={`p-4 rounded-xl border flex items-start gap-3 shadow-sm ${
+              ann.type === 'warning' ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-400' :
+              ann.type === 'error' ? 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-800 dark:text-red-400' :
+              ann.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-400' :
+              'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-400'
+            }`}>
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold">{ann.title}</h4>
+                <p className="text-sm mt-0.5 opacity-90">{ann.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Hero Header Section */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 p-8 sm:p-10 shadow-2xl">
         <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] group-hover:scale-110 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
             <TrendingUp className="w-64 h-64 text-amber-500" />
         </div>

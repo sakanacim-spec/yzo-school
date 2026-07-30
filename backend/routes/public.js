@@ -58,4 +58,22 @@ router.post('/careers', async (req, res) => {
     }
 });
 
+// GET /api/public/announcements/global
+// Récupère les annonces globales du SuperAdmin pour les directeurs d'écoles
+router.get('/announcements/global', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('global_announcements')
+            .select('*')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ announcements: data || [] });
+    } catch (err) {
+        console.error('Erreur lors de la récupération des annonces globales:', err.message);
+        res.status(500).json({ error: 'Erreur serveur.' });
+    }
+});
+
 module.exports = router;
