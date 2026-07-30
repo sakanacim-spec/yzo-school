@@ -13,6 +13,7 @@ import { Contact } from './pages/public/Contact';
 import { Careers } from './pages/public/Careers';
 import { LegalPage, LegalPageType } from './pages/public/LegalPage';
 import { GuideAssistantWidget } from './components/GuideAssistantWidget';
+import { SupportPage } from './pages/SupportPage';
 
 // Lazy loading for pages to reduce initial bundle size
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -126,6 +127,7 @@ const PageContent: React.FC = () => {
     case 'annonces': return <Annonces />;
     case 'communication': return <Communication />;
     case 'gestion_personnel': return <GestionPersonnel />;
+    case 'support': return <SupportPage />;
     case 'prof_dashboard': return <ProfesseurDashboard />;
     case 'cahier_textes': return <CahierTextes />;
     case 'prof_ressources': return <ProfRessources />;

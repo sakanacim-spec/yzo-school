@@ -310,10 +310,16 @@ export const SuperAdminDashboard: React.FC = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   
+  // Support Client
+  const [inbox, setInbox] = useState<any[]>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
+  const [supportMessages, setSupportMessages] = useState<any[]>([]);
+  const [newSupportMessage, setNewSupportMessage] = useState('');
+  
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres'>('ecoles');
+  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres' | 'support'>('ecoles');
 
   const handleUpdateCommission = async (school: SchoolWithStats, newRate: number) => {
     setActionLoading(`comm_${school.id}`);
@@ -365,13 +371,14 @@ export const SuperAdminDashboard: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [schoolsRes, statsRes, affiliatesRes, settingsRes, transRes, annRes] = await Promise.all([
+      const [schoolsRes, statsRes, affiliatesRes, settingsRes, transRes, annRes, inboxRes] = await Promise.all([
         fetch(`${API_BASE_URL}/superadmin/schools`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/stats`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/affiliates`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/settings`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/transactions`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/superadmin/announcements`, { headers: getAuthHeaders() })
+        fetch(`${API_BASE_URL}/superadmin/announcements`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/superadmin/support/inbox`, { headers: getAuthHeaders() })
       ]);
       if (schoolsRes.ok) {
         const d = await schoolsRes.json();
@@ -395,6 +402,10 @@ export const SuperAdminDashboard: React.FC = () => {
       if (annRes.ok) {
         const d = await annRes.json();
         setAnnouncements(d.announcements || []);
+      }
+      if (inboxRes.ok) {
+        const d = await inboxRes.json();
+        setInbox(d.inbox || []);
       }
     } catch (err) {
       console.error('SuperAdmin load error:', err);
@@ -497,6 +508,41 @@ export const SuperAdminDashboard: React.FC = () => {
       alert(err.message || 'Erreur lors de la publication');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleSendSupportReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSchoolId || !newSupportMessage.trim()) return;
+
+    setActionLoading('support_send');
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/support/send/${selectedSchoolId}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ message: newSupportMessage })
+      });
+      if (res.ok) {
+        setNewSupportMessage('');
+        await load(); // Recharge la boite de réception
+      }
+    } catch (err) {
+      console.error('Support send error:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSelectSchoolForSupport = async (schoolId: string) => {
+    setSelectedSchoolId(schoolId);
+    try {
+      // Marquer comme lu
+      await fetch(`${API_BASE_URL}/superadmin/support/read/${schoolId}`, {
+        method: 'POST', headers: getAuthHeaders()
+      });
+      await load(); // Rafraîchit les compteurs non lus
+    } catch (err) {
+      console.error('Support read error:', err);
     }
   };
 
@@ -749,6 +795,21 @@ export const SuperAdminDashboard: React.FC = () => {
           }`}
         >
           Paramètres
+        </button>
+        <button
+          onClick={() => setActiveTab('support')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            activeTab === 'support'
+              ? 'bg-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          Support Client
+          {inbox.reduce((acc, curr) => acc + curr.unreadCount, 0) > 0 && (
+            <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
+              {inbox.reduce((acc, curr) => acc + curr.unreadCount, 0)}
+            </span>
+          )}
         </button>
       </div>
 
@@ -1231,6 +1292,120 @@ export const SuperAdminDashboard: React.FC = () => {
               </div>
             </div>
             
+          </div>
+        </div>
+      ) : activeTab === 'support' ? (
+        <div className="flex h-[800px] bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+          {/* Inbox List (Left) */}
+          <div className="w-1/3 border-r border-slate-800 flex flex-col bg-slate-900/50">
+            <div className="p-4 border-b border-slate-800">
+              <h2 className="font-bold text-white text-lg">Boîte de réception</h2>
+              <p className="text-xs text-slate-400">{inbox.length} conversations</p>
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-800/50">
+              {inbox.length === 0 ? (
+                <p className="text-slate-500 text-sm text-center py-10">Aucun message de support.</p>
+              ) : (
+                inbox.map((item) => (
+                  <div 
+                    key={item.school.id} 
+                    onClick={() => handleSelectSchoolForSupport(item.school.id)}
+                    className={`p-4 cursor-pointer transition-colors ${
+                      selectedSchoolId === item.school.id 
+                        ? 'bg-blue-600/20 border-l-4 border-blue-500' 
+                        : 'hover:bg-slate-800/50 border-l-4 border-transparent'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="font-bold text-slate-200 text-sm line-clamp-1">{item.school.name}</h3>
+                      <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                        {item.lastMessageAt && new Date(item.lastMessageAt).toLocaleDateString('fr-FR')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs text-slate-400 line-clamp-1 flex-1 pr-4">
+                        {item.messages.length > 0 ? item.messages[0].message : ''}
+                      </p>
+                      {item.unreadCount > 0 && (
+                        <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          {item.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          
+          {/* Chat Window (Right) */}
+          <div className="w-2/3 flex flex-col bg-slate-900">
+            {selectedSchoolId ? (() => {
+              const currentInbox = inbox.find(i => i.school.id === selectedSchoolId);
+              if (!currentInbox) return null;
+              // Messages are descending from backend, we want ascending for chat
+              const chatMessages = [...currentInbox.messages].reverse();
+
+              return (
+                <>
+                  <div className="p-4 border-b border-slate-800 bg-slate-800/20 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-white">{currentInbox.school.name}</h3>
+                      <p className="text-xs text-slate-400">ID: {currentInbox.school.slug}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    {chatMessages.map(msg => {
+                      const isMe = msg.sender_type === 'superadmin';
+                      return (
+                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[75%] rounded-2xl px-5 py-3 ${
+                            isMe 
+                              ? 'bg-blue-600 text-white rounded-tr-sm' 
+                              : 'bg-slate-800 border border-slate-700 text-slate-200 rounded-tl-sm'
+                          }`}>
+                            <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                            <p className={`text-[10px] mt-2 text-right ${isMe ? 'text-blue-200' : 'text-slate-500'}`}>
+                              {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="p-4 border-t border-slate-800 bg-slate-800/20">
+                    <form onSubmit={handleSendSupportReply} className="flex items-end gap-3">
+                      <textarea
+                        value={newSupportMessage}
+                        onChange={(e) => setNewSupportMessage(e.target.value)}
+                        placeholder="Répondre..."
+                        className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-white resize-none max-h-32 min-h-[44px]"
+                        rows={1}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendSupportReply(e);
+                          }
+                        }}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!newSupportMessage.trim() || actionLoading === 'support_send'}
+                        className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-500 transition-colors disabled:opacity-50 shrink-0"
+                      >
+                        {actionLoading === 'support_send' ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Envoyer'}
+                      </button>
+                    </form>
+                  </div>
+                </>
+              );
+            })() : (
+              <div className="flex-1 flex items-center justify-center text-slate-500">
+                Sélectionnez une école pour afficher la conversation
+              </div>
+            )}
           </div>
         </div>
       ) : null}

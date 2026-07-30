@@ -6,12 +6,13 @@ import {
   Settings, 
   LogOut,
   School,
-  FileText
+  FileText,
+  LifeBuoy
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { t, Language } from '../i18n';
 
-type Page = 'dashboard' | 'students' | 'import' | 'reports' | 'analytics' | 'settings';
+type Page = 'dashboard' | 'students' | 'import' | 'reports' | 'analytics' | 'support' | 'settings';
 
 interface SidebarProps {
   currentPage: Page;
@@ -27,6 +28,7 @@ export const Sidebar = ({ currentPage, onNavigate }: SidebarProps) => {
     { id: 'import', label: t(language as Language, 'nav.importExport') || 'Import/Export', icon: FileSpreadsheet },
     { id: 'reports', label: t(language as Language, 'nav.reports') || 'Rapports PDF', icon: FileText },
     { id: 'analytics', label: t(language as Language, 'nav.analytics') || 'Analyses', icon: BarChart3 },
+    { id: 'support', label: 'Support & Aide', icon: LifeBuoy },
     { id: 'settings', label: t(language as Language, 'nav.settings') || 'Paramètres', icon: Settings, adminOnly: true },
   ];
 
