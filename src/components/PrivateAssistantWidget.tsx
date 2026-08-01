@@ -3,7 +3,7 @@ import {
     Bot, X, Send, Sparkles, User, Loader2
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { getAuthHeaders } from '../utils/api';
+import { getAuthHeaders } from '../services/apiHelpers';
 import { API_BASE_URL } from '../config';
 
 interface Message {
