@@ -22,6 +22,7 @@ export const Parametres: React.FC = () => {
   const schoolLogo = useStore((s) => s.schoolLogo);
   const schoolStamp = useStore((s) => s.schoolStamp);
   const user = useStore((s) => s.user);
+  const storeClassesRaw = useStore((s) => s.classes);
   const language = useStore((s) => s.language);
 
   const bulletinTemplate = useStore((s) => s.settings?.bulletinTemplate ?? 'officiel');
@@ -106,7 +107,9 @@ export const Parametres: React.FC = () => {
   const stampFileRef = useRef<HTMLInputElement>(null);
 
   // Cycles et classes — déclarés EN PREMIER car utilisés pour calculer les cycles actifs
-  const classes = useStore((s) => s.classes) || [];
+  const storeClassesRaw = useStore((s) => s.classes);
+  const classesRef = useRef<any[]>([]).current;
+  const classes = storeClassesRaw || classesRef;
   const setClasses = useStore((s) => s.setClasses);
 
   const cycleSchedules = useStore((s) => s.cycleSchedules) || [];
@@ -150,7 +153,6 @@ export const Parametres: React.FC = () => {
     setLocalTranches(tranches);
   }, [tranches]);
 
-  // Note: classes & setClasses already declared above
   const [localClasses, setLocalClasses] = useState(classes);
   const [classesSaved, setClassesSaved] = useState(false);
 
