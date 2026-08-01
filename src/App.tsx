@@ -45,6 +45,7 @@ const ParentBadges = lazy(() => import('./pages/parent/ParentBadges').then(m => 
 const ParentMessages = lazy(() => import('./pages/parent/ParentMessages').then(m => ({ default: m.ParentMessages })));
 const ParentNotes = lazy(() => import('./pages/parent/ParentNotes').then(m => ({ default: m.ParentNotes })));
 const ParentDevoirsPresence = lazy(() => import('./pages/parent/ParentDevoirsPresence').then(m => ({ default: m.ParentDevoirsPresence })));
+const ParentEmploiDuTemps = lazy(() => import('./pages/parent/ParentEmploiDuTemps').then(m => ({ default: m.ParentEmploiDuTemps })));
 const ParentsList = lazy(() => import('./pages/ParentsList').then(m => ({ default: m.ParentsList })));
 const ImportExport = lazy(() => import('./components/ImportExport').then(m => ({ default: m.ImportExport })));
 const ChatWindow = lazy(() => import('./components/ChatWindow').then(m => ({ default: m.ChatWindow })));
@@ -80,7 +81,7 @@ const PageContent: React.FC = () => {
 
   // Sécurité — Empêcher un parent de voir une page admin même si le store est désynchronisé
   if (user?.role === 'parent') {
-    const parentPages = ['parent_dashboard', 'parent_historique', 'parent_recus', 'parent_badges', 'chat', 'annonces', 'parent_notes', 'parent_devoirs_presence', 'parent_ressources'];
+    const parentPages = ['parent_dashboard', 'parent_historique', 'parent_recus', 'parent_badges', 'chat', 'annonces', 'parent_notes', 'parent_devoirs_presence', 'parent_ressources', 'parent_emploi_du_temps'];
     if (!parentPages.includes(currentPage as any)) {
       return <ParentDashboard />;
     }
@@ -121,6 +122,7 @@ const PageContent: React.FC = () => {
     case 'parent_messages': return <ParentMessages />;
     case 'parent_notes': return <ParentNotes />;
     case 'parent_devoirs_presence': return <ParentDevoirsPresence />;
+    case 'parent_emploi_du_temps': return <ParentEmploiDuTemps />;
     case 'parents_list': return <ParentsList />;
     case 'import_export': return <ImportExport />;
     case 'chat': return <ChatWindow />;

@@ -121,6 +121,7 @@ export interface AppState {
   // Présences
   presences: Presence[];
   addPresence: (presence: Presence) => void;
+  updatePresence: (id: string, updates: Partial<Presence>) => void;
   savePresencesBatch: (presences: Presence[]) => void;
   getPresencesToday: () => Presence[];
   getSortiesToday: () => Presence[];
@@ -837,6 +838,19 @@ export const useStore = create<AppState>()(
       presences: [], devoirs: [], seances: [], expenses: [],
       addPresence: (presence) => {
         set({ presences: [presence, ...get().presences] });
+        
+        // Push notification for security alert
+        if (presence.statut === 'absent') {
+          import('../services/notificationService').then(({ notificationService }) => {
+            notificationService.notifyParents(
+              presence.eleveId,
+              `Alerte Sécurité : ${presence.elevePrenom} a été marqué(e) absent(e) le ${new Date(presence.date).toLocaleDateString('fr-FR')}. Veuillez justifier cette absence dans votre espace parent.`,
+              'absence',
+              'Absence non justifiée'
+            );
+          });
+        }
+
         // Background sync
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend({
@@ -851,6 +865,19 @@ export const useStore = create<AppState>()(
         const newKeys = new Set(newPresences.map(p => `${p.eleveId}-${p.date}`));
         const filteredPresences = currentPresences.filter(p => !newKeys.has(`${p.eleveId}-${p.date}`));
         set({ presences: [...newPresences, ...filteredPresences] });
+        
+        // Push notifications for security alert (absents)
+        import('../services/notificationService').then(({ notificationService }) => {
+          newPresences.filter(p => p.statut === 'absent').forEach(p => {
+             notificationService.notifyParents(
+              p.eleveId,
+              `Alerte Sécurité : ${p.elevePrenom} a été marqué(e) absent(e) le ${new Date(p.date).toLocaleDateString('fr-FR')}. Veuillez justifier cette absence dans votre espace parent.`,
+              'absence',
+              'Absence non justifiée'
+            );
+          });
+        });
+
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend({
             students: get().students,

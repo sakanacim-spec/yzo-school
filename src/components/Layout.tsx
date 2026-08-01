@@ -66,6 +66,7 @@ const PARENT_NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'parent_badges',     label: 'Mes badges',          icon: <Award className="w-[18px] h-[18px]" /> },
   { id: 'parent_notes',      label: 'Notes & Bulletins',   icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { id: 'parent_devoirs_presence', label: 'Devoirs & Présences', icon: <Calendar className="w-[18px] h-[18px]" /> },
+  { id: 'parent_emploi_du_temps', label: 'Emploi du temps', icon: <Calendar className="w-[18px] h-[18px]" /> },
   { id: 'parent_ressources', label: 'E-Learning',          icon: <FileText className="w-[18px] h-[18px]" /> },
   { id: 'chat',              label: 'Messagerie',          icon: <MessageSquare className="w-[18px] h-[18px]" /> },
   { id: 'annonces',          label: 'Annonces',            icon: <Megaphone className="w-[18px] h-[18px]" /> },
@@ -445,6 +446,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   ] : [
     { id: (isParent ? 'parent_dashboard' : 'dashboard') as AppPage, label: t(language, isParent ? 'nav.parent_dashboard' : 'nav.dashboard'), icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: (isParent ? 'parent_historique' : 'eleves') as AppPage, label: t(language, isParent ? 'nav.parent_historique' : 'nav.eleves'), icon: isParent ? <CreditCard className="w-5 h-5" /> : <Users className="w-5 h-5" /> },
+    ...(isParent ? [{ id: 'parent_emploi_du_temps' as AppPage, label: t(language, 'nav.emploi_du_temps') || 'Emploi du temps', icon: <Calendar className="w-5 h-5" /> }] : []),
     { id: 'chat' as AppPage, label: t(language, 'nav.chat'), icon: <MessageSquare className="w-5 h-5" />, badge: unreadMessages },
     { id: (isParent ? 'annonces' : 'parametres') as AppPage, label: t(language, isParent ? 'nav.annonces' : 'nav.parametres'), icon: isParent ? <Megaphone className="w-5 h-5" /> : <Settings className="w-5 h-5" /> },
   ];

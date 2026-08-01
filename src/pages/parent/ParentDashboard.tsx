@@ -436,6 +436,15 @@ export const ParentDashboard: React.FC = () => {
         });
     }, [children, devoirs]);
 
+    // ── Absences non justifiées tous enfants ─────────────────
+    const allUnjustifiedAbsences = useMemo(() => {
+        return children.flatMap(child => {
+            return presences
+                .filter(p => p.eleveId === child.id && p.statut === 'absent' && !p.justifie)
+                .map(p => ({ ...p, childName: `${child.prenom} ${child.nom}` }));
+        });
+    }, [children, presences]);
+
     if (loading && children.length === 0) return (
         <div className="flex flex-col items-center justify-center py-20 text-slate-500">
             <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
@@ -528,16 +537,20 @@ export const ParentDashboard: React.FC = () => {
                 </div>
             )}
 
-            {/* ══ ALERTE DEVOIRS URGENTS (tous enfants) ══ */}
-            {allUrgentHomework.length > 0 && (
+            {/* ══ ALERTE GLOBALE (tous enfants) ══ */}
+            {(allUrgentHomework.length > 0 || allUnjustifiedAbsences.length > 0) && (
                 <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 rounded-[24px] p-5">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="w-9 h-9 bg-rose-500 rounded-xl flex items-center justify-center shrink-0 animate-pulse">
                             <AlertTriangle className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <h4 className="font-black text-rose-800 dark:text-rose-300">{t(language as Language, 'parentDashboard.urgentHomeworkAlert') || 'Devoirs urgents à ne pas oublier !'}</h4>
-                            <p className="text-xs text-rose-600 dark:text-rose-400">{allUrgentHomework.length} {t(language as Language, 'parentDashboard.urgentHomeworkDue') || `devoir(s) à rendre très prochainement`}</p>
+                            <h4 className="font-black text-rose-800 dark:text-rose-300">Alertes importantes à traiter !</h4>
+                            <p className="text-xs text-rose-600 dark:text-rose-400">
+                                {allUrgentHomework.length > 0 && <span>{allUrgentHomework.length} devoir(s) urgent(s)</span>}
+                                {allUrgentHomework.length > 0 && allUnjustifiedAbsences.length > 0 && <span> • </span>}
+                                {allUnjustifiedAbsences.length > 0 && <span>{allUnjustifiedAbsences.length} absence(s) à justifier</span>}
+                            </p>
                         </div>
                         <button onClick={() => useStore.getState().setCurrentPage('parent_devoirs_presence')} className="ml-auto flex items-center gap-1 text-rose-700 dark:text-rose-400 text-xs font-bold hover:underline shrink-0">
                             {t(language as Language, 'common.see') || 'Voir'} <ChevronRight className="w-3.5 h-3.5" />
@@ -545,11 +558,22 @@ export const ParentDashboard: React.FC = () => {
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {allUrgentHomework.map((d, i) => (
-                            <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-rose-900/30 rounded-xl border border-rose-200 dark:border-rose-800">
+                            <div key={`d-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-rose-900/30 rounded-xl border border-rose-200 dark:border-rose-800">
                                 <Avatar name={d.childName} size="xs" />
                                 <div>
                                     <p className="text-[11px] font-black text-rose-800 dark:text-rose-200">{d.childName} — {d.matiere}</p>
                                     <DueDateBadge dateStr={d.dateRendu} />
+                                </div>
+                            </div>
+                        ))}
+                        {allUnjustifiedAbsences.map((p, i) => (
+                            <div key={`p-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-rose-900/30 rounded-xl border border-rose-200 dark:border-rose-800">
+                                <Avatar name={p.childName} size="xs" />
+                                <div>
+                                    <p className="text-[11px] font-black text-rose-800 dark:text-rose-200">{p.childName} - Absence</p>
+                                    <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-lg text-[10px] font-black">
+                                        Le {new Date(p.date).toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' })}
+                                    </span>
                                 </div>
                             </div>
                         ))}

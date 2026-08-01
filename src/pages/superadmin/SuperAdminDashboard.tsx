@@ -571,11 +571,12 @@ export const SuperAdminDashboard: React.FC = () => {
         currentPage: 'dashboard'
       });
 
-      // Lancer la synchro pour la nouvelle école
-      useStore.getState().fetchAllFromBackend();
+      // Force a full reload to completely wipe the React tree and avoid state/suspense crashes
+      setTimeout(() => {
+        window.location.reload();
+      }, 50);
     } catch (err: any) {
       alert(err.message);
-    } finally {
       setActionLoading(null);
     }
   };

@@ -259,6 +259,9 @@ export interface Presence {
   heure: string;     // HH:mm:ss
   statut: 'present' | 'absent' | 'retard';
   type?: 'ENTREE' | 'SORTIE';
+  justifie?: boolean;
+  motifAbsence?: string;
+  pieceJointeUrl?: string;
 }
 
 export interface Seance {
@@ -374,6 +377,7 @@ export type AppPage =
   | 'prof_ressources'
   | 'prof_emploi_du_temps'
   | 'parent_ressources'
+  | 'parent_emploi_du_temps'
   | 'salaires'
   // ── Pages SuperAdmin (propriétaire SaaS) ──
   | 'superadmin_dashboard'

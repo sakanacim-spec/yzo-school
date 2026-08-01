@@ -213,8 +213,19 @@ export const SaisiePresence: React.FC = () => {
                                                 )}
                                             </div>
                                             <div>
-                                                <p className="font-black text-slate-900 dark:text-white text-base">
+                                                <p className="font-black text-slate-900 dark:text-white text-base flex items-center gap-2">
                                                     {student.prenom} <span className="uppercase">{student.nom}</span>
+                                                    {(() => {
+                                                        const existingPresence = presences.find(p => p.eleveId === student.id && p.date === selectedDate && (!p.type || p.type === 'ENTREE'));
+                                                        if (existingPresence?.justifie) {
+                                                            return (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-md text-[10px] font-black uppercase tracking-wider">
+                                                                    <CheckCircle className="w-3 h-3" /> Justifié
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
                                                 </p>
                                                 <p className="text-xs font-bold text-slate-500">{t(language as Language, 'common.matricule') || 'Matricule:'} {student.id.split('-')[0].toUpperCase()}</p>
                                             </div>
