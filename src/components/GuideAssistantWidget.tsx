@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { t, Language } from '../i18n';
+import { API_BASE_URL } from '../config';
 
 interface GuideAssistantWidgetProps {
     onOpenRegisterSchool?: () => void;
@@ -186,7 +187,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
         ]);
     };
 
-    const handleSendCustomMessage = (e?: React.FormEvent) => {
+    const handleSendCustomMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!input.trim()) return;
 
@@ -194,33 +195,42 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
         setInput('');
 
         const newMsg: Message = { id: Date.now().toString(), sender: 'user', text: userText };
-        setMessages((prev) => [...prev, newMsg]);
+        
+        // Optimistic UI update
+        const updatedMessages = [...messages, newMsg];
+        setMessages(updatedMessages);
 
-        // Analyse automatisée de la question
-        setTimeout(() => {
-            const lower = userText.toLowerCase();
-            let replyText = 'Je suis là pour vous guider ! Souhaitez-vous créer un compte école ou vous connecter ?';
-            let options: { label: string; action: () => void }[] = [];
+        // Add loading message
+        const loadingId = (Date.now() + 1).toString();
+        setMessages((prev) => [...prev, { id: loadingId, sender: 'bot', text: '...' }]);
 
-            if (lower.includes('tarif') || lower.includes('prix') || lower.includes('pay') || lower.includes('gratuit') || lower.includes('coût')) {
-                replyText = 'L\'inscription et l\'essai pendant 30 jours sont 100% gratuits ! Aucune carte bancaire n\'est requise lors de votre inscription.';
-                options = [{ label: '🚀 Tester gratuitement 30 jours', action: () => { setIsOpen(false); onOpenRegisterSchool?.(); } }];
-            } else if (lower.includes('parent') || lower.includes('enfant') || lower.includes('élève') || lower.includes('bulletin')) {
-                replyText = 'En tant que parent, vous pouvez consulter les notes et bulletins de vos enfants depuis votre espace dédié.';
-                options = [{ label: '✍️ S\'inscrire comme Parent', action: () => { setIsOpen(false); onOpenRegisterParent?.(); } }];
-            } else if (lower.includes('école') || lower.includes('directeur') || lower.includes('inscrire') || lower.includes('créer')) {
-                replyText = 'Vous pouvez enregistrer votre établissement scolaire en moins de 2 minutes et commencer à gérer vos classes immédiatement.';
-                options = [{ label: '🏫 Créer mon établissement', action: () => { setIsOpen(false); onOpenRegisterSchool?.(); } }];
-            } else if (lower.includes('connexion') || lower.includes('connecter') || lower.includes('login')) {
-                replyText = 'Vous pouvez vous connecter avec votre identifiant (Numéro de téléphone ou Email) et votre mot de passe.';
-                options = [{ label: '🔑 Se connecter', action: () => { setIsOpen(false); onOpenLogin?.(); } }];
-            }
-
-            setMessages((prev) => [
-                ...prev,
-                { id: Date.now().toString(), sender: 'bot', text: replyText, options }
-            ]);
-        }, 500);
+        try {
+            const res = await fetch(`${API_BASE_URL}/assistant/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: updatedMessages })
+            });
+            const data = await res.json();
+            
+            // Remove loading and add response
+            setMessages((prev) => {
+                const withoutLoading = prev.filter(m => m.id !== loadingId);
+                return [...withoutLoading, { 
+                    id: (Date.now() + 2).toString(), 
+                    sender: 'bot', 
+                    text: data.reply || "Une erreur est survenue." 
+                }];
+            });
+        } catch (error) {
+            setMessages((prev) => {
+                const withoutLoading = prev.filter(m => m.id !== loadingId);
+                return [...withoutLoading, { 
+                    id: (Date.now() + 2).toString(), 
+                    sender: 'bot', 
+                    text: "Je rencontre actuellement un problème technique." 
+                }];
+            });
+        }
     };
 
     return (

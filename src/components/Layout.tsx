@@ -15,6 +15,7 @@ import {
 import { SupportModal } from './SupportModal';
 import { chatApi } from '../services/chatApi';
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
+import { PrivateAssistantWidget } from './PrivateAssistantWidget';
 
 // ── Hook pour détection taille fenêtre (réactif) ──
 const useIsDesktop = () => {
@@ -619,6 +620,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
       </nav>
 
+      <PrivateAssistantWidget />
       <SupportModal isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} onSelect={handleStartChat} />
       <PrivacyPolicyModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} />
     </div>
