@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory, Resource, Payroll, Personnel, EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
 import { API_BASE_URL } from '../config';
-import { getEcolage, getCycle, getDefaultClassesForCountry, CLASS_CONFIG_FR } from '../data/classConfig';
+import { getEcolage, getCycle, getDefaultClasses, CLASS_CONFIG_FR } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
 import { createActivityLog } from '../utils/activityLogger';
 import { Language, getStoredLanguage } from '../i18n';
@@ -1217,7 +1217,7 @@ export const useStore = create<AppState>()(
                 messageRemerciement: appSettings.messageRemerciement || '',
                 messageRappel: appSettings.messageRappel || '',
                 tranches: appSettings.tranches || [],
-                classes: appSettings.classes || getDefaultClassesForCountry(appSettings.schoolCountry || get().user?.schoolCountry),
+                classes: appSettings.classes || getDefaultClasses(get().language, appSettings.schoolCountry || get().user?.schoolCountry),
                 settings: {
                   ...get().settings,
                   appName: appSettings.appName || 'YZIOW',

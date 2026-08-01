@@ -67,7 +67,12 @@ export const CLASS_CONFIG = CLASS_CONFIG_FR;
 
 const ANGLOPHONE_COUNTRIES = ['GH', 'NG', 'LR', 'SL', 'GM', 'US', 'GB', 'CA', 'AU', 'NZ', 'ZA', 'KE', 'UG', 'TZ', 'RW', 'ZM', 'ZW'];
 
-export function getDefaultClassesForCountry(countryCode?: string | null): ClassConfig[] {
+export function getDefaultClasses(language?: string | null, countryCode?: string | null): ClassConfig[] {
+  // 1. Priorité absolue à la langue de l'interface
+  if (language && language.startsWith('en')) {
+    return CLASS_CONFIG_EN;
+  }
+  // 2. Si la langue n'est pas claire, on regarde le pays
   if (countryCode && ANGLOPHONE_COUNTRIES.includes(countryCode.toUpperCase())) {
     return CLASS_CONFIG_EN;
   }
@@ -88,19 +93,19 @@ const normalize = (s: string): string => {
   return n;
 };
 
-export const getClassConfig = (className: string, countryCode?: string): ClassConfig | undefined => {
+export const getClassConfig = (className: string, language?: string | null, countryCode?: string | null): ClassConfig | undefined => {
   const key = normalize(className);
-  const configs = getDefaultClassesForCountry(countryCode);
+  const configs = getDefaultClasses(language, countryCode);
   // On priorise la correspondance exacte (normalisée)
   return configs.find((c) => normalize(c.name) === key);
 };
 
-export const getEcolage = (className: string, countryCode?: string): number => {
-  const config = getClassConfig(className, countryCode);
+export const getEcolage = (className: string, language?: string | null, countryCode?: string | null): number => {
+  const config = getClassConfig(className, language, countryCode);
   return config ? config.ecolage : 60000;
 };
 
-export const getCycle = (className: string, countryCode?: string): Cycle => {
-  const config = getClassConfig(className, countryCode);
-  return config ? config.cycle : (countryCode && ANGLOPHONE_COUNTRIES.includes(countryCode.toUpperCase()) ? 'Primary School' : 'Primaire');
+export const getCycle = (className: string, language?: string | null, countryCode?: string | null): Cycle => {
+  const config = getClassConfig(className, language, countryCode);
+  return config ? config.cycle : ((language?.startsWith('en') || (countryCode && ANGLOPHONE_COUNTRIES.includes(countryCode.toUpperCase()))) ? 'Primary School' : 'Primaire');
 };
