@@ -1602,7 +1602,7 @@ export const fr = {
     "suspended": "Suspendu",
     "createError": "Erreur création",
     "createSchool": "Créer un nouvel établissement",
-    "createSchoolDesc": "L'école bénéficiera de 2 mois d'essai gratuit",
+    "createSchoolDesc": "L'école bénéficiera de 14 jours d'essai gratuit",
     "schoolInfo": "Informations de l'école",
     "schoolName": "Nom de l'établissement",
     "schoolNamePlaceholder": "ex: Lycée Excellence Lomé",

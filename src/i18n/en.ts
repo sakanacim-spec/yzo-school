@@ -1598,7 +1598,7 @@ export const en = {
     "suspended": "Suspended",
     "createError": "Creation error",
     "createSchool": "Create a new establishment",
-    "createSchoolDesc": "The school will benefit from a 2-month free trial",
+    "createSchoolDesc": "The school will benefit from a 14-day free trial",
     "schoolInfo": "School information",
     "schoolName": "Name of establishment",
     "schoolNamePlaceholder": "ex: Lycée Excellence Lomé",

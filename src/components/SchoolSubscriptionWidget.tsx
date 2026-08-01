@@ -4,7 +4,7 @@ import {
   Download, ArrowRight, Wallet, Percent, ChevronRight, Award, FileText
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { getCountryCurrencyInfo, formatCurrencyAmount } from '../data/countries';
+import { getCountryCurrencyInfo, formatSubscriptionCurrencyAmount } from '../data/countries';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -239,7 +239,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
               <p className="text-2xl font-black text-white">{effectiveBreakdown.maternelle_primaire} <span className="text-xs text-slate-400 font-normal">élèves</span></p>
               <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
             </div>
-            <p className="font-extrabold text-blue-400 text-sm">{formatCurrencyAmount(monthlyPrimaire, countryCode)}/mois</p>
+            <p className="font-extrabold text-blue-400 text-sm">{formatSubscriptionCurrencyAmount(monthlyPrimaire, countryCode)}/mois</p>
           </div>
         </div>
 
@@ -253,7 +253,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
               <p className="text-2xl font-black text-white">{effectiveBreakdown.college_secondaire} <span className="text-xs text-slate-400 font-normal">élèves</span></p>
               <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
             </div>
-            <p className="font-extrabold text-purple-400 text-sm">{formatCurrencyAmount(monthlySecondaire, countryCode)}/mois</p>
+            <p className="font-extrabold text-purple-400 text-sm">{formatSubscriptionCurrencyAmount(monthlySecondaire, countryCode)}/mois</p>
           </div>
         </div>
 
@@ -267,7 +267,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
               <p className="text-2xl font-black text-white">{effectiveBreakdown.superieur_formation} <span className="text-xs text-slate-400 font-normal">étudiants</span></p>
               <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
             </div>
-            <p className="font-extrabold text-emerald-400 text-sm">{formatCurrencyAmount(monthlySuperieur, countryCode)}/mois</p>
+            <p className="font-extrabold text-emerald-400 text-sm">{formatSubscriptionCurrencyAmount(monthlySuperieur, countryCode)}/mois</p>
           </div>
         </div>
       </div>
@@ -321,10 +321,10 @@ export const SchoolSubscriptionWidget: React.FC = () => {
                   <Sparkles className="w-3 h-3 text-amber-300" />
                   Bonus Remise -10% Appliqué
                 </span>
-                <span className="text-xs text-slate-400 line-through">{formatCurrencyAmount(totalAnnualFcfa, countryCode)}</span>
+                <span className="text-xs text-slate-400 line-through">{formatSubscriptionCurrencyAmount(totalAnnualFcfa, countryCode)}</span>
               </div>
-              <h5 className="text-3xl font-black text-white">{formatCurrencyAmount(finalAnnualFcfa, countryCode)} <span className="text-xs text-slate-300 font-normal">/ an (10 mois)</span></h5>
-              <p className="text-xs text-blue-200 opacity-90">Économie immédiate de {formatCurrencyAmount(annualBonusFcfa, countryCode)} pour règlement comptant.</p>
+              <h5 className="text-3xl font-black text-white">{formatSubscriptionCurrencyAmount(finalAnnualFcfa, countryCode)} <span className="text-xs text-slate-300 font-normal">/ an (10 mois)</span></h5>
+              <p className="text-xs text-blue-200 opacity-90">Économie immédiate de {formatSubscriptionCurrencyAmount(annualBonusFcfa, countryCode)} pour règlement comptant.</p>
             </div>
 
             <button
@@ -350,7 +350,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
         ) : (
           /* Option B : Paiement par Tranches */
           <div className="space-y-4">
-            <p className="text-xs text-slate-300 font-medium">3 Tranches d'un montant de <span className="font-bold text-blue-300">{formatCurrencyAmount(trancheAmountFcfa, countryCode)}</span> chacune :</p>
+            <p className="text-xs text-slate-300 font-medium">3 Tranches d'un montant de <span className="font-bold text-blue-300">{formatSubscriptionCurrencyAmount(trancheAmountFcfa, countryCode)}</span> chacune :</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[1, 2, 3].map((tNum) => {
                 const isPaid = paidTranches.includes(tNum);
@@ -368,7 +368,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
                         <span className="text-xs font-bold uppercase">Tranche N°{tNum}</span>
                         {isPaid && <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-md text-[10px] font-black">RÉGLÉ ✅</span>}
                       </div>
-                      <p className="text-lg font-black">{formatCurrencyAmount(trancheAmountFcfa, countryCode)}</p>
+                      <p className="text-lg font-black">{formatSubscriptionCurrencyAmount(trancheAmountFcfa, countryCode)}</p>
                     </div>
 
                     <button

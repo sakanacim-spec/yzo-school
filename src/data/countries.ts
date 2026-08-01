@@ -64,6 +64,42 @@ export function formatCurrencyAmount(amountFcfa: number, countryCode?: string): 
   return `${info.symbol} ${localAmount.toFixed(2)}`;
 }
 
+// ---------------------------------------------------------------------------
+// REGIONAL PRICING FOR SUBSCRIPTIONS (PPP Pricing)
+// ---------------------------------------------------------------------------
+export function formatSubscriptionCurrencyAmount(amountFcfa: number, countryCode?: string): string {
+  const code = (countryCode || 'TG').toUpperCase();
+  const info = getCountryCurrencyInfo(code);
+  
+  const WESTERN_COUNTRIES = [
+    'US', 'CA', 'FR', 'BE', 'DE', 'IT', 'ES', 'PT', 'NL', 'AT', 'IE', 'FI', 'GR', 
+    'LU', 'MT', 'CY', 'EE', 'LV', 'LT', 'SK', 'SI', 'MC', 'AD', 'SM', 'VA', 'GB', 
+    'AU', 'NZ', 'CH'
+  ];
+  const XOF_XAF = ['BJ', 'TG', 'CI', 'BF', 'SN', 'ML', 'NE', 'CM', 'GA', 'CG', 'TD', 'CF', 'GQ', 'GW'];
+
+  if (WESTERN_COUNTRIES.includes(code)) {
+    // Occident : 100 FCFA -> 1.00 USD/EUR
+    const westernAmount = amountFcfa / 100;
+    return `${info.symbol} ${westernAmount.toFixed(2)}`;
+  } else if (!XOF_XAF.includes(code)) {
+    // Reste du monde (Nigeria, Maghreb, etc.) : 100 FCFA -> ~0.50 USD équivalent
+    const amountInUsd = (amountFcfa / 100) * 0.50;
+    // Conversion USD -> Devise locale (1 USD = ~606 FCFA)
+    const amountInFcfaRef = amountInUsd * 606; 
+    const localAmount = amountInFcfaRef * info.exchangeRateFromFCFA;
+    
+    if (info.currency === 'GNF' || info.currency === 'NGN') {
+      return `${Math.round(localAmount).toLocaleString('fr-FR')} ${info.symbol}`;
+    }
+    return `${info.symbol} ${localAmount.toFixed(2)}`;
+  }
+  
+  // Zone FCFA par défaut
+  const localAmount = amountFcfa * info.exchangeRateFromFCFA;
+  return `${Math.round(localAmount).toLocaleString('fr-FR')} ${info.symbol}`;
+}
+
 export const COUNTRIES: Country[] = [
   { code: 'AF', name_fr: 'Afghanistan', name_en: 'Afghanistan', dialCode: '+93', flag: '🇦🇫' },
   { code: 'ZA', name_fr: 'Afrique du Sud', name_en: 'South Africa', dialCode: '+27', flag: '🇿🇦' },

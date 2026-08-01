@@ -115,13 +115,13 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
 
         if (role === 'director') {
             userLabel = isEn ? '🏫 I am a School Director' : isAr ? '🏫 أنا مدير مدرسة' : isEs ? '🏫 Soy Director de Escuela' : '🏫 Je suis Directeur d\'école';
-            botResponse = isEn ? 'Excellent! With Yziow, you can manage your school from A to Z (PDF report cards, fees, QR code attendance).\n\nYou get a 30-day free trial!' :
-                          isAr ? 'ممتاز! مع Yziow، يمكنك إدارة مدرستك من الألف إلى الياء (الشهادات، الرسوم، الحضور).\n\nتحصل على نسخة تجريبية مجانية لمدة 30 يومًا!' :
-                          isEs ? '¡Excelente! Con Yziow, puedes administrar tu escuela de la A a la Z.\n\n¡Obtienes una prueba gratuita de 30 días!' :
-                          'Excellente démarche ! Avec Yziow, vous pouvez gérer votre école de A à Z (bulletins PDF officiels, gestion des frais, présences QR code).\n\nVous bénéficiez de 30 jours d\'essai gratuit sans engagement !';
+            botResponse = isEn ? 'Excellent! With Yziow, you can manage your school from A to Z (PDF report cards, fees, QR code attendance).\n\nYou get a 14-day free trial!' :
+                          isAr ? 'ممتاز! مع Yziow، يمكنك إدارة مدرستك من الألف إلى الياء (الشهادات، الرسوم، الحضور).\n\nتحصل على نسخة تجريبية مجانية لمدة 14 يومًا!' :
+                          isEs ? '¡Excelente! Con Yziow, puedes administrar tu escuela de la A a la Z.\n\n¡Obtienes una prueba gratuita de 14 días!' :
+                          'Excellente démarche ! Avec Yziow, vous pouvez gérer votre école de A à Z (bulletins PDF officiels, gestion des frais, présences QR code).\n\nVous bénéficiez de 14 jours d\'essai gratuit sans engagement !';
             options = [
                 {
-                    label: isEn ? '🚀 Create my school (30d free)' : isAr ? '🚀 إنشاء مدرستي (30 يوم مجانا)' : isEs ? '🚀 Crear mi escuela (30d gratis)' : '🚀 Créer mon école (30j gratuits)',
+                    label: isEn ? '🚀 Create my school (14d free)' : isAr ? '🚀 إنشاء مدرستي (14 يوم مجانا)' : isEs ? '🚀 Crear mi escuela (14d gratis)' : '🚀 Créer mon école (14j gratuits)',
                     action: () => { setIsOpen(false); onOpenRegisterSchool?.(); }
                 },
                 {
