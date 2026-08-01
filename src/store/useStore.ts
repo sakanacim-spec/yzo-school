@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory, Resource, Payroll, Personnel, EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
 import { API_BASE_URL } from '../config';
-import { getEcolage, getCycle, CLASS_CONFIG } from '../data/classConfig';
+import { getEcolage, getCycle, getDefaultClassesForCountry, CLASS_CONFIG_FR } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
 import { createActivityLog } from '../utils/activityLogger';
 import { Language, getStoredLanguage } from '../i18n';
@@ -356,7 +356,7 @@ export const useStore = create<AppState>()(
           syncToBackend(get()).then(() => set({ lastSyncTimestamp: Date.now() }));
         });
       },
-      classes: CLASS_CONFIG,
+      classes: CLASS_CONFIG_FR,
       setClasses: (classes) => {
         set({ classes });
         import('../services/backendSync').then(({ syncToBackend }) => {
@@ -819,7 +819,7 @@ export const useStore = create<AppState>()(
         badgeParentResponsable: 'Parent Responsable',
         badge2emeTranche: '2ème Tranche Validée',
         tranches: [],
-        classes: CLASS_CONFIG,
+        classes: CLASS_CONFIG_FR,
         bulletinTemplate: 'officiel',
         bulletinShowPhoto: true,
         bulletinShowRank: true,
@@ -1217,7 +1217,7 @@ export const useStore = create<AppState>()(
                 messageRemerciement: appSettings.messageRemerciement || '',
                 messageRappel: appSettings.messageRappel || '',
                 tranches: appSettings.tranches || [],
-                classes: appSettings.classes || CLASS_CONFIG,
+                classes: appSettings.classes || getDefaultClassesForCountry(appSettings.schoolCountry || get().user?.schoolCountry),
                 settings: {
                   ...get().settings,
                   appName: appSettings.appName || 'YZIOW',
@@ -1651,7 +1651,7 @@ export const useStore = create<AppState>()(
         receiptCounter: state.receiptCounter || 0,
         cycleSchedules: state.cycleSchedules || [],
         tranches: state.tranches || [],
-        classes: state.classes || CLASS_CONFIG,
+        classes: state.classes || CLASS_CONFIG_FR,
         announcements: state.announcements || [],
         announcementReads: state.announcementReads || [],
         currentPeriode: state.currentPeriode || 'TRIMESTRE 1',

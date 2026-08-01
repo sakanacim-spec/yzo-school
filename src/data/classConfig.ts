@@ -3,7 +3,7 @@
 // ============================================================
 import { ClassConfig, Cycle } from '../types';
 
-export const CLASS_CONFIG: ClassConfig[] = [
+export const CLASS_CONFIG_FR: ClassConfig[] = [
   // Primaire — 50 000 FCFA
   { name: 'CP1', cycle: 'Primaire', ecolage: 50000 },
   { name: 'CP2', cycle: 'Primaire', ecolage: 50000 },
@@ -38,6 +38,42 @@ export const CLASS_CONFIG: ClassConfig[] = [
   { name: 'Tle D',  cycle: 'Lycée', ecolage: 95000 },
 ];
 
+export const CLASS_CONFIG_EN: ClassConfig[] = [
+  // Kindergarten — 55 000 FCFA equiv
+  { name: 'Kindergarten 1', cycle: 'Kindergarten', ecolage: 55000 },
+  { name: 'Kindergarten 2', cycle: 'Kindergarten', ecolage: 55000 },
+
+  // Primary School — 50 000 FCFA equiv
+  { name: 'Grade 1', cycle: 'Primary School', ecolage: 50000 },
+  { name: 'Grade 2', cycle: 'Primary School', ecolage: 50000 },
+  { name: 'Grade 3', cycle: 'Primary School', ecolage: 50000 },
+  { name: 'Grade 4', cycle: 'Primary School', ecolage: 50000 },
+  { name: 'Grade 5', cycle: 'Primary School', ecolage: 50000 },
+  { name: 'Grade 6', cycle: 'Primary School', ecolage: 50000 },
+
+  // Middle School — 60 000 FCFA equiv
+  { name: 'Grade 7', cycle: 'Middle School', ecolage: 60000 },
+  { name: 'Grade 8', cycle: 'Middle School', ecolage: 60000 },
+  { name: 'Grade 9', cycle: 'Middle School', ecolage: 60000 },
+
+  // High School — 80 000 FCFA equiv
+  { name: 'Grade 10', cycle: 'High School', ecolage: 80000 },
+  { name: 'Grade 11', cycle: 'High School', ecolage: 80000 },
+  { name: 'Grade 12', cycle: 'High School', ecolage: 80000 },
+];
+
+// Fallback legacy (used if needed)
+export const CLASS_CONFIG = CLASS_CONFIG_FR;
+
+const ANGLOPHONE_COUNTRIES = ['GH', 'NG', 'LR', 'SL', 'GM', 'US', 'GB', 'CA', 'AU', 'NZ', 'ZA', 'KE', 'UG', 'TZ', 'RW', 'ZM', 'ZW'];
+
+export function getDefaultClassesForCountry(countryCode?: string | null): ClassConfig[] {
+  if (countryCode && ANGLOPHONE_COUNTRIES.includes(countryCode.toUpperCase())) {
+    return CLASS_CONFIG_EN;
+  }
+  return CLASS_CONFIG_FR;
+}
+
 // Normalise pour la recherche flexible (essentiel pour Excel)
 const normalize = (s: string): string => {
   if (!s) return '';
@@ -52,18 +88,19 @@ const normalize = (s: string): string => {
   return n;
 };
 
-export const getClassConfig = (className: string): ClassConfig | undefined => {
+export const getClassConfig = (className: string, countryCode?: string): ClassConfig | undefined => {
   const key = normalize(className);
+  const configs = getDefaultClassesForCountry(countryCode);
   // On priorise la correspondance exacte (normalisée)
-  return CLASS_CONFIG.find((c) => normalize(c.name) === key);
+  return configs.find((c) => normalize(c.name) === key);
 };
 
-export const getEcolage = (className: string): number => {
-  const config = getClassConfig(className);
+export const getEcolage = (className: string, countryCode?: string): number => {
+  const config = getClassConfig(className, countryCode);
   return config ? config.ecolage : 60000;
 };
 
-export const getCycle = (className: string): Cycle => {
-  const config = getClassConfig(className);
-  return config ? config.cycle : 'Primaire';
+export const getCycle = (className: string, countryCode?: string): Cycle => {
+  const config = getClassConfig(className, countryCode);
+  return config ? config.cycle : (countryCode && ANGLOPHONE_COUNTRIES.includes(countryCode.toUpperCase()) ? 'Primary School' : 'Primaire');
 };
