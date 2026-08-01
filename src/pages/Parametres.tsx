@@ -22,7 +22,6 @@ export const Parametres: React.FC = () => {
   const schoolLogo = useStore((s) => s.schoolLogo);
   const schoolStamp = useStore((s) => s.schoolStamp);
   const user = useStore((s) => s.user);
-  const storeClassesRaw = useStore((s) => s.classes);
   const language = useStore((s) => s.language);
 
   const bulletinTemplate = useStore((s) => s.settings?.bulletinTemplate ?? 'officiel');
