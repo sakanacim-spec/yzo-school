@@ -37,7 +37,7 @@ const formatHistory = (messages) => {
 
 const chatWithAssistant = async (req, res) => {
     try {
-        const { messages } = req.body; 
+        const { messages, language = 'fr' } = req.body; 
 
         if (!messages || !Array.isArray(messages)) {
             return res.status(400).json({ error: "Le tableau 'messages' est requis." });
@@ -51,11 +51,12 @@ const chatWithAssistant = async (req, res) => {
         }
         
         const history = formatHistory(messages);
+        const dynamicPrompt = `${SYSTEM_PROMPT}\n\nIMPORTANT: L'utilisateur utilise actuellement l'interface dans la langue '${language}'. Tu dois OBLIGATOIREMENT formuler toutes tes réponses dans cette langue, tout en gardant un ton naturel et courtois.`;
 
         const response = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
             messages: [
-                { role: "system", content: SYSTEM_PROMPT },
+                { role: "system", content: dynamicPrompt },
                 ...history
             ],
             temperature: 0.5,

@@ -52,34 +52,48 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
     }, []);
 
     const initWelcomeMessages = () => {
+        const isEn = language?.startsWith('en');
+        const isAr = language?.startsWith('ar');
+        const isEs = language?.startsWith('es');
+
+        const tWelcome = isEn ? 'Hello ! 👋 Welcome to Yziow. I am your virtual assistant.' :
+                         isAr ? 'مرحباً ! 👋 مرحبًا بك في Yziow. أنا مساعدك الافتراضي.' :
+                         isEs ? '¡Hola ! 👋 Bienvenido a Yziow. Soy tu asistente virtual.' :
+                         'Bonjour ! 👋 Bienvenue sur Yziow. Je suis votre assistant virtuel.';
+        
+        const tProfile = isEn ? 'To guide you properly, please tell me your profile :' :
+                         isAr ? 'لتوجيهك بشكل صحيح، أخبرني ما هو ملفك الشخصي :' :
+                         isEs ? 'Para guiarte bien, dime cuál es tu perfil :' :
+                         'Pour bien vous orienter, dites-moi quel est votre profil :';
+
         setMessages([
             {
                 id: 'welcome-1',
                 sender: 'bot',
-                text: 'Bonjour ! 👋 Bienvenue sur Yziow. Je suis votre assistant virtuel.',
+                text: tWelcome,
             },
             {
                 id: 'welcome-2',
                 sender: 'bot',
-                text: 'Pour bien vous orienter, dites-moi quel est votre profil :',
+                text: tProfile,
                 options: [
                     {
-                        label: '🏫 Je suis Directeur / Établissement',
+                        label: isEn ? '🏫 I am a School Director' : isAr ? '🏫 أنا مدير مدرسة' : isEs ? '🏫 Soy Director de Escuela' : '🏫 Je suis Directeur / Établissement',
                         icon: <Building2 className="w-4 h-4 text-blue-600" />,
                         action: () => handleRoleSelect('director')
                     },
                     {
-                        label: '👨‍👩‍👧 Je suis un Parent d\'élève',
+                        label: isEn ? '👨‍👩‍👧 I am a Parent' : isAr ? '👨‍👩‍👧 أنا ولي أمر' : isEs ? '👨‍👩‍👧 Soy un Padre' : '👨‍👩‍👧 Je suis un Parent d\'élève',
                         icon: <Users className="w-4 h-4 text-emerald-600" />,
                         action: () => handleRoleSelect('parent')
                     },
                     {
-                        label: '👨‍🏫 Je suis Enseignant ou Élève',
+                        label: isEn ? '👨‍🏫 I am a Teacher or Student' : isAr ? '👨‍🏫 أنا معلم أو طالب' : isEs ? '👨‍🏫 Soy Profesor o Estudiante' : '👨‍🏫 Je suis Enseignant ou Élève',
                         icon: <GraduationCap className="w-4 h-4 text-purple-600" />,
                         action: () => handleRoleSelect('teacher')
                     },
                     {
-                        label: '❓ Découvrir les fonctionnalités & Tarifs',
+                        label: isEn ? '❓ Features & Pricing' : isAr ? '❓ الميزات والأسعار' : isEs ? '❓ Funciones y Precios' : '❓ Découvrir les fonctionnalités & Tarifs',
                         icon: <Sparkles className="w-4 h-4 text-amber-500" />,
                         action: () => handleRoleSelect('info')
                     }
@@ -89,94 +103,79 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
     };
 
     const handleRoleSelect = (role: 'director' | 'parent' | 'teacher' | 'info') => {
+        const isEn = language?.startsWith('en');
+        const isAr = language?.startsWith('ar');
+        const isEs = language?.startsWith('es');
+
         let userLabel = '';
         let botResponse = '';
         let options: { label: string; action: () => void; icon?: React.ReactNode }[] = [];
 
+        const tBack = isEn ? '⬅️ Back to main menu' : isAr ? '⬅️ العودة للقائمة الرئيسية' : isEs ? '⬅️ Volver al menú' : '⬅️ Retour au menu principal';
+
         if (role === 'director') {
-            userLabel = '🏫 Je suis Directeur d\'école';
-            botResponse = 'Excellente démarche ! Avec Yziow, vous pouvez gérer votre école de A à Z (bulletins PDF officiels, gestion des frais, présences QR code).\n\nVous bénéficiez de 30 jours d\'essai gratuit sans engagement !';
+            userLabel = isEn ? '🏫 I am a School Director' : isAr ? '🏫 أنا مدير مدرسة' : isEs ? '🏫 Soy Director de Escuela' : '🏫 Je suis Directeur d\'école';
+            botResponse = isEn ? 'Excellent! With Yziow, you can manage your school from A to Z (PDF report cards, fees, QR code attendance).\n\nYou get a 30-day free trial!' :
+                          isAr ? 'ممتاز! مع Yziow، يمكنك إدارة مدرستك من الألف إلى الياء (الشهادات، الرسوم، الحضور).\n\nتحصل على نسخة تجريبية مجانية لمدة 30 يومًا!' :
+                          isEs ? '¡Excelente! Con Yziow, puedes administrar tu escuela de la A a la Z.\n\n¡Obtienes una prueba gratuita de 30 días!' :
+                          'Excellente démarche ! Avec Yziow, vous pouvez gérer votre école de A à Z (bulletins PDF officiels, gestion des frais, présences QR code).\n\nVous bénéficiez de 30 jours d\'essai gratuit sans engagement !';
             options = [
                 {
-                    label: '🚀 Créer mon école (30j gratuits)',
-                    action: () => {
-                        setIsOpen(false);
-                        onOpenRegisterSchool?.();
-                    }
+                    label: isEn ? '🚀 Create my school (30d free)' : isAr ? '🚀 إنشاء مدرستي (30 يوم مجانا)' : isEs ? '🚀 Crear mi escuela (30d gratis)' : '🚀 Créer mon école (30j gratuits)',
+                    action: () => { setIsOpen(false); onOpenRegisterSchool?.(); }
                 },
                 {
-                    label: '🔑 Se connecter à mon espace',
-                    action: () => {
-                        setIsOpen(false);
-                        onOpenLogin?.();
-                    }
+                    label: isEn ? '🔑 Login to my space' : isAr ? '🔑 تسجيل الدخول' : isEs ? '🔑 Iniciar sesión' : '🔑 Se connecter à mon espace',
+                    action: () => { setIsOpen(false); onOpenLogin?.(); }
                 },
-                {
-                    label: '⬅️ Retour au menu principal',
-                    action: () => initWelcomeMessages()
-                }
+                { label: tBack, action: () => initWelcomeMessages() }
             ];
         } else if (role === 'parent') {
-            userLabel = '👨‍👩‍👧 Je suis un Parent';
-            botResponse = 'Bienvenue ! En tant que parent, Yziow vous permet de suivre en temps réel les notes de votre enfant, ses présences et de recevoir ses bulletins sur votre téléphone.';
+            userLabel = isEn ? '👨‍👩‍👧 I am a Parent' : isAr ? '👨‍👩‍👧 أنا ولي أمر' : isEs ? '👨‍👩‍👧 Soy un Padre' : '👨‍👩‍👧 Je suis un Parent';
+            botResponse = isEn ? 'Welcome! As a parent, Yziow allows you to track your child\'s grades, attendance, and receive report cards on your phone.' :
+                          isAr ? 'مرحباً! بصفتك ولي أمر، يتيح لك Yziow تتبع درجات طفلك وحضوره وتلقي الشهادات على هاتفك.' :
+                          isEs ? '¡Bienvenido! Como padre, Yziow te permite hacer un seguimiento de las notas de tu hijo, su asistencia y recibir boletines en tu teléfono.' :
+                          'Bienvenue ! En tant que parent, Yziow vous permet de suivre en temps réel les notes de votre enfant, ses présences et de recevoir ses bulletins sur votre téléphone.';
             options = [
                 {
-                    label: '✍️ S\'inscrire en tant que Parent',
-                    action: () => {
-                        setIsOpen(false);
-                        onOpenRegisterParent?.();
-                    }
+                    label: isEn ? '✍️ Register as a Parent' : isAr ? '✍️ التسجيل كولي أمر' : isEs ? '✍️ Registrarse como Padre' : '✍️ S\'inscrire en tant que Parent',
+                    action: () => { setIsOpen(false); onOpenRegisterParent?.(); }
                 },
                 {
-                    label: '🔑 Se connecter à mon compte Parent',
-                    action: () => {
-                        setIsOpen(false);
-                        onOpenLogin?.();
-                    }
+                    label: isEn ? '🔑 Login to my Parent account' : isAr ? '🔑 تسجيل الدخول' : isEs ? '🔑 Iniciar sesión' : '🔑 Se connecter à mon compte Parent',
+                    action: () => { setIsOpen(false); onOpenLogin?.(); }
                 },
-                {
-                    label: '⬅️ Retour au menu principal',
-                    action: () => initWelcomeMessages()
-                }
+                { label: tBack, action: () => initWelcomeMessages() }
             ];
         } else if (role === 'teacher') {
-            userLabel = '👨‍🏫 Je suis Enseignant / Élève';
-            botResponse = 'Votre compte est créé directement par l\'administration de votre établissement. Vous pouvez utiliser vos identifiants pour accéder à vos cours et notes.';
+            userLabel = isEn ? '👨‍🏫 I am a Teacher / Student' : isAr ? '👨‍🏫 أنا معلم / طالب' : isEs ? '👨‍🏫 Soy Profesor / Estudiante' : '👨‍🏫 Je suis Enseignant / Élève';
+            botResponse = isEn ? 'Your account is created directly by your school\'s administration. You can use your credentials to access your courses and grades.' :
+                          isAr ? 'يتم إنشاء حسابك مباشرة من قبل إدارة مدرستك. يمكنك استخدام بيانات الاعتماد الخاصة بك للوصول إلى دوراتك ودرجاتك.' :
+                          isEs ? 'Tu cuenta es creada directamente por la administración de tu escuela. Puedes utilizar tus credenciales para acceder a tus cursos y notas.' :
+                          'Votre compte est créé directement par l\'administration de votre établissement. Vous pouvez utiliser vos identifiants pour accéder à vos cours et notes.';
             options = [
                 {
-                    label: '🔑 Accéder à la page de connexion',
-                    action: () => {
-                        setIsOpen(false);
-                        onOpenLogin?.();
-                    }
+                    label: isEn ? '🔑 Go to login page' : isAr ? '🔑 صفحة تسجيل الدخول' : isEs ? '🔑 Ir a la página de inicio de sesión' : '🔑 Accéder à la page de connexion',
+                    action: () => { setIsOpen(false); onOpenLogin?.(); }
                 },
-                {
-                    label: '⬅️ Retour au menu principal',
-                    action: () => initWelcomeMessages()
-                }
+                { label: tBack, action: () => initWelcomeMessages() }
             ];
         } else {
-            userLabel = '❓ Informations & Tarifs';
-            botResponse = 'Yziow propose :\n• Bulletins PDF certifiés & Calcul de moyennes\n• Scanner QR Code pour la présence des élèves\n• Gestion des reçus de scolarité & Comptabilité\n• Application multi-langue (FR, EN, ES, AR...)\n\nSouhaitez-vous commencer dès maintenant ?';
+            userLabel = isEn ? '❓ Features & Pricing' : isAr ? '❓ الميزات والأسعار' : isEs ? '❓ Funciones y Precios' : '❓ Informations & Tarifs';
+            botResponse = isEn ? 'Yziow offers:\n• Certified PDF report cards\n• QR Code scanner for attendance\n• Fees & Accounting management\n• Multi-language App\n\nWould you like to start now?' :
+                          isAr ? 'يقدم Yziow:\n• شهادات PDF معتمدة\n• ماسح ضوئي لرمز QR للحضور\n• إدارة الرسوم والمحاسبة\n• تطبيق متعدد اللغات\n\nهل ترغب في البدء الآن؟' :
+                          isEs ? 'Yziow ofrece:\n• Boletines PDF certificados\n• Escáner QR para asistencia\n• Gestión de pagos y contabilidad\n• App multilingüe\n\n¿Quieres empezar ahora?' :
+                          'Yziow propose :\n• Bulletins PDF certifiés & Calcul de moyennes\n• Scanner QR Code pour la présence des élèves\n• Gestion des reçus de scolarité & Comptabilité\n• Application multi-langue (FR, EN, ES, AR...)\n\nSouhaitez-vous commencer dès maintenant ?';
             options = [
                 {
-                    label: '🏫 Inscrire mon école',
-                    action: () => {
-                        setIsOpen(false);
-                        onOpenRegisterSchool?.();
-                    }
+                    label: isEn ? '🏫 Register my school' : isAr ? '🏫 تسجيل مدرستي' : isEs ? '🏫 Registrar mi escuela' : '🏫 Inscrire mon école',
+                    action: () => { setIsOpen(false); onOpenRegisterSchool?.(); }
                 },
                 {
-                    label: '👨‍👩‍👧 Créer un compte Parent',
-                    action: () => {
-                        setIsOpen(false);
-                        onOpenRegisterParent?.();
-                    }
+                    label: isEn ? '👨‍👩‍👧 Create Parent account' : isAr ? '👨‍👩‍👧 إنشاء حساب ولي أمر' : isEs ? '👨‍👩‍👧 Crear cuenta de Padre' : '👨‍👩‍👧 Créer un compte Parent',
+                    action: () => { setIsOpen(false); onOpenRegisterParent?.(); }
                 },
-                {
-                    label: '⬅️ Retour au menu',
-                    action: () => initWelcomeMessages()
-                }
+                { label: tBack, action: () => initWelcomeMessages() }
             ];
         }
 
