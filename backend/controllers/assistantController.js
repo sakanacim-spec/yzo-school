@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+const Groq = require("groq-sdk");
 
 const SYSTEM_PROMPT = `Tu es l'Assistant Virtuel de la plateforme SaaS "Yziow".
 Ton rôle est d'orienter et d'aider les directeurs d'écoles, les parents d'élèves, et le personnel scolaire.
@@ -18,50 +18,51 @@ Règles de comportement :
 
 let aiClient = null;
 
+const getClient = () => {
+    if (!aiClient) {
+        if (!process.env.GROQ_API_KEY) {
+            throw new Error("GROQ_API_KEY is missing");
+        }
+        aiClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    }
+    return aiClient;
+};
+
+const formatHistory = (messages) => {
+    return messages.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.text || ""
+    }));
+};
+
 const chatWithAssistant = async (req, res) => {
     try {
-        const { messages } = req.body; // format attendu: [{ role: 'user'/'model', parts: [{ text: '...' }] }]
+        const { messages } = req.body; 
 
         if (!messages || !Array.isArray(messages)) {
             return res.status(400).json({ error: "Le tableau 'messages' est requis." });
         }
 
-        // Initialize API client lazily to avoid crashing on boot if API key is missing
-        if (!aiClient) {
-            if (!process.env.GEMINI_API_KEY) {
-                console.error("GEMINI_API_KEY is not set in environment variables.");
-                return res.status(503).json({ 
-                    error: "L'assistant intelligent est temporairement indisponible (Clé API manquante)." 
-                });
-            }
-            aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        let groq;
+        try {
+            groq = getClient();
+        } catch(e) {
+            return res.status(503).json({ error: "L'assistant intelligent est temporairement indisponible (Clé API manquante)." });
         }
+        
+        const history = formatHistory(messages);
 
-        // Format history for Gemini API. 
-        // We exclude the last message which is the current prompt.
-        const history = messages.slice(0, -1).map(msg => ({
-            role: msg.sender === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.text }]
-        }));
-        
-        const lastMessage = messages[messages.length - 1];
-        if (!lastMessage || !lastMessage.text) {
-             return res.status(400).json({ error: "Le message final est vide." });
-        }
-        
-        const response = await aiClient.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: [
-                ...history,
-                { role: 'user', parts: [{ text: lastMessage.text }] }
+        const response = await groq.chat.completions.create({
+            model: "llama-3.1-8b-instant",
+            messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                ...history
             ],
-            config: {
-                systemInstruction: SYSTEM_PROMPT,
-                temperature: 0.5,
-            }
+            temperature: 0.5,
+            max_tokens: 1024,
         });
 
-        const replyText = response.text || "Désolé, je n'ai pas pu générer de réponse.";
+        const replyText = response.choices[0]?.message?.content || "Désolé, je n'ai pas pu générer de réponse.";
         
         res.json({ reply: replyText });
 
@@ -71,6 +72,102 @@ const chatWithAssistant = async (req, res) => {
     }
 };
 
+const chatWithPrivateAssistant = async (req, res) => {
+    try {
+        const { messages, context } = req.body;
+        const userRole = req.user.role; 
+
+        if (!messages || !Array.isArray(messages)) {
+            return res.status(400).json({ error: "Le tableau 'messages' est requis." });
+        }
+
+        let groq;
+        try {
+            groq = getClient();
+        } catch(e) {
+             return res.status(503).json({ error: "Clé API Groq manquante." });
+        }
+
+        let systemInstruction = "";
+        if (userRole === 'superadmin') {
+            systemInstruction = `Tu es le conseiller stratégique exclusif du SuperAdmin (Propriétaire de Yziow).
+            Contexte global : ${context || 'Non fourni'}
+            Règles : 
+            1. Propose des stratégies pour maximiser les revenus SaaS (abonnements).
+            2. Garde un ton professionnel, analytique et direct.
+            3. Rédige des réponses concises.`;
+        } else if (['admin', 'directeur', 'directeur_general', 'comptable'].includes(userRole)) {
+            systemInstruction = `Tu es l'assistant personnel de gestion pour la direction de l'école.
+            Contexte de l'école : ${context || 'Non fourni'}
+            Règles : 
+            1. Aide à comprendre les finances, rédiger des lettres aux parents (relance de paiement, réunions).
+            2. Ton ton doit être très professionnel et encourageant.
+            3. Les modèles de textes (ex: SMS) doivent être courts et prêts à envoyer.`;
+        } else if (userRole === 'parent') {
+            systemInstruction = `Tu es un tuteur et assistant pour les parents d'élèves sur Yziow.
+            Contexte : ${context || 'Non fourni'}
+            Règles : 
+            1. Aide les parents à comprendre les notes de leurs enfants, donne des astuces de révision.
+            2. Sois extrêmement bienveillant et rassurant.
+            3. Rédige des réponses simples et courtes.`;
+        } else {
+            systemInstruction = `Tu es un assistant pédagogique pour le personnel de l'école (Professeur, Surveillant).
+            Contexte : ${context || 'Non fourni'}
+            Règles : 
+            1. Aide à concevoir des plans de cours, des devoirs, ou à analyser le comportement des élèves.
+            2. Fournis des astuces d'enseignement concrètes et bienveillantes.`;
+        }
+
+        const history = formatHistory(messages);
+
+        const response = await groq.chat.completions.create({
+            model: "llama-3.1-8b-instant",
+            messages: [
+                { role: "system", content: systemInstruction },
+                ...history
+            ],
+            temperature: 0.7,
+            max_tokens: 1024,
+        });
+
+        res.json({ reply: response.choices[0]?.message?.content || "Désolé, aucune réponse générée." });
+    } catch (error) {
+        console.error("Erreur avec l'assistant privé:", error);
+        res.status(500).json({ error: "Erreur technique de l'assistant privé." });
+    }
+};
+
+const generatePedagogicalFeedback = async (req, res) => {
+    try {
+        const { studentName, matiere, notes } = req.body;
+        
+        let groq;
+        try {
+            groq = getClient();
+        } catch(e) {
+             return res.status(503).json({ error: "Clé API Groq manquante." });
+        }
+
+        const prompt = `Génère une appréciation de bulletin scolaire très courte (1 ou 2 phrases maximum) pour l'élève ${studentName} dans la matière "${matiere}". 
+        Voici ses notes récentes : ${notes.join(', ')}. 
+        L'appréciation doit être professionnelle, encourageante si les notes sont basses, ou félicitante si elles sont hautes. Ne dis pas "Bonjour", donne uniquement le texte de l'appréciation directement exploitable sur un bulletin.`;
+
+        const response = await groq.chat.completions.create({
+            model: "llama-3.1-8b-instant",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.4,
+            max_tokens: 200,
+        });
+
+        res.json({ appreciation: response.choices[0]?.message?.content?.trim() || "Bon travail dans l'ensemble." });
+    } catch (error) {
+        console.error("Erreur génération appréciation:", error);
+        res.status(500).json({ error: "Erreur lors de la génération de l'appréciation." });
+    }
+};
+
 module.exports = {
-    chatWithAssistant
+    chatWithAssistant,
+    chatWithPrivateAssistant,
+    generatePedagogicalFeedback
 };
