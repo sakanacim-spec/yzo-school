@@ -171,6 +171,49 @@ async function fedapayWebhook(req, res) {
                         }
                     }
                 }
+            } else if (type === 'donation') {
+                // Gestion d'un don pour une école
+                const { campaignId, donationId } = metadata;
+                
+                // 1. Mettre à jour la donation
+                await supabase
+                    .from(`donations_${schoolSlug}`)
+                    .update({ status: 'completed' })
+                    .eq('id', donationId);
+
+                // 2. Mettre à jour le montant collecté de la campagne
+                const { data: campaign } = await supabase
+                    .from(`campaigns_${schoolSlug}`)
+                    .select('current_amount')
+                    .eq('id', campaignId)
+                    .single();
+                
+                if (campaign) {
+                    const newCurrentAmount = (Number(campaign.current_amount) || 0) + Number(amountPaid);
+                    await supabase
+                        .from(`campaigns_${schoolSlug}`)
+                        .update({ current_amount: newCurrentAmount })
+                        .eq('id', campaignId);
+                }
+                
+                // 3. Ajouter à platform_collected_amount pour que la plateforme garde la commission (si config)
+                // (Note: La commission de 5% est calculée au moment du reversement)
+                const { data: school } = await supabase
+                    .from('schools')
+                    .select('id, platform_collected_amount')
+                    .eq('slug', schoolSlug)
+                    .single();
+                
+                if (school) {
+                    const newCollected = (Number(school.platform_collected_amount) || 0) + Number(amountPaid);
+                    await supabase
+                        .from('schools')
+                        .update({ platform_collected_amount: newCollected })
+                        .eq('slug', schoolSlug);
+                }
+
+                console.log(`🎁 Don de ${amountPaid} FCFA validé pour la campagne ${campaignId} de ${schoolSlug}`);
+
             } else {
                 // 1. Récupérer l'élève (Paiement classique des parents)
                 const { data: student } = await supabase

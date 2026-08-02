@@ -48,9 +48,10 @@ app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/support', require('./routes/support'));
 app.use('/api/personnel', require('./routes/personnel'));
 app.use('/api/payment', require('./routes/payment'));
+app.use('/api/donations', require('./routes/donation')); // 🎁 Levée de fonds (Dons)
 app.use('/api/superadmin', require('./routes/superAdmin')); // 👑 Routes propriétaire SaaS
 app.use('/api/affiliate', require('./routes/affiliate')); // 🤝 Routes pour les apporteurs d'affaires
-app.use('/api/public', require('./routes/public')); // 🌐 Routes publiques (Formulaires)
+app.use('/api/public', require('./routes/public')); // 🌍 Routes publiques (Formulaires)
 
 // Route publique pour lister les écoles dans le login
 app.get('/api/schools', async (req, res) => {

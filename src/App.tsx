@@ -14,6 +14,7 @@ import { Careers } from './pages/public/Careers';
 import { LegalPage, LegalPageType } from './pages/public/LegalPage';
 import { GuideAssistantWidget } from './components/GuideAssistantWidget';
 import { SupportPage } from './pages/SupportPage';
+import { DonationPage } from './pages/public/DonationPage';
 
 // Lazy loading for pages to reduce initial bundle size
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -24,6 +25,7 @@ const Analyses = lazy(() => import('./pages/Analyses').then(m => ({ default: m.A
 const Documents = lazy(() => import('./pages/Documents').then(m => ({ default: m.Documents })));
 const Parametres = lazy(() => import('./pages/Parametres').then(m => ({ default: m.Parametres })));
 const Recouvrement = lazy(() => import('./pages/Recouvrement').then(m => ({ default: m.Recouvrement })));
+const Dons = lazy(() => import('./pages/Dons').then(m => ({ default: m.default })));
 const AffiliateLogin = lazy(() => import('./pages/affiliate/AffiliateLogin').then(m => ({ default: m.AffiliateLogin })));
 const AffiliateDashboard = lazy(() => import('./pages/affiliate/AffiliateDashboard').then(m => ({ default: m.AffiliateDashboard })));
 const ScanPresence = lazy(() => import('./pages/ScanPresence').then(m => ({ default: m.ScanPresence })));
@@ -87,6 +89,15 @@ const PageContent: React.FC = () => {
     }
   }
 
+  // Routes publiques (Dons)
+  if (window.location.pathname.startsWith('/d/')) {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <DonationPage />
+      </Suspense>
+    );
+  }
+
   if (user?.role === 'superviseur' || user?.role === 'surveillant') {
     const superviseurPages = ['scan_presence', 'scan_sortie', 'scan_information', 'carte_scolaire'];
     if (!superviseurPages.includes(currentPage as any)) {
@@ -103,6 +114,7 @@ const PageContent: React.FC = () => {
     case 'depenses': return <Depenses />;
     case 'documents': return <Documents />;
     case 'parametres': return <Parametres />;
+    case 'dons': return <Dons />;
     case 'scan_presence': return <ScanPresence />;
     case 'scan_sortie': return <ScanSortie />;
     case 'scan_information': return <ScanInformation />;

@@ -8,6 +8,7 @@ export const fr = {
     "parents_list": "Parents",
     "paiements": "Paiements",
     "recouvrement": "Recouvrement",
+    "dons": "Levée de Fonds & Dons",
     "depenses": "Dépenses",
     "scan_presence": "Scan Présence",
     "scan_sortie": "Scan Sortie",

@@ -5,6 +5,7 @@ export const en = {
     "parents_list": "Parents",
     "paiements": "Payments",
     "recouvrement": "Recovery",
+    "dons": "Fundraising & Donations",
     "depenses": "Expenses",
     "scan_presence": "Scan Presence",
     "scan_sortie": "Scan Output",

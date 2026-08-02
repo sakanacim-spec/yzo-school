@@ -9,7 +9,7 @@ import {
   ScanLine, IdCard, ShieldCheck, Activity, Database, Megaphone, Calendar, Wallet,
   LogOut, Menu, X, CheckCircle2, MessageCircle, BookOpen, Edit3, UserCheck, FileSpreadsheet, BarChart3, Target, GraduationCap, Medal,
   Bell, ChevronRight, ChevronLeft, MessageSquare, PanelLeftClose, PanelLeftOpen, RefreshCw, Command, Shield, Languages, Smartphone, Award,
-  Moon, Sun
+  Moon, Sun, Gift
 } from 'lucide-react';
 
 import { SupportModal } from './SupportModal';
@@ -41,6 +41,7 @@ const NAV_ITEMS: Omit<NavItem, 'badge'>[] = [
   { id: 'scan_sortie',          label: 'Scan Sortie',       icon: <ScanLine className="w-[18px] h-[18px]" /> },
   { id: 'scan_information',     label: 'Scan Information',  icon: <ScanLine className="w-[18px] h-[18px]" /> },
   { id: 'carte_scolaire',       label: 'Cartes Scolaires',  icon: <IdCard className="w-[18px] h-[18px]" /> },
+  { id: 'dons',                 label: 'Levée de Fonds & Dons', icon: <Gift className="w-[18px] h-[18px]" /> },
   { id: 'gestion_academique',   label: 'Académique',        icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { id: 'saisie_notes',         label: 'Saisie Notes',      icon: <Edit3 className="w-[18px] h-[18px]" /> },
   { id: 'saisie_presence',      label: 'Appel en classe',   icon: <UserCheck className="w-[18px] h-[18px]" /> },
@@ -93,6 +94,7 @@ const NAV_GROUPS: Record<string, string> = {
   scan_information: 'Sécurité & Accès',
   carte_scolaire: 'Sécurité & Accès',
   verification_recu: 'Sécurité & Accès',
+  dons: 'Finance',
   gestion_academique: 'Académique',
   saisie_notes: 'Académique',
   saisie_presence: 'Académique',
