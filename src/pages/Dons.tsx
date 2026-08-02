@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Gift, Plus, TrendingUp, Users, Heart, Share2, Copy, CheckCircle2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { useLanguage } from '../i18n';
-import backendSync from '../services/backendSync';
+import { t, Language } from '../i18n';
+import { getAuthHeaders, parseResponse } from '../services/apiHelpers';
+import { API_BASE_URL } from '../config';
 import { DonationCampaign, Donation } from '../types';
 
 export default function Dons() {
-  const { schoolSlug, currentUser, currency } = useStore();
-  const { t, language } = useLanguage();
+  const { schoolSlug, currentUser, currency, language } = useStore();
   const [campaigns, setCampaigns] = useState<DonationCampaign[]>([]);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,8 +28,8 @@ export default function Dons() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const resCamp = await backendSync.fetch('/api/donations/campaigns');
-      const resDonations = await backendSync.fetch('/api/donations/donations');
+      const resCamp = await fetch(`${API_BASE_URL}/donations/campaigns`, { headers: getAuthHeaders() }).then(parseResponse);
+      const resDonations = await fetch(`${API_BASE_URL}/donations/donations`, { headers: getAuthHeaders() }).then(parseResponse);
       setCampaigns(resCamp || []);
       setDonations(resDonations || []);
     } catch (err) {
@@ -43,15 +43,16 @@ export default function Dons() {
     if (!title || !goalAmount) return;
     setIsSubmitting(true);
     try {
-      const newCampaign = await backendSync.fetch('/api/donations/campaigns', {
+      const newCampaign = await fetch(`${API_BASE_URL}/donations/campaigns`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           title,
           description,
           goal_amount: Number(goalAmount),
           image_url: imageUrl
         })
-      });
+      }).then(parseResponse);
       setCampaigns([newCampaign, ...campaigns]);
       setShowForm(false);
       setTitle('');

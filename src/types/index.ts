@@ -441,34 +441,34 @@ export interface Personnel {
 }
 
 
- e x p o r t   i n t e r f a c e   D o n a t i o n C a m p a i g n   { 
-     i d :   s t r i n g ; 
-     t i t l e :   s t r i n g ; 
-     d e s c r i p t i o n :   s t r i n g ; 
-     g o a l _ a m o u n t :   n u m b e r ; 
-     c u r r e n t _ a m o u n t :   n u m b e r ; 
-     c u r r e n c y :   s t r i n g ; 
-     s t a t u s :   s t r i n g ; 
-     i m a g e _ u r l :   s t r i n g ; 
-     c r e a t e d _ b y ? :   s t r i n g ; 
-     c r e a t e d _ a t :   s t r i n g ; 
- } 
- 
- e x p o r t   i n t e r f a c e   D o n a t i o n   { 
-     i d :   s t r i n g ; 
-     c a m p a i g n _ i d :   s t r i n g ; 
-     d o n o r _ n a m e :   s t r i n g ; 
-     d o n o r _ e m a i l ? :   s t r i n g ; 
-     d o n o r _ p h o n e ? :   s t r i n g ; 
-     a m o u n t :   n u m b e r ; 
-     c u r r e n c y :   s t r i n g ; 
-     p a y m e n t _ m e t h o d ? :   s t r i n g ; 
-     t r a n s a c t i o n _ i d ? :   s t r i n g ; 
-     s t a t u s :   s t r i n g ; 
-     m e s s a g e ? :   s t r i n g ; 
-     i s _ a n o n y m o u s :   b o o l e a n ; 
-     c r e a t e d _ a t :   s t r i n g ; 
- } 
- 
- 
- 
+export interface DonationCampaign {
+  id: string;
+  title: string;
+  description: string;
+  goal_amount: number;
+  current_amount: number;
+  currency: string;
+  status: string;
+  image_url: string;
+  created_by?: string;
+  created_at: string;
+}
+
+export interface Donation {
+  id: string;
+  campaign_id: string;
+  donor_name: string;
+  donor_email?: string;
+  donor_phone?: string;
+  amount: number;
+  currency: string;
+  payment_method?: string;
+  transaction_id?: string;
+  status: string;
+  message?: string;
+  is_anonymous: boolean;
+  created_at: string;
+}
+
+
+

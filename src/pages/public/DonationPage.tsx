@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, ArrowLeft, Loader2, ShieldCheck, Gift } from 'lucide-react';
-import backendSync from '../../services/backendSync';
+import { parseResponse } from '../../services/apiHelpers';
+import { API_BASE_URL } from '../../config';
 import { DonationCampaign } from '../../types';
 
 export function DonationPage() {
@@ -23,7 +24,7 @@ export function DonationPage() {
   useEffect(() => {
     const fetchCampaign = async () => {
       try {
-        const data = await backendSync.fetch(`/api/donations/public/campaigns/${schoolSlug}/${campaignId}`);
+        const data = await fetch(`${API_BASE_URL}/donations/public/campaigns/${schoolSlug}/${campaignId}`).then(parseResponse);
         setCampaign(data);
       } catch (err) {
         console.error('Error fetching campaign:', err);
@@ -42,8 +43,9 @@ export function DonationPage() {
 
     setSubmitting(true);
     try {
-      const data = await backendSync.fetch(`/api/donations/public/campaigns/${schoolSlug}/${campaignId}/donate`, {
+      const data = await fetch(`${API_BASE_URL}/donations/public/campaigns/${schoolSlug}/${campaignId}/donate`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: Number(amount),
           donor_name: name,
@@ -52,7 +54,7 @@ export function DonationPage() {
           message,
           is_anonymous: isAnonymous
         })
-      });
+      }).then(parseResponse);
 
       if (data.token) {
         // Rediriger vers l'interface FedaPay
