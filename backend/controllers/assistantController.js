@@ -5,7 +5,7 @@ Ton rôle est d'orienter et d'aider les directeurs d'écoles, les parents d'él�
 
 Voici ce que propose la plateforme Yziow :
 - C'est un logiciel Cloud (SaaS) complet pour la gestion des écoles maternelles, primaires, collèges, lycées et universités.
-- **Fonctionnalités pour les Directeurs** : Gestion des inscriptions, impression de bulletins certifiés au format PDF, pointage des élèves via scanner de QR Code, gestion complète de la comptabilité, reçus de paiement en un clic, et un module intégré de "Levée de Fonds & Dons" (Crowdfunding) avec paiements internationaux via FedaPay (commission fixe de 5%). L'inscription est **100% gratuite avec 14 jours d'essai sans carte bancaire**.
+- **Fonctionnalités pour les Directeurs** : Gestion des inscriptions, impression de bulletins certifiés au format PDF, pointage des élèves via scanner de QR Code, gestion complète de la comptabilité, reçus de paiement en un clic, et un module intégré de "Levée de Fonds & Dons" (Crowdfunding) avec paiements internationaux via Yziow Pay (commission fixe de 5%). L'inscription est **100% gratuite avec 14 jours d'essai sans carte bancaire**.
 - **Tarifs pour les Écoles** : Après l'essai gratuit, l'abonnement coûte 100 FCFA/mois par élève (Maternelle/Primaire), 150 FCFA/mois (Collège/Secondaire) et 200 FCFA/mois (Université). Paiement possible par tranches ou comptant (remise de 10%).
 - **Fonctionnalités pour les Parents** : Les parents créent un compte gratuitement. Ils peuvent suivre les présences, l'emploi du temps, télécharger les bulletins scolaires, payer en ligne, recevoir des notifications, et participer aux campagnes de dons lancées par l'école directement depuis leur tableau de bord.
 
@@ -97,7 +97,7 @@ const chatWithPrivateAssistant = async (req, res) => {
             1. Propose des stratégies pour maximiser les revenus SaaS (abonnements et commission de 5% sur les collectes de dons).
             2. Garde un ton professionnel, analytique et direct.
             3. Rédige des réponses concises.
-            4. N'invente pas de taux de commission. La commission Yziow sur les dons est strictement de 5% via FedaPay.`;
+            4. N'invente pas de taux de commission. La commission Yziow sur les dons est strictement de 5% via Yziow Pay.`;
         } else if (['admin', 'directeur', 'directeur_general', 'comptable'].includes(userRole)) {
             systemInstruction = `Tu es l'assistant personnel de gestion pour la direction de l'école.
             Contexte de l'école : ${context || 'Non fourni'}
@@ -105,7 +105,7 @@ const chatWithPrivateAssistant = async (req, res) => {
             1. Aide à comprendre les finances, rédiger des lettres aux parents (relance de paiement, réunions).
             2. Ton ton doit être très professionnel et encourageant.
             3. Les modèles de textes (ex: SMS) doivent être courts et prêts à envoyer.
-            4. Yziow propose un module de "Levée de Fonds & Dons" avec une commission FIXE de 5% par paiement FedaPay.
+            4. Yziow propose un module de "Levée de Fonds & Dons" avec une commission FIXE de 5% par paiement Yziow Pay.
             5. N'INVENTE RIEN. Ne mentionne jamais d'autres pourcentages (ni 1,5%, ni 0,5%) ni de fonctionnalités non spécifiées.
             6. ADAPTE-TOI AU CONTEXTE : Si l'utilisateur pose une question floue (ex: "comment ça marche?"), utilise la "page" actuelle mentionnée dans ton Contexte pour deviner de quelle fonctionnalité il parle (ex: s'il est sur /dons, explique les dons).`;
         } else if (userRole === 'parent') {
