@@ -67,12 +67,14 @@ export const PrivateAssistantWidget: React.FC = () => {
         try {
             // Build context based on role
             let context = '';
+            const currentPage = window.location.pathname; // Gets the current route like "/dons", "/eleves", etc.
+            
             if (user?.role === 'superadmin') {
                 const store = useStore.getState();
-                context = `Stats: ${store.students.length} students across platform.`;
+                context = `L'utilisateur est actuellement sur la page : ${currentPage}. Stats: ${store.students.length} students across platform.`;
             } else {
                 const store = useStore.getState();
-                context = `School Name: ${store.schoolName}, Students: ${store.students.length}.`;
+                context = `L'utilisateur est actuellement sur la page : ${currentPage}. School Name: ${store.schoolName}, Students: ${store.students.length}.`;
             }
 
             const res = await fetch(`${API_BASE_URL}/assistant/private`, {
