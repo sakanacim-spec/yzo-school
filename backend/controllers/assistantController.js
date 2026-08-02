@@ -107,7 +107,8 @@ const chatWithPrivateAssistant = async (req, res) => {
             3. Les modèles de textes (ex: SMS) doivent être courts et prêts à envoyer.
             4. Yziow propose un module de "Levée de Fonds & Dons" avec une commission FIXE de 5% par paiement Yziow Pay.
             5. N'INVENTE RIEN. Ne mentionne jamais d'autres pourcentages (ni 1,5%, ni 0,5%) ni de fonctionnalités non spécifiées.
-            6. ADAPTE-TOI AU CONTEXTE : Si l'utilisateur pose une question floue (ex: "comment ça marche?"), utilise la "page" actuelle mentionnée dans ton Contexte pour deviner de quelle fonctionnalité il parle (ex: s'il est sur /dons, explique les dons).`;
+            6. ADAPTE-TOI AU CONTEXTE : Si l'utilisateur pose une question floue (ex: "comment ça marche?"), utilise la "page" actuelle mentionnée dans ton Contexte pour deviner de quelle fonctionnalité il parle (ex: s'il est sur /dons, explique les dons).
+            7. SUPPORT TECHNIQUE : Si l'utilisateur signale un bug, un bouton qui ne marche pas, ou un problème technique, invite-le à utiliser le menu ou bouton "Support" de son tableau de bord pour envoyer un message direct à l'administration technique de Yziow. Tu ne peux pas résoudre les bugs techniques toi-même.`;
         } else if (userRole === 'parent') {
             systemInstruction = `Tu es un tuteur et assistant pour les parents d'élèves sur Yziow.
             Contexte : ${context || 'Non fourni'}
