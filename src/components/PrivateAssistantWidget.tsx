@@ -41,10 +41,13 @@ export const PrivateAssistantWidget: React.FC = () => {
     }, []);
 
     const initWelcomeMessages = () => {
-        let text = 'Bonjour ! Je suis votre assistant virtuel.';
-        if (user?.role === 'superadmin') text = 'Bonjour SuperAdmin ! Que puis-je faire pour vous aider à analyser nos plateformes ?';
-        if (['admin', 'directeur', 'directeur_general', 'comptable'].includes(user?.role || '')) text = 'Bonjour ! Comment puis-je vous aider dans la gestion de votre école aujourd\'hui ?';
-        if (user?.role === 'parent') text = 'Bonjour ! Comment puis-je vous aider avec la scolarité de vos enfants ?';
+        const userName = user?.prenom ? `${user.prenom} ${user.nom || ''}`.trim() : (user?.nom || '');
+        const greetingName = userName ? ` ${userName}` : '';
+        
+        let text = `Bonjour${greetingName} ! Je suis votre assistant virtuel.`;
+        if (user?.role === 'superadmin') text = `Bonjour SuperAdmin${greetingName} ! Que puis-je faire pour vous aider à analyser nos plateformes ?`;
+        if (['admin', 'directeur', 'directeur_general', 'comptable'].includes(user?.role || '')) text = `Bonjour${greetingName} ! Comment puis-je vous aider dans la gestion de votre école aujourd'hui ?`;
+        if (user?.role === 'parent') text = `Bonjour${greetingName} ! Comment puis-je vous aider avec la scolarité de vos enfants ?`;
         
         setMessages([
             { id: 'welcome-1', sender: 'bot', text }
@@ -68,13 +71,14 @@ export const PrivateAssistantWidget: React.FC = () => {
             // Build context based on role
             let context = '';
             const currentPage = window.location.pathname; // Gets the current route like "/dons", "/eleves", etc.
+            const userNameContext = user ? `Nom de l'utilisateur avec qui tu parles : ${user.prenom || ''} ${user.nom || ''}. ` : '';
             
             if (user?.role === 'superadmin') {
                 const store = useStore.getState();
-                context = `L'utilisateur est actuellement sur la page : ${currentPage}. Stats: ${store.students.length} students across platform.`;
+                context = `${userNameContext}L'utilisateur est actuellement sur la page : ${currentPage}. Stats: ${store.students.length} students across platform.`;
             } else {
                 const store = useStore.getState();
-                context = `L'utilisateur est actuellement sur la page : ${currentPage}. School Name: ${store.schoolName}, Students: ${store.students.length}.`;
+                context = `${userNameContext}L'utilisateur est actuellement sur la page : ${currentPage}. School Name: ${store.schoolName}, Students: ${store.students.length}.`;
             }
 
             const res = await fetch(`${API_BASE_URL}/assistant/private`, {
