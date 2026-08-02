@@ -10,6 +10,7 @@ router.get('/campaigns', verifyToken, checkRole(['director']), donationControlle
 router.get('/donations', verifyToken, checkRole(['director']), donationController.getDonations);
 
 // --- PUBLIC ROUTES (No authentication required) ---
+router.get('/public/campaigns/:schoolSlug', donationController.getAllPublicCampaigns);
 router.get('/public/campaigns/:schoolSlug/:campaignId', donationController.getPublicCampaign);
 router.post('/public/campaigns/:schoolSlug/:campaignId/donate', donationController.initiateDonation);
 

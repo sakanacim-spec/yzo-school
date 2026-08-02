@@ -15,6 +15,9 @@ import { chatApi } from '../../services/chatApi';
 import { isToday, isTomorrow, isPast, isValid } from 'date-fns';
 import { t } from '../../i18n';
 import type { Language } from '../../i18n';
+import { DonationCampaign } from '../../types';
+import { API_BASE_URL } from '../../config';
+import { parseResponse } from '../../services/apiHelpers';
 
 // ── Types ────────────────────────────────────────────────────
 interface Announcement {
@@ -335,6 +338,7 @@ export const ParentDashboard: React.FC = () => {
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [notifStatus, setNotifStatus] = useState<NotificationPermission>('Notification' in window ? Notification.permission : 'denied');
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+    const [activeCampaigns, setActiveCampaigns] = useState<DonationCampaign[]>([]);
     const [showAnnouncementList, setShowAnnouncementList] = useState(false);
 
     const announcementReads = useStore(s => s.announcementReads);
@@ -376,6 +380,16 @@ export const ParentDashboard: React.FC = () => {
                 const data = await parentApi.getAnnouncements();
                 setAnnouncements(data.announcements || []);
             } catch {}
+            
+            try {
+                const schoolSlug = useStore.getState().schoolSlug;
+                if (schoolSlug) {
+                    const campaignsData = await fetch(`${API_BASE_URL}/donations/public/campaigns/${schoolSlug}`).then(parseResponse);
+                    setActiveCampaigns(campaignsData || []);
+                }
+            } catch (err) {
+                console.error("Failed to fetch campaigns", err);
+            }
         };
         fetchAnn();
         pollingRef.current = setInterval(fetchAnn, 10_000);
@@ -534,6 +548,37 @@ export const ParentDashboard: React.FC = () => {
                             );
                         })}
                     </div>
+                </div>
+            )}
+
+            {/* 💛 CAMPAGNES DE DONS ACTIVES 💛 */}
+            {activeCampaigns.length > 0 && (
+                <div className="space-y-4">
+                    {activeCampaigns.map(campaign => (
+                        <div key={campaign.id} className="relative bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200 dark:border-amber-900/40 rounded-[24px] p-5 overflow-hidden group cursor-pointer" onClick={() => window.location.href = `/d/${useStore.getState().schoolSlug}/${campaign.id}`}>
+                            <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-amber-200/40 to-transparent pointer-events-none" />
+                            <div className="relative z-10 flex items-center justify-between">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+                                        <Gift className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-amber-100 text-amber-700 border-amber-200 uppercase">
+                                                Appel aux dons
+                                            </span>
+                                        </div>
+                                        <h4 className="font-black text-amber-900 dark:text-amber-100 text-lg">{campaign.title}</h4>
+                                        <p className="text-sm text-amber-700 dark:text-amber-400 mt-1 line-clamp-2 max-w-2xl">{campaign.description}</p>
+                                    </div>
+                                </div>
+                                <div className="hidden sm:flex items-center gap-2 shrink-0">
+                                    <span className="text-sm font-bold text-amber-600">Soutenir le projet</span>
+                                    <ChevronRight className="w-5 h-5 text-amber-500 group-hover:translate-x-1 transition-transform" />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 

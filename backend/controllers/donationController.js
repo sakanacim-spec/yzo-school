@@ -78,6 +78,25 @@ exports.getDonations = async (req, res) => {
 
 // --- PUBLIC ROUTES (Donors) ---
 
+exports.getAllPublicCampaigns = async (req, res) => {
+    try {
+        const { schoolSlug } = req.params;
+        const tableName = `campaigns_${schoolSlug}`;
+        
+        const { data, error } = await supabase
+            .from(tableName)
+            .select('*')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json(data || []);
+    } catch (err) {
+        console.error('Get all public campaigns error:', err);
+        res.status(500).json({ error: 'Erreur lors de la récupération des campagnes.' });
+    }
+};
+
 exports.getPublicCampaign = async (req, res) => {
     try {
         const { schoolSlug, campaignId } = req.params;
