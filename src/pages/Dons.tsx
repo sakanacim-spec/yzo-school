@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Gift, Plus, TrendingUp, Users, Heart, Share2, Copy, CheckCircle2 } from 'lucide-react';
+import { Gift, Plus, TrendingUp, Users, Heart, Share2, Copy, CheckCircle2, Wallet, Smartphone, Building2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { t, Language } from '../i18n';
 import { getAuthHeaders, parseResponse } from '../services/apiHelpers';
@@ -7,12 +7,21 @@ import { API_BASE_URL } from '../config';
 import { DonationCampaign, Donation } from '../types';
 
 export default function Dons() {
-  const { schoolSlug, currentUser, currency, language } = useStore();
+  const { user, currency, language } = useStore();
+  const schoolSlug = user?.schoolSlug || '';
   const [campaigns, setCampaigns] = useState<DonationCampaign[]>([]);
   const [donations, setDonations] = useState<Donation[]>([]);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showWithdrawForm, setShowWithdrawForm] = useState(false);
   const [copiedLink, setCopiedLink] = useState('');
+
+  // Withdrawal Form State
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawMethod, setWithdrawMethod] = useState('mobile_money');
+  const [withdrawDetails, setWithdrawDetails] = useState('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -30,8 +39,10 @@ export default function Dons() {
     try {
       const resCamp = await fetch(`${API_BASE_URL}/donations/campaigns`, { headers: getAuthHeaders() }).then(parseResponse);
       const resDonations = await fetch(`${API_BASE_URL}/donations/donations`, { headers: getAuthHeaders() }).then(parseResponse);
+      const resWithdrawals = await fetch(`${API_BASE_URL}/withdrawals`, { headers: getAuthHeaders() }).then(parseResponse);
       setCampaigns(resCamp || []);
       setDonations(resDonations || []);
+      setWithdrawals(resWithdrawals?.withdrawals || []);
     } catch (err) {
       console.error('Error fetching donations data:', err);
     }
@@ -66,6 +77,33 @@ export default function Dons() {
     setIsSubmitting(false);
   };
 
+  const handleWithdrawalRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!withdrawAmount || !withdrawMethod || !withdrawDetails) return;
+    setIsWithdrawing(true);
+    try {
+      const newWithdrawal = await fetch(`${API_BASE_URL}/withdrawals`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          amount: Number(withdrawAmount),
+          paymentMethod: withdrawMethod,
+          paymentDetails: withdrawDetails
+        })
+      }).then(parseResponse);
+      
+      setWithdrawals([newWithdrawal.withdrawal, ...withdrawals]);
+      setShowWithdrawForm(false);
+      setWithdrawAmount('');
+      setWithdrawDetails('');
+      alert('Demande de retrait envoyée avec succès !');
+    } catch (err: any) {
+      console.error('Error requesting withdrawal:', err);
+      alert(err.error || 'Erreur lors de la demande de retrait');
+    }
+    setIsWithdrawing(false);
+  };
+
   const formatAmount = (amount: number) => {
     return `${amount.toLocaleString('fr-FR')} ${currency}`;
   };
@@ -86,6 +124,9 @@ export default function Dons() {
 
   const totalCollected = campaigns.reduce((sum, c) => sum + (c.current_amount || 0), 0);
   const totalDonors = new Set(donations.filter(d => d.status === 'completed').map(d => d.donor_email || d.donor_name)).size;
+  const netCollected = totalCollected * 0.95; // 5% Yziow commission
+  const totalWithdrawn = withdrawals.filter(w => w.status === 'pending' || w.status === 'paid').reduce((sum, w) => sum + Number(w.amount), 0);
+  const availableBalance = Math.max(0, netCollected - totalWithdrawn);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -107,7 +148,26 @@ export default function Dons() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-2xl border border-indigo-500 shadow-lg text-white flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <p className="text-indigo-100 font-medium text-sm">Solde Disponible</p>
+              <p className="text-3xl font-black">{formatAmount(availableBalance)}</p>
+            </div>
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <Wallet className="w-5 h-5 text-white" />
+            </div>
+          </div>
+          <p className="text-indigo-200 text-xs mb-4">Après déduction des 5% de frais Yziow</p>
+          <button 
+            onClick={() => setShowWithdrawForm(true)}
+            className="w-full py-2 bg-white text-indigo-700 font-bold rounded-xl text-sm hover:bg-indigo-50 transition-colors"
+          >
+            Demander un retrait
+          </button>
+        </div>
+
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center">
             <TrendingUp className="w-6 h-6" />
@@ -169,6 +229,48 @@ export default function Dons() {
         </div>
       )}
 
+      {showWithdrawForm && (
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Demander un retrait des fonds</h3>
+          <form onSubmit={handleWithdrawalRequest} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Montant à retirer ({currency}) - Max: {formatAmount(availableBalance)}</label>
+              <input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent" required max={availableBalance} min="1000" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div 
+                className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center gap-2 ${withdrawMethod === 'mobile_money' ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                onClick={() => setWithdrawMethod('mobile_money')}
+              >
+                <Smartphone className="w-6 h-6" />
+                <span className="font-medium text-sm">Mobile Money</span>
+              </div>
+              <div 
+                className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center gap-2 ${withdrawMethod === 'bank' ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                onClick={() => setWithdrawMethod('bank')}
+              >
+                <Building2 className="w-6 h-6" />
+                <span className="font-medium text-sm">Virement Bancaire</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                {withdrawMethod === 'mobile_money' ? 'Numéro de téléphone (avec indicatif pays)' : 'RIB / IBAN'}
+              </label>
+              <input type="text" value={withdrawDetails} onChange={e => setWithdrawDetails(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent" required placeholder={withdrawMethod === 'mobile_money' ? 'ex: +229 97000000' : 'ex: BJ061 01001...'} />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="submit" disabled={isWithdrawing} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700">
+                {isWithdrawing ? 'Envoi en cours...' : 'Envoyer la demande'}
+              </button>
+              <button type="button" onClick={() => setShowWithdrawForm(false)} className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-800">
+                Annuler
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Campaigns List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {campaigns.map(campaign => {
@@ -221,8 +323,9 @@ export default function Dons() {
         )}
       </div>
 
-      {/* Recent Donations */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Recent Donations */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
         <div className="p-4 border-b border-slate-200 dark:border-slate-700">
           <h3 className="font-bold text-slate-800 dark:text-white">Derniers Dons Reçus</h3>
         </div>
@@ -269,6 +372,57 @@ export default function Dons() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Withdrawal History */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+          <h3 className="font-bold text-slate-800 dark:text-white">Historique des Retraits</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr>
+                <th className="text-left p-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Montant</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Méthode</th>
+                <th className="text-left p-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Statut</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+              {withdrawals.map(w => (
+                <tr key={w.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <td className="p-4 text-sm text-slate-500">
+                    {new Date(w.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="p-4 text-sm font-bold text-slate-800 dark:text-white">
+                    {formatAmount(w.amount)}
+                  </td>
+                  <td className="p-4 text-sm text-slate-500 capitalize">
+                    {w.payment_method.replace('_', ' ')}
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-md ${
+                      w.status === 'paid' ? 'bg-emerald-100 text-emerald-600' :
+                      w.status === 'rejected' ? 'bg-rose-100 text-rose-600' :
+                      'bg-amber-100 text-amber-600'
+                    }`}>
+                      {w.status === 'pending' ? 'En attente' : w.status === 'paid' ? 'Payé' : 'Rejeté'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {withdrawals.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-slate-500 text-sm">
+                    Aucune demande de retrait effectuée.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
       </div>
     </div>
   );

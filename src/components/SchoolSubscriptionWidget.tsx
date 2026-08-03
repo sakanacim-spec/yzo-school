@@ -44,7 +44,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
     return null;
   }
 
-  const countryCode = user.country || 'TG';
+  const countryCode = (user as any).country || 'TG';
   const currencyInfo = getCountryCurrencyInfo(countryCode);
 
   // Ventilation dynamique des élèves selon leurs classes/niveaux
@@ -98,7 +98,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
       const amountFcfa = type === 'annual' ? finalAnnualFcfa : trancheAmountFcfa;
       
       const token = localStorage.getItem('parent_token');
-      const schoolSlug = user.school_slug || user.schoolName;
+      const schoolSlug = (user as any).schoolSlug || (user as any).school_slug || user.schoolName;
 
       // 1. Initialiser le paiement avec FedaPay via le backend Super Admin
       const res = await fetch(`${API_BASE_URL}/superadmin/schools/${schoolSlug}/pay-init`, {

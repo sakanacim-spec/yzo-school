@@ -164,6 +164,8 @@ export interface AppSettings extends AdminSettings {
   paymentGateway?: 'fedapay' | 'paystack' | 'stripe' | 'none';
   paymentPublicKey?: string | null;
   paymentSecretKey?: string | null;
+  payoutMomoNumber?: string | null;
+  payoutMethod?: 'momo' | 'rib' | null;
 
   tranches?: Tranche[];
   classes?: ClassConfig[]; // Configuration personnalisée des classes et écolages

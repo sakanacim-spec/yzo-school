@@ -52,6 +52,8 @@ interface SchoolWithStats extends School {
   platform_disbursed_amount: number;
   platform_commission_rate: number;
   trial_days_left: number;
+  payout_momo_number?: string | null;
+  payout_method?: 'momo' | 'rib' | null;
 }
 
 interface GlobalStats {
@@ -309,6 +311,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [settings, setSettings] = useState<any>({});
   const [transactions, setTransactions] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
   
   // Support Client
   const [inbox, setInbox] = useState<any[]>([]);
@@ -319,7 +322,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres' | 'support'>('ecoles');
+  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres' | 'support' | 'retraits_dons'>('ecoles');
 
   const handleUpdateCommission = async (school: SchoolWithStats, newRate: number) => {
     setActionLoading(`comm_${school.id}`);
@@ -368,17 +371,37 @@ export const SuperAdminDashboard: React.FC = () => {
     }
   };
 
+  const handleWithdrawalStatus = async (id: string, status: string, notes: string = '') => {
+    setActionLoading(`withd_${id}`);
+    try {
+      const res = await fetch(`${API_BASE_URL}/withdrawals/${id}/status`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status, notes })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert(data.message);
+      await load();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [schoolsRes, statsRes, affiliatesRes, settingsRes, transRes, annRes, inboxRes] = await Promise.all([
+      const [schoolsRes, statsRes, affiliatesRes, settingsRes, transRes, annRes, inboxRes, withdrawalsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/superadmin/schools`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/stats`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/affiliates`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/settings`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/transactions`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/announcements`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/superadmin/support/inbox`, { headers: getAuthHeaders() })
+        fetch(`${API_BASE_URL}/superadmin/support/inbox`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/withdrawals/all`, { headers: getAuthHeaders() })
       ]);
       if (schoolsRes.ok) {
         const d = await schoolsRes.json();
@@ -398,6 +421,10 @@ export const SuperAdminDashboard: React.FC = () => {
       if (transRes.ok) {
         const d = await transRes.json();
         setTransactions(d.transactions || []);
+      }
+      if (withdrawalsRes.ok) {
+        const d = await withdrawalsRes.json();
+        setWithdrawals(d.withdrawals || []);
       }
       if (annRes.ok) {
         const d = await annRes.json();
@@ -596,6 +623,26 @@ export const SuperAdminDashboard: React.FC = () => {
       await load();
     } catch (err: any) {
       alert(err.message || 'Erreur lors du paiement');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateAffiliateStatus = async (affiliateId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    if (!confirm(`Confirmer le changement de statut de cet ambassadeur vers "${newStatus}" ?`)) return;
+    setActionLoading(affiliateId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/affiliates/${affiliateId}/status`, {
+        method: 'PUT',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await load();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la mise à jour du statut');
     } finally {
       setActionLoading(null);
     }
@@ -809,6 +856,21 @@ export const SuperAdminDashboard: React.FC = () => {
           {inbox.reduce((acc, curr) => acc + curr.unreadCount, 0) > 0 && (
             <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
               {inbox.reduce((acc, curr) => acc + curr.unreadCount, 0)}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('retraits_dons')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            activeTab === 'retraits_dons'
+              ? 'bg-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          Retraits (Dons)
+          {withdrawals.filter(w => w.status === 'pending').length > 0 && (
+            <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center">
+              {withdrawals.filter(w => w.status === 'pending').length}
             </span>
           )}
         </button>

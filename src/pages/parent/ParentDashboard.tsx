@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useStore } from '../../store/useStore';
 import { parentApi } from '../../services/parentApi';
 import {
-    CreditCard, Wallet, TrendingUp, Loader2, AlertCircle, UserPlus,
+    CreditCard, Gift, Wallet, TrendingUp, Loader2, AlertCircle, UserPlus,
     Search, GraduationCap, X, Megaphone, AlertTriangle, Info, Bell,
     MessageSquare, Download, BookOpen, UserCheck, CheckCircle2,
     Clock, ChevronRight, Zap, Star, XCircle, ChevronDown, ChevronUp,

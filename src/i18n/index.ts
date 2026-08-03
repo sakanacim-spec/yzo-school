@@ -11,7 +11,7 @@ import { ru } from './ru';
 export type Language = 'fr' | 'en' | 'es' | 'ar' | 'it' | 'de' | 'pt' | 'zh' | 'ru';
 export type Translations = typeof fr;
 
-const translations: Record<string, Translations> = { fr, en, es, ar, it, de, pt, zh, ru };
+const translations: Record<string, any> = { fr, en, es, ar, it, de, pt, zh, ru };
 
 // Récupère la langue sauvegardée ou détecte celle du navigateur
 export function getStoredLanguage(): Language {

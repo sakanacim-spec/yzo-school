@@ -530,8 +530,14 @@ export const Parametres: React.FC = () => {
                         </h3>
                         <button
                             type="button"
-                            onClick={() => {
-                                const updated = [...localTranches, { id: crypto.randomUUID?.() || Date.now().toString(), nom: `Tranche ${localTranches.length + 1}`, dateLimite: '', pourcentage: 0 }];
+                            onClick={(e) => {
+                                e.preventDefault();
+                                const currentTranches = Array.isArray(localTranches) ? localTranches : [];
+                                const updated = [...currentTranches, { 
+                                    name: `${t(language as Language, 'settings.newTranche') || 'Nouvelle Tranche'} ${currentTranches.length + 1}`, 
+                                    percentage: 0, 
+                                    dueDate: new Date().toISOString().split('T')[0] 
+                                }];
                                 setLocalTranches(updated);
                             }}
                             className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-500 text-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:hover:bg-indigo-500 dark:text-indigo-400 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all"
@@ -743,7 +749,8 @@ export const Parametres: React.FC = () => {
                             type="button"
                             onClick={(e) => {
                                 e.preventDefault();
-                                const updated = [...localClasses, { name: `${t(language as Language, 'settings.newClass') || 'Nouvelle Classe'} ${localClasses.length + 1}`, cycle: 'Primaire' as any, ecolage: 50000 }];
+                                const currentClasses = Array.isArray(localClasses) ? localClasses : [];
+                                const updated = [...currentClasses, { name: `${t(language as Language, 'settings.newClass') || 'Nouvelle Classe'} ${currentClasses.length + 1}`, cycle: 'Primaire' as any, ecolage: 50000 }];
                                 setLocalClasses(updated);
                             }}
                             className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-500 text-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:hover:bg-indigo-500 dark:text-indigo-400 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all"
@@ -753,7 +760,7 @@ export const Parametres: React.FC = () => {
                     </div>
 
                     <div className="space-y-3 mb-6">
-                        {localClasses.length === 0 ? (
+                        {(!Array.isArray(localClasses) || localClasses.length === 0) ? (
                         <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                             <p className="text-sm font-bold text-slate-500">{t(language as Language, 'settings.noClassConfigured') || 'Aucune classe paramétrée'}</p>
                         </div>
@@ -864,7 +871,7 @@ export const Parametres: React.FC = () => {
                   <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
                     <Database className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  Configuration Yziow Pay (Reversements)
+                  {t(language as Language, 'settings.yziowPayConfig') || 'Configuration Yziow Pay (Reversements)'}
                 </h3>
                 
                 <form onSubmit={handleSave} className="space-y-6">
@@ -872,38 +879,43 @@ export const Parametres: React.FC = () => {
                     <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900 p-4 rounded-xl flex gap-3">
                       <AlertCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-500 shrink-0 mt-0.5" />
                       <div className="text-xs text-indigo-800 dark:text-indigo-400 leading-relaxed font-medium">
-                        <strong className="block mb-1 text-sm">Recevez vos paiements avec Yziow Pay</strong>
-                        Vos parents peuvent payer en ligne en toute sécurité via notre infrastructure centralisée Yziow Pay. Renseignez ici le <strong>Numéro Mobile Money</strong> ou le <strong>RIB</strong> sur lequel vous souhaitez recevoir les versements de vos fonds collectés. (Sécurisé par Global Marketing and Technology).
+                        <strong className="block mb-1 text-sm">{t(language as Language, 'settings.receivePayments') || 'Recevez vos paiements avec Yziow Pay'}</strong>
+                        {t(language as Language, 'settings.yziowPayDescription') || 'Vos parents peuvent payer en ligne en toute sécurité via notre infrastructure centralisée Yziow Pay. Renseignez ici le Numéro Mobile Money ou le RIB sur lequel vous souhaitez recevoir les versements de vos fonds collectés. (Sécurisé par Global Marketing and Technology).'}
                       </div>
                     </div>
                     
                     <div>
                       <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                        Méthode de réception
+                        {t(language as Language, 'settings.receptionMethod') || 'Méthode de réception'}
                       </label>
                       <div className="flex gap-4 mb-4">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="radio" name="payoutMethod" value="momo" checked={localPayoutMethod === 'momo'} onChange={() => setLocalPayoutMethod('momo')} className="text-indigo-600 focus:ring-indigo-500" />
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Mobile Money</span>
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{t(language as Language, 'settings.mobileMoney') || 'Mobile Money'}</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="radio" name="payoutMethod" value="rib" checked={localPayoutMethod === 'rib'} onChange={() => setLocalPayoutMethod('rib')} className="text-indigo-600 focus:ring-indigo-500" />
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Virement Bancaire (RIB)</span>
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{t(language as Language, 'settings.bankTransfer') || 'Virement Bancaire (RIB)'}</span>
                         </label>
                       </div>
                     </div>
                     
                     <div>
                       <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                        {localPayoutMethod === 'momo' ? 'Numéro Mobile Money Yziow Pay' : 'RIB / IBAN Yziow Pay'}
+                        {localPayoutMethod === 'momo' ? (t(language as Language, 'settings.momoNumber') || 'Numéro Mobile Money Yziow Pay') : (t(language as Language, 'settings.ribIban') || 'RIB / IBAN Yziow Pay')}
                       </label>
                       <input
                         type="text"
                         value={localPayoutMomoNumber}
                         onChange={(e) => setLocalPayoutMomoNumber(e.target.value)}
-                        placeholder={localPayoutMethod === 'momo' ? "Ex: +229 97 XX XX XX" : "Ex: BJ061 01001 001234567890 12"}
+                        placeholder={localPayoutMethod === 'momo' ? "Ex: +33 6 00 00 00 00" : "Ex: BJ061 01001 001234567890 12"}
                         className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono"
                       />
+                      {localPayoutMethod === 'momo' && (
+                        <p className="text-[10px] text-slate-500 mt-2 font-medium">
+                          Exemple neutre/international : <span className="text-emerald-600 dark:text-emerald-400 font-black tracking-widest bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded">+33 6 00 00 00 00</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                   
@@ -913,7 +925,7 @@ export const Parametres: React.FC = () => {
                       className={`px-6 py-2.5 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] flex items-center gap-2 transform hover:-translate-y-0.5 ${saved ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                     >
                       {saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                      {saved ? 'Enregistré !' : (t(language as Language, 'common.save') || 'Sauvegarder')}
+                      {saved ? (t(language as Language, 'common.savedExclamation') || 'Enregistré !') : (t(language as Language, 'common.save') || 'Sauvegarder')}
                     </button>
                   </div>
                 </form>
@@ -935,7 +947,7 @@ export const Parametres: React.FC = () => {
                             <p className="text-sm font-bold text-slate-500">{t(language as Language, 'settings.configureClassesFirst') || 'Configurez d\'abord vos classes pour voir les cycles disponibles.'}</p>
                           </div>
                         ) : (
-                          localSchedules.map((schedule, idx) => (
+                          (Array.isArray(localSchedules) ? localSchedules : []).map((schedule, idx) => (
                           <div key={schedule.cycle} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
                               <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">
                                   {schedule.cycle}
