@@ -30,6 +30,55 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Schema.org JSON-LD Structured Data for Google Trust & Credibility -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://yziow.com/#organization",
+          "name": "Yziow",
+          "legalName": "Global Marketing and Technology",
+          "url": "https://yziow.com",
+          "logo": "https://yziow.com/favicon.png",
+          "description": "Plateforme SaaS moderne de gestion scolaire pour écoles maternelles, primaires, collèges, lycées et universités en Afrique et dans le monde.",
+          "foundingDate": "2024",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer service",
+            "availableLanguage": ["French", "English", "Spanish", "Arabic"]
+          }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://yziow.com/#software",
+          "name": "Yziow School Management Platform",
+          "operatingSystem": "Web, Android, iOS",
+          "applicationCategory": "EducationalApplication",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "XOF",
+            "description": "Essai gratuit 14 jours"
+          },
+          "publisher": {
+            "@id": "https://yziow.com/#organization"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://yziow.com/#website",
+          "url": "https://yziow.com",
+          "name": "Yziow",
+          "publisher": {
+            "@id": "https://yziow.com/#organization"
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
