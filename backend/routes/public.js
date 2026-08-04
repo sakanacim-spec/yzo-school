@@ -76,4 +76,34 @@ router.get('/announcements/global', async (req, res) => {
     }
 });
 
+// POST /api/public/recommend-school
+// Demande d'ouverture d'une école par un parent d'élève
+router.post('/recommend-school', async (req, res) => {
+    try {
+        const { parent_name, parent_phone, school_name, city, country, director_phone, notes } = req.body;
+
+        if (!parent_name || !parent_phone || !school_name) {
+            return res.status(400).json({ error: 'Le nom du parent, le téléphone et le nom de l\'école sont requis.' });
+        }
+
+        const messageBody = `[DEMANDE OUVERTURE ÉCOLE PAR PARENT]\nParent: ${parent_name} (${parent_phone})\nÉcole demandée: ${school_name}\nVille/Pays: ${city || 'Non renseigné'} / ${country || 'Non renseigné'}\nTél Directeur/Secrétariat: ${director_phone || 'Non fourni'}\nNotes: ${notes || ''}`;
+
+        const { error } = await supabase
+            .from('contact_messages')
+            .insert([
+                { name: parent_name, country: country || 'Afrique', email: `${parent_phone.replace(/\D/g, '')}@yziow-parent-lead.com`, message: messageBody, status: 'unread' }
+            ]);
+
+        if (error) {
+            console.error('Erreur insertion recommandation école:', error);
+            throw error;
+        }
+
+        res.status(200).json({ success: true, message: 'Demande d\'ouverture enregistrée avec succès.' });
+    } catch (err) {
+        console.error('Erreur API public recommend-school:', err);
+        res.status(500).json({ error: 'Erreur lors de l\'enregistrement de la demande.' });
+    }
+});
+
 module.exports = router;
