@@ -28,28 +28,28 @@ const LANDING_I18N: Record<string, any> = {
   fr: {
     nav: { features: "Nos Solutions", partners: "Partenaires", login: "ACCÉDER À MON ESPACE", loginMobile: "CONNEXION" },
     hero: { badge: "LA PLATEFORME ÉDUCATIVE DE RÉFÉRENCE", title1: "L'excellence", title2: "au cœur de l'école.", desc: "Une solution complète pour la gestion scolaire, connectant parents, élèves et administration dans un écosystème sécurisé, moderne et intuitif.", cta: "Accéder à mon espace", boxTitle: "100% Sécurisé & Fiable", boxDesc: "Paiements certifiés, données chiffrées de bout en bout et hébergement souverain pour une tranquillité d'esprit absolue.", schools: "Écoles partenaires", parents: "Parents connectés" },
-    sponsors: { subtitle: "Nos Partenaires Premium", title: "Ils propulsent l'éducation de demain" },
+    sponsors: { subtitle: "Écosystème de Partenaires", title: "Ils s'engagent pour l'éducation de demain" },
     features: { subtitle: "Nos Solutions", title: "Tout le suivi scolaire regroupé sur une plateforme unique", f1_title: "Bulletins & Notes", f1_desc: "Visualisez les notes dès leur saisie. Téléchargez et vérifiez les bulletins officiels en format PDF sécurisé.", f2_title: "Présences & Absences", f2_desc: "Suivez en temps réel l'assiduité. Soyez immédiatement notifié en cas d'absence ou de retard.", f3_title: "Espaces Établissements", f3_desc: "Interface complète pour directeurs et secrétaires : gestion des inscriptions et de la facturation." },
     footer: { desc: "La plateforme moderne qui connecte l'école, les parents et les élèves pour une réussite scolaire assurée.", company: "Entreprise", about: "Qui sommes-nous", contact: "Contact & Assistance", careers: "Carrières", legal: "Légal", cgu: "Conditions générales d'utilisation", privacy: "Politique de confidentialité", mentions: "Mentions légales", partner_title: "Devenir Partenaire", partner_desc: "Associez l'image de votre entreprise à l'éducation de demain. Louez nos espaces publicitaires premium.", partner_btn: "Nous contacter", rights: "© 2026 Yziow. Tous droits réservés.", madeIn: "Fait avec passion au Bénin 🇧🇯" }
   },
   en: {
     nav: { features: "Our Solutions", partners: "Partners", login: "GO TO MY SPACE", loginMobile: "LOGIN" },
     hero: { badge: "THE LEADING EDUCATIONAL PLATFORM", title1: "Excellence", title2: "at the heart of the school.", desc: "A complete solution for school management, connecting parents, students, and administration in a secure, modern, and intuitive ecosystem.", cta: "Go to my space", boxTitle: "100% Secure & Reliable", boxDesc: "Certified payments, end-to-end encrypted data, and sovereign hosting for absolute peace of mind.", schools: "Partner schools", parents: "Connected parents" },
-    sponsors: { subtitle: "Our Premium Partners", title: "Propelling the education of tomorrow" },
+    sponsors: { subtitle: "Partner Ecosystem", title: "Committed to the education of tomorrow" },
     features: { subtitle: "Our Solutions", title: "All school tracking gathered on a single platform", f1_title: "Report Cards & Grades", f1_desc: "View grades as soon as they are entered. Download and verify official report cards in a secure PDF format.", f2_title: "Attendance & Absences", f2_desc: "Track attendance in real-time. Get instantly notified in case of an absence or delay.", f3_title: "School Workspaces", f3_desc: "Complete interface for principals and secretaries: manage enrollments and billing." },
     footer: { desc: "The modern platform connecting the school, parents, and students for guaranteed academic success.", company: "Company", about: "About us", contact: "Contact & Support", careers: "Careers", legal: "Legal", cgu: "Terms of Service", privacy: "Privacy Policy", mentions: "Legal Mentions", partner_title: "Become a Partner", partner_desc: "Associate your company's image with the education of tomorrow. Rent our premium advertising spaces.", partner_btn: "Contact us", rights: "© 2026 Yziow. All rights reserved.", madeIn: "Made with passion in Benin 🇧🇯" }
   },
   es: {
     nav: { features: "Nuestras Soluciones", partners: "Socios", login: "ACCEDER A MI ESPACIO", loginMobile: "ACCEDER" },
     hero: { badge: "LA PLATAFORMA EDUCATIVA DE REFERENCIA", title1: "La excelencia", title2: "en el corazón de la escuela.", desc: "Una solución completa para la gestión escolar, conectando padres, estudiantes y administración en un ecosistema seguro, moderno e intuitivo.", cta: "Acceder a mi espacio", boxTitle: "100% Seguro y Confiable", boxDesc: "Pagos certificados, datos encriptados de extremo a extremo y alojamiento soberano para una tranquilidad absoluta.", schools: "Escuelas asociadas", parents: "Padres conectados" },
-    sponsors: { subtitle: "Nuestros Socios Premium", title: "Impulsando la educación del mañana" },
+    sponsors: { subtitle: "Ecosistema de Socios", title: "Comprometidos con la educación del mañana" },
     features: { subtitle: "Nuestras Soluciones", title: "Todo el seguimiento escolar en una plataforma única", f1_title: "Boletines y Notas", f1_desc: "Visualice las notas apenas se ingresan. Descargue y verifique los boletines oficiales en PDF seguro.", f2_title: "Asistencias y Ausencias", f2_desc: "Haga seguimiento de la asistencia en tiempo real. Sea notificado de inmediato en caso de ausencia.", f3_title: "Espacios para Escuelas", f3_desc: "Interfaz completa para directores y secretarias: gestión de inscripciones y facturación." },
     footer: { desc: "La plataforma moderna que conecta a la escuela, padres y estudiantes para un éxito escolar asegurado.", company: "Empresa", about: "Quiénes somos", contact: "Contacto y Soporte", careers: "Carreras", legal: "Legal", cgu: "Términos de Servicio", privacy: "Política de Privacidad", mentions: "Avisos legales", partner_title: "Convertirse en Socio", partner_desc: "Asocie la imagen de su empresa a la educación del mañana. Alquile nuestros espacios premium.", partner_btn: "Contáctenos", rights: "© 2026 Yziow. Todos los derechos reservados.", madeIn: "Hecho con pasión en Benín 🇧🇯" }
   },
   ar: {
     nav: { features: "حلولنا", partners: "الشركاء", login: "تسجيل الدخول", loginMobile: "دخول" },
     hero: { badge: "المنصة التعليمية الرائدة", title1: "التميز", title2: "في قلب المدرسة.", desc: "حل شامل للإدارة المدرسية، يربط بين الآباء والطلاب والإدارة في نظام بيئي آمن وحديث وبديهي.", cta: "تسجيل الدخول", boxTitle: "آمن وموثوق 100%", boxDesc: "مدفوعات معتمدة، بيانات مشفرة من البداية للنهاية، واستضافة سيادية لراحة بال مطلقة.", schools: "مدارس شريكة", parents: "آباء متصلون" },
-    sponsors: { subtitle: "شركاؤنا المميزون", title: "دفع عجلة التعليم نحو المستقبل" },
+    sponsors: { subtitle: "منظومة الشراكات", title: "ملتزمون بتعليم الغد" },
     features: { subtitle: "حلولنا", title: "كل التتبع المدرسي مجموع في منصة واحدة", f1_title: "النتائج والدرجات", f1_desc: "شاهد الدرجات بمجرد إدخالها. قم بتنزيل والتحقق من النتائج الرسمية بصيغة PDF آمنة.", f2_title: "الحضور والغياب", f2_desc: "تتبع الحضور في الوقت الفعلي. احصل على إشعار فوري في حالة الغياب أو التأخير.", f3_title: "مساحات المؤسسات", f3_desc: "واجهة كاملة للمديرين والسكرتارية: إدارة التسجيل والفوترة." },
     footer: { desc: "المنصة الحديثة التي تربط بين المدرسة والآباء والطلاب لنجاح دراسي مضمون.", company: "الشركة", about: "من نحن", contact: "الاتصال والدعم", careers: "وظائف", legal: "قانوني", cgu: "شروط الاستخدام", privacy: "سياسة الخصوصية", mentions: "ملاحظات قانونية", partner_title: "كن شريكاً", partner_desc: "اربط صورة شركتك بتعليم المستقبل. استأجر مساحاتنا الإعلانية المميزة.", partner_btn: "اتصل بنا", rights: "© 2026 Yziow. جميع الحقوق محفوظة.", madeIn: "صنع بشغف في بنين 🇧🇯" }
   }
@@ -240,16 +240,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onNavigate })
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-center opacity-70 hover:opacity-100 transition-opacity duration-500">
             {/* Placeholder for Large Enterprises (Banks, Mobile Networks) */}
             <div className="h-20 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-center filter grayscale hover:grayscale-0 transition-all cursor-pointer">
-              <span className="text-xl font-black text-slate-800">MTN Group</span>
+              <span className="text-xl font-black text-slate-800">🏦 EduFinance Group</span>
             </div>
             <div className="h-20 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-center filter grayscale hover:grayscale-0 transition-all cursor-pointer">
-              <span className="text-xl font-black text-slate-800">Moov Africa</span>
+              <span className="text-xl font-black text-slate-800">📡 ConnectEdu Africa</span>
             </div>
             <div className="h-20 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-center filter grayscale hover:grayscale-0 transition-all cursor-pointer">
-              <span className="text-xl font-black text-slate-800">Ecobank</span>
+              <span className="text-xl font-black text-slate-800">💳 SchoolPay Alliance</span>
             </div>
             <div className="h-20 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-center filter grayscale hover:grayscale-0 transition-all cursor-pointer">
-              <span className="text-xl font-black text-slate-800">UBA</span>
+              <span className="text-xl font-black text-slate-800">🌍 AfriLearn Partners</span>
             </div>
           </div>
         </div>
