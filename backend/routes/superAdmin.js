@@ -21,7 +21,8 @@ const {
     updateSettings,
     getTransactions,
     getGlobalAnnouncements,
-    createGlobalAnnouncement
+    createGlobalAnnouncement,
+    getSchoolLeads
 } = require('../controllers/superAdminController');
 
 const {
@@ -58,6 +59,7 @@ router.patch('/affiliates/:id/status', authenticateToken, requireSuperAdmin, upd
 router.get('/settings', authenticateToken, requireSuperAdmin, getSettings);
 router.put('/settings', authenticateToken, requireSuperAdmin, updateSettings);
 router.get('/transactions', authenticateToken, requireSuperAdmin, getTransactions);
+router.get('/leads', authenticateToken, requireSuperAdmin, getSchoolLeads);
 router.get('/announcements', authenticateToken, requireSuperAdmin, getGlobalAnnouncements);
 router.post('/announcements', authenticateToken, requireSuperAdmin, createGlobalAnnouncement);
 

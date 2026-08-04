@@ -571,10 +571,26 @@ async function updateAffiliateStatus(req, res) {
     }
 }
 
+// ── GET /superadmin/leads ────────────────────────────────────
+async function getSchoolLeads(req, res) {
+    try {
+        const { data: leads, error } = await supabase
+            .from('contact_messages')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return res.json({ leads: leads || [] });
+    } catch (err) {
+        console.error('SuperAdmin getSchoolLeads Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la récupération des demandes d\'écoles.' });
+    }
+}
+
 module.exports = { 
     getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, 
     paySubscriptionInit, recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus,
-    getSettings, updateSettings, getTransactions, getGlobalAnnouncements, createGlobalAnnouncement
+    getSettings, updateSettings, getTransactions, getGlobalAnnouncements, createGlobalAnnouncement, getSchoolLeads
 };
 
 // ==========================================

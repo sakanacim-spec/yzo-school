@@ -313,8 +313,9 @@ export const SuperAdminDashboard: React.FC = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   
-  // Support Client
+  // Support Client & Demandes Écoles
   const [inbox, setInbox] = useState<any[]>([]);
+  const [schoolLeads, setSchoolLeads] = useState<any[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
   const [supportMessages, setSupportMessages] = useState<any[]>([]);
   const [newSupportMessage, setNewSupportMessage] = useState('');
@@ -322,7 +323,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres' | 'support' | 'retraits_dons'>('ecoles');
+  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres' | 'support' | 'retraits_dons' | 'demandes_ecoles'>('ecoles');
 
   const handleUpdateCommission = async (school: SchoolWithStats, newRate: number) => {
     setActionLoading(`comm_${school.id}`);
@@ -393,7 +394,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [schoolsRes, statsRes, affiliatesRes, settingsRes, transRes, annRes, inboxRes, withdrawalsRes] = await Promise.all([
+      const [schoolsRes, statsRes, affiliatesRes, settingsRes, transRes, annRes, inboxRes, withdrawalsRes, leadsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/superadmin/schools`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/stats`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/affiliates`, { headers: getAuthHeaders() }),
@@ -401,7 +402,8 @@ export const SuperAdminDashboard: React.FC = () => {
         fetch(`${API_BASE_URL}/superadmin/transactions`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/announcements`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE_URL}/superadmin/support/inbox`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/withdrawals/all`, { headers: getAuthHeaders() })
+        fetch(`${API_BASE_URL}/withdrawals/all`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/superadmin/leads`, { headers: getAuthHeaders() })
       ]);
       if (schoolsRes.ok) {
         const d = await schoolsRes.json();
@@ -433,6 +435,10 @@ export const SuperAdminDashboard: React.FC = () => {
       if (inboxRes.ok) {
         const d = await inboxRes.json();
         setInbox(d.inbox || []);
+      }
+      if (leadsRes.ok) {
+        const d = await leadsRes.json();
+        setSchoolLeads(d.leads || []);
       }
     } catch (err) {
       console.error('SuperAdmin load error:', err);
@@ -1484,6 +1490,68 @@ export const SuperAdminDashboard: React.FC = () => {
           </div>
         </div>
       ) : null}
+
+      {/* Onglet Écoles Demandées par les Parents */}
+      {activeTab === 'demandes_ecoles' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <span>🏫 Écoles Demandées par les Parents & Leads Publics</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Liste des demandes d'ouverture d'écoles soumises par des parents d'élèves et prospects.
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs font-bold border border-amber-500/30">
+              {schoolLeads.length} Demande(s)
+            </span>
+          </div>
+
+          {schoolLeads.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              Aucune demande d'école pour le moment.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {schoolLeads.map((lead) => {
+                const phoneMatch = lead.message?.match(/Parent: .*\((.*?)\)/)?.[1] || lead.email?.split('@')[0] || '';
+                return (
+                  <div key={lead.id} className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 hover:border-amber-500/50 transition space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h4 className="text-base font-bold text-white flex items-center gap-2">
+                          <span>{lead.name}</span>
+                          <span className="text-xs font-normal text-slate-400">({lead.country || 'Afrique'})</span>
+                        </h4>
+                        <p className="text-xs text-amber-400 mt-0.5 font-mono">{lead.email}</p>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+                        {new Date(lead.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-950/80 rounded-xl p-4 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed border border-slate-800 font-mono">
+                      {lead.message}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      {phoneMatch && (
+                        <a
+                          href={`tel:${phoneMatch}`}
+                          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-lg shadow-amber-500/20 flex items-center gap-1.5"
+                        >
+                          📞 Appeler le Parent / Directeur ({phoneMatch})
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Modal création */}
       {showCreateModal && (
