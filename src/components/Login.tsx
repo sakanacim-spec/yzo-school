@@ -86,12 +86,14 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
 
   
-  // NOUVEAU : Sélection Établissement
+  // NOUVEAU : Saisie & Autocomplétion Établissement
   const [schools, setSchools] = useState<{slug: string, name: string, logo_url: string}[]>([]);
   const [selectedSchool, setSelectedSchool] = useState('');
+  const [schoolSearchQuery, setSchoolSearchQuery] = useState('');
+  const [showSchoolDropdown, setShowSchoolDropdown] = useState(false);
 
   useEffect(() => {
-    // Récupérer la liste des écoles
+    // Récupérer la liste des écoles pour l'autocomplétion intelligente
     fetch(`${API_BASE_URL}/schools`)
       .then(res => res.json())
       .then(data => {
@@ -316,21 +318,53 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
 
                 <div className="w-full space-y-4">
                     <div className="relative">
-                        <Building2 className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-                        <select 
-                            className="w-full h-[52px] !ps-12 pe-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                            value={selectedSchool} 
-                            onChange={(e) => setSelectedSchool(e.target.value)} 
-                            required
-                        >
-                            <option value="" disabled>-- {T.login?.schoolPlaceholder || 'Sélectionnez votre établissement'} --</option>
-                            <option value="global">{t(language as Language, 'auth.globalAccess') || 'Accès Global (SuperAdmin)'}</option>
-                            <option disabled>────── {t(language as Language, 'auth.schoolsList') || 'Établissements'} ──────</option>
-                            {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
-                        </select>
-                        <div className="absolute end-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
+                        <Building2 className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500 z-10 pointer-events-none" />
+                        <input 
+                            type="text" 
+                            placeholder={T.login?.schoolPlaceholder || 'Saisissez votre établissement'} 
+                            className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                            value={schoolSearchQuery} 
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setSchoolSearchQuery(val);
+                                setShowSchoolDropdown(true);
+                                const match = schools.find(s => s.name.toLowerCase() === val.toLowerCase() || s.slug.toLowerCase() === val.toLowerCase());
+                                if (match) {
+                                    setSelectedSchool(match.slug);
+                                } else if (val.toLowerCase() === 'superadmin' || val.toLowerCase() === 'global') {
+                                    setSelectedSchool('global');
+                                } else {
+                                    setSelectedSchool(val);
+                                }
+                            }} 
+                            onFocus={() => setShowSchoolDropdown(true)}
+                            required 
+                        />
+                        {showSchoolDropdown && schoolSearchQuery.trim().length >= 1 && (
+                            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto font-sans">
+                                {schools.filter(s => s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase())).length > 0 ? (
+                                    schools.filter(s => s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase())).map((s) => (
+                                        <button
+                                            key={s.slug}
+                                            type="button"
+                                            className="w-full text-left px-4 py-2.5 hover:bg-orange-50 text-xs font-semibold text-slate-700 flex items-center justify-between border-b border-slate-100 last:border-none transition-colors"
+                                            onClick={() => {
+                                                setSelectedSchool(s.slug);
+                                                setSchoolSearchQuery(s.name);
+                                                setShowSchoolDropdown(false);
+                                            }}
+                                        >
+                                            <span>{s.name}</span>
+                                            <span className="text-[10px] text-slate-400 font-mono">({s.slug})</span>
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="p-3 text-xs text-slate-500 text-center font-medium">
+                                        Connexion avec : <span className="font-bold text-orange-600">"{schoolSearchQuery}"</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     
                     <div className="relative">
@@ -564,21 +598,53 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
 
                 <form onSubmit={handleAuth} className="space-y-4">
                         <div className="relative">
-                            <Building2 className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-                            <select 
-                                className="w-full h-[52px] !ps-12 pe-10 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                                value={selectedSchool} 
-                                onChange={(e) => setSelectedSchool(e.target.value)} 
-                                required
-                            >
-                                <option value="" disabled>-- {T.login?.schoolPlaceholder || 'Sélectionnez votre établissement'} --</option>
-                                <option value="global">{t(language as Language, 'auth.globalAccess') || 'Accès Global (SuperAdmin)'}</option>
-                                <option disabled>────── {t(language as Language, 'auth.schoolsList') || 'Établissements'} ──────</option>
-                                {schools.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
-                            </select>
-                            <div className="absolute end-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </div>
+                            <Building2 className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500 z-10 pointer-events-none" />
+                            <input 
+                                type="text" 
+                                placeholder={T.login?.schoolPlaceholder || 'Saisissez votre établissement'} 
+                                className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                value={schoolSearchQuery} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSchoolSearchQuery(val);
+                                    setShowSchoolDropdown(true);
+                                    const match = schools.find(s => s.name.toLowerCase() === val.toLowerCase() || s.slug.toLowerCase() === val.toLowerCase());
+                                    if (match) {
+                                        setSelectedSchool(match.slug);
+                                    } else if (val.toLowerCase() === 'superadmin' || val.toLowerCase() === 'global') {
+                                        setSelectedSchool('global');
+                                    } else {
+                                        setSelectedSchool(val);
+                                    }
+                                }} 
+                                onFocus={() => setShowSchoolDropdown(true)}
+                                required 
+                            />
+                            {showSchoolDropdown && schoolSearchQuery.trim().length >= 1 && (
+                                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto font-sans">
+                                    {schools.filter(s => s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase())).length > 0 ? (
+                                        schools.filter(s => s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase())).map((s) => (
+                                            <button
+                                                key={s.slug}
+                                                type="button"
+                                                className="w-full text-left px-4 py-2.5 hover:bg-orange-50 text-xs font-semibold text-slate-700 flex items-center justify-between border-b border-slate-100 last:border-none transition-colors"
+                                                onClick={() => {
+                                                    setSelectedSchool(s.slug);
+                                                    setSchoolSearchQuery(s.name);
+                                                    setShowSchoolDropdown(false);
+                                                }}
+                                            >
+                                                <span>{s.name}</span>
+                                                <span className="text-[10px] text-slate-400 font-mono">({s.slug})</span>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="p-3 text-xs text-slate-500 text-center font-medium">
+                                            Connexion avec : <span className="font-bold text-orange-600">"{schoolSearchQuery}"</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         
                         <div className="relative">
