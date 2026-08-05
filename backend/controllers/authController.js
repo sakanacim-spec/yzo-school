@@ -290,11 +290,19 @@ async function login(req, res) {
         console.log(`🔍 [Auth] Tentative login pour: ${telephone.trim()}`);
 
         // ── 1. Vérifier si c'est le SuperAdmin ──
-        const { data: superadmin } = await supabase
-            .from('superadmins')
-            .select('*')
-            .eq('username', telephone.trim())
-            .single();
+        let superadmin = null;
+        const { data: saList } = await supabase.from('superadmins').select('*');
+        if (saList && saList.length > 0) {
+            const inputClean = telephone.trim().toLowerCase();
+            superadmin = saList.find(s => 
+                (s.username && s.username.toLowerCase() === inputClean) ||
+                (s.telephone && s.telephone.trim() === telephone.trim()) ||
+                (s.email && s.email.toLowerCase() === inputClean)
+            );
+            if (!superadmin && (schoolSlug === 'global' || inputClean.includes('admin') || inputClean.includes('global'))) {
+                superadmin = saList[0];
+            }
+        }
 
         if (superadmin) {
             const valid = await bcrypt.compare(password, superadmin.password);
@@ -308,7 +316,7 @@ async function login(req, res) {
                 return res.json({
                     message: 'Connexion globale réussie.',
                     token,
-                    user: { id: superadmin.id, nom: superadmin.nom, telephone: superadmin.telephone, role: 'superadmin' }
+                    user: { id: superadmin.id, nom: superadmin.nom, telephone: superadmin.telephone || superadmin.username, role: 'superadmin' }
                 });
             } else {
                 return res.status(401).json({ error: 'Mot de passe SuperAdmin incorrect.' });

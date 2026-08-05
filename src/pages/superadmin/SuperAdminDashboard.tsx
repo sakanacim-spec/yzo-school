@@ -750,24 +750,24 @@ export const SuperAdminDashboard: React.FC = () => {
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
             {
-              label: t(language as Language, 'superadmin.totalSchools') || 'Total Écoles', value: stats.total_schools, icon: <Building2 className="w-5 h-5" />,
-              color: 'from-blue-500 to-cyan-500', sub: `${stats.active_schools} ${t(language as Language, 'superadmin.activeSchoolsSub') || 'actives'}`
+              label: t(language as Language, 'superadmin.totalSchools') || 'Total Écoles', value: stats.total_schools || 0, icon: <Building2 className="w-5 h-5" />,
+              color: 'from-blue-500 to-cyan-500', sub: `${stats.active_schools || 0} ${t(language as Language, 'superadmin.activeSchoolsSub') || 'actives'}`
             },
             {
-              label: t(language as Language, 'superadmin.totalStudents') || 'Total Élèves', value: stats.total_students.toLocaleString(), icon: <Users className="w-5 h-5" />,
-              color: 'from-emerald-500 to-teal-500', sub: `${stats.total_users} ${t(language as Language, 'superadmin.usersSub') || 'utilisateurs'}`
+              label: t(language as Language, 'superadmin.totalStudents') || 'Total Élèves', value: (stats.total_students || 0).toLocaleString(), icon: <Users className="w-5 h-5" />,
+              color: 'from-emerald-500 to-teal-500', sub: `${stats.total_users || 0} ${t(language as Language, 'superadmin.usersSub') || 'utilisateurs'}`
             },
             {
-              label: "Revenus Attendus (Brut)", value: formatFCFA(stats.total_revenue), icon: <Wallet className="w-5 h-5" />,
-              color: 'from-purple-500 to-violet-500', sub: `Avec remise -10%: ${formatFCFA(stats.total_revenue * 0.9)}`
+              label: "Revenus Attendus (Brut)", value: formatFCFA(stats.total_revenue || 0), icon: <Wallet className="w-5 h-5" />,
+              color: 'from-purple-500 to-violet-500', sub: `Avec remise -10%: ${formatFCFA((stats.total_revenue || 0) * 0.9)}`
             },
             {
-              label: "Revenus Encaissés", value: formatFCFA(stats.total_revenue_paid), icon: <Wallet className="w-5 h-5" />,
+              label: "Revenus Encaissés", value: formatFCFA(stats.total_revenue_paid || 0), icon: <Wallet className="w-5 h-5" />,
               color: 'from-amber-500 to-orange-500', sub: `Abonnements réels`
             },
             {
-              label: t(language as Language, 'superadmin.alerts') || 'Alertes', value: stats.expired_trials + stats.suspended_schools, icon: <AlertTriangle className="w-5 h-5" />,
-              color: 'from-red-500 to-rose-500', sub: `${stats.expired_trials} ${t(language as Language, 'superadmin.alertsSub') || 'essais expirés'}`
+              label: t(language as Language, 'superadmin.alerts') || 'Alertes', value: (stats.expired_trials || 0) + (stats.suspended_schools || 0), icon: <AlertTriangle className="w-5 h-5" />,
+              color: 'from-red-500 to-rose-500', sub: `${stats.expired_trials || 0} ${t(language as Language, 'superadmin.alertsSub') || 'essais expirés'}`
             },
           ].map((card) => (
             <div key={card.label} className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
@@ -790,14 +790,14 @@ export const SuperAdminDashboard: React.FC = () => {
            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
               <h3 className="text-white font-bold mb-6">Répartition des Écoles</h3>
               <div className="flex h-4 rounded-full overflow-hidden mb-3 bg-slate-800">
-                 <div style={{ width: `${(stats.active_schools / Math.max(1, stats.total_schools)) * 100}%` }} className="bg-emerald-500"></div>
-                 <div style={{ width: `${(stats.suspended_schools / Math.max(1, stats.total_schools)) * 100}%` }} className="bg-red-500"></div>
-                 <div style={{ width: `${(stats.expired_trials / Math.max(1, stats.total_schools)) * 100}%` }} className="bg-amber-500"></div>
+                 <div style={{ width: `${((stats.active_schools || 0) / Math.max(1, stats.total_schools || 1)) * 100}%` }} className="bg-emerald-500"></div>
+                 <div style={{ width: `${((stats.suspended_schools || 0) / Math.max(1, stats.total_schools || 1)) * 100}%` }} className="bg-red-500"></div>
+                 <div style={{ width: `${((stats.expired_trials || 0) / Math.max(1, stats.total_schools || 1)) * 100}%` }} className="bg-amber-500"></div>
               </div>
               <div className="flex flex-wrap justify-between text-xs text-slate-400">
-                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Actives ({stats.active_schools})</div>
-                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Suspendues ({stats.suspended_schools})</div>
-                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Essais expirés ({stats.expired_trials})</div>
+                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Actives ({stats.active_schools || 0})</div>
+                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Suspendues ({stats.suspended_schools || 0})</div>
+                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Essais expirés ({stats.expired_trials || 0})</div>
               </div>
            </div>
            
