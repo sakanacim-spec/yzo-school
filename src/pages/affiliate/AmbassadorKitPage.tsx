@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   GraduationCap, Printer, ArrowLeft, FileText, 
   HelpCircle, DollarSign, Award, Users, BookOpen, ShieldCheck, Phone, 
-  Sparkles, QrCode, CreditCard
+  Sparkles, QrCode, CreditCard, Building2, Share2
 } from 'lucide-react';
 
 export const AmbassadorKitPage: React.FC = () => {
@@ -794,3 +794,5 @@ export const AmbassadorKitPage: React.FC = () => {
     </div>
   );
 };
+
+export default AmbassadorKitPage;
