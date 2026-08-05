@@ -78,6 +78,9 @@ export const AmbassadorKitPage: React.FC = () => {
             { id: 'prospectus', label: '📄 Prospectus Flyer Yziow', icon: Sparkles },
             { id: 'guide', label: '📘 Guide de Formation', icon: BookOpen },
             { id: 'scripts', label: '🗣️ Scripts de Prospection', icon: Phone },
+            { id: 'courrier_ecole', label: '✉️ Courrier Établissements', icon: Building2 },
+            { id: 'courrier_banque', label: '🏦 Courrier Banques', icon: CreditCard },
+            { id: 'courrier_entreprise', label: '🏢 Courrier Entreprises (RSE)', icon: Share2 },
             { id: 'faq', label: '❓ FAQ Officielle', icon: HelpCircle },
             { id: 'tarifs', label: '💰 Grille Tarifaire', icon: DollarSign },
             { id: 'comparatif', label: '⚖️ Fiche Comparatif', icon: FileText },
@@ -560,6 +563,228 @@ export const AmbassadorKitPage: React.FC = () => {
               <div className="pt-6 border-t border-slate-300 flex justify-between items-center text-xs font-mono text-slate-600">
                 <div>Délivré par : Direction Yziow</div>
                 <div>Code Officiel : YZIOW-AMB-2026</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* DOCUMENT 10 : COURRIER OFFICIEL ÉTABLISSEMENTS SCOLAIRES      */}
+        {/* ============================================================ */}
+        {activeDoc === 'courrier_ecole' && (
+          <div className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200 space-y-6 font-serif leading-relaxed text-sm">
+            {/* Entête Officiel Yziow */}
+            <div className="flex justify-between items-start border-b-2 border-orange-500 pb-6 font-sans">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-xl">
+                  <GraduationCap className="w-7 h-7 text-orange-600" />
+                  <span>YZIOW EDUCATION</span>
+                </div>
+                <p className="text-xs text-slate-500">Plateforme SaaS de Gestion Scolaire & Pédagogique</p>
+                <p className="text-xs text-slate-500">Siège : Cotonou, Bénin | contact@yziow.com | www.yziow.com</p>
+              </div>
+              <div className="text-right text-xs text-slate-500 font-mono">
+                <p>Date : __ / __ / 2026</p>
+                <p>Réf : YZIOW-PROP-2026/01</p>
+              </div>
+            </div>
+
+            {/* Destinataire */}
+            <div className="flex justify-end font-sans">
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs space-y-1 w-72">
+                <p className="font-bold text-slate-900">À l'attention de Monsieur/Madame le Directeur</p>
+                <p className="text-slate-700">Établissement : [Nom de l'École / Collège / Lycée]</p>
+                <p className="text-slate-600">Ville / Pays : [Ville, Pays]</p>
+              </div>
+            </div>
+
+            {/* Objet */}
+            <div className="bg-orange-50 border-l-4 border-orange-500 p-3 font-sans rounded-r-xl">
+              <strong className="text-orange-950 font-bold">OBJET :</strong> <span className="text-orange-900">Proposition de modernisation numérique de votre établissement & Offre d'Essai Gratuit 14 Jours</span>
+            </div>
+
+            {/* Corps du courrier */}
+            <div className="space-y-4 text-slate-800 text-sm">
+              <p>Monsieur/Madame le Directeur,</p>
+              <p>
+                Nous avons l'honneur de vous présenter <strong>Yziow Education</strong>, la plateforme SaaS d'excellence conçue spécifiquement pour répondre aux défis quotidiens de gestion des établissements scolaires en Afrique et à l'international.
+              </p>
+              <p>
+                La gestion manuelle des bulletins, le suivi des présences et la comptabilité sur registres papiers engendrent de nombreuses heures de calculs, un risque d'erreurs et des pertes de données. Yziow apporte une réponse moderne et sécurisée à travers :
+              </p>
+              
+              <ul className="list-disc pl-6 space-y-2 font-sans text-xs">
+                <li><strong>Génération instantanée de bulletins PDF certifiés :</strong> Calcul automatique des moyennes, rangs et appréciations pédagogiques en 1 clic.</li>
+                <li><strong>Pointage des présences par QR Code :</strong> Appel automatique à l'entrée avec un simple smartphone et notification en temps réel aux parents.</li>
+                <li><strong>Gestion financière & reçus automatiques :</strong> Suivi des scolarités, alertes impayés et reçus imprimables infalsifiables.</li>
+                <li><strong>Module de Levée de Fonds & Dons (Yziow Pay) :</strong> Outil de crowdfunding intégré permettant à votre école de financer ses projets de construction ou d'équipements informatiques.</li>
+              </ul>
+
+              <p>
+                Afin de vous permettre de mesurer concrètement les bénéfices de notre solution, nous avons le plaisir de vous offrir une <strong>période d'essai 100% gratuite de 14 jours</strong>, sans aucun engagement et sans carte bancaire.
+              </p>
+              <p>
+                Notre Ambassadeur agréé se tient à votre entière disposition pour planifier une démonstration de 15 minutes dans vos locaux ou en visioconférence.
+              </p>
+              <p>
+                Dans l'attente de votre réponse, nous vous prions d'agréer, Monsieur/Madame le Directeur, l'expression de nos salutations distinguées.
+              </p>
+            </div>
+
+            {/* Signature & Cachet */}
+            <div className="pt-8 flex justify-between items-end font-sans text-xs border-t border-slate-200">
+              <div className="space-y-1">
+                <p className="font-bold text-slate-900">L'Ambassadeur Agréé Yziow</p>
+                <p className="text-slate-600">Nom & Prénom : ____________________</p>
+                <p className="text-slate-600">Contact / Tél : ____________________</p>
+              </div>
+              <div className="text-center space-y-2">
+                <p className="font-bold text-slate-900">Pour la Direction Générale Yziow</p>
+                <div className="w-32 h-16 border border-dashed border-orange-300 rounded-xl flex items-center justify-center text-[10px] text-orange-400">
+                  Cachet & Signature
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* DOCUMENT 11 : COURRIER OFFICIEL BANQUES & ÉTABLISSEMENTS FINANCIERS */}
+        {/* ============================================================ */}
+        {activeDoc === 'courrier_banque' && (
+          <div className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200 space-y-6 font-serif leading-relaxed text-sm">
+            <div className="flex justify-between items-start border-b-2 border-orange-500 pb-6 font-sans">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-xl">
+                  <GraduationCap className="w-7 h-7 text-orange-600" />
+                  <span>YZIOW EDUCATION</span>
+                </div>
+                <p className="text-xs text-slate-500">Direction des Partenariats Financiers & Yziow Pay</p>
+                <p className="text-xs text-slate-500">contact@yziow.com | www.yziow.com</p>
+              </div>
+              <div className="text-right text-xs text-slate-500 font-mono">
+                <p>Date : __ / __ / 2026</p>
+                <p>Réf : YZIOW-BANK-2026/02</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end font-sans">
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs space-y-1 w-80">
+                <p className="font-bold text-slate-900">À l'attention de Monsieur/Madame le Directeur Général</p>
+                <p className="text-slate-700">Établissement Bancaire : [Nom de la Banque / Institution Financial]</p>
+                <p className="text-slate-600">Direction des Crédits & Engagements</p>
+              </div>
+            </div>
+
+            <div className="bg-orange-50 border-l-4 border-orange-500 p-3 font-sans rounded-r-xl">
+              <strong className="text-orange-950 font-bold">OBJET :</strong> <span className="text-orange-900">Demande de Partenariat Stratégique — Solutions de Financement Scolaire & Crédits Équipement</span>
+            </div>
+
+            <div className="space-y-4 text-slate-800 text-sm">
+              <p>Monsieur/Madame le Directeur Général,</p>
+              <p>
+                La plateforme SaaS <strong>Yziow Education</strong> regroupe aujourd'hui un réseau en forte croissance d'établissements scolaires (écoles maternelles, primaires, collèges, lycées, universités et centres de formation) et de dizaines de milliers de parents d'élèves.
+              </p>
+              <p>
+                Dans le cadre de l'extension de notre écosystème de services, nous sollicitons un **partenariat institutionnel avec votre établissement bancaire** autour de trois axes stratégiques :
+              </p>
+              
+              <ol className="list-decimal pl-6 space-y-2 font-sans text-xs">
+                <li><strong>Lignes de crédits d'équipement aux écoles :</strong> Proposer des facilités de prêt à taux préférentiel pour l'acquisition de bus scolaires, ordinateurs et constructions d'infrastructures pour les écoles inscrites sur Yziow.</li>
+                <li><strong>Crédits de scolarité pour les parents :</strong> Offrir des micro-crédits de rentrée scolaire aux parents d'élèves gérant leurs paiements via Yziow Pay.</li>
+                <li><strong>Ouverture de comptes & reversements sécurisés :</strong> Interconnexion bancaire pour les opérations de reversement des abonnements et collectes de dons de nos écoles partenaires.</li>
+              </ol>
+
+              <p>
+                Ce partenariat offrira à votre banque une visibilité directe et prioritaire auprès d'un portefeuille qualifié de fondateurs d'écoles et de familles à fort pouvoir d'achat.
+              </p>
+              <p>
+                Nous serions honorés d'organiser une réunion de cadrage dans vos locaux pour vous présenter nos données d'impact et les modalités de convention.
+              </p>
+              <p>
+                Veuillez agréer, Monsieur/Madame le Directeur Général, l'assurance de notre haute considération.
+              </p>
+            </div>
+
+            <div className="pt-8 flex justify-between items-end font-sans text-xs border-t border-slate-200">
+              <div className="space-y-1">
+                <p className="font-bold text-slate-900">Direction Générale Yziow</p>
+                <p className="text-slate-600">Global Marketing and Technology</p>
+              </div>
+              <div className="text-center space-y-2">
+                <div className="w-32 h-16 border border-dashed border-orange-300 rounded-xl flex items-center justify-center text-[10px] text-orange-400">
+                  Cachet Officiel
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* DOCUMENT 12 : COURRIER OFFICIEL ENTREPRISES & MÉCÈNES (RSE)  */}
+        {/* ============================================================ */}
+        {activeDoc === 'courrier_entreprise' && (
+          <div className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200 space-y-6 font-serif leading-relaxed text-sm">
+            <div className="flex justify-between items-start border-b-2 border-orange-500 pb-6 font-sans">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-slate-900 font-black text-xl">
+                  <GraduationCap className="w-7 h-7 text-orange-600" />
+                  <span>YZIOW EDUCATION</span>
+                </div>
+                <p className="text-xs text-slate-500">Direction de l'Impact Social & Mécénat RSE</p>
+                <p className="text-xs text-slate-500">contact@yziow.com | www.yziow.com</p>
+              </div>
+              <div className="text-right text-xs text-slate-500 font-mono">
+                <p>Date : __ / __ / 2026</p>
+                <p>Réf : YZIOW-RSE-2026/03</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end font-sans">
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs space-y-1 w-80">
+                <p className="font-bold text-slate-900">À l'attention de la Direction Générale / RSE</p>
+                <p className="text-slate-700">Entreprise : [Nom de l'Entreprise / Société Partner]</p>
+                <p className="text-slate-600">Direction Communication & Engagements RSE</p>
+              </div>
+            </div>
+
+            <div className="bg-orange-50 border-l-4 border-orange-500 p-3 font-sans rounded-r-xl">
+              <strong className="text-orange-950 font-bold">OBJET :</strong> <span className="text-orange-900">Demande de Partenariat RSE & Sponsoring — Programme "Éducation Numérique & Bourses Scolaires"</span>
+            </div>
+
+            <div className="space-y-4 text-slate-800 text-sm">
+              <p>Madame, Monsieur le Directeur,</p>
+              <p>
+                Dans le cadre de votre Responsabilité Sociétale des Entreprises (RSE) et de votre engagement en faveur de l'éducation et de la jeunesse, la plateforme <strong>Yziow Education</strong> vous invite à devenir partenaire officiel de notre programme d'accès au numérique pour les écoles.
+              </p>
+              <p>
+                À travers notre module certifié de **Levée de Fonds & Dons (Yziow Pay)**, des dizaines d'écoles soumettent chaque mois des projets à fort impact communautaire : bourses d'études pour élèves méritants démunis, équipement en ordinateurs, accès à l'eau potable et rénovation de salles de classe.
+              </p>
+              
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 font-sans text-xs space-y-2">
+                <p className="font-bold text-slate-900">Avantages exclusifs pour votre Entreprise :</p>
+                <p>• <strong>Visibilité de marque Premium :</strong> Logo de votre entreprise affiché comme Mécène Premium sur la plateforme Yziow devant des milliers de parents et directeurs.</p>
+                <p>• <strong>Rapport d'Impact Certifié :</strong> Traçabilité à 100% de vos dons avec attestations de mécénat téléchargeables.</p>
+                <p>• <strong>Valorisation RSE :</strong> Contenu média personnalisé (photos, vidéos de remise d'équipements aux écoles) pour vos canaux de communication.</p>
+              </div>
+
+              <p>
+                Nous nous tenons à votre disposition pour vous présenter les différentes formules de sponsoring (Sponsor Gold, Parrain d'Écoles, Fonds de Bourses).
+              </p>
+              <p>
+                Espérant pouvoir compter votre noble entreprise parmi les bâtisseurs de l'éducation de demain, nous vous prions d'agréer l'expression de nos sentiments les plus distingués.
+              </p>
+            </div>
+
+            <div className="pt-8 flex justify-between items-end font-sans text-xs border-t border-slate-200">
+              <div className="space-y-1">
+                <p className="font-bold text-slate-900">Direction de l'Impact Social Yziow</p>
+                <p className="text-slate-600">Global Marketing and Technology</p>
+              </div>
+              <div className="text-center space-y-2">
+                <div className="w-32 h-16 border border-dashed border-orange-300 rounded-xl flex items-center justify-center text-[10px] text-orange-400">
+                  Cachet Officiel
+                </div>
               </div>
             </div>
           </div>
