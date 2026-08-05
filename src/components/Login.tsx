@@ -331,19 +331,34 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                 const match = schools.find(s => s.name.toLowerCase() === val.toLowerCase() || s.slug.toLowerCase() === val.toLowerCase());
                                 if (match) {
                                     setSelectedSchool(match.slug);
-                                } else if (val.toLowerCase() === 'superadmin' || val.toLowerCase() === 'global') {
+                                } else if (val.toLowerCase().includes('superadmin') || val.toLowerCase().includes('global') || val.toLowerCase().includes('accès global')) {
                                     setSelectedSchool('global');
                                 } else {
                                     setSelectedSchool(val);
                                 }
                             }} 
                             onFocus={() => setShowSchoolDropdown(true)}
+                            onBlur={() => setTimeout(() => setShowSchoolDropdown(false), 200)}
                             required 
                         />
                         {showSchoolDropdown && schoolSearchQuery.trim().length >= 1 && (
                             <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto font-sans">
-                                {schools.filter(s => s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase())).length > 0 ? (
-                                    schools.filter(s => s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase())).map((s) => (
+                                {[
+                                    { slug: 'global', name: 'Accès Global (SuperAdmin)' },
+                                    ...schools
+                                ].filter(s => 
+                                    s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || 
+                                    s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase()) ||
+                                    (s.slug === 'global' && (schoolSearchQuery.toLowerCase().includes('accès') || schoolSearchQuery.toLowerCase().includes('admin')))
+                                ).length > 0 ? (
+                                    [
+                                        { slug: 'global', name: 'Accès Global (SuperAdmin)' },
+                                        ...schools
+                                    ].filter(s => 
+                                        s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || 
+                                        s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase()) ||
+                                        (s.slug === 'global' && (schoolSearchQuery.toLowerCase().includes('accès') || schoolSearchQuery.toLowerCase().includes('admin')))
+                                    ).map((s) => (
                                         <button
                                             key={s.slug}
                                             type="button"
@@ -359,9 +374,13 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                         </button>
                                     ))
                                 ) : (
-                                    <div className="p-3 text-xs text-slate-500 text-center font-medium">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowSchoolDropdown(false)}
+                                        className="w-full p-3 text-xs text-slate-500 text-center font-medium hover:bg-slate-50 transition-colors"
+                                    >
                                         Connexion avec : <span className="font-bold text-orange-600">"{schoolSearchQuery}"</span>
-                                    </div>
+                                    </button>
                                 )}
                             </div>
                         )}
@@ -611,19 +630,34 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                     const match = schools.find(s => s.name.toLowerCase() === val.toLowerCase() || s.slug.toLowerCase() === val.toLowerCase());
                                     if (match) {
                                         setSelectedSchool(match.slug);
-                                    } else if (val.toLowerCase() === 'superadmin' || val.toLowerCase() === 'global') {
+                                    } else if (val.toLowerCase().includes('superadmin') || val.toLowerCase().includes('global') || val.toLowerCase().includes('accès global')) {
                                         setSelectedSchool('global');
                                     } else {
                                         setSelectedSchool(val);
                                     }
                                 }} 
                                 onFocus={() => setShowSchoolDropdown(true)}
+                                onBlur={() => setTimeout(() => setShowSchoolDropdown(false), 200)}
                                 required 
                             />
                             {showSchoolDropdown && schoolSearchQuery.trim().length >= 1 && (
                                 <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto font-sans">
-                                    {schools.filter(s => s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase())).length > 0 ? (
-                                        schools.filter(s => s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase())).map((s) => (
+                                    {[
+                                        { slug: 'global', name: 'Accès Global (SuperAdmin)' },
+                                        ...schools
+                                    ].filter(s => 
+                                        s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || 
+                                        s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase()) ||
+                                        (s.slug === 'global' && (schoolSearchQuery.toLowerCase().includes('accès') || schoolSearchQuery.toLowerCase().includes('admin')))
+                                    ).length > 0 ? (
+                                        [
+                                            { slug: 'global', name: 'Accès Global (SuperAdmin)' },
+                                            ...schools
+                                        ].filter(s => 
+                                            s.name.toLowerCase().includes(schoolSearchQuery.toLowerCase()) || 
+                                            s.slug.toLowerCase().includes(schoolSearchQuery.toLowerCase()) ||
+                                            (s.slug === 'global' && (schoolSearchQuery.toLowerCase().includes('accès') || schoolSearchQuery.toLowerCase().includes('admin')))
+                                        ).map((s) => (
                                             <button
                                                 key={s.slug}
                                                 type="button"
@@ -639,9 +673,13 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                             </button>
                                         ))
                                     ) : (
-                                        <div className="p-3 text-xs text-slate-500 text-center font-medium">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowSchoolDropdown(false)}
+                                            className="w-full p-3 text-xs text-slate-500 text-center font-medium hover:bg-slate-50 transition-colors"
+                                        >
                                             Connexion avec : <span className="font-bold text-orange-600">"{schoolSearchQuery}"</span>
-                                        </div>
+                                        </button>
                                     )}
                                 </div>
                             )}
