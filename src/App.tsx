@@ -224,6 +224,30 @@ export function App() {
 
   const [publicPage, setPublicPage] = React.useState<'landing' | 'about' | 'contact' | 'login' | 'cgu' | 'privacy' | 'legal' | 'careers'>('landing');
 
+  // ── Routes Ambassadeurs / Affiliés (Accessibles à tous) ──
+  const pathname = window.location.pathname.replace(/\/$/, '');
+  if (pathname === '/ambassadeur') {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+         <AffiliateLogin />
+      </Suspense>
+    );
+  }
+  if (pathname === '/ambassadeur/dashboard') {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+         <AffiliateDashboard />
+      </Suspense>
+    );
+  }
+  if (pathname === '/ambassadeur/kit') {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+         <AmbassadorKitPage />
+      </Suspense>
+    );
+  }
+
   if (!isAuthenticated) {
     if (publicPage === 'login') {
       return <Login onBackToLanding={() => setPublicPage('landing')} />;
@@ -233,29 +257,6 @@ export function App() {
     }
     if (publicPage === 'contact') {
       return <Contact onBack={() => setPublicPage('landing')} />;
-    }
-    
-    // --- Routes Affiliés ---
-    if (window.location.pathname === '/ambassadeur') {
-      return (
-        <Suspense fallback={<LoadingSpinner />}>
-           <AffiliateLogin />
-        </Suspense>
-      );
-    }
-    if (window.location.pathname === '/ambassadeur/dashboard') {
-      return (
-        <Suspense fallback={<LoadingSpinner />}>
-           <AffiliateDashboard />
-        </Suspense>
-      );
-    }
-    if (window.location.pathname === '/ambassadeur/kit' || window.location.pathname === '/ambassadeur/kit/') {
-      return (
-        <Suspense fallback={<LoadingSpinner />}>
-           <AmbassadorKitPage />
-        </Suspense>
-      );
     }
     if (publicPage === 'careers') {
       return <Careers onBack={() => setPublicPage('landing')} />;
