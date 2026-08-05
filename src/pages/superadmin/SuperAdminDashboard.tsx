@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Building2, Users, AlertTriangle,
   Plus, Check, X, Clock, RefreshCw, ToggleLeft, ToggleRight,
-  Globe, Phone, Mail, MapPin, Wallet, Star, Trash2, ExternalLink, Search, Key
+  Globe, Phone, Mail, MapPin, Wallet, Star, Trash2, ExternalLink, Search, Key, Eye, EyeOff
 } from 'lucide-react';
 import { School } from '../../types';
 import { API_BASE_URL } from '../../config';
@@ -325,6 +325,8 @@ export const SuperAdminDashboard: React.FC = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
   const [pwdError, setPwdError] = useState('');
   const [pwdSuccess, setPwdSuccess] = useState('');
@@ -1626,26 +1628,44 @@ export const SuperAdminDashboard: React.FC = () => {
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Mot de passe actuel (optionnel)</label>
-                <input 
-                  type="password" 
-                  placeholder="••••••••" 
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-sm font-medium text-white focus:outline-none focus:border-purple-500 transition-colors"
-                />
+                <div className="relative">
+                  <input 
+                    type={showCurrentPwd ? "text" : "password"} 
+                    placeholder="••••••••" 
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 pe-11 text-sm font-medium text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPwd(!showCurrentPwd)}
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 transition-colors"
+                  >
+                    {showCurrentPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Nouveau mot de passe</label>
-                <input 
-                  type="password" 
-                  placeholder="Minimum 6 caractères" 
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-sm font-medium text-white focus:outline-none focus:border-purple-500 transition-colors"
-                />
+                <div className="relative">
+                  <input 
+                    type={showNewPwd ? "text" : "password"} 
+                    placeholder="Minimum 6 caractères" 
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 pe-11 text-sm font-medium text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPwd(!showNewPwd)}
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 transition-colors"
+                  >
+                    {showNewPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-2">
