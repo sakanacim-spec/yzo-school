@@ -78,7 +78,7 @@ export const Recouvrement: React.FC = () => {
         autoTable(doc, {
             startY: yOffset + 12,
             head: [[
-                t(language as Language, 'recovery.colName') || 'Nom Prénom',
+                t(language as Language, 'recovery.colName') || 'Nom & Prénom(s)',
                 t(language as Language, 'recovery.colClass') || 'Classe',
                 t(language as Language, 'recovery.colPhone') || 'Téléphone',
                 t(language as Language, 'recovery.colRemaining') || 'Restant',
@@ -86,7 +86,7 @@ export const Recouvrement: React.FC = () => {
                 t(language as Language, 'recovery.colPriority') || 'Priorité'
             ]],
             body: priorityList.map(s => [
-                sanitizeText(`${s.nom} ${s.prenom}`),
+                sanitizeText(`${(s.nom || '').trim().toUpperCase()}   ${(s.prenom || '').trim()}`),
                 sanitizeText(s.classe),
                 s.telephone || '-',
                 formatMontant(s.restant, currency).replace('€', 'Eur').replace('£', 'GBP').replace(/[\u202F\u00A0]/g, ' '),
@@ -94,6 +94,9 @@ export const Recouvrement: React.FC = () => {
                 sanitizeText(s.niveauPriorite)
             ]),
             styles: { fontSize: 9, font: 'helvetica' },
+            columnStyles: {
+                0: { cellWidth: 65 }
+            },
             headStyles: { fillColor: [220, 38, 38] },
             didParseCell: (data) => {
                 if (data.column.index === 5 && data.section === 'body') {

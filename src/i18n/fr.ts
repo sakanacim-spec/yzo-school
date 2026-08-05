@@ -1536,7 +1536,7 @@ export const fr = {
   "recovery": {
     "priorityListTitle": "LISTE PRIORITAIRE DE RECOUVREMENT",
     "generatedOn": "Généré le: {{date}}",
-    "colName": "Nom Prénom",
+    "colName": "Nom & Prénom(s)",
     "colClass": "Classe",
     "colPhone": "Téléphone",
     "colRemaining": "Restant",
