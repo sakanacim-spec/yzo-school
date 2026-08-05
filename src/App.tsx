@@ -28,6 +28,7 @@ const Recouvrement = lazy(() => import('./pages/Recouvrement').then(m => ({ defa
 const Dons = lazy(() => import('./pages/Dons').then(m => ({ default: m.default })));
 const AffiliateLogin = lazy(() => import('./pages/affiliate/AffiliateLogin').then(m => ({ default: m.AffiliateLogin })));
 const AffiliateDashboard = lazy(() => import('./pages/affiliate/AffiliateDashboard').then(m => ({ default: m.AffiliateDashboard })));
+const AmbassadorKitPage = lazy(() => import('./pages/affiliate/AmbassadorKitPage').then(m => ({ default: m.AmbassadorKitPage })));
 const ScanPresence = lazy(() => import('./pages/ScanPresence').then(m => ({ default: m.ScanPresence })));
 const ScanSortie = lazy(() => import('./pages/ScanSortie').then(m => ({ default: m.ScanSortie })));
 const ScanInformation = lazy(() => import('./pages/ScanInformation'));
@@ -246,6 +247,13 @@ export function App() {
       return (
         <Suspense fallback={<LoadingSpinner />}>
            <AffiliateDashboard />
+        </Suspense>
+      );
+    }
+    if (window.location.pathname === '/ambassadeur/kit' || window.location.pathname === '/ambassadeur/kit/') {
+      return (
+        <Suspense fallback={<LoadingSpinner />}>
+           <AmbassadorKitPage />
         </Suspense>
       );
     }

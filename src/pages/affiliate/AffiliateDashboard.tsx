@@ -149,6 +149,15 @@ export const AffiliateDashboard: React.FC = () => {
               </button>
             </div>
             <p className="text-xs text-slate-500 mt-3 text-center">Partagez ce lien aux directeurs d'écoles.</p>
+            
+            <a
+              href="/ambassadeur/kit"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md"
+            >
+              <span>📄 Kit Ambassadeur & Prospectus (PDF)</span>
+            </a>
           </div>
         </div>
 
