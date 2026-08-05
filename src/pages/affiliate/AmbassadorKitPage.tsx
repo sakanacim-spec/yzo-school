@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   GraduationCap, Printer, ArrowLeft, FileText, 
   HelpCircle, DollarSign, Award, Users, BookOpen, ShieldCheck, Phone, 
-  Sparkles, QrCode, CreditCard, Building2, Share2
+  Sparkles, QrCode, CreditCard, Building2, Share2, Download
 } from 'lucide-react';
 
 export const AmbassadorKitPage: React.FC = () => {
@@ -10,6 +10,31 @@ export const AmbassadorKitPage: React.FC = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownload = () => {
+    const container = document.querySelector('.print-container');
+    if (!container) return;
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <title>Document Yziow Education - ${activeDoc}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+      </head>
+      <body class="bg-white text-slate-900 p-8 font-sans">
+        ${container.innerHTML}
+      </body>
+      </html>
+    `;
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `yziow_${activeDoc}_document.html`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -63,8 +88,16 @@ export const AmbassadorKitPage: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={handleDownload}
+              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs sm:text-sm transition flex items-center gap-2 border border-slate-700"
+            >
+              <Download className="w-4 h-4 text-orange-400" />
+              <span>Télécharger Fichier</span>
+            </button>
+
+            <button
               onClick={handlePrint}
-              className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold rounded-xl text-sm transition shadow-lg shadow-orange-500/30 flex items-center gap-2"
+              className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold rounded-xl text-xs sm:text-sm transition shadow-lg shadow-orange-500/30 flex items-center gap-2"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimer en PDF</span>
@@ -76,6 +109,7 @@ export const AmbassadorKitPage: React.FC = () => {
         <div className="max-w-7xl mx-auto mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           {[
             { id: 'prospectus', label: '📄 Prospectus Flyer Yziow', icon: Sparkles },
+            { id: 'communique', label: '📢 Communiqué Recrutement Réseaux', icon: Share2 },
             { id: 'guide', label: '📘 Guide de Formation', icon: BookOpen },
             { id: 'scripts', label: '🗣️ Scripts de Prospection', icon: Phone },
             { id: 'courrier_ecole', label: '✉️ Courrier Établissements', icon: Building2 },
@@ -240,6 +274,86 @@ export const AmbassadorKitPage: React.FC = () => {
               </div>
               <div className="font-bold text-orange-600 bg-orange-50 px-4 py-2 rounded-xl border border-orange-200">
                 📞 Contact Ambassadeur : +229 01 00 00 00 / contact@yziow.com
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* DOCUMENT 14 : COMMUNIQUÉS RECRUTEMENT RÉSEAUX SOCIAUX        */}
+        {/* ============================================================ */}
+        {activeDoc === 'communique' && (
+          <div className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200 space-y-8 font-sans">
+            <div className="border-b border-slate-200 pb-6 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-orange-600 uppercase tracking-widest">Kit Communication Réseaux Sociaux</span>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900">Communiqués de Recrutement d'Ambassadeurs Yziow</h1>
+              </div>
+              <Share2 className="w-10 h-10 text-orange-500" />
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Utilisez ces modèles de textes officiels prêts à publier sur vos pages Facebook, comptes LinkedIn, groupes WhatsApp, Telegram, Instagram et TikTok pour recruter vos ambassadeurs.
+            </p>
+
+            {/* VERSION 1 : FACEBOOK & LINKEDIN */}
+            <div className="space-y-3 bg-slate-900 text-white p-6 sm:p-8 rounded-2xl border border-slate-800">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">📢 Version 1 : Facebook & LinkedIn (Officiel & Attrayant)</span>
+                <span className="text-[10px] bg-slate-800 text-slate-300 px-3 py-1 rounded-full font-mono">Format Long</span>
+              </div>
+              <div className="text-xs text-slate-200 font-mono leading-relaxed bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
+                <p>🚀 <strong>RECRUTEMENT MASSIF : DEVENEZ AMBASSADEUR AGRÉÉ YZIOW EDUCATION !</strong> 🎓</p>
+                <p>Vous souhaitez générer des revenus récurrents et construire une vraie carrière dans la digitalisation de l'éducation en Afrique et à l'international ?</p>
+                <p>La plateforme SaaS <strong>Yziow Education</strong> (solution N°1 de gestion scolaire : bulletins PDF certifiés, présences par QR Code, comptabilité & levée de fonds) lance sa grande campagne de recrutement d'Ambassadeurs Commercials !</p>
+                <p>💼 <strong>Vos Missions :</strong><br/>
+                • Présenter la solution Yziow aux Directeurs d'Écoles, Collèges, Lycées et Universités.<br/>
+                • Offrir aux établissements un accès d'essai 100% GRATUIT de 14 jours.<br/>
+                • Accompagner les écoles dans leur transformation numérique.</p>
+                <p>💰 <strong>Vos Avantages & Rémunération :</strong><br/>
+                • Commissions récurrentes à vie sur chaque abonnement souscrit.<br/>
+                • Retraits instantanés par Mobile Money (MTN, Moov, Orange, Wave) ou Virement bancaire.<br/>
+                • Formation complète, scripts de vente et kit marketing offerts.<br/>
+                • Attestation officielle et badge d'Ambassadeur agréé Yziow.</p>
+                <p>📲 <strong>Comment postuler ?</strong><br/>
+                Inscrivez-vous gratuitement en 2 minutes sur notre portail Ambassadeurs :<br/>
+                👉 <strong>https://yziow.com/ambassadeur</strong></p>
+                <p>#Yziow #Education #Recrutement #Ambassadeur #Opportunite #SaaS #Afrique #Digitalisation</p>
+              </div>
+            </div>
+
+            {/* VERSION 2 : WHATSAPP & TELEGRAM */}
+            <div className="space-y-3 bg-slate-900 text-white p-6 sm:p-8 rounded-2xl border border-slate-800">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">📲 Version 2 : WhatsApp & Telegram (Court & Viral)</span>
+                <span className="text-[10px] bg-slate-800 text-slate-300 px-3 py-1 rounded-full font-mono">Format Express</span>
+              </div>
+              <div className="text-xs text-slate-200 font-mono leading-relaxed bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
+                <p>🔥 <strong>OPPORTUNITÉ UNIQUE DE REVENUS — RECRUTEMENT AMBASSADEURS YZIOW !</strong> 🎓</p>
+                <p>Tu veux gagner de l'argent régulièrement en aidant les écoles de ta ville à se digitaliser ?</p>
+                <p>Rejoins l'équipe des Ambassadeurs <strong>Yziow Education</strong> !</p>
+                <p>✅ 0 FCFA d'investissement au départ<br/>
+                ✅ Offre 14 jours d'essai GRATUIT aux directeurs d'écoles<br/>
+                ✅ Perçois des commissions sur chaque école qui s'abonne<br/>
+                ✅ Retrait direct sur ton compte Mobile Money !</p>
+                <p>👉 Cliquez ici pour vous inscrire immédiatement :<br/>
+                <strong>https://yziow.com/ambassadeur</strong></p>
+                <p>Places limitées par ville/région. Partage à tes amis motivés ! 🚀</p>
+              </div>
+            </div>
+
+            {/* VERSION 3 : TIKTOK & REELS (SCRIPT VIDÉO) */}
+            <div className="space-y-3 bg-slate-900 text-white p-6 sm:p-8 rounded-2xl border border-slate-800">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">🎬 Version 3 : Script Vidéo TikTok / Reels / Shorts (30 à 45 secondes)</span>
+                <span className="text-[10px] bg-slate-800 text-slate-300 px-3 py-1 rounded-full font-mono">Vidéo Face Caméra</span>
+              </div>
+              <div className="text-xs text-slate-200 font-mono leading-relaxed bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
+                <p><strong>[Visuel : Face caméra dynamique avec le logo Yziow en fond ou sur le téléphone]</strong></p>
+                <p>🎙️ <em>"Si tu cherches une opportunité sérieuse pour gagner des revenus récurrents cette année, écoute ça jusqu'au bout !"</em></p>
+                <p>🎙️ <em>"La plateforme scolaire Yziow recrute des Ambassadeurs dans toutes les villes. Ton rôle ? Présenter la plateforme aux directeurs d'écoles pour qu'ils gèrent leurs bulletins PDF et leurs présences QR Code."</em></p>
+                <p>🎙️ <em>"Tu leur offres 14 jours d'essai 100% gratuits, et dès qu'ils s'abonnent, tu touches une commission chaque mois directement sur ton Mobile Money !"</em></p>
+                <p>🎙️ <em>"Clique sur le lien dans ma bio ou va sur yziow.com/ambassadeur pour t'inscrire gratuitement !"</em></p>
               </div>
             </div>
           </div>
