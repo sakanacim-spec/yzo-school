@@ -77,7 +77,7 @@ export const en = {
     "validateNewPassword": "Validate the new password",
     "didNotReceiveCode": "I did not receive the code",
     "parentRegister": "Parent Registration",
-    "schoolCode": "School Slug",
+    "schoolCode": "School Unique Code",
     "askCodeAdmin": "Ask your school administration for this code.",
     "fullNameParent": "Full Name (Parent)",
     "fullNameEx": "ex: Koffi Kouassi",

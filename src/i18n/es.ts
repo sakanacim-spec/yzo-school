@@ -76,7 +76,7 @@ export const es = {
     "validateNewPassword": "Validar la nueva contraseña",
     "didNotReceiveCode": "No recibí el código",
     "parentRegister": "Registro de padres",
-    "schoolCode": "Babosa de la escuela",
+    "schoolCode": "Código Único del Establecimiento",
     "askCodeAdmin": "Solicite este código a la administración de su escuela.",
     "fullNameParent": "Nombre completo (padre)",
     "fullNameEx": "ej: Koffi Kouassi",

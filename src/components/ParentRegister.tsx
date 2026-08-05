@@ -317,7 +317,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                         {/* School code */}
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <label className={labelClass}>{t(language as Language, 'auth.schoolCode') || "Code de l'école (School Slug)"}</label>
+                                <label className={labelClass}>{t(language as Language, 'auth.schoolCode') || "Code Unique de l'Établissement"}</label>
                             </div>
                             <div className="relative">
                                 <Building className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />

@@ -80,7 +80,7 @@ export const fr = {
     "validateNewPassword": "Valider le nouveau mot de passe",
     "didNotReceiveCode": "Je n'ai pas reçu le code",
     "parentRegister": "Inscription Parent",
-    "schoolCode": "Code de l'école (School Slug)",
+    "schoolCode": "Code Unique de l'Établissement",
     "askCodeAdmin": "Demandez ce code à l'administration de votre école.",
     "fullNameParent": "Nom Complet (Parent)",
     "fullNameEx": "ex: Koffi Kouassi",
