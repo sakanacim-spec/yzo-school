@@ -81,6 +81,7 @@ export const AmbassadorKitPage: React.FC = () => {
             { id: 'courrier_ecole', label: '✉️ Courrier Établissements', icon: Building2 },
             { id: 'courrier_banque', label: '🏦 Courrier Banques', icon: CreditCard },
             { id: 'courrier_entreprise', label: '🏢 Courrier Entreprises (RSE)', icon: Share2 },
+            { id: 'tarifs_partenaires', label: '📊 Plaquette Tarifs Pub & Partenaires', icon: DollarSign },
             { id: 'faq', label: '❓ FAQ Officielle', icon: HelpCircle },
             { id: 'tarifs', label: '💰 Grille Tarifaire', icon: DollarSign },
             { id: 'comparatif', label: '⚖️ Fiche Comparatif', icon: FileText },
@@ -786,6 +787,157 @@ export const AmbassadorKitPage: React.FC = () => {
                   Cachet Officiel
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* DOCUMENT 13 : PLAQUETTE TARIFS PUBLICITÉ & PARTENAIRES B2B     */}
+        {/* ============================================================ */}
+        {activeDoc === 'tarifs_partenaires' && (
+          <div className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200 space-y-8 font-sans">
+            {/* Header Plaquette */}
+            <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 text-white rounded-3xl p-8 sm:p-10 relative overflow-hidden shadow-xl border border-orange-500/20">
+              <div className="relative z-10 space-y-3 text-center sm:text-left">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full text-xs font-black uppercase tracking-wider border border-orange-500/30">
+                  📊 Offres Commerciales & Sponsoring B2B 2026
+                </div>
+                <h1 className="text-2xl sm:text-4xl font-black text-white">
+                  Plaquette Tarifaire Partenaires <span className="text-orange-500">& Publicité</span>
+                </h1>
+                <p className="text-slate-300 text-xs sm:text-sm max-w-2xl">
+                  Bénéficiez d'une visibilité ciblée auprès de milliers de Directeurs d'Écoles, Enseignants, Parents d'Élèves et Établissements Scolaires connectés au quotidien sur Yziow.
+                </p>
+              </div>
+            </div>
+
+            {/* 🏦 SECTION 1 : BANQUES & ÉTABLISSEMENTS FINANCIERS */}
+            <div className="space-y-4">
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
+                <span>🏦 1. BANQUES & INSTITUTIONS FINANCIÈRES</span>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-50 border-2 border-orange-500/40 rounded-2xl p-6 space-y-4 shadow-sm relative">
+                  <div className="absolute -top-3 right-4 bg-orange-500 text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full shadow">
+                    ⭐ Emplacement Premium
+                  </div>
+                  <div>
+                    <h3 className="font-black text-base text-slate-900">Pack Banque Gold — Page d'Accueil</h3>
+                    <p className="text-xs text-slate-500 mt-1">Logo & Bannière officielle sur la Landing Page principale (yziow.com)</p>
+                  </div>
+                  <div className="text-2xl font-black text-orange-600">
+                    250.000 FCFA <span className="text-xs font-bold text-slate-500">/ mois</span>
+                  </div>
+                  <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4">
+                    <li>Logo affiché dans la section "Écosystème de Partenaires Premium"</li>
+                    <li>Redirection directe vers vos offres de crédit scolaire</li>
+                    <li>Statut "Partenaire Financier Officiel Yziow"</li>
+                    <li>Réduction de 20% sur l'abonnement annuel (2.400.000 FCFA / an)</li>
+                  </ul>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+                  <div>
+                    <h3 className="font-black text-base text-slate-900">Pack Banque Silver — Pages Secondaires</h3>
+                    <p className="text-xs text-slate-500 mt-1">Affichage dans les Eespaces Privés (Dashboard Directeur & Parents)</p>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900">
+                    150.000 FCFA <span className="text-xs font-bold text-slate-500">/ mois</span>
+                  </div>
+                  <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4">
+                    <li>Bannière ciblée sur l'Espace Comptabilité & Reversements</li>
+                    <li>Présence sur l'Espace Parent dans la rubrique Paiements</li>
+                    <li>Orientation prioritaire des écoles pour l'ouverture de compte</li>
+                    <li>Abonnement annuel à 1.500.000 FCFA / an</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* 📡 SECTION 2 : OPÉRATEURS TÉLÉCOMS & MOBILE MONEY (MTN, MOOV, CELTIS...) */}
+            <div className="space-y-4">
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
+                <span>📡 2. OPÉRATEURS TÉLÉCOMS & MOBILE MONEY (MTN, MOOV, CELTIS)</span>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-50 border-2 border-orange-500/40 rounded-2xl p-6 space-y-4 shadow-sm relative">
+                  <div className="absolute -top-3 right-4 bg-orange-500 text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full shadow">
+                    ⭐ Emplacement Premium
+                  </div>
+                  <div>
+                    <h3 className="font-black text-base text-slate-900">Pack Télécom Gold — Page d'Accueil</h3>
+                    <p className="text-xs text-slate-500 mt-1">Affichage Logo & Promotion Offres Internet Écoles sur yziow.com</p>
+                  </div>
+                  <div className="text-2xl font-black text-orange-600">
+                    300.000 FCFA <span className="text-xs font-bold text-slate-500">/ mois</span>
+                  </div>
+                  <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4">
+                    <li>Visibilité exclusive sur la page d'accueil principale</li>
+                    <li>Mise en valeur du service Mobile Money (MTN MoMo / Moov Money / Celtis Cash)</li>
+                    <li>Incitations et promotions auprès de 500+ établissements scolaires</li>
+                    <li>Tarif annuel privilégié : 3.000.000 FCFA / an</li>
+                  </ul>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+                  <div>
+                    <h3 className="font-black text-base text-slate-900">Pack Télécom Silver — Module Yziow Pay</h3>
+                    <p className="text-xs text-slate-500 mt-1">Intégration visuelle dans le tunnel de paiement de scolarité</p>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900">
+                    200.000 FCFA <span className="text-xs font-bold text-slate-500">/ mois</span>
+                  </div>
+                  <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4">
+                    <li>Logo affiché en priorité lors du règlement de la scolarité par les parents</li>
+                    <li>Mentions sur les reçus PDF de paiement de scolarité</li>
+                    <li>Abonnement annuel à 2.000.000 FCFA / an</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* 🏢 SECTION 3 : ENTREPRISES, MAROQUINERIES, LIBRAIRIES & RSE */}
+            <div className="space-y-4">
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
+                <span>🏢 3. ENTREPRISES & MECÈNES RSE (Fournitures, Équipements, Mobilier)</span>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+                  <div>
+                    <h3 className="font-black text-base text-slate-900">Pack Entreprise Gold — Page d'Accueil</h3>
+                    <p className="text-xs text-slate-500 mt-1">Logo & lien vers votre catalogue d'équipements sur la Landing Page</p>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900">
+                    150.000 FCFA <span className="text-xs font-bold text-slate-500">/ mois</span>
+                  </div>
+                  <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4">
+                    <li>Affichage Logo dans la section Partenaires d'Accueil</li>
+                    <li>Lien direct vers votre site ou contact commercial</li>
+                    <li>Tarif annuel : 1.500.000 FCFA / an</li>
+                  </ul>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+                  <div>
+                    <h3 className="font-black text-base text-slate-900">Pack Entreprise Silver — Espace Dons & Crowdfunding</h3>
+                    <p className="text-xs text-slate-500 mt-1">Affichage sponsor sur la page des campagnes de levée de fonds scolaires</p>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900">
+                    80.000 FCFA <span className="text-xs font-bold text-slate-500">/ mois</span>
+                  </div>
+                  <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4">
+                    <li>Bannière Sponsor RSE sur la page des projets à financer</li>
+                    <li>Attestation officielle de partenariat d'impact éducatif</li>
+                    <li>Tarif annuel : 800.000 FCFA / an</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Tarifs */}
+            <div className="border-t border-slate-200 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 font-mono">
+              <div>Pour toute réservation d'emplacement publicitaire : contact@yziow.com</div>
+              <div className="font-bold text-orange-600">Direction Commerciale Yziow Education</div>
             </div>
           </div>
         )}
