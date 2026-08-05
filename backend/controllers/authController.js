@@ -531,7 +531,7 @@ async function updateProfile(req, res) {
 // ----------------------------------------------------
 const forgotPassword = async (req, res) => {
     try {
-        const { phone, schoolSlug } = req.body;
+        const { phone, schoolSlug, channel } = req.body;
         if (!phone || !schoolSlug) return res.status(400).json({ error: 'Le numéro de téléphone et l\'établissement sont requis.' });
 
         let userFound = false;
@@ -579,10 +579,18 @@ const forgotPassword = async (req, res) => {
             return res.status(500).json({ error: 'Erreur lors de la génération du code.' });
         }
 
+        if (channel === 'whatsapp') {
+            return res.json({ 
+                message: 'Code de réinitialisation généré pour WhatsApp.',
+                otp,
+                channel: 'whatsapp'
+            });
+        }
+
         // Envoyer le SMS
         await sendPasswordResetSMS(phone.trim(), otp);
 
-        return res.json({ message: 'Code de réinitialisation envoyé par SMS.' });
+        return res.json({ message: 'Code de réinitialisation envoyé par SMS.', channel: 'sms' });
     } catch (err) {
         console.error('Forgot Password Error:', err.message);
         return res.status(500).json({ error: 'Erreur serveur.' });

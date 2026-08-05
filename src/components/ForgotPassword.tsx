@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { API_BASE_URL } from '../config';
 import { t, Language } from '../i18n';
+import { MessageCircle, Phone, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 interface ForgotPasswordProps {
     schoolSlug: string;
@@ -24,28 +25,45 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    const handleSendOTP = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSendOTP = async (channel: 'whatsapp' | 'sms') => {
+        if (!phone.trim()) {
+            setError('Veuillez saisir votre numéro de téléphone.');
+            return;
+        }
         setError('');
+        setSuccess('');
         setLoading(true);
 
         try {
             const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, schoolSlug })
+                body: JSON.stringify({ phone, schoolSlug, channel })
             });
             const data = await res.json();
 
             if (!res.ok) throw new Error(data.error || t(language as Language, 'auth.otpSendError') || 'Erreur lors de l\'envoi du code.');
 
             setStep(2);
-            setSuccess(t(language as Language, 'auth.otpSentSuccess') || 'Un code à 6 chiffres a été envoyé par SMS.');
+            if (channel === 'whatsapp') {
+                setSuccess('Un code à 6 chiffres a été généré pour WhatsApp.');
+                if (data.otp) {
+                    const waMsg = `Bonjour Support Yziow, je souhaite réinitialiser mon mot de passe pour le numéro ${phone} (Établissement: ${schoolSlug}). Mon code de vérification est : ${data.otp}`;
+                    window.open(`https://wa.me/22901000000?text=${encodeURIComponent(waMsg)}`, '_blank');
+                }
+            } else {
+                setSuccess(t(language as Language, 'auth.otpSentSuccess') || 'Un code à 6 chiffres a été envoyé par SMS.');
+            }
         } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    const openWhatsAppDirectSupport = () => {
+        const msg = `Bonjour Support Yziow, j'ai oublié mon mot de passe. Mon numéro est : ${phone || '____'} et mon établissement est : ${schoolSlug || 'global'}. Pouvez-vous m'aider à le réinitialiser ?`;
+        window.open(`https://wa.me/22901000000?text=${encodeURIComponent(msg)}`, '_blank');
     };
 
     const handleResetPassword = async (e: React.FormEvent) => {
@@ -71,10 +89,9 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
             if (!res.ok) throw new Error(data.error || t(language as Language, 'auth.resetError') || 'Erreur lors de la réinitialisation.');
 
             setSuccess(t(language as Language, 'auth.resetSuccess') || 'Mot de passe modifié avec succès ! Vous pouvez vous connecter.');
-            // Go back to login after 3 seconds
             setTimeout(() => {
                 onBack();
-            }, 3000);
+            }, 2500);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -83,42 +100,75 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
     };
 
     return (
-        <div className="w-full h-full flex flex-col items-center justify-center p-8">
-            <h2 className="text-3xl font-black mb-2 text-slate-900 tracking-tighter text-center">
+        <div className="w-full h-full flex flex-col items-center justify-center p-6 sm:p-8 font-sans">
+            <h2 className="text-2xl sm:text-3xl font-black mb-2 text-slate-900 tracking-tighter text-center">
                 {t(language as Language, 'auth.forgotPassword') || 'Mot de passe oublié'}
             </h2>
-            <p className="text-sm font-medium text-slate-500 mb-8 text-center max-w-sm mx-auto">
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mb-6 text-center max-w-sm mx-auto leading-relaxed">
                 {step === 1 
-                    ? (t(language as Language, 'auth.forgotPasswordDesc1') || "Entrez votre numéro de téléphone pour recevoir un code de réinitialisation par SMS.")
-                    : (t(language as Language, 'auth.forgotPasswordDesc2') || "Entrez le code reçu par SMS et choisissez votre nouveau mot de passe.")}
+                    ? (t(language as Language, 'auth.forgotPasswordDesc1') || "Saisissez votre numéro de téléphone pour recevoir votre code de réinitialisation via WhatsApp ou SMS.")
+                    : (t(language as Language, 'auth.forgotPasswordDesc2') || "Saisissez le code à 6 chiffres et choisissez votre nouveau mot de passe.")}
             </p>
 
-            {error && <div className="text-rose-500 text-xs mt-2 mb-4 font-bold max-w-sm text-center">{error}</div>}
-            {success && <div className="text-emerald-500 text-xs mt-2 mb-4 font-bold max-w-sm text-center">{success}</div>}
+            {error && <div className="text-rose-600 bg-rose-50 border border-rose-200 px-4 py-2.5 rounded-xl text-xs font-bold mb-4 max-w-sm text-center w-full">{error}</div>}
+            {success && <div className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-xl text-xs font-bold mb-4 max-w-sm text-center w-full">{success}</div>}
 
             {step === 1 ? (
-                <form onSubmit={handleSendOTP} className="w-full max-w-sm flex flex-col items-center">
+                <div className="w-full max-w-sm flex flex-col items-center space-y-3">
                     <input 
                         type="text" 
-                        placeholder={t(language as Language, 'auth.phonePlaceholder') || "Numéro de téléphone"} 
-                        className="bg-slate-50 border border-slate-200 padding-3 mb-4 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 p-4" 
+                        placeholder={t(language as Language, 'auth.phonePlaceholder') || "Numéro de téléphone (+229...)"} 
+                        className="bg-white border border-slate-200 mb-1 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 p-4 text-sm shadow-sm" 
                         value={phone} 
                         onChange={(e) => setPhone(e.target.value)} 
                         required 
                     />
-                    <button type="submit" disabled={loading} className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-500/30 active:scale-95 transition-transform">
-                        {loading ? (t(language as Language, 'auth.sending') || 'Envoi en cours...') : (t(language as Language, 'auth.sendOtpBtn') || 'Envoyer le code par SMS')}
+
+                    {/* BOUTON 1 : WHATSAPP (VERT EMERALD) */}
+                    <button 
+                        type="button" 
+                        onClick={() => handleSendOTP('whatsapp')} 
+                        disabled={loading} 
+                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        <MessageCircle className="w-4 h-4 fill-white" />
+                        {loading ? 'Génération du code...' : 'Recevoir le code par WhatsApp'}
                     </button>
-                    <button type="button" onClick={onBack} className="mt-4 text-xs font-bold text-slate-400 hover:text-slate-600 underline">
-                        {t(language as Language, 'auth.backToLogin') || 'Retour à la connexion'}
+
+                    {/* BOUTON 2 : SMS (ORANGE YZIOW) */}
+                    <button 
+                        type="button" 
+                        onClick={() => handleSendOTP('sms')} 
+                        disabled={loading} 
+                        className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wider shadow-md shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        <Phone className="w-4 h-4" />
+                        {loading ? 'Envoi du SMS...' : 'Recevoir le code par SMS'}
                     </button>
-                </form>
+
+                    {/* OPTION SUPPORT WHATSAPP DIRECT */}
+                    <div className="pt-3 w-full border-t border-slate-100 flex flex-col items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={openWhatsAppDirectSupport}
+                            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1.5 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-200/60 transition-colors"
+                        >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Réinitialiser via l'Assistance WhatsApp
+                        </button>
+
+                        <button type="button" onClick={onBack} className="mt-2 text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors">
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                            {t(language as Language, 'auth.backToLogin') || 'Retour à la connexion'}
+                        </button>
+                    </div>
+                </div>
             ) : (
-                <form onSubmit={handleResetPassword} className="w-full max-w-sm flex flex-col items-center">
+                <form onSubmit={handleResetPassword} className="w-full max-w-sm flex flex-col items-center space-y-3">
                     <input 
                         type="text" 
                         placeholder={t(language as Language, 'auth.otpPlaceholder') || "Code à 6 chiffres"} 
-                        className="bg-slate-50 border border-slate-200 padding-3 mb-4 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 p-4 tracking-widest text-center" 
+                        className="bg-white border border-slate-200 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 p-4 tracking-widest text-center text-lg shadow-sm" 
                         value={otp} 
                         onChange={(e) => setOtp(e.target.value)} 
                         required 
@@ -127,18 +177,26 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
                     <input 
                         type="password" 
                         placeholder={t(language as Language, 'auth.newPasswordPlaceholder') || "Nouveau mot de passe"} 
-                        className="bg-slate-50 border border-slate-200 padding-3 mb-4 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 p-4" 
+                        className="bg-white border border-slate-200 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 p-4 text-sm shadow-sm" 
                         value={newPassword} 
                         onChange={(e) => setNewPassword(e.target.value)} 
                         required 
                         minLength={6}
                     />
-                    <button type="submit" disabled={loading} className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-500/30 active:scale-95 transition-transform">
+                    <button type="submit" disabled={loading} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" />
                         {loading ? (t(language as Language, 'auth.verifying') || 'Vérification...') : (t(language as Language, 'auth.validateNewPassword') || 'Valider le nouveau mot de passe')}
                     </button>
-                    <button type="button" onClick={() => setStep(1)} className="mt-4 text-xs font-bold text-slate-400 hover:text-slate-600 underline">
-                        {t(language as Language, 'auth.didNotReceiveCode') || 'Je n\'ai pas reçu de code'}
-                    </button>
+
+                    <div className="pt-2 flex flex-col items-center gap-2 w-full">
+                        <button type="button" onClick={() => setStep(1)} className="text-xs font-bold text-slate-500 hover:text-slate-700 underline">
+                            {t(language as Language, 'auth.didNotReceiveCode') || 'Je n\'ai pas reçu le code'}
+                        </button>
+                        <button type="button" onClick={openWhatsAppDirectSupport} className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                            <MessageCircle className="w-3 h-3" />
+                            Demander de l'aide sur WhatsApp
+                        </button>
+                    </div>
                 </form>
             )}
         </div>
