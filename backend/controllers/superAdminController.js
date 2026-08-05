@@ -5,6 +5,7 @@
 const { supabase } = require('../utils/supabase');
 const Joi = require('joi');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 // Grille tarifaire mensuelle par élève selon le cycle (10 mois par an)
 const PRICING_RATES_MONTHLY = {
