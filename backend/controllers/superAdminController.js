@@ -786,3 +786,50 @@ async function updateCommissionRate(req, res) {
         return res.status(500).json({ error: err.message });
     }
 }
+
+// Changer le mot de passe SuperAdmin
+async function changeSuperAdminPassword(req, res) {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const superadminId = req.user.id;
+
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ error: 'Le nouveau mot de passe doit faire au moins 6 caractères.' });
+        }
+
+        const { data: superadmin, error } = await supabase
+            .from('superadmins')
+            .select('*')
+            .eq('id', superadminId)
+            .single();
+
+        if (error || !superadmin) {
+            return res.status(404).json({ error: 'Compte SuperAdmin introuvable.' });
+        }
+
+        if (currentPassword) {
+            const valid = await bcrypt.compare(currentPassword, superadmin.password);
+            if (!valid) {
+                return res.status(400).json({ error: 'Mot de passe actuel incorrect.' });
+            }
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await supabase
+            .from('superadmins')
+            .update({ password: hashedPassword })
+            .eq('id', superadminId);
+
+        return res.json({ success: true, message: 'Mot de passe SuperAdmin mis à jour avec succès !' });
+    } catch (err) {
+        console.error('changeSuperAdminPassword Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la modification du mot de passe.' });
+    }
+}
+
+module.exports = { 
+    getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, 
+    paySubscriptionInit, recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus,
+    getSettings, updateSettings, getTransactions, getGlobalAnnouncements, createGlobalAnnouncement, getSchoolLeads,
+    changeSuperAdminPassword
+};

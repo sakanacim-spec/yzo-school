@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Building2, Users, AlertTriangle,
   Plus, Check, X, Clock, RefreshCw, ToggleLeft, ToggleRight,
-  Globe, Phone, Mail, MapPin, Wallet, Star, Trash2, ExternalLink, Search
+  Globe, Phone, Mail, MapPin, Wallet, Star, Trash2, ExternalLink, Search, Key
 } from 'lucide-react';
 import { School } from '../../types';
 import { API_BASE_URL } from '../../config';
@@ -322,8 +322,41 @@ export const SuperAdminDashboard: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres' | 'support' | 'retraits_dons' | 'demandes_ecoles'>('ecoles');
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError('');
+    setPwdSuccess('');
+    setPwdLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/superadmin/change-password`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur lors de la modification du mot de passe.');
+      setPwdSuccess('Mot de passe SuperAdmin mis à jour avec succès !');
+      setCurrentPassword('');
+      setNewPassword('');
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPwdSuccess('');
+      }, 2000);
+    } catch (err: any) {
+      setPwdError(err.message);
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   const handleUpdateCommission = async (school: SchoolWithStats, newRate: number) => {
     setActionLoading(`comm_${school.id}`);
@@ -691,6 +724,12 @@ export const SuperAdminDashboard: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-3 relative z-10">
+          <button onClick={() => setShowPasswordModal(true)}
+            className="p-3.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 hover:text-white transition-all border border-purple-700/50 hover:shadow-lg flex items-center gap-2 font-bold text-xs"
+            title="Changer mon mot de passe SuperAdmin">
+            <Key className="w-5 h-5 text-purple-300" />
+            <span className="hidden sm:inline">Mot de passe</span>
+          </button>
           <button onClick={load}
             className="p-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all border border-slate-700/50 hover:shadow-lg"
             title={t(language as Language, 'superadmin.refresh') || 'Actualiser'}>
@@ -1559,6 +1598,75 @@ export const SuperAdminDashboard: React.FC = () => {
           onClose={() => setShowCreateModal(false)}
           onCreated={() => { setShowCreateModal(false); load(); }}
         />
+      )}
+
+      {/* Modal modification mot de passe SuperAdmin */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-white relative">
+            <button 
+              onClick={() => setShowPasswordModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold"
+            >
+              ✕
+            </button>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                <Key className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg">Changer mon mot de passe</h3>
+                <p className="text-xs text-slate-400">Compte SuperAdmin Global</p>
+              </div>
+            </div>
+
+            {pwdError && <div className="p-3 bg-rose-500/20 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-bold mb-4">{pwdError}</div>}
+            {pwdSuccess && <div className="p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-bold mb-4">{pwdSuccess}</div>}
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Mot de passe actuel (optionnel)</label>
+                <input 
+                  type="password" 
+                  placeholder="••••••••" 
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-sm font-medium text-white focus:outline-none focus:border-purple-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Nouveau mot de passe</label>
+                <input 
+                  type="password" 
+                  placeholder="Minimum 6 caractères" 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-sm font-medium text-white focus:outline-none focus:border-purple-500 transition-colors"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="flex-1 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs uppercase transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={pwdLoading}
+                  className="flex-1 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-purple-600/30 active:scale-95 transition-all"
+                >
+                  {pwdLoading ? 'Mise à jour...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

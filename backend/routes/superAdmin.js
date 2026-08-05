@@ -22,7 +22,8 @@ const {
     getTransactions,
     getGlobalAnnouncements,
     createGlobalAnnouncement,
-    getSchoolLeads
+    getSchoolLeads,
+    changeSuperAdminPassword
 } = require('../controllers/superAdminController');
 
 const {
@@ -67,5 +68,8 @@ router.post('/announcements', authenticateToken, requireSuperAdmin, createGlobal
 router.get('/support/inbox', authenticateToken, requireSuperAdmin, getSuperAdminInbox);
 router.post('/support/send/:schoolId', authenticateToken, requireSuperAdmin, sendSuperAdminMessage);
 router.post('/support/read/:schoolId', authenticateToken, requireSuperAdmin, markSuperAdminRead);
+
+// Route modification de mot de passe SuperAdmin
+router.post('/change-password', authenticateToken, requireSuperAdmin, changeSuperAdminPassword);
 
 module.exports = router;
