@@ -67,6 +67,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
     const [directorPhone, setDirectorPhone] = useState('');
 
     const [nom, setNom] = useState('');
+    const [countryCode, setCountryCode] = useState('BJ');
     const [telephone, setTelephone] = useState('');
     const [password, setPassword] = useState('');
     const [schoolSlug, setSchoolSlug] = useState('');
@@ -90,6 +91,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
             const data = await parentApi.register({
                 nom,
                 telephone,
+                countryCode,
                 password,
                 school_slug: schoolSlug,
                 accepted_terms: acceptedTerms,
@@ -364,17 +366,40 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                             <label className={labelClass}>
                                 {t(language as Language, 'auth.phone') || t(language as Language, 'auth.phoneUsedForLogin') || 'Numéro de téléphone'}
                             </label>
-                            <div className="relative">
-                                <Phone className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
-                                <input
-                                    dir="ltr"
-                                    type="tel"
-                                    required
-                                    value={telephone}
-                                    onChange={e => setTelephone(e.target.value)}
-                                    placeholder="+22690000000"
-                                    className={inputClass}
-                                />
+                            <div className="flex gap-2">
+                                <select
+                                    value={countryCode}
+                                    onChange={(e) => setCountryCode(e.target.value)}
+                                    className="bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-400 px-2"
+                                >
+                                    <option value="BJ" className="bg-slate-900 text-white">🇧🇯 BJ</option>
+                                    <option value="TG" className="bg-slate-900 text-white">🇹🇬 TG</option>
+                                    <option value="CI" className="bg-slate-900 text-white">🇨🇮 CI</option>
+                                    <option value="SN" className="bg-slate-900 text-white">🇸🇳 SN</option>
+                                    <option value="BF" className="bg-slate-900 text-white">🇧🇫 BF</option>
+                                    <option value="ML" className="bg-slate-900 text-white">🇲🇱 ML</option>
+                                    <option value="NE" className="bg-slate-900 text-white">🇳🇪 NE</option>
+                                    <option value="CM" className="bg-slate-900 text-white">🇨🇲 CM</option>
+                                    <option value="GA" className="bg-slate-900 text-white">🇬🇦 GA</option>
+                                    <option value="CG" className="bg-slate-900 text-white">🇨🇬 CG</option>
+                                    <option value="CD" className="bg-slate-900 text-white">🇨🇩 CD</option>
+                                    <option value="GN" className="bg-slate-900 text-white">🇬🇳 GN</option>
+                                    <option value="FR" className="bg-slate-900 text-white">🇫🇷 FR</option>
+                                    <option value="US" className="bg-slate-900 text-white">🇺🇸 US</option>
+                                    <option value="CA" className="bg-slate-900 text-white">🇨🇦 CA</option>
+                                </select>
+                                <div className="relative flex-1">
+                                    <Phone className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                                    <input
+                                        dir="ltr"
+                                        type="tel"
+                                        required
+                                        value={telephone}
+                                        onChange={e => setTelephone(e.target.value)}
+                                        placeholder="01 97 00 00 00 / +229..."
+                                        className={inputClass}
+                                    />
+                                </div>
                             </div>
                             <p className="text-xs text-blue-200/70 mt-1">{t(language as Language, 'auth.phoneMustMatch') || "Le numéro doit correspondre à celui enregistré par l'école pour vos enfants."}</p>
                         </div>

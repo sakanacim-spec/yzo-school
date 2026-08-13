@@ -1,5 +1,5 @@
-const bcrypt = require('bcryptjs');
-const { supabase } = require('../utils/supabase');
+const { supabase, supabaseAdmin } = require('../utils/supabase');
+const { normalizePhone } = require('../utils/helpers');
 
 // ── GET /api/personnel ──────────────────────────────
 async function getPersonnel(req, res) {
@@ -12,7 +12,7 @@ async function getPersonnel(req, res) {
     try {
         const { data: personnel, error } = await supabase
             .from(`profiles_${schoolSlug}`)
-            .select('*')
+            .select('id, nom, telephone, phone_normalized, role, created_at')
             .in('role', ['admin', 'superviseur', 'surveillant', 'comptable', 'censeur', 'secretaire', 'professeur']);
 
         if (error) throw error;
@@ -26,7 +26,7 @@ async function getPersonnel(req, res) {
 // ── POST /api/personnel ──────────────────────────────
 async function createPersonnel(req, res) {
     const { role: userRole, schoolSlug } = req.user;
-    const { nom, telephone, password, role } = req.body;
+    const { nom, telephone, password, role, countryCode } = req.body;
 
     if (userRole !== 'directeur' && userRole !== 'directeur_general') {
         return res.status(403).json({ error: 'Seul le directeur peut créer un compte membre du personnel.' });
@@ -40,32 +40,74 @@ async function createPersonnel(req, res) {
         return res.status(400).json({ error: 'Rôle invalide.' });
     }
 
+    // Normalisation E.164
+    let phoneNormalized;
     try {
-        // Vérifier si le téléphone est déjà utilisé
+        phoneNormalized = normalizePhone(telephone, countryCode);
+    } catch (err) {
+        if (err.message === 'COUNTRY_REQUIRED') {
+            return res.status(400).json({ error: 'Le code pays est requis pour valider le numéro de téléphone.' });
+        }
+        return res.status(400).json({ error: 'Numéro de téléphone invalide.' });
+    }
+
+    try {
+        // Vérifier si le numéro normalisé est déjà utilisé
         const { data: existing } = await supabase
             .from(`profiles_${schoolSlug}`)
             .select('id')
-            .eq('telephone', telephone.trim())
-            .single();
+            .eq('phone_normalized', phoneNormalized)
+            .maybeSingle();
 
         if (existing) {
             return res.status(409).json({ error: 'Ce numéro de téléphone est déjà enregistré pour un autre compte.' });
         }
 
-        const hashed = await bcrypt.hash(password, 10);
+        // 1. Créer le compte Supabase Auth pour le personnel (OBLIGATOIRE - STOP IMMÉDIAT EN CAS D'ÉCHEC)
+        const syntheticEmail = `staff_${schoolSlug}_${phoneNormalized.replace(/\D/g, '')}@auth.yziow.internal`;
+        const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+            email: syntheticEmail,
+            password: password,
+            email_confirm: true,
+            user_metadata: {
+                nom: nom.trim(),
+                role: role,
+                school_slug: schoolSlug,
+                phone_normalized: phoneNormalized
+            }
+        });
 
-        const { data: personnel, error } = await supabase
+        if (authErr || !authData?.user?.id) {
+            console.error('❌ Échec création Supabase Auth Personnel:', authErr?.message);
+            return res.status(500).json({ error: 'Échec de la création du compte d\'authentification : ' + (authErr?.message || 'UUID non généré.') });
+        }
+
+        const staffAuthUserId = authData.user.id;
+
+        // 2. Insérer le profil dans profiles_<schoolSlug> avec l'UUID Auth OBLIGATOIRE
+        const { data: personnel, error: insertErr } = await supabase
             .from(`profiles_${schoolSlug}`)
             .insert({
+                id: staffAuthUserId,
                 nom: nom.trim(),
                 telephone: telephone.trim(),
-                password: hashed,
+                phone_normalized: phoneNormalized,
                 role: role
             })
-            .select()
+            .select('id, nom, telephone, phone_normalized, role, created_at')
             .single();
 
-        if (error) throw error;
+        if (insertErr) {
+            console.error(`❌ Échec insertion profil personnel dans profiles_${schoolSlug}:`, insertErr.message);
+            // Compensation contrôlée
+            const { error: deleteAuthErr } = await supabaseAdmin.auth.admin.deleteUser(staffAuthUserId);
+            if (deleteAuthErr) {
+                console.error(`❌ [Compensation Failure] Échec suppression Auth Personnel ${staffAuthUserId}:`, deleteAuthErr.message);
+            } else {
+                console.log(`✅ [Compensation] Suppression du compte Auth Personnel ${staffAuthUserId} effectuée.`);
+            }
+            return res.status(500).json({ error: 'Échec de la création du profil du personnel : ' + insertErr.message });
+        }
 
         return res.status(201).json({
             message: 'Compte personnel créé avec succès.',
@@ -73,7 +115,7 @@ async function createPersonnel(req, res) {
         });
     } catch (err) {
         console.error('createPersonnel Error:', err.message);
-        return res.status(500).json({ error: 'Erreur lors de la création du compte personel.' });
+        return res.status(500).json({ error: 'Erreur lors de la création du compte personnel : ' + err.message });
     }
 }
 
@@ -87,16 +129,25 @@ async function deletePersonnel(req, res) {
     }
 
     try {
-        const { error } = await supabase
+        const { error: deleteProfileErr } = await supabase
             .from(`profiles_${schoolSlug}`)
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (deleteProfileErr) throw deleteProfileErr;
+
+        // Supprimer également le compte Auth Supabase correspondant
+        const { error: deleteAuthErr } = await supabaseAdmin.auth.admin.deleteUser(id);
+        if (deleteAuthErr) {
+            console.warn(`⚠️ Échec suppression Auth User ${id} lors de la suppression personnel:`, deleteAuthErr.message);
+        } else {
+            console.log(`✅ Compte Auth ${id} supprimé lors du retrait du membre du personnel.`);
+        }
+
         return res.json({ message: 'Compte personnel supprimé avec succès.' });
     } catch (err) {
         console.error('deletePersonnel Error:', err.message);
-        return res.status(500).json({ error: 'Erreur lors de la suppression.' });
+        return res.status(500).json({ error: 'Erreur lors de la suppression : ' + err.message });
     }
 }
 

@@ -11,6 +11,7 @@ import {
   Download, Filter, Camera, User, Users, GraduationCap, Building2, Smartphone, Phone, School, Wallet
 } from 'lucide-react';
 import { StudentDetail } from '../components/StudentDetail';
+import { CountrySelect } from '../components/CountrySelect';
 import { formatMontant } from '../utils/helpers';
 import { t, Language } from '../i18n';
 
@@ -41,7 +42,9 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
   const language = useStore((s) => s.language);
   const [modalStep, setModalStep] = useState<1 | 2>(1);
 
-  const classes = useStore((s) => s.classes) || [];
+  const schoolCountry = useStore((s) => s.schoolCountry) || 'BJ';
+  const [parentCountryCode, setParentCountryCode] = useState(schoolCountry);
+
   const [form, setForm] = useState({
     nom: student?.nom ?? '',
     prenom: student?.prenom ?? '',
@@ -153,7 +156,10 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                       <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                         <Phone className="w-3 h-3" /> {t(language as Language, 'students.parentPhone') || "Téléphone Parent"}
                       </label>
-                      <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: +33 6 00 00 00 00" value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
+                      <div className="flex gap-2">
+                        <CountrySelect value={parentCountryCode} onChange={setParentCountryCode} className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-3 text-xs font-bold text-slate-800" />
+                        <input type="text" className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: 01 97 00 00 00 / +229..." value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
+                      </div>
                     </div>
                   </div>
                 </div>

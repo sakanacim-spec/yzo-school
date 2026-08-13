@@ -214,6 +214,15 @@ async function createSchool(req, res) {
 
         if (schoolErr) throw schoolErr;
 
+        // Normalisation du téléphone du directeur
+        const { normalizePhone } = require('../utils/helpers');
+        let adminPhoneNormalized;
+        try {
+            adminPhoneNormalized = normalizePhone(validatedData.admin_telephone, validatedData.countryCode || validatedData.country);
+        } catch (err) {
+            return res.status(400).json({ error: 'Numéro de téléphone du directeur invalide pour la zone spécifiée.' });
+        }
+
         // 2. Créer le jeu de tables avec l'appel RPC et y insérer le directeur
         const bcrypt = require('bcryptjs');
         const hashed = await bcrypt.hash(validatedData.admin_password, 10);
@@ -222,10 +231,15 @@ async function createSchool(req, res) {
             school_slug: cleanSlug,
             admin_nom: validatedData.admin_nom.trim(),
             admin_telephone: validatedData.admin_telephone.trim(),
-            admin_password: hashed
+            admin_password: hashed,
+            admin_phone_normalized: adminPhoneNormalized
         });
         
-        if (rpcErr) throw rpcErr;
+        if (rpcErr) {
+            // Rollback school creation on RPC failure
+            await supabase.from('schools').delete().eq('id', school.id);
+            throw rpcErr;
+        }
 
         // Le directeur est retourné par l'appel RPC
         const adminUser = rpcData;

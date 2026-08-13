@@ -48,7 +48,7 @@ export interface AppState {
   unreadMessages: number;
   setUnreadMessages: (count: number) => void;
   fetchUnreadMessages: () => Promise<void>;
-  login: (username: string, password: string, schoolSlug?: string) => Promise<boolean>;
+  login: (username: string, password: string, schoolSlug?: string, countryCode?: string) => Promise<boolean>;
   logout: () => void;
 
   // Navigation
@@ -429,12 +429,12 @@ export const useStore = create<AppState>()(
           // Silence noise
         }
       },
-      login: async (username, password, schoolSlug) => {
+      login: async (username, password, schoolSlug, countryCode) => {
         try {
           const res = await fetch(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telephone: username, password, schoolSlug })
+            body: JSON.stringify({ telephone: username, password, schoolSlug, countryCode })
           });
 
           const text = await res.text();

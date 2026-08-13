@@ -77,6 +77,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
 
   
   // Auth Form States
+  const [loginCountryCode, setLoginCountryCode] = useState('BJ');
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -113,7 +114,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
     setLoading(true);
 
     try {
-        const ok = await login(username, password, selectedSchool);
+        const ok = await login(username, password, selectedSchool, loginCountryCode);
         if (!ok) setError(T.errors.loginFailed || 'Erreur inconnue.');
 
     } catch (err: any) {
@@ -341,17 +342,40 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         />
                     </div>
                     
-                    <div className="relative">
-                        <User className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-                        <input 
-                            dir="ltr"
-                            type="text" 
-                            placeholder="+33 6 12 34 56 78" 
-                            className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                            value={username} 
-                            onChange={(e) => setUsername(e.target.value)} 
-                            required 
-                        />
+                    <div className="flex gap-2">
+                        <select
+                            value={loginCountryCode}
+                            onChange={(e) => setLoginCountryCode(e.target.value)}
+                            className="h-[52px] bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm px-2"
+                        >
+                            <option value="BJ">🇧🇯 BJ</option>
+                            <option value="TG">🇹🇬 TG</option>
+                            <option value="CI">🇨🇮 CI</option>
+                            <option value="SN">🇸🇳 SN</option>
+                            <option value="BF">🇧🇫 BF</option>
+                            <option value="ML">🇲🇱 ML</option>
+                            <option value="NE">🇳🇪 NE</option>
+                            <option value="CM">🇨🇲 CM</option>
+                            <option value="GA">🇬🇦 GA</option>
+                            <option value="CG">🇨🇬 CG</option>
+                            <option value="CD">🇨🇩 CD</option>
+                            <option value="GN">🇬🇳 GN</option>
+                            <option value="FR">🇫🇷 FR</option>
+                            <option value="US">🇺🇸 US</option>
+                            <option value="CA">🇨🇦 CA</option>
+                        </select>
+                        <div className="relative flex-1">
+                            <User className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                            <input 
+                                dir="ltr"
+                                type="text" 
+                                placeholder="01 97 00 00 00 / +229..." 
+                                className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                value={username} 
+                                onChange={(e) => setUsername(e.target.value)} 
+                                required 
+                            />
+                        </div>
                     </div>
                     
                     <div className="relative">
