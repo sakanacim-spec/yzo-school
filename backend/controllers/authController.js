@@ -1,11 +1,12 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { createClient } = require('@supabase/supabase-js');
 const { supabase, supabaseAdmin } = require('../utils/supabase');
 const { JWT_SECRET, JWT_EXPIRES } = require('../config');
 const { sendWelcomeSMS, sendPasswordResetSMS } = require('../utils/smsService');
 const Joi = require('joi');
 const crypto = require('crypto');
-const { normalizePhone } = require('../utils/helpers');
+const { normalizePhone, buildAuthEmail } = require('../utils/helpers');
 
 // Joi validation schema for Parent registration
 const parentRegisterSchema = Joi.object({
@@ -67,12 +68,6 @@ const schoolRegisterSchema = Joi.object({
     referral_code: Joi.string().trim().allow('', null)
 });
 
-function getIpHash(req) {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '127.0.0.1';
-    const clientIp = typeof ip === 'string' ? ip.split(',')[0].trim() : String(ip);
-    return crypto.createHash('sha256').update(clientIp).digest('hex');
-}
-
 // ── Register (Uniquement Parents) ──────────────────────────────
 async function register(req, res) {
     const { value: validatedData, error: validationError } = parentRegisterSchema.validate(req.body, { abortEarly: false });
@@ -121,8 +116,8 @@ async function register(req, res) {
             return res.status(409).json({ error: 'Ce numéro de téléphone est déjà enregistré.' });
         }
 
-        // 1. Créer le compte Supabase Auth pour le Parent (OBLIGATOIRE - STOP IMMÉDIAT EN CAS D'ÉCHEC)
-        const syntheticEmail = `parent_${school_slug}_${phoneNormalized.replace(/\D/g, '')}@auth.yziow.internal`;
+        // 1. Créer le compte Supabase Auth pour le Parent avec l'email synthétique déterministe SHA-256
+        const syntheticEmail = buildAuthEmail(school_slug, phoneNormalized);
         const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
             email: syntheticEmail,
             password: password,
@@ -141,22 +136,20 @@ async function register(req, res) {
         }
 
         parentAuthUserId = authData.user.id;
-        const hashed = await bcrypt.hash(password, 10);
 
-        // 2. Créer le profil dans la table 'profiles_<slug>' avec l'UUID Auth OBLIGATOIRE (Aucun fallback gen_random_uuid)
+        // 2. Créer le profil dans la table 'profiles_<slug>' avec l'UUID Auth OBLIGATOIRE (Aucune propriété password)
         const insertPayload = {
             id: parentAuthUserId,
             nom: nom.trim(),
             telephone: telephone.trim(),
             phone_normalized: phoneNormalized,
-            password: hashed,
             role: 'parent'
         };
 
         const { data: parent, error: profileErr } = await supabase
             .from(`profiles_${school_slug}`)
             .insert(insertPayload)
-            .select()
+            .select('id, nom, telephone, phone_normalized, role')
             .single();
 
         if (profileErr) {
@@ -263,8 +256,8 @@ async function registerSchool(req, res) {
             return res.status(409).json({ error: `Le nom "${validatedData.school_name}" génère un identifiant déjà utilisé. Veuillez choisir un nom légèrement différent.` });
         }
 
-        // 1. Créer le compte Supabase Auth pour le Directeur (OBLIGATOIRE - STOP IMMÉDIAT EN CAS D'ÉCHEC)
-        const syntheticEmail = `admin_${cleanSlug}_${Date.now()}@auth.yziow.internal`;
+        // 1. Créer le compte Supabase Auth pour le Directeur avec l'email synthétique déterministe SHA-256
+        const syntheticEmail = buildAuthEmail(cleanSlug, adminPhoneNormalized);
         const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
             email: syntheticEmail,
             password: validatedData.admin_password,
@@ -333,7 +326,7 @@ async function registerSchool(req, res) {
 
         createdSchoolId = school.id;
 
-        // 3. Exécuter l'appel UNIQUE au RPC transactionnel create_school_tables avec admin_auth_id OBLIGATOIRE (Supabase Auth gère le mot de passe)
+        // 3. Exécuter l'appel RPC transactionnel create_school_tables avec admin_auth_id OBLIGATOIRE
         const { data: rpcData, error: rpcErr } = await supabase.rpc('create_school_tables', { 
             school_slug: cleanSlug,
             admin_nom: validatedData.admin_nom.trim(),
@@ -344,7 +337,6 @@ async function registerSchool(req, res) {
         
         if (rpcErr) {
             console.error(`❌ Échec du RPC create_school_tables pour ${cleanSlug}:`, rpcErr.message);
-            // Compensation contrôlée en ordre inverse (sans exec_sql, sans CASCADE)
             if (createdSchoolId) {
                 try {
                     await supabase.from('schools').delete().eq('id', createdSchoolId);
@@ -380,7 +372,6 @@ async function registerSchool(req, res) {
     } catch (err) {
         console.error('Register School Error:', err.message);
 
-        // Compensation inverse contrôlée sans masquer les erreurs
         if (createdSchoolId) {
             try {
                 await supabase.from('schools').delete().eq('id', createdSchoolId);
@@ -410,7 +401,7 @@ async function login(req, res) {
     }
 
     try {
-        // 1. Vérifier si c'est le SuperAdmin
+        // 1. Branche SuperAdmin ISOLÉE (Utilise la table superadmins)
         let superadmin = null;
         const { data: saList } = await supabase.from('superadmins').select('*');
         if (saList && saList.length > 0) {
@@ -471,10 +462,10 @@ async function login(req, res) {
             return res.status(402).json({ error: 'trial_expired', message: "La période d'essai est terminée." });
         }
 
-        // 3. Chercher l'utilisateur de manière STRICTE par phone_normalized
+        // 3. Chercher l'utilisateur de manière STRICTE par phone_normalized (AUCUNE colonne password sélectionnée)
         const { data: user } = await supabase
             .from(`profiles_${schoolSlug}`)
-            .select('*')
+            .select('id, nom, telephone, phone_normalized, role')
             .eq('phone_normalized', phoneNormalized)
             .maybeSingle();
 
@@ -482,8 +473,26 @@ async function login(req, res) {
             return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
         }
 
-        const valid = await bcrypt.compare(password, user.password);
-        if (!valid) {
+        // 4. Authentification via Supabase Auth avec un client éphémère sans persistance
+        const syntheticEmail = buildAuthEmail(schoolSlug, phoneNormalized);
+        const authClient = createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY,
+            {
+                auth: {
+                    persistSession: false,
+                    autoRefreshToken: false,
+                    detectSessionInUrl: false
+                }
+            }
+        );
+
+        const { data: authData, error: authError } = await authClient.auth.signInWithPassword({
+            email: syntheticEmail,
+            password: password
+        });
+
+        if (authError || !authData?.user?.id || authData.user.id !== user.id) {
             return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
         }
 
@@ -601,14 +610,19 @@ async function updatePushToken(req, res) {
     }
 }
 
-// 📌 Update Profile 📌
+// 📌 Update Profile (Dédiée aux métadonnées d'établissement uniquement) 📌
 async function updateProfile(req, res) {
     if (!req.user) {
         return res.status(401).json({ error: 'Non authentifié' });
     }
 
-    const { school_address, school_phone, school_slogan, school_ministry } = req.body;
+    const { school_address, school_phone, school_slogan, school_ministry, telephone, phone_normalized } = req.body;
     
+    // REJET EXPLICITE des tentatives de modification du téléphone de compte utilisateur via updateProfile
+    if (telephone !== undefined || phone_normalized !== undefined) {
+        return res.status(400).json({ error: 'Pour modifier le numéro de téléphone de votre compte, utilisez la route dédiée /api/auth/update-phone.' });
+    }
+
     try {
         const updates = { updated_at: new Date().toISOString() };
         if (school_address !== undefined) updates.address = school_address;
@@ -623,7 +637,7 @@ async function updateProfile(req, res) {
 
         if (error) throw error;
 
-        return res.json({ message: 'Profil mis à jour' });
+        return res.json({ message: 'Profil d\'établissement mis à jour' });
     } catch (err) {
         console.error('Update Profile Error:', err.message);
         return res.status(500).json({ error: err.message });
@@ -716,7 +730,7 @@ const forgotPassword = async (req, res) => {
 }
 
 // ----------------------------------------------------
-// RÉINITIALISATION DU MOT DE PASSE (Vérification OTP + Tentatives max)
+// RÉINITIALISATION DU MOT DE PASSE (Vérification OTP + Supabase Auth updateUserById)
 // ----------------------------------------------------
 const resetPassword = async (req, res) => {
     try {
@@ -768,13 +782,36 @@ const resetPassword = async (req, res) => {
             return res.status(400).json({ error: 'Code de réinitialisation invalide.' });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(newPassword, salt);
-
         if (schoolSlug === 'global') {
-            await supabase.from('superadmins').update({ password: hashedPassword }).eq('username', phone.trim());
+            const { data: sa } = await supabase.from('superadmins').select('id').or(`telephone.eq.${phone.trim()},username.eq.${phone.trim()}`).maybeSingle();
+            if (sa) {
+                const salt = await bcrypt.genSalt(10);
+                const hashedPassword = await bcrypt.hash(newPassword, salt);
+                await supabase.from('superadmins').update({ password: hashedPassword }).eq('id', sa.id);
+            }
         } else {
-            await supabase.from(`profiles_${schoolSlug}`).update({ password: hashedPassword }).eq('phone_normalized', phoneNormalized);
+            // 1. Récupérer l'UUID Auth (id) du profil par phone_normalized
+            const { data: profile, error: profileErr } = await supabase
+                .from(`profiles_${schoolSlug}`)
+                .select('id')
+                .eq('phone_normalized', phoneNormalized)
+                .maybeSingle();
+
+            if (profileErr || !profile?.id) {
+                return res.status(400).json({ error: 'Profil introuvable pour ce numéro de téléphone.' });
+            }
+
+            // 2. Mettre à jour l'utilisateur Supabase Auth avec updateUserById (email_confirm: true)
+            const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+                password: newPassword,
+                email_confirm: true
+            });
+
+            if (updateAuthError) {
+                console.error('❌ Échec de la mise à jour du mot de passe dans Supabase Auth:', updateAuthError.message);
+                // Si l'opération Auth échoue : on ne supprime PAS l'OTP, on n'annonce PAS la réussite, on n'écrit AUCUNE colonne password.
+                return res.status(500).json({ error: 'Échec de la réinitialisation du mot de passe : ' + updateAuthError.message });
+            }
         }
 
         // Invalidation immédiate après réinitialisation réussie (usage unique)
@@ -787,6 +824,124 @@ const resetPassword = async (req, res) => {
     }
 }
 
+/**
+ * Modification synchronisée du téléphone propre (Mise à jour Supabase Auth + Profil + Compensation + Relecture)
+ */
+async function updatePhone(req, res) {
+    const { id: userId, schoolSlug } = req.user;
+    const { newTelephone, countryCode } = req.body;
+
+    if (!newTelephone) {
+        return res.status(400).json({ error: 'Le nouveau numéro de téléphone est requis.' });
+    }
+
+    let newPhoneNormalized;
+    try {
+        newPhoneNormalized = normalizePhone(newTelephone, countryCode);
+    } catch (err) {
+        return res.status(400).json({ error: 'Numéro de téléphone invalide.' });
+    }
+
+    try {
+        // 1. Vérifier l'unicité du numéro dans l'école
+        const { data: existing } = await supabase
+            .from(`profiles_${schoolSlug}`)
+            .select('id')
+            .eq('phone_normalized', newPhoneNormalized)
+            .neq('id', userId)
+            .maybeSingle();
+
+        if (existing) {
+            return res.status(409).json({ error: 'Ce numéro de téléphone est déjà utilisé par un autre compte.' });
+        }
+
+        // 2. Relire l'utilisateur Auth avant toute modification pour conserver l'email et l'intégralité des métadonnées
+        const { data: preAuthData, error: preFetchErr } = await supabaseAdmin.auth.admin.getUserById(userId);
+        if (preFetchErr || !preAuthData?.user) {
+            console.error('❌ Échec de la lecture préalable du compte Auth:', preFetchErr?.message);
+            return res.status(500).json({ error: 'Échec de l\'accès au compte d\'authentification.' });
+        }
+
+        const oldAuthEmail = preAuthData.user.email;
+        const previousMetadata = preAuthData.user.user_metadata || {};
+        const newAuthEmail = buildAuthEmail(schoolSlug, newPhoneNormalized);
+
+        // 3. Mettre à jour Supabase Auth avec préservation des métadonnées (role, school_slug, etc.)
+        const updatedMetadata = {
+            ...previousMetadata,
+            phone_normalized: newPhoneNormalized
+        };
+
+        const { data: updatedAuthUser, error: authUpdateErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+            email: newAuthEmail,
+            email_confirm: true,
+            user_metadata: updatedMetadata
+        });
+
+        if (authUpdateErr || !updatedAuthUser?.user) {
+            console.error('❌ Échec mise à jour téléphone dans Supabase Auth:', authUpdateErr?.message);
+            return res.status(500).json({ error: 'Échec de la mise à jour du numéro dans le service d\'authentification : ' + (authUpdateErr?.message || 'Utilisateur non mis à jour.') });
+        }
+
+        // 4. Relecture explicite et contrôle strict des propriétés de l'utilisateur Auth
+        const { data: checkAuthData, error: checkAuthErr } = await supabaseAdmin.auth.admin.getUserById(userId);
+        const checkUser = checkAuthData?.user;
+        const checkMeta = checkUser?.user_metadata || {};
+
+        if (
+            checkAuthErr ||
+            !checkUser ||
+            checkUser.id !== userId ||
+            checkUser.email !== newAuthEmail ||
+            checkMeta.phone_normalized !== newPhoneNormalized ||
+            checkMeta.role !== previousMetadata.role ||
+            checkMeta.school_slug !== previousMetadata.school_slug
+        ) {
+            console.error('❌ Contrôle de relecture Auth échoué après mise à jour.');
+            return res.status(500).json({ error: 'Erreur de confirmation des métadonnées d\'authentification.' });
+        }
+
+        // 5. Mettre à jour le profil SQL
+        const { error: profileUpdateErr } = await supabase
+            .from(`profiles_${schoolSlug}`)
+            .update({
+                telephone: newTelephone.trim(),
+                phone_normalized: newPhoneNormalized
+            })
+            .eq('id', userId);
+
+        if (profileUpdateErr) {
+            console.error('❌ Échec mise à jour profil SQL:', profileUpdateErr.message);
+            
+            // 6. Compensation Auth : Restauration de l'ancien email et métadonnées antérieures
+            const { error: compErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+                email: oldAuthEmail,
+                email_confirm: true,
+                user_metadata: previousMetadata
+            });
+
+            // 7. Contrôle de confirmation après compensation
+            const { data: compCheckData } = await supabaseAdmin.auth.admin.getUserById(userId);
+            const compUser = compCheckData?.user;
+
+            if (compErr || !compUser || compUser.email !== oldAuthEmail) {
+                const correlationId = crypto.randomBytes(8).toString('hex');
+                console.error(`❌ [RÉCONCILIATION_ADMIN_REQUISE] CorrelationID=${correlationId}, UserID=${userId}, FailedStep=SQL_PROFILE_UPDATE_COMPENSATION_FAILURE`);
+                return res.status(500).json({ 
+                    error: `Échec critique de synchronisation. RÉCONCILIATION_ADMIN_REQUISE (CorrelationID: ${correlationId})`
+                });
+            }
+
+            return res.status(500).json({ error: 'Échec de la mise à jour du profil (les données d\'authentification ont été restaurées) : ' + profileUpdateErr.message });
+        }
+
+        return res.json({ message: 'Numéro de téléphone mis à jour avec succès.', phone_normalized: newPhoneNormalized });
+    } catch (err) {
+        console.error('Update Phone Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la modification du téléphone.' });
+    }
+}
+
 module.exports = {
     register,
     registerSchool,
@@ -795,5 +950,6 @@ module.exports = {
     updatePushToken,
     updateProfile,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    updatePhone
 };

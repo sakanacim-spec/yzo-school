@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { parsePhoneNumberFromString } = require('libphonenumber-js/max');
 
 /**
@@ -41,6 +42,26 @@ function normalizePhone(phone, countryCode) {
     return parsed.number;
 }
 
+/**
+ * Construit un identifiant email synthétique déterministe et sécurisé pour Supabase Auth via SHA-256.
+ * @param {string} schoolSlug - Le slug de l'école (ex: ecole_demo).
+ * @param {string} phoneNormalized - Le numéro au format E.164 (ex: +2290197000000).
+ * @returns {string} Email synthétique de longueur fixe sans donnée personnelle visible.
+ * @throws {Error} 'INVALID_AUTH_IDENTIFIER'
+ */
+function buildAuthEmail(schoolSlug, phoneNormalized) {
+    const slug = String(schoolSlug ?? '').trim().toLowerCase();
+    const phone = String(phoneNormalized ?? '').trim();
+
+    if (!/^[a-z0-9_]{1,50}$/.test(slug) || !/^\+[1-9][0-9]{7,14}$/.test(phone)) {
+        throw new Error('INVALID_AUTH_IDENTIFIER');
+    }
+
+    const hash = crypto.createHash('sha256').update(`${slug}:${phone}`).digest('hex').slice(0, 32);
+    return `u_${hash}@auth.yziow.internal`;
+}
+
 module.exports = {
-    normalizePhone
+    normalizePhone,
+    buildAuthEmail
 };

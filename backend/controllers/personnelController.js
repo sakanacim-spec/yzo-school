@@ -1,5 +1,6 @@
+const crypto = require('crypto');
 const { supabase, supabaseAdmin } = require('../utils/supabase');
-const { normalizePhone } = require('../utils/helpers');
+const { normalizePhone, buildAuthEmail } = require('../utils/helpers');
 
 // ── GET /api/personnel ──────────────────────────────
 async function getPersonnel(req, res) {
@@ -63,8 +64,8 @@ async function createPersonnel(req, res) {
             return res.status(409).json({ error: 'Ce numéro de téléphone est déjà enregistré pour un autre compte.' });
         }
 
-        // 1. Créer le compte Supabase Auth pour le personnel (OBLIGATOIRE - STOP IMMÉDIAT EN CAS D'ÉCHEC)
-        const syntheticEmail = `staff_${schoolSlug}_${phoneNormalized.replace(/\D/g, '')}@auth.yziow.internal`;
+        // 1. Créer le compte Supabase Auth pour le personnel avec l'email synthétique déterministe SHA-256
+        const syntheticEmail = buildAuthEmail(schoolSlug, phoneNormalized);
         const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
             email: syntheticEmail,
             password: password,
@@ -84,7 +85,7 @@ async function createPersonnel(req, res) {
 
         const staffAuthUserId = authData.user.id;
 
-        // 2. Insérer le profil dans profiles_<schoolSlug> avec l'UUID Auth OBLIGATOIRE
+        // 2. Insérer le profil dans profiles_<schoolSlug> avec l'UUID Auth OBLIGATOIRE (Aucune colonne password)
         const { data: personnel, error: insertErr } = await supabase
             .from(`profiles_${schoolSlug}`)
             .insert({
@@ -116,6 +117,138 @@ async function createPersonnel(req, res) {
     } catch (err) {
         console.error('createPersonnel Error:', err.message);
         return res.status(500).json({ error: 'Erreur lors de la création du compte personnel : ' + err.message });
+    }
+}
+
+// ── PUT /api/personnel/:id/phone (Modification Administrative du Téléphone) ────────
+async function updateMemberPhoneByAdmin(req, res) {
+    const { role: userRole, schoolSlug } = req.user;
+    const { id: targetUserId } = req.params;
+    const { newTelephone, countryCode } = req.body;
+
+    if (userRole !== 'directeur' && userRole !== 'directeur_general' && userRole !== 'admin') {
+        return res.status(403).json({ error: 'Seul un administrateur ou un directeur peut modifier le numéro d\'un membre.' });
+    }
+
+    if (!targetUserId || !newTelephone) {
+        return res.status(400).json({ error: 'L\'identifiant cible et le nouveau numéro de téléphone sont requis.' });
+    }
+
+    let newPhoneNormalized;
+    try {
+        newPhoneNormalized = normalizePhone(newTelephone, countryCode);
+    } catch (err) {
+        return res.status(400).json({ error: 'Nouveau numéro de téléphone invalide.' });
+    }
+
+    try {
+        // 1. Vérifier que le compte cible existe dans l'école
+        const { data: targetProfile, error: targetErr } = await supabase
+            .from(`profiles_${schoolSlug}`)
+            .select('id, telephone, phone_normalized, role')
+            .eq('id', targetUserId)
+            .single();
+
+        if (targetErr || !targetProfile) {
+            return res.status(404).json({ error: 'Membre introuvable dans cet établissement.' });
+        }
+
+        // 2. Vérifier l'unicité du nouveau numéro
+        const { data: existing } = await supabase
+            .from(`profiles_${schoolSlug}`)
+            .select('id')
+            .eq('phone_normalized', newPhoneNormalized)
+            .neq('id', targetUserId)
+            .maybeSingle();
+
+        if (existing) {
+            return res.status(409).json({ error: 'Ce numéro de téléphone est déjà attribué à un autre membre.' });
+        }
+
+        // 3. Relire l'utilisateur Auth avant toute modification pour conserver l'email et l'intégralité des métadonnées
+        const { data: preAuthData, error: preFetchErr } = await supabaseAdmin.auth.admin.getUserById(targetUserId);
+        if (preFetchErr || !preAuthData?.user) {
+            console.error('❌ [Admin UpdatePhone] Échec lecture préalable Auth:', preFetchErr?.message);
+            return res.status(500).json({ error: 'Échec de l\'accès au compte d\'authentification du membre.' });
+        }
+
+        const oldAuthEmail = preAuthData.user.email;
+        const previousMetadata = preAuthData.user.user_metadata || {};
+        const newAuthEmail = buildAuthEmail(schoolSlug, newPhoneNormalized);
+
+        // 4. Mettre à jour Supabase Auth avec préservation des métadonnées (role, school_slug, etc.)
+        const updatedMetadata = {
+            ...previousMetadata,
+            phone_normalized: newPhoneNormalized
+        };
+
+        const { data: updatedAuthUser, error: authUpdateErr } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+            email: newAuthEmail,
+            email_confirm: true,
+            user_metadata: updatedMetadata
+        });
+
+        if (authUpdateErr || !updatedAuthUser?.user) {
+            console.error('❌ [Admin UpdatePhone] Échec mise à jour Supabase Auth:', authUpdateErr?.message);
+            return res.status(500).json({ error: 'Échec de la mise à jour Auth : ' + (authUpdateErr?.message || 'Utilisateur non mis à jour.') });
+        }
+
+        // 5. Relecture explicite et contrôle strict des propriétés de l'utilisateur Auth
+        const { data: checkAuthData, error: checkAuthErr } = await supabaseAdmin.auth.admin.getUserById(targetUserId);
+        const checkUser = checkAuthData?.user;
+        const checkMeta = checkUser?.user_metadata || {};
+
+        if (
+            checkAuthErr ||
+            !checkUser ||
+            checkUser.id !== targetUserId ||
+            checkUser.email !== newAuthEmail ||
+            checkMeta.phone_normalized !== newPhoneNormalized ||
+            checkMeta.role !== previousMetadata.role ||
+            checkMeta.school_slug !== previousMetadata.school_slug
+        ) {
+            console.error('❌ [Admin UpdatePhone] Contrôle de relecture Auth échoué.');
+            return res.status(500).json({ error: 'Erreur de confirmation des métadonnées d\'authentification du membre.' });
+        }
+
+        // 6. Mettre à jour le profil SQL
+        const { error: profileUpdateErr } = await supabase
+            .from(`profiles_${schoolSlug}`)
+            .update({
+                telephone: newTelephone.trim(),
+                phone_normalized: newPhoneNormalized
+            })
+            .eq('id', targetUserId);
+
+        if (profileUpdateErr) {
+            console.error('❌ [Admin UpdatePhone] Échec mise à jour profil SQL:', profileUpdateErr.message);
+            
+            // 7. Compensation Auth : Restauration de l'ancien email et métadonnées antérieures
+            const { error: compErr } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+                email: oldAuthEmail,
+                email_confirm: true,
+                user_metadata: previousMetadata
+            });
+
+            // Contrôle de confirmation après compensation
+            const { data: compCheckData } = await supabaseAdmin.auth.admin.getUserById(targetUserId);
+            const compUser = compCheckData?.user;
+
+            if (compErr || !compUser || compUser.email !== oldAuthEmail) {
+                const correlationId = crypto.randomBytes(8).toString('hex');
+                console.error(`❌ [RÉCONCILIATION_ADMIN_REQUISE] CorrelationID=${correlationId}, TargetUserID=${targetUserId}, FailedStep=ADMIN_PHONE_UPDATE_COMPENSATION_FAILURE`);
+                return res.status(500).json({ 
+                    error: `Échec critique de synchronisation. RÉCONCILIATION_ADMIN_REQUISE (CorrelationID: ${correlationId})`
+                });
+            }
+
+            return res.status(500).json({ error: 'Échec de la mise à jour du profil : ' + profileUpdateErr.message });
+        }
+
+        return res.json({ message: 'Numéro de téléphone du membre mis à jour avec succès.', phone_normalized: newPhoneNormalized });
+    } catch (err) {
+        console.error('Admin UpdatePhone Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la modification administrative du numéro.' });
     }
 }
 
@@ -151,4 +284,4 @@ async function deletePersonnel(req, res) {
     }
 }
 
-module.exports = { getPersonnel, createPersonnel, deletePersonnel };
+module.exports = { getPersonnel, createPersonnel, updateMemberPhoneByAdmin, deletePersonnel };
