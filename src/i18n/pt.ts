@@ -117,7 +117,9 @@ export const pt = {
     "beInformed": "Ser informado sobre faltas, atrasos e presenças.",
     "easyExchanges": "Trocas simples com a escola",
     "communicateEasily": "Comunique-se facilmente com professores e administração.",
-    "bestFollowup": "Porque toda criança merece o melhor apoio para ter sucesso."
+    "bestFollowup": "Porque toda criança merece o melhor apoio para ter sucesso.",
+    "loginButton": "Entrar",
+    "loggingIn": "Entrando..."
   },
   "register": {
     "ministryEx": "Ex: Ministério da Educação Nacional",

@@ -117,7 +117,9 @@ export const it = {
     "beInformed": "Essere informato su assenze, ritardi e presenze.",
     "easyExchanges": "Scambi semplici con la scuola",
     "communicateEasily": "Comunica facilmente con gli insegnanti e l'amministrazione.",
-    "bestFollowup": "Perché ogni bambino merita il miglior sostegno per avere successo."
+    "bestFollowup": "Perché ogni bambino merita il miglior sostegno per avere successo.",
+    "loginButton": "Accedi",
+    "loggingIn": "Accesso..."
   },
   "register": {
     "ministryEx": "Es: Ministero dell'Istruzione Nazionale",

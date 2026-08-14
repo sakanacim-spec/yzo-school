@@ -117,7 +117,9 @@ export const zh = {
     "beInformed": "获知缺勤、迟到和出勤情况。",
     "easyExchanges": "与学校的简单交流",
     "communicateEasily": "与老师和行政人员轻松沟通。",
-    "bestFollowup": "因为每个孩子都应该得到最好的支持才能取得成功。"
+    "bestFollowup": "因为每个孩子都应该得到最好的支持才能取得成功。",
+    "loginButton": "登录",
+    "loggingIn": "正在登录..."
   },
   "register": {
     "ministryEx": "例如：国家教育部",

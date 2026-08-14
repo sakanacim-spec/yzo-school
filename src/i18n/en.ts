@@ -118,7 +118,9 @@ export const en = {
     "beInformed": "Be informed of absences, lateness and attendance.",
     "easyExchanges": "Simple exchanges with the school",
     "communicateEasily": "Communicate easily with teachers and administration.",
-    "bestFollowup": "Because every child deserves the best support to succeed."
+    "bestFollowup": "Because every child deserves the best support to succeed.",
+    "loginButton": "Sign in",
+    "loggingIn": "Signing in..."
   },
   "register": {
     "ministryEx": "Ex: Ministry of National Education",
