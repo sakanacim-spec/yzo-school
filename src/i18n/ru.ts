@@ -103,7 +103,8 @@ export const ru = {
     "iAmParentCreateAccount": "Я родитель, Создать учетную запись",
     "connectedEducation": "Сетевое образование",
     "forgotPassword": "Забыли пароль",
-    "phonePlaceholder": "Номер телефона",
+    "phonePlaceholder": "Ваш номер телефона",
+    "countryDialCode": "Телефонный код страны",
     "backToLogin": "Вернуться к входу",
     "phone": "Телефон"
   },

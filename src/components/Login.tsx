@@ -22,6 +22,7 @@ import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import familyIllustration from '../assets/family_illustration.png';
 import { getTranslations, t } from '../i18n';
 import type { Language } from '../i18n';
+import { CountrySelect } from './CountrySelect';
 const BG_IMAGES = [bgImage1, bgImage2, bgImage3, bgImage4];
 const SLIDE_DURATION = 5000;
 
@@ -79,7 +80,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
   // Auth Form States
   const [loginCountryCode, setLoginCountryCode] = useState('BJ');
   const [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState('');
+  const [telephone, setTelephone] = useState('');
   const [password, setPassword] = useState('');
   const [trialExpiredSchool, setTrialExpiredSchool] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -107,6 +108,8 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const performLogin = () => login(telephone, password, selectedSchool, loginCountryCode);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -114,7 +117,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
     setLoading(true);
 
     try {
-        const ok = await login(username, password, selectedSchool, loginCountryCode);
+        const ok = await performLogin();
         if (!ok) setError(T.errors.loginFailed || 'Erreur inconnue.');
 
     } catch (err: any) {
@@ -138,10 +141,10 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
             <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 border border-slate-100 animate-in fade-in zoom-in duration-300">
                 <LinkStudent onComplete={async () => {
                    // Une fois lié, on connecte officiellement
-                   await login(username, password, selectedSchool);
+                   await performLogin();
                 }} />
                 <button 
-                  onClick={async () => await login(username, password, selectedSchool)}
+                  onClick={async () => await performLogin()}
                   className="w-full mt-4 py-3 text-slate-400 text-xs font-bold hover:text-amber-600 transition"
                 >
                   Passer cette étape pour le moment
@@ -343,36 +346,24 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                     </div>
                     
                     <div className="flex gap-2">
-                        <select
+                        <CountrySelect
                             value={loginCountryCode}
-                            onChange={(e) => setLoginCountryCode(e.target.value)}
-                            className="h-[52px] bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm px-2"
-                        >
-                            <option value="BJ">🇧🇯 BJ</option>
-                            <option value="TG">🇹🇬 TG</option>
-                            <option value="CI">🇨🇮 CI</option>
-                            <option value="SN">🇸🇳 SN</option>
-                            <option value="BF">🇧🇫 BF</option>
-                            <option value="ML">🇲🇱 ML</option>
-                            <option value="NE">🇳🇪 NE</option>
-                            <option value="CM">🇨🇲 CM</option>
-                            <option value="GA">🇬🇦 GA</option>
-                            <option value="CG">🇨🇬 CG</option>
-                            <option value="CD">🇨🇩 CD</option>
-                            <option value="GN">🇬🇳 GN</option>
-                            <option value="FR">🇫🇷 FR</option>
-                            <option value="US">🇺🇸 US</option>
-                            <option value="CA">🇨🇦 CA</option>
-                        </select>
-                        <div className="relative flex-1">
-                            <User className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                            onChange={setLoginCountryCode}
+                            short={true}
+                            className="h-[52px] w-[110px] shrink-0 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm px-2"
+                            aria-label={t(language as Language, 'auth.countryDialCode') || "Indicatif pays"}
+                        />
+                        <div className="relative flex-1 min-w-0">
+                            <Phone className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500 pointer-events-none" />
                             <input 
                                 dir="ltr"
-                                type="text" 
-                                placeholder="01 97 00 00 00 / +229..." 
+                                type="tel" 
+                                inputMode="tel"
+                                autoComplete="tel"
+                                placeholder={t(language as Language, 'auth.phonePlaceholder') || "Votre numéro de téléphone"} 
                                 className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                                value={username} 
-                                onChange={(e) => setUsername(e.target.value)} 
+                                value={telephone} 
+                                onChange={(e) => setTelephone(e.target.value)} 
                                 required 
                             />
                         </div>
@@ -619,17 +610,28 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                             />
                         </div>
                         
-                        <div className="relative">
-                            <User className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-                            <input 
-                                dir="ltr"
-                                type="text" 
-                                placeholder="+33 6 12 34 56 78" 
-                                className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                                value={username} 
-                                onChange={(e) => setUsername(e.target.value)} 
-                                required 
+                        <div className="flex gap-2">
+                            <CountrySelect
+                                value={loginCountryCode}
+                                onChange={setLoginCountryCode}
+                                short={true}
+                                className="h-[52px] w-[110px] shrink-0 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm px-2"
+                                aria-label={t(language as Language, 'auth.countryDialCode') || "Indicatif pays"}
                             />
+                            <div className="relative flex-1 min-w-0">
+                                <Phone className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500 pointer-events-none" />
+                                <input 
+                                    dir="ltr"
+                                    type="tel" 
+                                    inputMode="tel"
+                                    autoComplete="tel"
+                                    placeholder={t(language as Language, 'auth.phonePlaceholder') || "Votre numéro de téléphone"} 
+                                    className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
+                                    value={telephone} 
+                                    onChange={(e) => setTelephone(e.target.value)} 
+                                    required 
+                                />
+                            </div>
                         </div>
                         
                         <div className="relative">

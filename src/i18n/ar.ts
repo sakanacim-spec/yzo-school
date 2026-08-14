@@ -103,7 +103,8 @@ export const ar = {
     "iAmParentCreateAccount": "أنا أحد الوالدين، قم بإنشاء حسابي",
     "connectedEducation": "التعليم المتصل",
     "forgotPassword": "نسيت كلمة المرور",
-    "phonePlaceholder": "رقم الهاتف",
+    "phonePlaceholder": "رقم هاتفك",
+    "countryDialCode": "رمز الاتصال بالبلد",
     "backToLogin": "العودة لتسجيل الدخول",
     "phone": "هاتف"
   },

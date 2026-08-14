@@ -103,7 +103,8 @@ export const de = {
     "iAmParentCreateAccount": "Ich bin ein Elternteil, erstelle mein Konto",
     "connectedEducation": "Vernetzte Bildung",
     "forgotPassword": "Passwort vergessen",
-    "phonePlaceholder": "Telefonnummer",
+    "phonePlaceholder": "Ihre Telefonnummer",
+    "countryDialCode": "Ländervorwahl",
     "backToLogin": "Zurück zum Login",
     "phone": "Telefon"
   },

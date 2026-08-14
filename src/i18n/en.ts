@@ -104,7 +104,8 @@ export const en = {
     "iAmParentCreateAccount": "I am a parent, Create my account",
     "connectedEducation": "Connected Education",
     "forgotPassword": "Forgotten password",
-    "phonePlaceholder": "Telephone number",
+    "phonePlaceholder": "Your phone number",
+    "countryDialCode": "Country dial code",
     "backToLogin": "Back to login",
     "phone": "Phone"
   },

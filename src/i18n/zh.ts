@@ -103,7 +103,8 @@ export const zh = {
     "iAmParentCreateAccount": "我是家长，创建我的帐户",
     "connectedEducation": "互联教育",
     "forgotPassword": "忘记密码",
-    "phonePlaceholder": "电话号码",
+    "phonePlaceholder": "您的电话号码",
+    "countryDialCode": "国家拨号代码",
     "backToLogin": "返回登录",
     "phone": "电话"
   },
