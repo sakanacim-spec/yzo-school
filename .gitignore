@@ -39,3 +39,13 @@ yziow_backup_*.zip
 *.sql.backup
 pg*.zip
 
+# Local PostgreSQL toolchains
+/pg17_fast/
+/pg17_new/
+/pg_new/
+
+# P1-A local execution artifacts
+/backend/scripts/archive/
+/backend/scripts/p1a_pre_migration_snapshot.json
+/backend/scripts/p1a_preflight_report.md
+/backend/scripts/run_migration_p1a_once.cjs
