@@ -1,9 +1,32 @@
--- Suppression propre des anciennes signatures de la fonction RPC pour éviter toute ambiguïté
-DROP FUNCTION IF EXISTS public.create_school_tables(text);
-DROP FUNCTION IF EXISTS public.create_school_tables(text, text, text, text);
-DROP FUNCTION IF EXISTS public.create_school_tables(text, text, text, text, text);
-DROP FUNCTION IF EXISTS public.create_school_tables(text, text, text, text, text, uuid);
-DROP FUNCTION IF EXISTS public.create_school_tables(text, text, text, text, text, uuid, text);
+BEGIN;
+
+-- Pre-checks
+DO $$
+DECLARE
+    curr_user text;
+    can_mod_postgres boolean;
+BEGIN
+    SELECT current_user INTO curr_user;
+
+    SELECT pg_has_role(curr_user, 'postgres', 'USAGE') INTO can_mod_postgres;
+
+    IF NOT can_mod_postgres THEN
+        RAISE EXCEPTION 'Current user % does not have privileges to modify DEFAULT PRIVILEGES for postgres', curr_user;
+    END IF;
+END $$;
+
+-- 1. Default ACL for postgres
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM PUBLIC, anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO service_role;
+
+-- 3. Deploy update_school_template.sql content
+
 CREATE OR REPLACE FUNCTION public.create_school_tables(
     school_slug text,
     admin_nom text DEFAULT NULL,
@@ -319,3 +342,143 @@ $$;
 -- Révocation stricte d'accès public/anon/authenticated et attribution restreinte au service_role et postgres
 REVOKE ALL ON FUNCTION public.create_school_tables(school_slug text, admin_nom text, admin_telephone text, admin_phone_normalized text, admin_auth_id uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_school_tables(school_slug text, admin_nom text, admin_telephone text, admin_phone_normalized text, admin_auth_id uuid) TO service_role, postgres;
+
+-- 4. Final assertions
+DO $$
+DECLARE
+    r RECORD;
+    v_target_roles text[] := ARRAY['postgres'];
+    v_obj_types "char"[] := ARRAY['r', 'S', 'f']; -- tables, sequences, functions
+    v_role text;
+    v_obj_type "char";
+    v_acl_count integer;
+
+    v_pub_has boolean;
+    v_anon_has boolean;
+    v_auth_has boolean;
+
+    v_sr_privs text[];
+    v_expected_sr_privs text[];
+
+    v_func_count integer;
+    v_func_oid oid;
+    v_func_ret text;
+    v_func_lang text;
+    v_func_secdef boolean;
+    v_func_proconfig text[];
+    v_func_args text;
+    v_func_nargdef int;
+    v_func_nargs int;
+    v_pub_has_exec boolean;
+BEGIN
+    -- 1. Assert DEFAULT ACLs
+    FOREACH v_role IN ARRAY v_target_roles LOOP
+        FOREACH v_obj_type IN ARRAY v_obj_types LOOP
+            v_acl_count := 0;
+
+            SELECT array_agg(privilege_type) INTO v_sr_privs
+            FROM pg_default_acl a
+            JOIN pg_roles r_def ON a.defaclrole = r_def.oid
+            JOIN pg_namespace n ON a.defaclnamespace = n.oid
+            CROSS JOIN LATERAL aclexplode(a.defaclacl) privs
+            JOIN pg_roles grantee ON privs.grantee = grantee.oid
+            WHERE r_def.rolname = v_role AND n.nspname = 'public' AND a.defaclobjtype = v_obj_type AND grantee.rolname = 'service_role';
+
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_default_acl a
+                JOIN pg_roles r_def ON a.defaclrole = r_def.oid
+                JOIN pg_namespace n ON a.defaclnamespace = n.oid
+                CROSS JOIN LATERAL aclexplode(a.defaclacl) privs
+                LEFT JOIN pg_roles grantee ON privs.grantee = grantee.oid
+                WHERE r_def.rolname = v_role AND n.nspname = 'public' AND a.defaclobjtype = v_obj_type AND (grantee.rolname = 'anon' OR privs.grantee = 0)
+            ) INTO v_anon_has;
+
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_default_acl a
+                JOIN pg_roles r_def ON a.defaclrole = r_def.oid
+                JOIN pg_namespace n ON a.defaclnamespace = n.oid
+                CROSS JOIN LATERAL aclexplode(a.defaclacl) privs
+                LEFT JOIN pg_roles grantee ON privs.grantee = grantee.oid
+                WHERE r_def.rolname = v_role AND n.nspname = 'public' AND a.defaclobjtype = v_obj_type AND (grantee.rolname = 'authenticated' OR privs.grantee = 0)
+            ) INTO v_auth_has;
+
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_default_acl a
+                JOIN pg_roles r_def ON a.defaclrole = r_def.oid
+                JOIN pg_namespace n ON a.defaclnamespace = n.oid
+                CROSS JOIN LATERAL aclexplode(a.defaclacl) privs
+                LEFT JOIN pg_roles grantee ON privs.grantee = grantee.oid
+                WHERE r_def.rolname = v_role AND n.nspname = 'public' AND a.defaclobjtype = v_obj_type AND privs.grantee = 0
+            ) INTO v_pub_has;
+
+            IF v_pub_has THEN RAISE EXCEPTION 'PUBLIC a un privilège interdit sur % par %', v_obj_type, v_role; END IF;
+            IF v_anon_has THEN RAISE EXCEPTION 'anon a un privilège interdit sur % par %', v_obj_type, v_role; END IF;
+            IF v_auth_has THEN RAISE EXCEPTION 'authenticated a un privilège interdit sur % par %', v_obj_type, v_role; END IF;
+
+            IF v_obj_type = 'r' THEN
+                v_expected_sr_privs := ARRAY[
+                  'SELECT',
+                  'INSERT',
+                  'UPDATE',
+                  'DELETE',
+                  'TRUNCATE',
+                  'REFERENCES',
+                  'TRIGGER',
+                  'MAINTAIN'
+                ];
+            ELSIF v_obj_type = 'S' THEN
+                v_expected_sr_privs := ARRAY['USAGE', 'SELECT', 'UPDATE'];
+            ELSIF v_obj_type = 'f' THEN
+                v_expected_sr_privs := ARRAY['EXECUTE'];
+            END IF;
+
+            IF v_sr_privs IS NULL OR NOT (v_sr_privs @> v_expected_sr_privs AND v_expected_sr_privs @> v_sr_privs) THEN
+                RAISE EXCEPTION 'service_role manque de privilèges ou n''a pas exactement les privilèges attendus sur % par %', v_obj_type, v_role;
+            END IF;
+        END LOOP;
+    END LOOP;
+
+    -- 2. Assert Function
+    SELECT count(*), max(p.oid) INTO v_func_count, v_func_oid
+    FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'public' AND p.proname = 'create_school_tables'
+    AND pg_get_function_identity_arguments(p.oid) = 'school_slug text, admin_nom text, admin_telephone text, admin_phone_normalized text, admin_auth_id uuid';
+
+    IF v_func_count != 1 THEN
+        RAISE EXCEPTION 'Erreur: % fonction(s) correspondant à la signature exacte trouvée(s)', v_func_count;
+    END IF;
+
+    SELECT format_type(prorettype, NULL), l.lanname, p.prosecdef, p.proconfig, pg_get_function_arguments(p.oid), p.pronargdefaults, p.pronargs
+    INTO v_func_ret, v_func_lang, v_func_secdef, v_func_proconfig, v_func_args, v_func_nargdef, v_func_nargs
+    FROM pg_proc p
+    JOIN pg_language l ON p.prolang = l.oid
+    WHERE p.oid = v_func_oid;
+
+    IF v_func_ret != 'json' THEN RAISE EXCEPTION 'Type de retour incorrect: %', v_func_ret; END IF;
+    IF v_func_lang != 'plpgsql' THEN RAISE EXCEPTION 'Langage incorrect: %', v_func_lang; END IF;
+    IF v_func_secdef != true THEN RAISE EXCEPTION 'prosecdef n''est pas true'; END IF;
+    IF v_func_proconfig IS NULL OR cardinality(v_func_proconfig) != 1 OR v_func_proconfig[1] != 'search_path=public, pg_temp' THEN
+        RAISE EXCEPTION 'search_path incorrect ou absent';
+    END IF;
+    IF v_func_nargs != 5 THEN RAISE EXCEPTION 'nombre exact d arguments = 5 attendu'; END IF;
+    IF v_func_nargdef != 4 THEN RAISE EXCEPTION 'pronargdefaults = 4 attendu'; END IF;
+    IF v_func_args != 'school_slug text, admin_nom text DEFAULT NULL::text, admin_telephone text DEFAULT NULL::text, admin_phone_normalized text DEFAULT NULL::text, admin_auth_id uuid DEFAULT NULL::uuid' THEN RAISE EXCEPTION 'pg_get_function_arguments exact attendu'; END IF;
+
+    SELECT EXISTS (
+        SELECT 1 FROM pg_proc p
+        CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
+        WHERE p.oid = v_func_oid AND acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+    ) INTO v_pub_has_exec;
+    IF v_pub_has_exec THEN RAISE EXCEPTION 'PUBLIC a EXECUTE'; END IF;
+    IF has_function_privilege('anon', v_func_oid, 'EXECUTE') THEN RAISE EXCEPTION 'anon a EXECUTE'; END IF;
+    IF has_function_privilege('authenticated', v_func_oid, 'EXECUTE') THEN RAISE EXCEPTION 'authenticated a EXECUTE'; END IF;
+    IF NOT has_function_privilege('service_role', v_func_oid, 'EXECUTE') THEN RAISE EXCEPTION 'service_role n''a pas EXECUTE'; END IF;
+    IF NOT has_function_privilege('postgres', v_func_oid, 'EXECUTE') THEN RAISE EXCEPTION 'postgres n''a pas EXECUTE'; END IF;
+
+END $$;
+
+COMMIT;
