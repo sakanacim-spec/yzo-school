@@ -382,6 +382,7 @@ export type AppPage =
   | 'parent_ressources'
   | 'parent_emploi_du_temps'
   | 'salaires'
+  | 'support'
   // ── Pages SuperAdmin (propriétaire SaaS) ──
   | 'superadmin_dashboard'
   | 'superadmin_schools'
