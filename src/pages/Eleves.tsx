@@ -38,6 +38,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
   const addStudent = useStore((s) => s.addStudent);
   const updateStudent = useStore((s) => s.updateStudent);
   const currency = useStore((s) => s.currency);
+  const classes = useStore((s) => s.classes);
   const addPayment = useStore((s) => s.addPayment);
   const language = useStore((s) => s.language);
   const [modalStep, setModalStep] = useState<1 | 2>(1);
