@@ -1215,7 +1215,6 @@ export const useStore = create<AppState>()(
                 classes: appSettings.classes || getDefaultClasses(get().language, appSettings.schoolCountry || get().user?.schoolCountry),
                 settings: {
                   ...get().settings,
-                  appName: appSettings.appName || 'YZIOW',
                   schoolName: appSettings.schoolName || '',
                   schoolYear: appSettings.schoolYear || '',
                   schoolLogo: appSettings.schoolLogo || null,
