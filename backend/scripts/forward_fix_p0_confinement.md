@@ -28,6 +28,8 @@ Si un rôle spécifique (par exemple `authenticated` pour les parents) requiert 
 * **SHA-256 approuvé** : `013FFA00721FA238C6F5B72FD3130CF585499A814E8360AF99A03EA42F8FA13C`
 * **Vérification lecture seule** : `backend/scripts/verify_p0_confinement.cjs`
 * **SHA-256 du verify** : `4CD11A1EE5BB5969167383A51648D9BD6EFE4700263000FFACB6799DDFFD2565`
+* **Préflight lecture seule** : `backend/scripts/preflight_p0_read_only.cjs`
+* **SHA-256 du préflight** : `1046427D7836BA0E6EE5CE5E1A0C667B302D1325657848C03365A9897F717C70`
 
 > [!WARNING]
 > Le fichier `backend/scripts/14_fix_supabase_rls_security.sql` est obsolète, dangereux et ne doit jamais être exécuté après la migration P0.
@@ -43,6 +45,14 @@ Avant toute exécution, s'assurer que l'ensemble des conditions suivantes sont r
 * **Certificat SSL** : Fichier certificat CA existant et non vide.
 * **Mode SSL** : `PGSSLMODE=verify-full`
 * **Intégrité du fichier SQL** : Hash SHA-256 du script SQL vérifié avant exécution.
+* **Validation Préflight** : Exécuter obligatoirement le script de contrôle pré-migration :
+  ```bash
+  node backend/scripts/preflight_p0_read_only.cjs --preflight-read-only
+  ```
+  - Cette commande doit être exécutée avant toute migration.
+  - Elle doit retourner `PREFLIGHT_P0 : SUCCÈS` et un code de sortie `0`.
+  - Tout autre résultat interdit l'exécution de la migration.
+  - Elle effectue uniquement des lectures DB dans une transaction `READ ONLY` suivie d'un `ROLLBACK`.
 * **Blocage** : Aucune exécution si une seule précondition échoue.
 
 ---
