@@ -382,7 +382,7 @@ export const ParentDashboard: React.FC = () => {
             } catch {}
             
             try {
-                const schoolSlug = useStore.getState().schoolSlug;
+                const schoolSlug = useStore.getState().user?.schoolSlug;
                 if (schoolSlug) {
                     const campaignsData = await fetch(`${API_BASE_URL}/donations/public/campaigns/${schoolSlug}`).then(parseResponse);
                     setActiveCampaigns(campaignsData || []);
@@ -555,7 +555,7 @@ export const ParentDashboard: React.FC = () => {
             {activeCampaigns.length > 0 && (
                 <div className="space-y-4">
                     {activeCampaigns.map(campaign => (
-                        <div key={campaign.id} className="relative bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200 dark:border-amber-900/40 rounded-[24px] p-5 overflow-hidden group cursor-pointer" onClick={() => window.location.href = `/d/${useStore.getState().schoolSlug}/${campaign.id}`}>
+                        <div key={campaign.id} className="relative bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200 dark:border-amber-900/40 rounded-[24px] p-5 overflow-hidden group cursor-pointer" onClick={() => window.location.href = `/d/${useStore.getState().user?.schoolSlug}/${campaign.id}`}>
                             <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-amber-200/40 to-transparent pointer-events-none" />
                             <div className="relative z-10 flex items-center justify-between">
                                 <div className="flex items-start gap-4">
