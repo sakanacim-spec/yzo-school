@@ -69,24 +69,52 @@ async function syncFromFrontend(req, res) {
 
             const uniqueStudents = Array.from(uniqueStudentsMap.values());
 
-            const studentData = uniqueStudents.map(s => ({
-                id: s.id,
-                nom: s.nom,
-                prenom: s.prenom || '',
-                classe: s.classe || 'Inconnue',
-                cycle: s.cycle || 'Primaire',
-                ecolage: s.ecolage || 0,
-                deja_paye: s.dejaPaye || 0,
-                restant: s.restant || 0,
-                status: s.status || 'Non soldé',
-                telephone_parent: s.telephone || null,
-                sexe: s.sexe || 'M',
-                redoublant: s.redoublant || false,
-                ecole_provenance: s.ecoleProvenance || '',
-                date_naissance: s.dateNaissance || null,
-                adsn: s.adsn || null,
-                photo_url: s.photoUrl || null
-            }));
+            const { normalizePhone } = require('../utils/helpers');
+            let schoolCountryCode = null;
+            if (schoolSlug) {
+                const { data: sch } = await supabase.from('schools').select('country').eq('slug', schoolSlug).maybeSingle();
+                if (sch) schoolCountryCode = sch.country;
+            }
+
+            const syncPhoneErrors = [];
+
+            const studentData = uniqueStudents.map((s, idx) => {
+                const rawPhone = s.telephone || s.telephone_parent || null;
+                let normPhone = null;
+                if (rawPhone && String(rawPhone).trim()) {
+                    try {
+                        normPhone = normalizePhone(rawPhone, schoolCountryCode);
+                    } catch (e) {
+                        normPhone = null;
+                        syncPhoneErrors.push({
+                            index: idx + 1,
+                            nom: `${s.nom || ''} ${s.prenom || ''}`.trim(),
+                            phone: rawPhone,
+                            reason: e.message === 'COUNTRY_REQUIRED' ? 'COUNTRY_REQUIRED' : 'INVALID_PHONE'
+                        });
+                    }
+                }
+
+                return {
+                    id: s.id,
+                    nom: s.nom,
+                    prenom: s.prenom || '',
+                    classe: s.classe || 'Inconnue',
+                    cycle: s.cycle || 'Primaire',
+                    ecolage: s.ecolage || 0,
+                    deja_paye: s.dejaPaye || 0,
+                    restant: s.restant || 0,
+                    status: s.status || 'Non soldé',
+                    telephone_parent: rawPhone ? String(rawPhone).trim() : null,
+                    telephone_parent_normalized: normPhone,
+                    sexe: s.sexe || 'M',
+                    redoublant: s.redoublant || false,
+                    ecole_provenance: s.ecoleProvenance || '',
+                    date_naissance: s.dateNaissance || null,
+                    adsn: s.adsn || null,
+                    photo_url: s.photoUrl || null
+                };
+            });
 
             for (let i = 0; i < studentData.length; i += CHUNK_SIZE) {
                 const chunk = studentData.slice(i, i + CHUNK_SIZE);

@@ -33,24 +33,20 @@ export const ImportExport = () => {
 
     try {
       const currentStudents = useStore.getState().students;
-      const imported = await importExcel(file, currentStudents);
+      const schoolCountry = useStore.getState().schoolCountry || 'BJ';
+      const { students: imported, errors } = await importExcel(file, currentStudents, schoolCountry);
       
       if (imported.length === 0) {
-        setMessage({ type: 'error', text: 'Aucun élève trouvé dans le fichier.' });
+        setMessage({ type: 'error', text: 'Aucun élève valide trouvé dans le fichier.' });
       } else {
-        
-        // Ask if replace or merge
         const replace = currentStudents.length === 0 || 
           confirm(`Voulez-vous remplacer les ${currentStudents.length} élèves existants par les ${imported.length} nouveaux ? (Annuler pour fusionner)`);
         
         let newStudents;
         if (replace) {
-          // Seulement vider la liste des élèves pour render, on ne vide plus les présences et logs!
-          // Car si on garde le même élève, on veut garder ses notes et présences.
           useStore.setState({ students: [] });
           newStudents = imported;
         } else {
-          // Fusion intelligente par ID pour éviter les doublons
           const studentsMap = new Map(currentStudents.map(s => [s.id, s]));
           imported.forEach(imp => {
             studentsMap.set(imp.id, imp);
@@ -67,20 +63,22 @@ export const ImportExport = () => {
         const { syncToBackend } = await import('../services/backendSync');
         const currentState = useStore.getState();
         
-        // ATTENTION : On n'envoie JAMAIS replace=true au backend depuis le fichier Excel
-        // sinon le backend supprimerait la totalité des notes, présences et paiements!
         const syncResult = await syncToBackend({ 
           students: newStudents,
           parents: currentState.parents
         }, false);
         setIsSyncing(false);
 
+        let reportMsg = `${imported.length} élèves importés et synchronisés avec succès !`;
+        if (errors.length > 0) {
+          reportMsg += ` ⚠️ Quarantaine : ${errors.length} numéro(s) invalide(s) rejeté(s) (Lignes: ${errors.map(e => e.row).join(', ')}).`;
+        }
+
         if (syncResult) {
           useStore.getState().setLastSyncTimestamp(Date.now());
-          
-          setMessage({ 
-            type: 'success', 
-            text: `${imported.length} élèves importés et synchronisés avec succès !` 
+          setMessage({
+            type: errors.length > 0 ? 'error' : 'success',
+            text: reportMsg
           });
         } else {
           setMessage({ 

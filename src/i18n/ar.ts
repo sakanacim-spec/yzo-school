@@ -103,7 +103,8 @@ export const ar = {
     "iAmParentCreateAccount": "أنا أحد الوالدين، قم بإنشاء حسابي",
     "connectedEducation": "التعليم المتصل",
     "forgotPassword": "نسيت كلمة المرور",
-    "phonePlaceholder": "رقم الهاتف",
+    "phonePlaceholder": "رقم هاتفك",
+    "countryDialCode": "رمز الاتصال بالبلد",
     "backToLogin": "العودة لتسجيل الدخول",
     "phone": "هاتف"
   },
@@ -116,7 +117,9 @@ export const ar = {
     "beInformed": "كن على علم بالغياب والتأخير والحضور.",
     "easyExchanges": "تبادلات بسيطة مع المدرسة",
     "communicateEasily": "التواصل بسهولة مع المعلمين والإدارة.",
-    "bestFollowup": "لأن كل طفل يستحق أفضل دعم لتحقيق النجاح."
+    "bestFollowup": "لأن كل طفل يستحق أفضل دعم لتحقيق النجاح.",
+    "loginButton": "تسجيل الدخول",
+    "loggingIn": "جارٍ تسجيل الدخول..."
   },
   "register": {
     "ministryEx": "مثل: وزارة التربية الوطنية",

@@ -16,6 +16,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
     const [step, setStep] = useState<1 | 2>(1);
     
     // Form fields
+    const [countryCode, setCountryCode] = useState('BJ');
     const [phone, setPhone] = useState('');
     const [otp, setOtp] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -38,7 +39,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
             const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, schoolSlug, channel })
+                body: JSON.stringify({ phone, schoolSlug, countryCode, channel })
             });
             const data = await res.json();
 
@@ -82,7 +83,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
             const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, schoolSlug, otp, newPassword })
+                body: JSON.stringify({ phone, schoolSlug, countryCode, otp, newPassword })
             });
             const data = await res.json();
 
@@ -115,14 +116,37 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
 
             {step === 1 ? (
                 <div className="w-full max-w-sm flex flex-col items-center space-y-3">
-                    <input 
-                        type="text" 
-                        placeholder={t(language as Language, 'auth.phonePlaceholder') || "Numéro de téléphone (+229...)"} 
-                        className="bg-white border border-slate-200 mb-1 w-full rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 p-4 text-sm shadow-sm" 
-                        value={phone} 
-                        onChange={(e) => setPhone(e.target.value)} 
-                        required 
-                    />
+                    <div className="flex gap-2 w-full">
+                        <select
+                            value={countryCode}
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            className="bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 p-3 text-xs shadow-sm w-1/3"
+                        >
+                            <option value="BJ">🇧🇯 Bénin</option>
+                            <option value="TG">🇹🇬 Togo</option>
+                            <option value="CI">🇨🇮 C. d'Ivoire</option>
+                            <option value="SN">🇸🇳 Sénégal</option>
+                            <option value="BF">🇧🇫 Burkina</option>
+                            <option value="ML">🇲🇱 Mali</option>
+                            <option value="NE">🇳🇪 Niger</option>
+                            <option value="CM">🇨🇲 Cameroun</option>
+                            <option value="GA">🇬🇦 Gabon</option>
+                            <option value="CG">🇨🇬 Congo</option>
+                            <option value="CD">🇨🇩 RDC</option>
+                            <option value="GN">🇬🇳 Guinée</option>
+                            <option value="FR">🇫🇷 France</option>
+                            <option value="US">🇺🇸 USA</option>
+                            <option value="CA">🇨🇦 Canada</option>
+                        </select>
+                        <input
+                            type="text"
+                            placeholder={t(language as Language, 'auth.phonePlaceholder') || "Numéro de téléphone"}
+                            className="bg-white border border-slate-200 w-2/3 rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 p-4 text-sm shadow-sm"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            required
+                        />
+                    </div>
 
                     {/* BOUTON 1 : WHATSAPP (VERT EMERALD) */}
                     <button 

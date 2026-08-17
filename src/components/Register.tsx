@@ -46,16 +46,9 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
 
-  // Quand on sélectionne un pays, on pré-remplit l'indicatif du téléphone directeur
+  // Quand on sélectionne un pays, on définit le countryCode
   const handleCountryChange = (code: string) => {
     setCountryCode(code);
-    const country = getCountryByCode(code);
-    if (country && !adminTelephone) {
-      setAdminTelephone(country.dialCode);
-    }
-    if (country && !schoolPhone) {
-      setSchoolPhone(country.dialCode);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -1,38 +1,27 @@
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
+'use strict';
+const path = require('path');
+const fs = require('fs');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-// Utiliser la clé SERVICE_ROLE si elle existe pour bypasser RLS, sinon fallback sur Anon
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-console.log('[Supabase] URL:', supabaseUrl ? '✓ Configurée' : '❌ MANQUANTE');
-console.log('[Supabase] Clé Backend:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✓ SERVICE_ROLE (RLS Bypass)' : '⚠️ ANON_KEY (Sujet à RLS)');
-
-if (!supabaseUrl || !supabaseKey) {
-    console.error('❌ ERREUR: Clés Supabase manquantes dans le fichier .env');
-    process.exit(1);
+const rootEnvPath = path.resolve(__dirname, '../../.env');
+if (fs.existsSync(rootEnvPath)) {
+    require('dotenv').config({ path: rootEnvPath, quiet: true });
 }
 
-// Client principal (SERVICE_ROLE ou ANON selon .env)
-const supabase = createClient(supabaseUrl, supabaseKey);
+const requiredVariables = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET'];
+const missingVariables = requiredVariables.filter(name => !process.env[name]);
 
-// Client admin explicite avec service_role (pour Storage uploads)
-const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
-    ? createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      })
-    : supabase;
+if (missingVariables.length > 0) {
+    console.error('VARIABLE_ABSENTE');
+    process.exitCode = 1;
+    throw new Error('VARIABLE_ABSENTE');
+}
 
-// Test la connexion à Supabase au démarrage
-(async () => {
-    try {
-        const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
-        if (error) throw error;
-        console.log('✅ Supabase connecté avec succès');
-    } catch (err) {
-        console.error('❌ Impossible de se connecter à Supabase:', err.message);
-        console.error('Vérifiez vos clés et l\'URL dans le fichier .env');
-    }
-})();
+const { createClient } = require('@supabase/supabase-js');
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseAdmin = supabase;
 
 module.exports = { supabase, supabaseAdmin };

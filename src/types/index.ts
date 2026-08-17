@@ -184,9 +184,9 @@ export interface GlobalStats {
 
 export interface DashboardStats {
   totalEleves: number;
-  totalPrimaire?: number;
-  totalCollege?: number;
-  totalLycee?: number;
+  totalPrimaire: number;
+  totalCollege: number;
+  totalLycee: number;
   totalEcolageAttendu: number;
   totalDejaPaye: number;
   totalRestant: number;
@@ -382,6 +382,7 @@ export type AppPage =
   | 'parent_ressources'
   | 'parent_emploi_du_temps'
   | 'salaires'
+  | 'support'
   // ── Pages SuperAdmin (propriétaire SaaS) ──
   | 'superadmin_dashboard'
   | 'superadmin_schools'

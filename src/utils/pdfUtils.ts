@@ -42,7 +42,7 @@ export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, sch
     const maxWidth = (pageWidth / 2) - 14;
     const ministryLines = doc.splitTextToSize(ministryStr, maxWidth);
     let ministryY = 12;
-    ministryLines.forEach(line => {
+    ministryLines.forEach((line: string) => {
       if (line.trim()) {
         doc.text(line.trim(), 14, ministryY);
         ministryY += 5;

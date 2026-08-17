@@ -1,9 +1,22 @@
 import * as XLSX from 'xlsx';
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import { Student } from '../types';
 import { CLASSES } from '../data/classes';
 import { generateId, getCycleFromClasse, getEcolageFromClasse } from './helpers';
 
-export const importExcel = (file: File, existingStudents?: Student[]): Promise<Student[]> => {
+export interface ImportError {
+  row: number;
+  nom: string;
+  phone: string;
+  reason: string;
+}
+
+export interface ImportResult {
+  students: Student[];
+  errors: ImportError[];
+}
+
+export const importExcel = (file: File, existingStudents?: Student[], schoolCountryCode: string = 'BJ'): Promise<ImportResult> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
@@ -12,7 +25,6 @@ export const importExcel = (file: File, existingStudents?: Student[]): Promise<S
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         
-        // On cible la DEUXIÈME feuille (index 1) car la première est souvent une page de garde
         if (workbook.SheetNames.length < 2) {
           throw new Error("Le fichier Excel doit contenir au moins deux feuilles. Les données doivent être sur la deuxième feuille.");
         }
@@ -23,8 +35,8 @@ export const importExcel = (file: File, existingStudents?: Student[]): Promise<S
         
         const studentsMap = new Map<string, Student>();
         const existingMap = new Map<string, Student>();
+        const importErrors: ImportError[] = [];
         
-        // Map existing students for quick lookup
         if (existingStudents) {
           existingStudents.forEach(s => {
             const key = `${(s.nom || '').trim().toLowerCase()}|${((s.prenom || '')).trim().toLowerCase()}|${(s.classe || '').trim().toLowerCase()}`;
@@ -32,23 +44,41 @@ export const importExcel = (file: File, existingStudents?: Student[]): Promise<S
           });
         }
         
-        // Skip header row (index 0), data starts at row 2 (index 1)
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i] as (string | number)[];
           
-          if (!row || !row[1]) continue; // Skip empty rows
+          if (!row || !row[1]) continue;
           
           const nom = String(row[1] || '').trim();
           const prenom = String(row[2] || '').trim();
           const classe = String(row[3] || '').trim();
-          const telephone = String(row[4] || '').trim();
+          const telephoneRaw = String(row[4] || '').trim();
           const sexe = String(row[5] || 'M').trim().toUpperCase() === 'F' ? 'F' : 'M';
           const redoublant = String(row[6] || '').toLowerCase() === 'oui' || String(row[6] || '').toLowerCase() === 'yes';
           const ecoleProvenance = String(row[7] || '').trim();
           
-          // Validate classe - support various naming conventions
-          const allClasses = CLASSES.map(c => c.nom);
+          // Validation E.164 stricte du numéro de téléphone
+          let validatedPhone: string | undefined = undefined;
+          if (telephoneRaw) {
+            const parsed = parsePhoneNumberFromString(telephoneRaw, {
+              defaultCountry: (schoolCountryCode || 'BJ').toUpperCase() as any,
+              extract: false
+            });
+            if (parsed && parsed.isValid()) {
+              validatedPhone = parsed.number;
+            } else {
+              importErrors.push({
+                row: i + 1,
+                nom: `${nom} ${prenom}`.trim(),
+                phone: telephoneRaw,
+                reason: `Numéro de téléphone invalide pour la zone ${schoolCountryCode || 'BJ'} (Format E.164 requis)`
+              });
+              // Ne pas associer le numéro invalide
+              validatedPhone = undefined;
+            }
+          }
           
+          const allClasses = CLASSES.map(c => c.nom);
           const classeNormalized = classe.toUpperCase().trim()
             .replace(/È/g, 'E')
             .replace(/É/g, 'E');
@@ -74,8 +104,6 @@ export const importExcel = (file: File, existingStudents?: Student[]): Promise<S
             classe;
           
           const key = `${nom.toLowerCase()}|${prenom.toLowerCase()}|${validClasse.toLowerCase()}`;
-          
-          // If we already processed this student IN THIS FILE (loop), skip to avoid internal duplicates
           if (studentsMap.has(key)) continue;
 
           const ecolage = Number(row[8]) || getEcolageFromClasse(validClasse);
@@ -84,14 +112,14 @@ export const importExcel = (file: File, existingStudents?: Student[]): Promise<S
           const recu = String(row[11] || '').trim();
           
           const existingStudent = existingMap.get(key);
-          
           const studentId = existingStudent ? existingStudent.id : generateId();
+
           const student: Student = {
             id: studentId,
             nom,
             prenom,
             classe: validClasse,
-            telephone,
+            telephone: validatedPhone || '',
             sexe: sexe as 'M' | 'F',
             redoublant,
             ecoleProvenance,
@@ -118,7 +146,10 @@ export const importExcel = (file: File, existingStudents?: Student[]): Promise<S
           studentsMap.set(key, student);
         }
         
-        resolve(Array.from(studentsMap.values()));
+        resolve({
+          students: Array.from(studentsMap.values()),
+          errors: importErrors
+        });
       } catch (error) {
         reject(new Error('Erreur lors de la lecture du fichier Excel'));
       }
@@ -149,7 +180,6 @@ export const exportToExcel = (students: Student[], filename: string = 'eleves.xl
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Élèves');
   
-  // Auto-size columns
   const colWidths = [
     { wch: 5 }, { wch: 20 }, { wch: 20 }, { wch: 10 },
     { wch: 15 }, { wch: 6 }, { wch: 12 }, { wch: 25 },

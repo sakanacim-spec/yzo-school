@@ -103,7 +103,8 @@ export const it = {
     "iAmParentCreateAccount": "Sono un genitore, crea il mio account",
     "connectedEducation": "Istruzione connessa",
     "forgotPassword": "Password dimenticata",
-    "phonePlaceholder": "Numero di telefono",
+    "phonePlaceholder": "Il tuo numero di telefono",
+    "countryDialCode": "Prefisso internazionale",
     "backToLogin": "Torna al login",
     "phone": "Telefono"
   },
@@ -116,7 +117,9 @@ export const it = {
     "beInformed": "Essere informato su assenze, ritardi e presenze.",
     "easyExchanges": "Scambi semplici con la scuola",
     "communicateEasily": "Comunica facilmente con gli insegnanti e l'amministrazione.",
-    "bestFollowup": "Perché ogni bambino merita il miglior sostegno per avere successo."
+    "bestFollowup": "Perché ogni bambino merita il miglior sostegno per avere successo.",
+    "loginButton": "Accedi",
+    "loggingIn": "Accesso..."
   },
   "register": {
     "ministryEx": "Es: Ministero dell'Istruzione Nazionale",

@@ -214,18 +214,52 @@ async function createSchool(req, res) {
 
         if (schoolErr) throw schoolErr;
 
-        // 2. Créer le jeu de tables avec l'appel RPC et y insérer le directeur
-        const bcrypt = require('bcryptjs');
-        const hashed = await bcrypt.hash(validatedData.admin_password, 10);
+        // Normalisation du téléphone du directeur et construction de l'email Auth
+        const { normalizePhone, buildAuthEmail } = require('../utils/helpers');
+        const { supabaseAdmin } = require('../utils/supabase');
+        let adminPhoneNormalized;
+        try {
+            adminPhoneNormalized = normalizePhone(validatedData.admin_telephone, validatedData.countryCode || validatedData.country);
+        } catch (err) {
+            return res.status(400).json({ error: 'Numéro de téléphone du directeur invalide pour la zone spécifiée.' });
+        }
 
+        // 1. Créer le compte Supabase Auth pour le Directeur (OBLIGATOIRE)
+        const syntheticEmail = buildAuthEmail(cleanSlug, adminPhoneNormalized);
+        const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+            email: syntheticEmail,
+            password: validatedData.admin_password,
+            email_confirm: true,
+            user_metadata: {
+                nom: validatedData.admin_nom.trim(),
+                role: 'directeur',
+                school_slug: cleanSlug,
+                phone_normalized: adminPhoneNormalized
+            }
+        });
+
+        if (authErr || !authData?.user?.id) {
+            await supabase.from('schools').delete().eq('id', school.id);
+            return res.status(500).json({ error: 'Échec de la création du compte Supabase Auth Directeur : ' + (authErr?.message || 'UUID non généré.') });
+        }
+
+        const adminAuthUserId = authData.user.id;
+
+        // 2. Créer le jeu de tables avec l'appel RPC transactionnel
         const { data: rpcData, error: rpcErr } = await supabase.rpc('create_school_tables', { 
             school_slug: cleanSlug,
             admin_nom: validatedData.admin_nom.trim(),
             admin_telephone: validatedData.admin_telephone.trim(),
-            admin_password: hashed
+            admin_phone_normalized: adminPhoneNormalized,
+            admin_auth_id: adminAuthUserId
         });
         
-        if (rpcErr) throw rpcErr;
+        if (rpcErr) {
+            // Rollback school & Auth creation on RPC failure
+            await supabase.from('schools').delete().eq('id', school.id);
+            await supabaseAdmin.auth.admin.deleteUser(adminAuthUserId).catch(() => {});
+            throw rpcErr;
+        }
 
         // Le directeur est retourné par l'appel RPC
         const adminUser = rpcData;

@@ -48,7 +48,7 @@ export interface AppState {
   unreadMessages: number;
   setUnreadMessages: (count: number) => void;
   fetchUnreadMessages: () => Promise<void>;
-  login: (username: string, password: string, schoolSlug?: string) => Promise<boolean>;
+  login: (username: string, password: string, schoolSlug?: string, countryCode?: string) => Promise<boolean>;
   logout: () => void;
 
   // Navigation
@@ -321,6 +321,35 @@ const repairStudent = (s: Student): Student => {
   return s;
 };
 
+const INITIAL_SETTINGS: AppSettings = {
+  seuilDeuxiemeTranche: 70,
+  messageRemerciement: "Nous vous remercions sincèrement pour votre ponctualité dans le règlement de la scolarité. Votre soutien contribue au bon fonctionnement de notre établissement.",
+  messageRappel: "Nous vous rappelons cordialement que le règlement du solde de scolarité est attendu. Veuillez régulariser votre situation dans les meilleurs délais.",
+  currency: 'FCFA',
+  schoolName: 'Établissement Scolaire',
+  schoolYear: '2023-2024',
+  nomEcole: 'Établissement Scolaire',
+  anneScolaire: '2024-2025',
+  adresse: 'Adresse de l\'établissement',
+  telephone: '+229 XX XX XX XX',
+  email: 'contact@ecole.ci',
+  badgeParentResponsable: 'Parent Responsable',
+  badge2emeTranche: '2ème Tranche Validée',
+  tranches: [],
+  classes: CLASS_CONFIG_FR,
+  bulletinTemplate: 'officiel',
+  bulletinShowPhoto: true,
+  bulletinShowRank: true,
+  bulletinShowClassAverage: true,
+  bulletinShowAppreciation: true,
+  paymentGateway: 'fedapay',
+  paymentPublicKey: null,
+  paymentSecretKey: null,
+  payoutMomoNumber: null,
+  payoutMethod: 'momo',
+  evalConfigs: DEFAULT_EVAL_CONFIGS,
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -429,12 +458,12 @@ export const useStore = create<AppState>()(
           // Silence noise
         }
       },
-      login: async (username, password, schoolSlug) => {
+      login: async (username, password, schoolSlug, countryCode) => {
         try {
           const res = await fetch(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telephone: username, password, schoolSlug })
+            body: JSON.stringify({ telephone: username, password, schoolSlug, countryCode })
           });
 
           const text = await res.text();
@@ -525,6 +554,7 @@ export const useStore = create<AppState>()(
             if (loggedUser.role !== 'superadmin') get().fetchAllFromBackend();
             return true;
           }
+          return false;
         } catch (err: any) {
           console.error("Erreur login backend:", err);
           throw err;
@@ -561,16 +591,8 @@ export const useStore = create<AppState>()(
           schoolLogo: null,
           schoolStamp: null,
           settings: {
-            bulletinTemplate: 'officiel',
-            bulletinShowPhoto: true,
-            bulletinShowRank: true,
-            bulletinShowClassAverage: true,
-            bulletinShowAppreciation: true,
+            ...INITIAL_SETTINGS,
             paymentGateway: 'none',
-            paymentPublicKey: null,
-            paymentSecretKey: null,
-            payoutMomoNumber: null,
-            payoutMethod: 'momo',
             evalConfigs: []
           }
         });
@@ -804,34 +826,7 @@ export const useStore = create<AppState>()(
           console.error('❌ [Store] Error syncing settings:', err);
         }
       },
-      settings: {
-        seuilDeuxiemeTranche: 70,
-        messageRemerciement: "Nous vous remercions sincèrement pour votre ponctualité dans le règlement de la scolarité. Votre soutien contribue au bon fonctionnement de notre établissement.",
-        messageRappel: "Nous vous rappelons cordialement que le règlement du solde de scolarité est attendu. Veuillez régulariser votre situation dans les meilleurs délais.",
-        currency: 'FCFA',
-        schoolName: 'Établissement Scolaire',
-        schoolYear: '2023-2024',
-        nomEcole: 'Établissement Scolaire',
-        anneScolaire: '2024-2025',
-        adresse: 'Adresse de l\'établissement',
-        telephone: '+229 XX XX XX XX',
-        email: 'contact@ecole.ci',
-        badgeParentResponsable: 'Parent Responsable',
-        badge2emeTranche: '2ème Tranche Validée',
-        tranches: [],
-        classes: CLASS_CONFIG_FR,
-        bulletinTemplate: 'officiel',
-        bulletinShowPhoto: true,
-        bulletinShowRank: true,
-        bulletinShowClassAverage: true,
-        bulletinShowAppreciation: true,
-        paymentGateway: 'fedapay',
-        paymentPublicKey: null,
-        paymentSecretKey: null,
-        payoutMomoNumber: null,
-        payoutMethod: 'momo',
-        evalConfigs: DEFAULT_EVAL_CONFIGS,
-      },
+      settings: INITIAL_SETTINGS,
       updateSettings: (newSettings) => set({ settings: newSettings }),
 
       // ── Présences ─────────────────────────────────────────
@@ -1220,7 +1215,6 @@ export const useStore = create<AppState>()(
                 classes: appSettings.classes || getDefaultClasses(get().language, appSettings.schoolCountry || get().user?.schoolCountry),
                 settings: {
                   ...get().settings,
-                  appName: appSettings.appName || 'YZIOW',
                   schoolName: appSettings.schoolName || '',
                   schoolYear: appSettings.schoolYear || '',
                   schoolLogo: appSettings.schoolLogo || null,
