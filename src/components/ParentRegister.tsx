@@ -169,13 +169,13 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
 
     // Success screen for Normal Parent Register
     if (success) {
-        const successMessages: Partial<Record<Language, { title: string; body: string }>> = {
+        const successMessages = {
             fr: { title: 'Compte créé avec succès !', body: 'Vous allez être redirigé vers la connexion.' },
             en: { title: 'Account created successfully!', body: 'Redirecting you to login.' },
             es: { title: '¡Cuenta creada con éxito!', body: 'Serás redirigido al inicio de sesión.' },
             ar: { title: 'تم إنشاء الحساب بنجاح!', body: 'سيتم تحويلك إلى صفحة تسجيل الدخول.' },
         };
-        const msg = successMessages[language as Language] || successMessages.fr;
+        const msg = successMessages[language as keyof typeof successMessages] || successMessages.fr;
         return (
             <div className="w-full h-full p-8 flex flex-col items-center justify-center gap-4 text-center">
                 <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
