@@ -515,7 +515,7 @@ async function login(req, res) {
 
                 if (matchingStudents && matchingStudents.length > 0) {
                     const studentIds = matchingStudents.map(s => s.id);
-                    
+
                     const { data: existingLinks } = await supabase
                         .from(`parent_student_${schoolSlug}`)
                         .select('student_id')
@@ -912,7 +912,7 @@ async function updatePhone(req, res) {
 
         if (profileUpdateErr) {
             console.error('❌ Échec mise à jour profil SQL:', profileUpdateErr.message);
-            
+
             // 6. Compensation Auth : Restauration de l'ancien email et métadonnées antérieures
             const { error: compErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
                 email: oldAuthEmail,
@@ -927,7 +927,7 @@ async function updatePhone(req, res) {
             if (compErr || !compUser || compUser.email !== oldAuthEmail) {
                 const correlationId = crypto.randomBytes(8).toString('hex');
                 console.error(`❌ [RÉCONCILIATION_ADMIN_REQUISE] CorrelationID=${correlationId}, UserID=${userId}, FailedStep=SQL_PROFILE_UPDATE_COMPENSATION_FAILURE`);
-                return res.status(500).json({ 
+                return res.status(500).json({
                     error: `Échec critique de synchronisation. RÉCONCILIATION_ADMIN_REQUISE (CorrelationID: ${correlationId})`
                 });
             }

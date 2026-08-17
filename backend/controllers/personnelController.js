@@ -222,7 +222,7 @@ async function updateMemberPhoneByAdmin(req, res) {
 
         if (profileUpdateErr) {
             console.error('❌ [Admin UpdatePhone] Échec mise à jour profil SQL:', profileUpdateErr.message);
-            
+
             // 7. Compensation Auth : Restauration de l'ancien email et métadonnées antérieures
             const { error: compErr } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
                 email: oldAuthEmail,
@@ -237,7 +237,7 @@ async function updateMemberPhoneByAdmin(req, res) {
             if (compErr || !compUser || compUser.email !== oldAuthEmail) {
                 const correlationId = crypto.randomBytes(8).toString('hex');
                 console.error(`❌ [RÉCONCILIATION_ADMIN_REQUISE] CorrelationID=${correlationId}, TargetUserID=${targetUserId}, FailedStep=ADMIN_PHONE_UPDATE_COMPENSATION_FAILURE`);
-                return res.status(500).json({ 
+                return res.status(500).json({
                     error: `Échec critique de synchronisation. RÉCONCILIATION_ADMIN_REQUISE (CorrelationID: ${correlationId})`
                 });
             }

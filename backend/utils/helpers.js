@@ -3,7 +3,7 @@ const { parsePhoneNumberFromString } = require('libphonenumber-js/max');
 
 /**
  * Normalise un numéro de téléphone pour le stockage et la recherche E.164.
- * @param {string} phone 
+ * @param {string} phone
  * @param {string} [countryCode] - Code ISO à 2 lettres (ex: BJ, FR). Obligatoire si le numéro n'est pas au format international.
  * @returns {string} numéro au format E.164 (ex: +2290197000000)
  * @throws {Error} 'INVALID_PHONE' ou 'COUNTRY_REQUIRED'

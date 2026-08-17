@@ -138,13 +138,13 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ schoolSlug, onBa
                             <option value="US">🇺🇸 USA</option>
                             <option value="CA">🇨🇦 Canada</option>
                         </select>
-                        <input 
-                            type="text" 
-                            placeholder={t(language as Language, 'auth.phonePlaceholder') || "Numéro de téléphone"} 
-                            className="bg-white border border-slate-200 w-2/3 rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 p-4 text-sm shadow-sm" 
-                            value={phone} 
-                            onChange={(e) => setPhone(e.target.value)} 
-                            required 
+                        <input
+                            type="text"
+                            placeholder={t(language as Language, 'auth.phonePlaceholder') || "Numéro de téléphone"}
+                            className="bg-white border border-slate-200 w-2/3 rounded-2xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 p-4 text-sm shadow-sm"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            required
                         />
                     </div>
 

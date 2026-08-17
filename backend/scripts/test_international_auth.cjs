@@ -108,7 +108,7 @@ async function runAllTests() {
     runTest('Association Parent-Enfant : Égalité E.164 exacte', () => {
         const parentPhoneNorm = normalizePhone('01 97 00 00 00', 'BJ');
         const studentParentPhoneNorm = normalizePhone('+2290197000000', 'BJ');
-        
+
         assert.strictEqual(parentPhoneNorm, studentParentPhoneNorm);
         assert.strictEqual(parentPhoneNorm, '+2290197000000');
     });
@@ -260,7 +260,7 @@ async function runAllTests() {
     runTest('updatePhone : Détection de l\'échec de relecture Auth', () => {
         const userId = 'user-uuid-123';
         const expectedEmail = 'u_1234567890abcdef1234567890abcdef@auth.yziow.internal';
-        
+
         // Simuler un utilisateur relu avec des métadonnées incorrectes
         const checkUser = { id: userId, email: 'WRONG_EMAIL@auth.yziow.internal' };
 

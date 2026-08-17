@@ -355,16 +355,16 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         />
                         <div className="relative flex-1 min-w-0">
                             <Phone className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500 pointer-events-none" />
-                            <input 
+                            <input
                                 dir="ltr"
-                                type="tel" 
+                                type="tel"
                                 inputMode="tel"
                                 autoComplete="tel"
-                                placeholder={t(language as Language, 'auth.phonePlaceholder') || "Votre numéro de téléphone"} 
-                                className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                                value={telephone} 
-                                onChange={(e) => setTelephone(e.target.value)} 
-                                required 
+                                placeholder={t(language as Language, 'auth.phonePlaceholder') || "Votre numéro de téléphone"}
+                                className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm"
+                                value={telephone}
+                                onChange={(e) => setTelephone(e.target.value)}
+                                required
                             />
                         </div>
                     </div>
@@ -620,16 +620,16 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                             />
                             <div className="relative flex-1 min-w-0">
                                 <Phone className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500 pointer-events-none" />
-                                <input 
+                                <input
                                     dir="ltr"
-                                    type="tel" 
+                                    type="tel"
                                     inputMode="tel"
                                     autoComplete="tel"
-                                    placeholder={t(language as Language, 'auth.phonePlaceholder') || "Votre numéro de téléphone"} 
-                                    className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm" 
-                                    value={telephone} 
-                                    onChange={(e) => setTelephone(e.target.value)} 
-                                    required 
+                                    placeholder={t(language as Language, 'auth.phonePlaceholder') || "Votre numéro de téléphone"}
+                                    className="w-full h-[52px] !ps-12 pe-4 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm"
+                                    value={telephone}
+                                    onChange={(e) => setTelephone(e.target.value)}
+                                    required
                                 />
                             </div>
                         </div>

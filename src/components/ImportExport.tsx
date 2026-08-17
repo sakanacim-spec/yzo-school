@@ -76,9 +76,9 @@ export const ImportExport = () => {
 
         if (syncResult) {
           useStore.getState().setLastSyncTimestamp(Date.now());
-          setMessage({ 
-            type: errors.length > 0 ? 'error' : 'success', 
-            text: reportMsg 
+          setMessage({
+            type: errors.length > 0 ? 'error' : 'success',
+            text: reportMsg
           });
         } else {
           setMessage({ 
