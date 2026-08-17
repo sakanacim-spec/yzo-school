@@ -321,6 +321,35 @@ const repairStudent = (s: Student): Student => {
   return s;
 };
 
+const INITIAL_SETTINGS: AppSettings = {
+  seuilDeuxiemeTranche: 70,
+  messageRemerciement: "Nous vous remercions sincèrement pour votre ponctualité dans le règlement de la scolarité. Votre soutien contribue au bon fonctionnement de notre établissement.",
+  messageRappel: "Nous vous rappelons cordialement que le règlement du solde de scolarité est attendu. Veuillez régulariser votre situation dans les meilleurs délais.",
+  currency: 'FCFA',
+  schoolName: 'Établissement Scolaire',
+  schoolYear: '2023-2024',
+  nomEcole: 'Établissement Scolaire',
+  anneScolaire: '2024-2025',
+  adresse: 'Adresse de l\'établissement',
+  telephone: '+229 XX XX XX XX',
+  email: 'contact@ecole.ci',
+  badgeParentResponsable: 'Parent Responsable',
+  badge2emeTranche: '2ème Tranche Validée',
+  tranches: [],
+  classes: CLASS_CONFIG_FR,
+  bulletinTemplate: 'officiel',
+  bulletinShowPhoto: true,
+  bulletinShowRank: true,
+  bulletinShowClassAverage: true,
+  bulletinShowAppreciation: true,
+  paymentGateway: 'fedapay',
+  paymentPublicKey: null,
+  paymentSecretKey: null,
+  payoutMomoNumber: null,
+  payoutMethod: 'momo',
+  evalConfigs: DEFAULT_EVAL_CONFIGS,
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -561,16 +590,8 @@ export const useStore = create<AppState>()(
           schoolLogo: null,
           schoolStamp: null,
           settings: {
-            bulletinTemplate: 'officiel',
-            bulletinShowPhoto: true,
-            bulletinShowRank: true,
-            bulletinShowClassAverage: true,
-            bulletinShowAppreciation: true,
+            ...INITIAL_SETTINGS,
             paymentGateway: 'none',
-            paymentPublicKey: null,
-            paymentSecretKey: null,
-            payoutMomoNumber: null,
-            payoutMethod: 'momo',
             evalConfigs: []
           }
         });
@@ -804,34 +825,7 @@ export const useStore = create<AppState>()(
           console.error('❌ [Store] Error syncing settings:', err);
         }
       },
-      settings: {
-        seuilDeuxiemeTranche: 70,
-        messageRemerciement: "Nous vous remercions sincèrement pour votre ponctualité dans le règlement de la scolarité. Votre soutien contribue au bon fonctionnement de notre établissement.",
-        messageRappel: "Nous vous rappelons cordialement que le règlement du solde de scolarité est attendu. Veuillez régulariser votre situation dans les meilleurs délais.",
-        currency: 'FCFA',
-        schoolName: 'Établissement Scolaire',
-        schoolYear: '2023-2024',
-        nomEcole: 'Établissement Scolaire',
-        anneScolaire: '2024-2025',
-        adresse: 'Adresse de l\'établissement',
-        telephone: '+229 XX XX XX XX',
-        email: 'contact@ecole.ci',
-        badgeParentResponsable: 'Parent Responsable',
-        badge2emeTranche: '2ème Tranche Validée',
-        tranches: [],
-        classes: CLASS_CONFIG_FR,
-        bulletinTemplate: 'officiel',
-        bulletinShowPhoto: true,
-        bulletinShowRank: true,
-        bulletinShowClassAverage: true,
-        bulletinShowAppreciation: true,
-        paymentGateway: 'fedapay',
-        paymentPublicKey: null,
-        paymentSecretKey: null,
-        payoutMomoNumber: null,
-        payoutMethod: 'momo',
-        evalConfigs: DEFAULT_EVAL_CONFIGS,
-      },
+      settings: INITIAL_SETTINGS,
       updateSettings: (newSettings) => set({ settings: newSettings }),
 
       // ── Présences ─────────────────────────────────────────
