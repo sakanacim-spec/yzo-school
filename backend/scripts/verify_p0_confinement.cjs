@@ -1,13 +1,7 @@
 'use strict';
 
-let verifyMode = false;
-for (const arg of process.argv) {
-    if (arg === '--verify-read-only') {
-        verifyMode = true;
-    }
-}
-
-if (!verifyMode) {
+const args = process.argv.slice(2);
+if (args.length !== 1 || args[0] !== '--verify-read-only') {
     console.error('VÉRIFICATION_BLOQUÉE : ARGUMENT_REQUIS');
     process.exitCode = 1;
     return;
@@ -48,9 +42,15 @@ async function runVerification() {
 
     const client = new Client(pgConfig);
     const failures = [];
+    let transactionStarted = false;
+    let rollbackSucceeded = false;
+    let connectionClosed = false;
 
     try {
         await client.connect();
+
+        await client.query('BEGIN READ ONLY');
+        transactionStarted = true;
 
         const roCheck = await client.query('SHOW transaction_read_only');
         if (roCheck.rows[0].transaction_read_only !== 'on') {
@@ -195,12 +195,22 @@ async function runVerification() {
         console.error('❌ ÉCHEC DE LA VÉRIFICATION :', e.message);
         process.exitCode = 1;
     } finally {
+        if (client && transactionStarted) {
+            try {
+                await client.query('ROLLBACK');
+                rollbackSucceeded = true;
+            } catch (_) {}
+        }
         if (client) {
             try {
                 await client.end();
+                connectionClosed = true;
             } catch (_) {}
         }
     }
+
+    console.log(`ROLLBACK : ${rollbackSucceeded ? 'SUCCÈS' : 'ÉCHEC'}`);
+    console.log(`CONNEXION_FERMÉE : ${connectionClosed ? 'OUI' : 'NON'}`);
 }
 
 runVerification();

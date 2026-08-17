@@ -27,7 +27,7 @@ Si un rôle spécifique (par exemple `authenticated` pour les parents) requiert 
 * **Migration canonique** : `backend/scripts/migration_p0_confinement.sql`
 * **SHA-256 approuvé** : `013FFA00721FA238C6F5B72FD3130CF585499A814E8360AF99A03EA42F8FA13C`
 * **Vérification lecture seule** : `backend/scripts/verify_p0_confinement.cjs`
-* **SHA-256 du verify** : `4CD11A1EE5BB5969167383A51648D9BD6EFE4700263000FFACB6799DDFFD2565`
+* **SHA-256 du verify** : `36A65764E3AFCD4D64FB4E73E814D35FEDD02BC8468F4490589BBF5B3E3F95CC`
 * **Préflight lecture seule** : `backend/scripts/preflight_p0_read_only.cjs`
 * **SHA-256 du préflight** : `1046427D7836BA0E6EE5CE5E1A0C667B302D1325657848C03365A9897F717C70`
 
