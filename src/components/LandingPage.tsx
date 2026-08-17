@@ -9,7 +9,7 @@ import { GuideAssistantWidget } from './GuideAssistantWidget';
 
 interface LandingPageProps {
   onLogin: () => void;
-  onNavigate: (page: 'about' | 'contact') => void;
+  onNavigate: (page: 'about' | 'contact' | 'careers' | 'cgu' | 'privacy' | 'legal') => void;
 }
 
 const LANGUAGES = [
