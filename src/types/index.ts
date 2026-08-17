@@ -184,9 +184,9 @@ export interface GlobalStats {
 
 export interface DashboardStats {
   totalEleves: number;
-  totalPrimaire?: number;
-  totalCollege?: number;
-  totalLycee?: number;
+  totalPrimaire: number;
+  totalCollege: number;
+  totalLycee: number;
   totalEcolageAttendu: number;
   totalDejaPaye: number;
   totalRestant: number;
