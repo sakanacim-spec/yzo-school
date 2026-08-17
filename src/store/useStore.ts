@@ -554,6 +554,7 @@ export const useStore = create<AppState>()(
             if (loggedUser.role !== 'superadmin') get().fetchAllFromBackend();
             return true;
           }
+          return false;
         } catch (err: any) {
           console.error("Erreur login backend:", err);
           throw err;
