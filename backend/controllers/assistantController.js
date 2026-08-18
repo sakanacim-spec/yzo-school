@@ -215,6 +215,8 @@ const getClient = () => {
     return aiClient;
 };
 
+const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
+
 const formatHistory = (messages) => {
     return messages.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
@@ -241,7 +243,7 @@ const chatWithAssistant = async (req, res) => {
         const dynamicPrompt = `${SYSTEM_PROMPT}\n\nIMPORTANT: L'utilisateur utilise actuellement l'interface dans la langue '${language}'. Tu dois OBLIGATOIREMENT formuler toutes tes réponses dans cette langue, tout en gardant un ton naturel et courtois.`;
 
         const response = await groq.chat.completions.create({
-            model: "llama-3.1-8b-instant",
+            model: GROQ_MODEL,
             messages: [
                 { role: "system", content: dynamicPrompt },
                 ...history
@@ -344,7 +346,7 @@ const chatWithPrivateAssistant = async (req, res) => {
         const history = formatHistory(messages);
 
         const response = await groq.chat.completions.create({
-            model: "llama-3.1-8b-instant",
+            model: GROQ_MODEL,
             messages: [
                 { role: "system", content: systemInstruction },
                 ...history
@@ -376,7 +378,7 @@ const generatePedagogicalFeedback = async (req, res) => {
         L'appréciation doit être professionnelle, encourageante si les notes sont basses, ou félicitante si elles sont hautes. Ne dis pas "Bonjour", donne uniquement le texte de l'appréciation directement exploitable sur un bulletin.`;
 
         const response = await groq.chat.completions.create({
-            model: "llama-3.1-8b-instant",
+            model: GROQ_MODEL,
             messages: [{ role: "user", content: prompt }],
             temperature: 0.4,
             max_tokens: 200,
