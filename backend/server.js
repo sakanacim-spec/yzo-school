@@ -34,12 +34,36 @@ if (!process.env.VERCEL) {
 // ── Application Express ───────────────────────────────────────
 const app = express();
 
+// Configuration explicite du proxy (Vercel / reverse-proxy depth = 1)
+app.set('trust proxy', 1);
+
 // Middleware globaux
 app.use(cors({
     origin: true, // Accepte dynamiquement toutes les origines locales
     credentials: true,
 }));
-app.use(express.json({ limit: '10mb' }));
+
+// Parseurs JSON pré-instanciés
+const webhookJsonParser = express.json({
+    limit: '256kb',
+    verify: (req, _res, buf) => {
+        req.rawBody = buf;
+    }
+});
+
+const globalJsonParser = express.json({
+    limit: '10mb'
+});
+
+// Sélecteur de parseur JSON : limite dédiée 256 KB pour le webhook, 10 MB pour les autres routes
+app.use((req, res, next) => {
+    const pathname = (req.originalUrl ? req.originalUrl.split('?')[0] : req.path) || '';
+    if (req.method === 'POST' && pathname === '/api/payment/webhook') {
+        return webhookJsonParser(req, res, next);
+    }
+    return globalJsonParser(req, res, next);
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Logger simple des requêtes

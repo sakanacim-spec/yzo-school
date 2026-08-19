@@ -100,15 +100,14 @@ export const SchoolSubscriptionWidget: React.FC = () => {
       const token = localStorage.getItem('parent_token');
       const schoolSlug = (user as any).schoolSlug || (user as any).school_slug || user.schoolName;
 
-      // 1. Initialiser le paiement avec FedaPay via le backend Super Admin
-      const res = await fetch(`${API_BASE_URL}/superadmin/schools/${schoolSlug}/pay-init`, {
+      // 1. Initialiser le paiement avec FedaPay via la route de paiement sécurisée
+      const res = await fetch(`${API_BASE_URL}/payment/saas/schools/${schoolSlug}/pay-init`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          amountFcfa,
           planType: type
         })
       });

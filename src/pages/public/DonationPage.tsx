@@ -43,7 +43,7 @@ export function DonationPage() {
 
     setSubmitting(true);
     try {
-      const data = await fetch(`${API_BASE_URL}/donations/public/campaigns/${schoolSlug}/${campaignId}/donate`, {
+      const data = await fetch(`${API_BASE_URL}/payment/public/campaigns/${schoolSlug}/${campaignId}/donate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
