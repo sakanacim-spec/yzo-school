@@ -445,8 +445,8 @@ BEGIN
 
         v_new_deja_paye := v_student_deja_paye + v_intent.expected_amount;
 
-        -- Mise à jour financière unique : deja_paye et updated_at (statut scolaire non touché)
-        EXECUTE format('UPDATE public.%I SET deja_paye = $1, updated_at = now() WHERE id = $2', v_students_table)
+        -- Mise à jour financière unique : deja_paye (statut scolaire non touché)
+        EXECUTE format('UPDATE public.%I SET deja_paye = $1 WHERE id = $2', v_students_table)
         USING v_new_deja_paye, v_intent.target_id;
 
         GET DIAGNOSTICS v_rows_updated = ROW_COUNT;
