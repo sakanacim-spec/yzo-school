@@ -247,7 +247,7 @@ async function runAllTests() {
     console.log('✓ Test 19 & 20: Validation stricte du secret HMAC (>= 32 car.) et refus des identifiants vides');
 
     console.log('\n======================================================');
-    console.log('✅ TOUS LES 18 TESTS DE QUOTAS ONT RÉUSSI AVEC SUCCÈS');
+    console.log('✅ TOUS LES 20 TESTS DE QUOTAS ONT RÉUSSI AVEC SUCCÈS');
     console.log('======================================================');
 }
 
