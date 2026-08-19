@@ -11,7 +11,6 @@ const {
     deleteSchool,
     getGlobalStats,
     impersonateSchool,
-    paySubscriptionInit,
     recordDisbursement,
     updateCommissionRate,
     getAffiliates,
@@ -44,8 +43,10 @@ router.patch('/schools/:id/status', authenticateToken, requireSuperAdmin, update
 router.delete('/schools/:id', authenticateToken, requireSuperAdmin, deleteSchool);
 router.post('/schools/:id/impersonate', authenticateToken, requireSuperAdmin, impersonateSchool);
 
-// Route accessible par les directeurs pour initialiser le paiement de leur abonnement SaaS via FedaPay
-router.post('/schools/:slug/pay-init', authenticateToken, paySubscriptionInit);
+// Ancienne route d'initialisation SaaS neutralisée
+router.post('/schools/:slug/pay-init', (_req, res) => {
+    return res.status(410).json({ error: "Ce point d'accès a été déplacé vers POST /api/payment/saas/schools/:slug/pay-init." });
+});
 
 // Routes pour la gestion des reversements et commissions
 router.post('/schools/:id/disburse', authenticateToken, requireSuperAdmin, recordDisbursement);

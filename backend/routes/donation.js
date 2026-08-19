@@ -12,6 +12,9 @@ router.get('/donations', authenticateToken, requireSchoolAdmin, donationControll
 // --- PUBLIC ROUTES (No authentication required) ---
 router.get('/public/campaigns/:schoolSlug', donationController.getAllPublicCampaigns);
 router.get('/public/campaigns/:schoolSlug/:campaignId', donationController.getPublicCampaign);
-router.post('/public/campaigns/:schoolSlug/:campaignId/donate', donationController.initiateDonation);
+// Ancienne route d'initialisation de don neutralisée
+router.post('/public/campaigns/:schoolSlug/:campaignId/donate', (_req, res) => {
+    return res.status(410).json({ error: "Ce point d'accès a été déplacé vers POST /api/payment/public/campaigns/:schoolSlug/:campaignId/donate." });
+});
 
 module.exports = router;

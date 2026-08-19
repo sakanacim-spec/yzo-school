@@ -624,7 +624,7 @@ async function getSchoolLeads(req, res) {
 
 module.exports = { 
     getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, 
-    paySubscriptionInit, recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus,
+    recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus,
     getSettings, updateSettings, getTransactions, getGlobalAnnouncements, createGlobalAnnouncement, getSchoolLeads
 };
 
@@ -720,53 +720,6 @@ async function createGlobalAnnouncement(req, res) {
     } catch (err) {
         console.error('SuperAdmin createGlobalAnnouncement Error:', err.message);
         return res.status(500).json({ error: 'Erreur lors de la publication de l\'annonce.' });
-    }
-}
-
-async function paySubscriptionInit(req, res) {
-    const { slug } = req.params;
-    const { amountFcfa, planType } = req.body;
-
-    if (!amountFcfa) {
-        return res.status(400).json({ error: 'Le montant est requis.' });
-    }
-
-    try {
-        const { FedaPay, Transaction } = require('fedapay');
-        FedaPay.setApiKey(process.env.FEDAPAY_SAAS_SECRET_KEY);
-        FedaPay.setEnvironment(process.env.FEDAPAY_SAAS_ENVIRONMENT || 'sandbox');
-
-        const { data: school } = await supabase.from('schools').select('*').eq('slug', slug).single();
-        if (!school) return res.status(404).json({ error: 'Établissement introuvable.' });
-
-        const { data: admin } = await supabase.from(`profiles_${slug}`).select('*').eq('id', req.user.id).single();
-
-        const transaction = await Transaction.create({
-            description: `Paiement abonnement SaaS - ${school.name}`,
-            amount: parseInt(amountFcfa, 10),
-            currency: { iso: "XOF" },
-            callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?payment=success`,
-            customer: {
-                lastname: admin?.nom || 'Admin',
-                firstname: '',
-                email: school.email || 'admin@yziow.com',
-                phone_number: {
-                    number: admin?.telephone || '',
-                    country: 'BJ'
-                }
-            },
-            custom_metadata: {
-                schoolSlug: slug,
-                type: 'saas_subscription',
-                planType: planType || 'tranche'
-            }
-        });
-
-        const token = await transaction.generateToken();
-        return res.json({ url: token.url });
-    } catch (err) {
-        console.error('SuperAdmin paySubscriptionInit Error:', err.message);
-        return res.status(500).json({ error: 'Erreur lors de la génération du lien de paiement.' });
     }
 }
 
@@ -879,7 +832,7 @@ async function changeSuperAdminPassword(req, res) {
 
 module.exports = { 
     getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, 
-    paySubscriptionInit, recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus,
+    recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus,
     getSettings, updateSettings, getTransactions, getGlobalAnnouncements, createGlobalAnnouncement, getSchoolLeads,
     changeSuperAdminPassword
 };
