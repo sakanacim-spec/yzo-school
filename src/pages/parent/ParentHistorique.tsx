@@ -11,7 +11,7 @@ import { t } from '../../i18n';
 import type { Language } from '../../i18n';
 
 export const ParentHistorique: React.FC = () => {
-    const { language } = useStore();
+    const { language, settings } = useStore();
     const [payments, setPayments] = useState<any[]>([]);
     const [presences, setPresences] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'payments' | 'presences'>('payments');
@@ -61,18 +61,16 @@ export const ParentHistorique: React.FC = () => {
         fetchAllData();
     }, []);
 
-    const downloadReceipt = (payment: any) => {
-        const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.text(t(language as Language, 'payments.receiptTitle') || 'Reçu de Paiement', 20, 20);
-        doc.setFontSize(12);
-        doc.text(`${t(language as Language, 'payments.student') || 'Élève'}: ${payment.studentName}`, 20, 40);
-        doc.text(`${t(language as Language, 'common.class') || 'Classe'}: ${payment.classe}`, 20, 50);
-        doc.text(`${t(language as Language, 'common.date') || 'Date'}: ${format(new Date(payment.date), 'dd/MM/yyyy')}`, 20, 60);
-        doc.text(`${t(language as Language, 'payments.amountPaid') || 'Montant payé'}: ${formatMontant(payment.montant, useStore.getState().currency)}`, 20, 70);
-        doc.text(`${t(language as Language, 'payments.receiptNo') || 'N° de reçu'}: ${payment.recu}`, 20, 80);
-        if (payment.note) doc.text(`${t(language as Language, 'payments.note') || 'Note'}: ${payment.note}`, 20, 90);
-        doc.save(`Recu_${payment.recu}.pdf`);
+    const downloadReceipt = async (payment: any) => {
+        const studentObj = {
+            nom: payment.studentName || '',
+            classe: payment.classe || '',
+        };
+        try {
+            await generatePaymentReceipt(payment, studentObj, settings, language);
+        } catch (err) {
+            console.error('Erreur génération reçu:', err);
+        }
     };
 
     if (loading) {

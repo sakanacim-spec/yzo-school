@@ -11,6 +11,8 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { formatMontant } from '../utils/helpers';
 import { drawHeader } from '../utils/pdfUtils';
+import { initI18nPdfDoc } from '../utils/pdfEngine';
+import { getFinancialTranslations } from '../utils/pdfFinancialTranslations';
 import { t } from '../i18n';
 import type { Language } from '../i18n';
 
@@ -51,12 +53,15 @@ export const Recouvrement: React.FC = () => {
 
     // --- Actions Export ---
 
-    const sanitizeText = (str: string) => {
-        return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u202F\u00A0]/g, ' ') : "";
-    };
-
-    const generatePDFList = () => {
-        const doc = new jsPDF({ orientation: 'landscape' });
+    const generatePDFList = async () => {
+        const tFin = getFinancialTranslations(language);
+        const pdfInst = await initI18nPdfDoc({
+            language,
+            format: 'a4',
+            orientation: 'landscape',
+            currency
+        });
+        const { doc, formatMoney, formatDate, prepareText, effectiveFont } = pdfInst;
         
         const fullSettings = {
             ...storeSettings,
@@ -70,39 +75,39 @@ export const Recouvrement: React.FC = () => {
             currency
         };
 
-        const yOffset = drawHeader(doc, fullSettings as any, t(language as Language, 'recovery.priorityListTitle') || 'LISTE PRIORITAIRE DE RECOUVREMENT');
+        const yOffset = drawHeader(doc, fullSettings as any, t(language as Language, 'recovery.priorityListTitle') || 'LISTE PRIORITAIRE DE RECOUVREMENT', 18, language);
         doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text((t(language as Language, 'recovery.generatedOn') || 'Généré le : {{date}}').replace('{{date}}', new Date().toLocaleDateString('fr-FR')), 14, yOffset + 6);
+        doc.setFont(effectiveFont, "normal");
+        doc.text(prepareText(`${tFin.generatedOn} : ${formatDate(new Date())}`), 14, yOffset + 6);
 
         autoTable(doc, {
             startY: yOffset + 12,
             head: [[
-                t(language as Language, 'recovery.colName') || 'Nom & Prénom(s)',
-                t(language as Language, 'recovery.colClass') || 'Classe',
-                t(language as Language, 'recovery.colPhone') || 'Téléphone',
-                t(language as Language, 'recovery.colRemaining') || 'Restant',
-                t(language as Language, 'recovery.colDelay') || 'Retard (Jours)',
-                t(language as Language, 'recovery.colPriority') || 'Priorité'
+                prepareText(t(language as Language, 'recovery.colName') || 'Nom & Prénom(s)'),
+                prepareText(t(language as Language, 'recovery.colClass') || 'Classe'),
+                prepareText(t(language as Language, 'recovery.colPhone') || 'Téléphone'),
+                prepareText(t(language as Language, 'recovery.colRemaining') || 'Restant'),
+                prepareText(t(language as Language, 'recovery.colDelay') || 'Retard (Jours)'),
+                prepareText(t(language as Language, 'recovery.colPriority') || 'Priorité')
             ]],
             body: priorityList.map(s => [
-                sanitizeText(`${(s.nom || '').trim().toUpperCase()}   ${(s.prenom || '').trim()}`),
-                sanitizeText(s.classe),
+                prepareText(`${(s.nom || '').trim().toUpperCase()} ${(s.prenom || '').trim()}`),
+                prepareText(s.classe || ''),
                 s.telephone || '-',
-                formatMontant(s.restant, currency).replace('€', 'Eur').replace('£', 'GBP').replace(/[\u202F\u00A0]/g, ' '),
+                formatMoney(s.restant, currency),
                 s.joursRetard.toString(),
-                sanitizeText(s.niveauPriorite)
+                prepareText(s.niveauPriorite || '')
             ]),
-            styles: { fontSize: 9, font: 'helvetica' },
+            styles: { fontSize: 9, font: effectiveFont as any },
             columnStyles: {
                 0: { cellWidth: 65 }
             },
             headStyles: { fillColor: [220, 38, 38] },
             didParseCell: (data) => {
                 if (data.column.index === 5 && data.section === 'body') {
-                    const val = data.cell.raw as string;
-                    if (val === 'Eleve') data.cell.styles.textColor = [220, 38, 38];
-                    else if (val === 'Moyen') data.cell.styles.textColor = [217, 119, 6];
+                    const rowStudent = priorityList[data.row.index];
+                    if (rowStudent?.niveauPriorite === 'Élevé') data.cell.styles.textColor = [220, 38, 38];
+                    else if (rowStudent?.niveauPriorite === 'Moyen') data.cell.styles.textColor = [217, 119, 6];
                     else data.cell.styles.textColor = [22, 163, 74];
                 }
             }
@@ -168,7 +173,16 @@ export const Recouvrement: React.FC = () => {
                         {t(language as Language, 'recovery.exportExcel') || 'Excel'}
                     </button>
 
-                    <button onClick={generatePDFList} className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all font-medium text-sm">
+                    <button
+                        onClick={async () => {
+                            try {
+                                await generatePDFList();
+                            } catch (err) {
+                                console.error('Erreur génération liste recouvrement PDF:', err);
+                            }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all font-medium text-sm"
+                    >
                         <FileText className="w-4 h-4" />
                         {t(language as Language, 'recovery.exportPdf') || 'PDF'}
                     </button>

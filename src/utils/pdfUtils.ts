@@ -26,8 +26,33 @@ const drawRoundedRect = (doc: jsPDF, x: number, y: number, w: number, h: number,
   doc.roundedRect(x, y, w, h, r, r, 'F');
 };
 
+import {
+  initI18nPdfDoc,
+  formatLocalizedDate,
+  formatLocalizedCurrency,
+  prepareTextForPdf,
+  normalizeLanguage,
+  isRtlLanguage,
+  getFontDescriptorForLanguage,
+  ensureFontRegistered,
+} from './pdfEngine';
+import { getFinancialTranslations } from './pdfFinancialTranslations';
+import { getStoredLanguage } from '../i18n';
+
 // En-tête commun pour tous les documents
-export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, schoolNameFontSize: number = 20) => {
+export const drawHeader = (
+  doc: jsPDF,
+  settings: AppSettings,
+  title: string,
+  schoolNameFontSize: number = 20,
+  lang?: string
+) => {
+  const normLang = normalizeLanguage(lang || getStoredLanguage());
+  const isRtl = isRtlLanguage(normLang);
+  const fontDesc = getFontDescriptorForLanguage(normLang);
+  const fontName = ensureFontRegistered(doc, fontDesc);
+  doc.setFont(fontName);
+
   const pageWidth = doc.internal.pageSize.getWidth();
   
   // Bandeau supérieur
@@ -36,7 +61,7 @@ export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, sch
   // Ministère (si disponible)
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(fontName, 'bold');
   if (settings.schoolMinistry) {
     const ministryStr = settings.schoolMinistry.toUpperCase().replace(/(T[ÉE]L\s*:?|EMAIL\s*:?)/g, '\n$1');
     const maxWidth = (pageWidth / 2) - 14;
@@ -44,36 +69,39 @@ export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, sch
     let ministryY = 12;
     ministryLines.forEach((line: string) => {
       if (line.trim()) {
-        doc.text(line.trim(), 14, ministryY);
+        const textX = isRtl ? pageWidth - 14 : 14;
+        const align = isRtl ? 'right' : 'left';
+        doc.text(prepareTextForPdf(line.trim(), normLang), textX, ministryY, { align } as any);
         ministryY += 5;
       }
     });
   }
 
-  // Informations de l'école (à la place de l'ancien pays)
+  // Informations de l'école
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text(settings.schoolName, pageWidth - 14, 12, { align: 'right' });
+  doc.setFont(fontName, 'bold');
+  const schoolNameX = isRtl ? 14 : pageWidth - 14;
+  const schoolAlign = isRtl ? 'left' : 'right';
+  doc.text(prepareTextForPdf(settings.schoolName, normLang), schoolNameX, 12, { align: schoolAlign } as any);
   
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
   const contact1 = [settings.schoolAddress || settings.adresse, settings.schoolPhone || settings.telephone ? `Tél: ${settings.schoolPhone || settings.telephone}` : ''].filter(Boolean).join(' | ');
-  if (contact1) doc.text(contact1, pageWidth - 14, 18, { align: 'right' });
+  if (contact1) doc.text(prepareTextForPdf(contact1, normLang), schoolNameX, 18, { align: schoolAlign } as any);
   
   if (settings.schoolCountry) {
-    doc.text(getCountryName(settings.schoolCountry).toUpperCase(), pageWidth - 14, 24, { align: 'right' });
+    doc.text(prepareTextForPdf(getCountryName(settings.schoolCountry).toUpperCase(), normLang), schoolNameX, 24, { align: schoolAlign } as any);
   }
   
   const contact2 = [settings.schoolEmail || settings.email ? `Email : ${settings.schoolEmail || settings.email}` : '', `Année scolaire : ${settings.academicYear || settings.schoolYear || settings.anneScolaire || ''}`].filter(Boolean).join(' | ');
-  if (contact2) doc.text(contact2, pageWidth - 14, 30, { align: 'right' });
+  if (contact2) doc.text(prepareTextForPdf(contact2, normLang), schoolNameX, 30, { align: schoolAlign } as any);
 
   // Logo au centre
   if (settings.schoolLogo) {
     try {
       const logoSize = 35; // 35x35 mm
       const xPos = (pageWidth / 2) - (logoSize / 2);
-      // On le place entre le bandeau et le titre
       doc.addImage(settings.schoolLogo, 'PNG', xPos, 15, logoSize, logoSize);
     } catch (e) {
       console.warn("Erreur chargement logo:", e);
@@ -83,8 +111,8 @@ export const drawHeader = (doc: jsPDF, settings: AppSettings, title: string, sch
   // Titre du document
   doc.setTextColor(...COLORS.dark);
   doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text(title, pageWidth / 2, 72, { align: 'center' });
+  doc.setFont(fontName, 'bold');
+  doc.text(prepareTextForPdf(title, normLang), pageWidth / 2, 72, { align: 'center' });
   
   // Ligne décorative sous le titre
   doc.setDrawColor(...COLORS.primary);
@@ -823,72 +851,127 @@ export const generateGlobalReport = (students: Student[], settings: AppSettings)
   doc.save('Rapport_Global.pdf');
 };
 
-export const generatePaymentReceipt = (payment: any, student: any, settings: AppSettings): void => {
-  const doc = new jsPDF({ format: 'a5', orientation: 'landscape' });
+export const generatePaymentReceipt = async (
+  payment: any,
+  student: any,
+  settings: AppSettings,
+  targetLang?: string
+): Promise<void> => {
+  const lang = targetLang || getStoredLanguage();
+  const tFin = getFinancialTranslations(lang);
+  const pdfInst = await initI18nPdfDoc({
+    language: lang,
+    format: 'a5',
+    orientation: 'landscape',
+    currency: settings.currency,
+  });
+  const { doc, formatMoney, formatDate, prepareText, isRtl } = pdfInst;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
-  let y = drawHeader(doc, settings, 'REÇU DE CAISSE', 12);
+  let y = drawHeader(doc, settings, tFin.receiptTitle, 12, lang);
   
   // Numéro de reçu
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(pdfInst.effectiveFont, 'bold');
   doc.setTextColor(...COLORS.dark);
-  const recuId = payment.recu || `REC-${new Date(payment.date).getTime().toString().slice(-6)}`;
-  doc.text(`N° ${recuId}`, pageWidth - 20, y - 10, { align: 'right' });
+  const recuId = payment.recu || `REC-${new Date(payment.date || Date.now()).getTime().toString().slice(-6)}`;
+  if (isRtl) {
+    doc.text(prepareText(`${tFin.ref} ${recuId}`), 20, y - 10, { align: 'left' });
+  } else {
+    doc.text(`N° ${recuId}`, pageWidth - 20, y - 10, { align: 'right' });
+  }
   
   // Encadré informations
   y += 5;
   drawRoundedRect(doc, 20, y, pageWidth - 40, 60, 3, COLORS.light);
   
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(pdfInst.effectiveFont, 'normal');
   doc.setTextColor(...COLORS.dark);
-  
-  // Date
-  doc.text(`Date du paiement :`, 25, y + 10);
-  doc.setFont('helvetica', 'bold');
-  doc.text(new Date(payment.date).toLocaleDateString('fr-FR'), 80, y + 10);
-  
-  // Elève
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Élève :`, 25, y + 20);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${student.prenom || student.studentName || ''} ${student.nom || ''}`.trim(), 80, y + 20);
-  
-  // Classe
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Classe :`, 25, y + 30);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${student.classe}`, 80, y + 30);
 
-  // Motif (Note)
-  if (payment.note) {
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Motif :`, 25, y + 40);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${payment.note}`, 80, y + 40);
+  const studentFullName = `${student.prenom || student.studentName || ''} ${student.nom || ''}`.trim();
+  const dateStr = formatDate(payment.date || new Date());
+
+  if (isRtl) {
+    const rightMargin = pageWidth - 25;
+    const valueCol = pageWidth - 80;
+
+    doc.text(prepareText(`${tFin.paymentDate} :`), rightMargin, y + 10, { align: 'right' });
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(prepareText(dateStr), valueCol, y + 10, { align: 'right' });
+
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(prepareText(`${tFin.student} :`), rightMargin, y + 20, { align: 'right' });
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(prepareText(studentFullName), valueCol, y + 20, { align: 'right' });
+
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(prepareText(`${tFin.classLabel} :`), rightMargin, y + 30, { align: 'right' });
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(prepareText(String(student.classe || '')), valueCol, y + 30, { align: 'right' });
+
+    if (payment.note) {
+      doc.setFont(pdfInst.effectiveFont, 'normal');
+      doc.text(prepareText(`${tFin.notes} :`), rightMargin, y + 40, { align: 'right' });
+      doc.setFont(pdfInst.effectiveFont, 'bold');
+      doc.text(prepareText(String(payment.note)), valueCol, y + 40, { align: 'right' });
+    }
+  } else {
+    doc.text(`${tFin.paymentDate} :`, 25, y + 10);
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(dateStr, 80, y + 10);
+
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(`${tFin.student} :`, 25, y + 20);
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(studentFullName, 80, y + 20);
+
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(`${tFin.classLabel} :`, 25, y + 30);
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(String(student.classe || ''), 80, y + 30);
+
+    if (payment.note) {
+      doc.setFont(pdfInst.effectiveFont, 'normal');
+      doc.text(`${tFin.notes} :`, 25, y + 40);
+      doc.setFont(pdfInst.effectiveFont, 'bold');
+      doc.text(String(payment.note), 80, y + 40);
+    }
   }
-  
+
   // Montant (Highlight)
   doc.setFillColor(...COLORS.primary);
   doc.rect(25, y + 45, pageWidth - 50, 10, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text('MONTANT PAYÉ :', 30, y + 52);
-  doc.setFont('helvetica', 'bold');
-  doc.text(formatMoney(payment.montant, settings.currency), 80, y + 52);
+  doc.setFont(pdfInst.effectiveFont, 'normal');
+
+  const formattedAmount = formatMoney(payment.montant, settings.currency);
+  if (isRtl) {
+    doc.text(prepareText(`${tFin.amountPaid.toUpperCase()} :`), pageWidth - 30, y + 52, { align: 'right' });
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(prepareText(formattedAmount), pageWidth - 85, y + 52, { align: 'right' });
+  } else {
+    doc.text(`${tFin.amountPaid.toUpperCase()} :`, 30, y + 52);
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(formattedAmount, 80, y + 52);
+  }
   
   // Signatures
   doc.setTextColor(...COLORS.dark);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'italic');
-  doc.text('Signature de la caisse', pageWidth - 70, pageHeight - 20);
+  doc.setFont(pdfInst.effectiveFont, 'italic');
+  if (isRtl) {
+    doc.text(prepareText(tFin.signatureCashier), 25, pageHeight - 20);
+  } else {
+    doc.text(tFin.signatureCashier, pageWidth - 70, pageHeight - 20);
+  }
   
   if (settings.schoolStamp) {
     try {
-      doc.addImage(settings.schoolStamp, 'PNG', pageWidth - 70, pageHeight - 40, 30, 30);
+      const stampX = isRtl ? 25 : pageWidth - 70;
+      doc.addImage(settings.schoolStamp, 'PNG', stampX, pageHeight - 40, 30, 30);
     } catch (e) {
       console.warn('Erreur lors de l\'ajout du cachet', e);
     }
@@ -1075,138 +1158,222 @@ export const generateGradeReport = (
 };
 
 // ── ÉTAT DE COMPTE / FACTURE SCOLARITÉ ──
-export const generateStudentInvoice = (
+export const generateStudentInvoice = async (
   student: any,
   payments: any[],
-  settings: AppSettings
-): void => {
-  const doc = new jsPDF();
+  settings: AppSettings,
+  targetLang?: string
+): Promise<void> => {
+  const lang = targetLang || getStoredLanguage();
+  const tFin = getFinancialTranslations(lang);
+  const pdfInst = await initI18nPdfDoc({
+    language: lang,
+    format: 'a4',
+    orientation: 'portrait',
+    currency: settings.currency,
+  });
+  const { doc, formatMoney, formatDate, prepareText, isRtl } = pdfInst;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
-  let y = drawHeader(doc, settings, 'FACTURE & ÉTAT DE COMPTE', 14);
+  let y = drawHeader(doc, settings, tFin.invoiceTitle, 14, lang);
   
   // Invoice Number & Date
+  const refCode = `FAC-${String(student.id || '').slice(-6).toUpperCase() || 'STUDENT'}-${new Date().getFullYear()}`;
+  const dateStr = formatDate(new Date());
   doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(pdfInst.effectiveFont, 'bold');
   doc.setTextColor(...COLORS.dark);
-  doc.text(`Réf: FAC-${student.id.slice(-6).toUpperCase()}-${new Date().getFullYear()}`, pageWidth - 20, y - 10, { align: 'right' });
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Émise le : ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - 20, y - 5, { align: 'right' });
-  
+
+  if (isRtl) {
+    doc.text(prepareText(`${tFin.ref} ${refCode}`), 20, y - 10, { align: 'left' });
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(prepareText(`${tFin.issueDate} : ${dateStr}`), 20, y - 5, { align: 'left' });
+  } else {
+    doc.text(`${tFin.ref} ${refCode}`, pageWidth - 20, y - 10, { align: 'right' });
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(`${tFin.issueDate} : ${dateStr}`, pageWidth - 20, y - 5, { align: 'right' });
+  }
+
   // Section Identification Élève
   drawRoundedRect(doc, 15, y, pageWidth - 30, 24, 3, COLORS.light);
-  
+
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('ÉLÈVE FACTURÉ', 20, y + 6);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Nom & Prénom : ${student.prenom} ${student.nom}`, 20, y + 13);
-  doc.text(`Classe : ${student.classe}`, 20, y + 19);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('RESPONSABLE LÉGAL', 110, y + 6);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Parent : ${student.telephone || 'Non renseigné'}`, 110, y + 13);
-  
+  doc.setFont(pdfInst.effectiveFont, 'bold');
+  const studentFullName = `${student.prenom || ''} ${student.nom || ''}`.trim();
+
+  if (isRtl) {
+    doc.text(prepareText(tFin.student.toUpperCase()), pageWidth - 20, y + 6, { align: 'right' });
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(prepareText(`${tFin.student} : ${studentFullName}`), pageWidth - 20, y + 13, { align: 'right' });
+    doc.text(prepareText(`${tFin.classLabel} : ${student.classe || ''}`), pageWidth - 20, y + 19, { align: 'right' });
+
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(prepareText(tFin.parent.toUpperCase()), 100, y + 6, { align: 'right' });
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(prepareText(`${tFin.parent} : ${student.telephone || tFin.noData}`), 100, y + 13, { align: 'right' });
+  } else {
+    doc.text(tFin.student.toUpperCase(), 20, y + 6);
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(`${tFin.student} : ${studentFullName}`, 20, y + 13);
+    doc.text(`${tFin.classLabel} : ${student.classe || ''}`, 20, y + 19);
+
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(tFin.parent.toUpperCase(), 110, y + 6);
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.text(`${tFin.parent} : ${student.telephone || tFin.noData}`, 110, y + 13);
+  }
+
   y += 32;
-  
-  // Table Scolarité
+
+  // Table Header
   doc.setFillColor(...COLORS.dark);
   doc.rect(15, y, pageWidth - 30, 8, 'F');
   doc.setTextColor(...COLORS.white);
-  doc.setFont('helvetica', 'bold');
-  doc.text('DESCRIPTION DES FRAIS', 18, y + 5.5);
-  doc.text('MONTANT', pageWidth - 20, y + 5.5, { align: 'right' });
-  
+  doc.setFont(pdfInst.effectiveFont, 'bold');
+
+  if (isRtl) {
+    doc.text(prepareText(tFin.description.toUpperCase()), pageWidth - 20, y + 5.5, { align: 'right' });
+    doc.text(prepareText(tFin.amount.toUpperCase()), 20, y + 5.5, { align: 'left' });
+  } else {
+    doc.text(tFin.description.toUpperCase(), 18, y + 5.5);
+    doc.text(tFin.amount.toUpperCase(), pageWidth - 20, y + 5.5, { align: 'right' });
+  }
+
   y += 8;
   doc.setTextColor(...COLORS.dark);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Frais de Scolarité Annuels (Écolage)', 18, y + 6);
-  doc.setFont('helvetica', 'bold');
-  doc.text(formatMoney(student.ecolage, settings.currency), pageWidth - 20, y + 6, { align: 'right' });
-  
-  // Border bottom cell
+  doc.setFont(pdfInst.effectiveFont, 'normal');
+  const annualAmountStr = formatMoney(student.ecolage, settings.currency);
+
+  if (isRtl) {
+    doc.text(prepareText(tFin.totalTuition), pageWidth - 20, y + 6, { align: 'right' });
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(prepareText(annualAmountStr), 20, y + 6, { align: 'left' });
+  } else {
+    doc.text(tFin.totalTuition, 18, y + 6);
+    doc.setFont(pdfInst.effectiveFont, 'bold');
+    doc.text(annualAmountStr, pageWidth - 20, y + 6, { align: 'right' });
+  }
+
   doc.setDrawColor(200, 200, 200);
   doc.line(15, y + 9, pageWidth - 15, y + 9);
-  
   y += 9;
-  
-  // List Payments History
+
+  // Payments history
   if (payments && payments.length > 0) {
     doc.setFillColor(245, 247, 250);
     doc.rect(15, y, pageWidth - 30, 7, 'F');
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(pdfInst.effectiveFont, 'bold');
     doc.setFontSize(9);
-    doc.text('Versements effectués :', 18, y + 5);
+    if (isRtl) {
+      doc.text(prepareText(tFin.paymentsMade), pageWidth - 20, y + 5, { align: 'right' });
+    } else {
+      doc.text(tFin.paymentsMade, 18, y + 5);
+    }
     y += 7;
-    
-    doc.setFont('helvetica', 'normal');
+
+    doc.setFont(pdfInst.effectiveFont, 'normal');
     doc.setFontSize(8.5);
     payments.forEach((p) => {
-      const dateStr = new Date(p.date).toLocaleDateString('fr-FR');
+      const pDate = formatDate(p.date || new Date());
       const ref = p.recu || 'N/A';
-      doc.text(`Versement du ${dateStr} (Reçu #${ref}) ${p.note ? ' - ' + p.note : ''}`, 22, y + 5.5);
-      doc.text(`- ${formatMoney(p.montant, settings.currency)}`, pageWidth - 20, y + 5.5, { align: 'right' });
-      
+      const pAmtStr = `- ${formatMoney(p.montant, settings.currency)}`;
+      const noteStr = p.note ? ` - ${p.note}` : '';
+      const paymentLine = `${tFin.paymentDate}: ${pDate} (${tFin.ref} #${ref})${noteStr}`;
+
+      if (isRtl) {
+        doc.text(prepareText(paymentLine), pageWidth - 22, y + 5.5, { align: 'right' });
+        doc.text(prepareText(pAmtStr), 20, y + 5.5, { align: 'left' });
+      } else {
+        doc.text(paymentLine, 22, y + 5.5);
+        doc.text(pAmtStr, pageWidth - 20, y + 5.5, { align: 'right' });
+      }
       doc.line(20, y + 8, pageWidth - 15, y + 8);
       y += 8;
     });
   }
-  
+
   // Summary Block
   y += 5;
   const summaryWidth = 85;
-  const summaryX = pageWidth - 15 - summaryWidth;
-  
+  const summaryX = isRtl ? 15 : pageWidth - 15 - summaryWidth;
+
   doc.setFillColor(...COLORS.light);
   doc.rect(summaryX, y, summaryWidth, 24, 'F');
-  
-  doc.setFont('helvetica', 'normal');
+
+  const dejaPaye = Number(student.dejaPaye || student.deja_paye || 0);
+  const restant = Math.max(0, Number(student.ecolage || 0) - dejaPaye);
+
+  doc.setFont(pdfInst.effectiveFont, 'normal');
   doc.setFontSize(9);
-  doc.text('TOTAL SCOLARITÉ :', summaryX + 5, y + 6);
-  doc.text(formatMoney(student.ecolage, settings.currency), pageWidth - 20, y + 6, { align: 'right' });
-  
-  doc.text('DÉJÀ PAYÉ :', summaryX + 5, y + 12);
-  doc.setTextColor(...COLORS.success);
-  doc.text(`- ${formatMoney(student.dejaPaye || student.deja_paye || 0, settings.currency)}`, pageWidth - 20, y + 12, { align: 'right' });
-  
   doc.setTextColor(...COLORS.dark);
-  doc.line(summaryX + 5, y + 15, pageWidth - 20, y + 15);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('SOLDE RESTANT DÛ :', summaryX + 5, y + 20);
-  
-  const restant = Number(student.ecolage) - Number(student.dejaPaye || student.deja_paye || 0);
+
+  const truncatedTuition = tFin.totalTuition.length > 20 ? tFin.totalTuition.slice(0, 18) + '.' : tFin.totalTuition;
+  doc.text(prepareText(`${truncatedTuition} :`), summaryX + 5, y + 6);
+  doc.text(prepareText(annualAmountStr), summaryX + summaryWidth - 5, y + 6, { align: 'right' });
+
+  doc.text(prepareText(`${tFin.totalPaid} :`), summaryX + 5, y + 12);
+  doc.setTextColor(...COLORS.success);
+  doc.text(prepareText(`- ${formatMoney(dejaPaye, settings.currency)}`), summaryX + summaryWidth - 5, y + 12, { align: 'right' });
+
+  doc.setTextColor(...COLORS.dark);
+  doc.line(summaryX + 5, y + 15, summaryX + summaryWidth - 5, y + 15);
+
+  doc.setFont(pdfInst.effectiveFont, 'bold');
+  doc.text(prepareText(`${tFin.balanceDue} :`), summaryX + 5, y + 20);
   if (restant > 0) doc.setTextColor(...COLORS.danger);
   else doc.setTextColor(...COLORS.success);
-  doc.text(formatMoney(restant, settings.currency), pageWidth - 20, y + 20, { align: 'right' });
-  
+  doc.text(prepareText(formatMoney(restant, settings.currency)), summaryX + summaryWidth - 5, y + 20, { align: 'right' });
+
   y += 35;
-  
-  // Terms & Conditions / Installments
+
+  // Terms & Conditions
   doc.setTextColor(...COLORS.dark);
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Conditions de règlement :', 15, y);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text('Les frais de scolarité doivent être soldés conformément aux échéances fixées par l\'établissement.', 15, y + 5);
-  doc.text('Ce relevé fait office de justificatif de solde et de facture proforma pour l\'année en cours.', 15, y + 10);
-  
+  doc.setFont(pdfInst.effectiveFont, 'bold');
+  if (isRtl) {
+    doc.text(prepareText(tFin.termsTitle), pageWidth - 15, y, { align: 'right' });
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.setFontSize(8.5);
+    doc.text(prepareText(tFin.termsText), pageWidth - 15, y + 5, { align: 'right' });
+  } else {
+    doc.text(tFin.termsTitle, 15, y);
+    doc.setFont(pdfInst.effectiveFont, 'normal');
+    doc.setFontSize(8.5);
+    doc.text(tFin.termsText, 15, y + 5);
+  }
+
   // Signature block
-  doc.setFont('helvetica', 'italic');
+  doc.setFont(pdfInst.effectiveFont, 'italic');
   doc.setFontSize(9.5);
-  doc.text('Le Service Comptabilité', pageWidth - 65, y + 25);
-  
-  if (settings.schoolStamp) {
-    try {
-      doc.addImage(settings.schoolStamp, 'PNG', pageWidth - 65, y + 29, 25, 25);
-    } catch (e) {
-      // ignore
+  if (isRtl) {
+    doc.text(prepareText(tFin.signatureAccounting), 25, y + 25);
+    if (settings.schoolStamp) {
+      try {
+        doc.addImage(settings.schoolStamp, 'PNG', 25, y + 29, 25, 25);
+      } catch (e) {}
+    }
+  } else {
+    doc.text(tFin.signatureAccounting, pageWidth - 65, y + 25);
+    if (settings.schoolStamp) {
+      try {
+        doc.addImage(settings.schoolStamp, 'PNG', pageWidth - 65, y + 29, 25, 25);
+      } catch (e) {}
     }
   }
-  
-  drawFooter(doc);
-  doc.save(`Facture_${student.prenom}_${student.nom}.pdf`);
+
+  // Footer
+  doc.setFontSize(8);
+  doc.setFont(pdfInst.effectiveFont, 'normal');
+  doc.setTextColor(150, 150, 150);
+  const footerStr = `${tFin.generatedOn} ${formatDate(new Date())}`;
+  if (isRtl) {
+    doc.text(prepareText(footerStr), pageWidth - 15, pageHeight - 10, { align: 'right' });
+    doc.text(prepareText(`${tFin.page} 1/1`), 15, pageHeight - 10);
+  } else {
+    doc.text(footerStr, 15, pageHeight - 10);
+    doc.text(`${tFin.page} 1/1`, pageWidth - 20, pageHeight - 10, { align: 'right' });
+  }
+
+  doc.save(`Facture_${student.prenom || ''}_${student.nom || ''}.pdf`);
 };

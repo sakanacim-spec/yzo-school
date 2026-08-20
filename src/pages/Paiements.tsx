@@ -250,7 +250,14 @@ const StudentPaymentRow: React.FC<{ student: Student; onPay: (s: Student) => voi
                     {p.note && <span className="text-sm font-medium text-slate-500 dark:text-slate-400 truncate">{p.note}</span>}
                   </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); generatePaymentReceipt(p, student, settings); }}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await generatePaymentReceipt(p, student, settings, language);
+                      } catch (err) {
+                        console.error('Erreur génération reçu:', err);
+                      }
+                    }}
                     className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors ml-auto"
                     title={t(language as Language, 'payments.downloadReceipt') || 'Télécharger le reçu'}
                   >

@@ -420,9 +420,9 @@ export const ParentDashboard: React.FC = () => {
     const handleDownloadInvoice = async (child: any) => {
         try {
             const res = await parentApi.getPayments(child.id);
-            generateStudentInvoice(child, res.payments || [], settings);
+            await generateStudentInvoice(child, res.payments || [], settings, language);
         } catch {
-            generateStudentInvoice(child, [], settings);
+            await generateStudentInvoice(child, [], settings, language);
         }
     };
 

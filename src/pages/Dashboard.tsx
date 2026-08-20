@@ -281,11 +281,17 @@ export const Dashboard: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row items-center gap-4 xl:gap-6">
                 <button 
-                  onClick={() => generateRapportMensuelPDF(students, classComp, { 
-                    name: useStore.getState().schoolName || useStore.getState().appName, 
-                    logo: useStore.getState().schoolLogo,
-                    stamp: useStore.getState().schoolStamp
-                  })}
+                  onClick={async () => {
+                    try {
+                      await generateRapportMensuelPDF(students, classComp, {
+                        name: useStore.getState().schoolName || useStore.getState().appName,
+                        logo: useStore.getState().schoolLogo,
+                        stamp: useStore.getState().schoolStamp
+                      }, language);
+                    } catch (err) {
+                      console.error('Erreur génération rapport mensuel:', err);
+                    }
+                  }}
                   className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[20px] hover:scale-105 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] font-black text-[13px] tracking-wide shadow-xl hover:shadow-2xl active:scale-[0.98] group"
                 >
                     <div className="w-8 h-8 rounded-full bg-white/20 dark:bg-slate-900/10 flex items-center justify-center group-hover:rotate-12 transition-transform duration-300">

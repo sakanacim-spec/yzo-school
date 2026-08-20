@@ -112,7 +112,13 @@ const StudentCard: React.FC<{ student: Student; schoolName: string; schoolYear: 
 
       <div className="flex gap-3 mt-6 pt-5 border-t border-slate-100 dark:border-slate-800/60">
         <button
-          onClick={() => generateRecuPDF(student, schoolName, schoolYear, msgRem, msgRap, schoolLogo, schoolStamp)}
+          onClick={async () => {
+            try {
+              await generateRecuPDF(student, schoolName, schoolYear, msgRem, msgRap, schoolLogo, schoolStamp, language);
+            } catch (err) {
+              console.error('Erreur génération reçu:', err);
+            }
+          }}
           className="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-50 hover:bg-indigo-500 text-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:hover:bg-indigo-500 dark:text-indigo-400 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all"
         >
           <Printer className="w-4 h-4" /> {t(language as Language, 'documents.print') || 'Imprimer'}
@@ -164,15 +170,25 @@ export const Documents: React.FC = () => {
 
   const handleGenereClasse = async (classe: string) => {
     setGenerating(true);
-    const cls = students.filter((s) => s.classe === classe);
-    await generateClassePDF(cls, classe, schoolName, schoolYear, messageRemerciement, messageRappel, schoolLogo ?? undefined, schoolStamp ?? undefined);
-    setGenerating(false);
+    try {
+      const cls = students.filter((s) => s.classe === classe);
+      await generateClassePDF(cls, classe, schoolName, schoolYear, messageRemerciement, messageRappel, schoolLogo ?? undefined, schoolStamp ?? undefined);
+    } catch (err) {
+      console.error('Erreur génération classe:', err);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleGenereNonSoldes = async () => {
     setGenerating(true);
-    await generateNonSoldesPDF(nonSoldes, schoolName, schoolYear, messageRappel, schoolLogo ?? undefined, schoolStamp ?? undefined);
-    setGenerating(false);
+    try {
+      await generateNonSoldesPDF(nonSoldes, schoolName, schoolYear, messageRappel, schoolLogo ?? undefined, schoolStamp ?? undefined, language);
+    } catch (err) {
+      console.error('Erreur génération non soldés:', err);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleExportExcel = () => {
