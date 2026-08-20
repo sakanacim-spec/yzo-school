@@ -1,11 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     Bot, X, Send, Sparkles, Building2, Users, GraduationCap, 
-    ArrowRight, HelpCircle, CheckCircle2, ChevronRight, MessageSquareText
+    ChevronRight
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { t, Language } from '../i18n';
+import { Language } from '../i18n';
 import { API_BASE_URL } from '../config';
+import {
+    prepareAssistantHistory,
+    getAssistantErrorMessage,
+    loadStoredAssistantHistory,
+    saveStoredAssistantHistory
+} from '../services/assistantChatService';
 
 interface GuideAssistantWidgetProps {
     onOpenRegisterSchool?: () => void;
@@ -43,12 +49,17 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
         }
     }, [isOpen, messages]);
 
-    // Message d'accueil automatique après 2 secondes
+    // Initialisation depuis localStorage ou message d'accueil automatique
     useEffect(() => {
-        const timer = setTimeout(() => {
-            initWelcomeMessages();
-        }, 1500);
-        return () => clearTimeout(timer);
+        const stored = loadStoredAssistantHistory();
+        if (stored.length > 0) {
+            setMessages(stored as Message[]);
+        } else {
+            const timer = setTimeout(() => {
+                initWelcomeMessages();
+            }, 1500);
+            return () => clearTimeout(timer);
+        }
     }, []);
 
     const initWelcomeMessages = () => {
@@ -179,11 +190,13 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
             ];
         }
 
-        setMessages((prev) => [
-            ...prev,
+        const newHistory: Message[] = [
+            ...messages,
             { id: Date.now().toString(), sender: 'user', text: userLabel },
             { id: (Date.now() + 1).toString(), sender: 'bot', text: botResponse, options }
-        ]);
+        ];
+        setMessages(newHistory);
+        saveStoredAssistantHistory(newHistory);
     };
 
     const handleSendCustomMessage = async (e?: React.FormEvent) => {
@@ -195,39 +208,66 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
 
         const newMsg: Message = { id: Date.now().toString(), sender: 'user', text: userText };
         
-        // Optimistic UI update
+        // Mise à jour optimiste de l'UI
         const updatedMessages = [...messages, newMsg];
         setMessages(updatedMessages);
 
-        // Add loading message
+        // Message de chargement temporaire
         const loadingId = (Date.now() + 1).toString();
         setMessages((prev) => [...prev, { id: loadingId, sender: 'bot', text: '...' }]);
 
         try {
+            // Prépare strictement l'historique conversationnel envoyé au backend (max 10 derniers messages, pas de menus/options)
+            const payloadMessages = prepareAssistantHistory(updatedMessages);
+
             const res = await fetch(`${API_BASE_URL}/assistant/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: updatedMessages })
+                body: JSON.stringify({ messages: payloadMessages, language: language || 'fr' })
             });
-            const data = await res.json();
+
+            // Lire le corps JSON sans supposer systématiquement que la requête a réussi
+            let data: any = null;
+            try {
+                data = await res.json();
+            } catch {
+                data = null;
+            }
+
+            // Lire l'en-tête HTTP Retry-After
+            const retryAfterHeader = res.headers.get('Retry-After') || (data && data.retryAfter);
+
+            let botReply = '';
+            if (res.ok) {
+                botReply = (data && typeof data.reply === 'string' && data.reply.trim())
+                    ? data.reply.trim()
+                    : getAssistantErrorMessage(500);
+            } else {
+                botReply = getAssistantErrorMessage(res.status, retryAfterHeader);
+            }
             
-            // Remove loading and add response
+            // Retirer le message de chargement et ajouter la réponse du bot
             setMessages((prev) => {
                 const withoutLoading = prev.filter(m => m.id !== loadingId);
-                return [...withoutLoading, { 
-                    id: (Date.now() + 2).toString(), 
-                    sender: 'bot', 
-                    text: data.reply || "Une erreur est survenue." 
+                const finalMessages: Message[] = [...withoutLoading, {
+                    id: (Date.now() + 2).toString(),
+                    sender: 'bot',
+                    text: botReply
                 }];
+                saveStoredAssistantHistory(finalMessages);
+                return finalMessages;
             });
-        } catch (error) {
+        } catch (_error) {
+            const fallbackReply = getAssistantErrorMessage(500);
             setMessages((prev) => {
                 const withoutLoading = prev.filter(m => m.id !== loadingId);
-                return [...withoutLoading, { 
-                    id: (Date.now() + 2).toString(), 
-                    sender: 'bot', 
-                    text: "Je rencontre actuellement un problème technique." 
+                const finalMessages: Message[] = [...withoutLoading, {
+                    id: (Date.now() + 2).toString(),
+                    sender: 'bot',
+                    text: fallbackReply
                 }];
+                saveStoredAssistantHistory(finalMessages);
+                return finalMessages;
             });
         }
     };
