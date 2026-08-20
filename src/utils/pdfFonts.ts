@@ -352,9 +352,15 @@ export async function registerFontInDoc(doc: any, fontDescriptor: FontDescriptor
   }
 
   // Enregistrer dans le VFS du document jsPDF
+  // Note: Seules les fontes Regular sont physiquement présentes (NotoSans, NotoSansArabic, ZCOOLXiaoWei).
+  // On déclare les variantes de style (bold, italic, bolditalic) vers le fichier Regular existant comme
+  // alias technique pour permettre à autoTable et jsPDF de résoudre les styles sans avertissement ni crash.
   if (typeof doc.addFileToVFS === 'function' && typeof doc.addFont === 'function') {
     doc.addFileToVFS(fontFile, fontBase64);
     doc.addFont(fontFile, fontName, 'normal');
+    doc.addFont(fontFile, fontName, 'bold');
+    doc.addFont(fontFile, fontName, 'italic');
+    doc.addFont(fontFile, fontName, 'bolditalic');
     return fontName;
   }
 
@@ -386,6 +392,9 @@ export function ensureFontRegistered(doc: any, fontDescriptor: FontDescriptor): 
       const fontBase64 = inMemoryFontDataCache.get(fontFile)!;
       doc.addFileToVFS(fontFile, fontBase64);
       doc.addFont(fontFile, fontName, 'normal');
+      doc.addFont(fontFile, fontName, 'bold');
+      doc.addFont(fontFile, fontName, 'italic');
+      doc.addFont(fontFile, fontName, 'bolditalic');
       return fontName;
     }
 

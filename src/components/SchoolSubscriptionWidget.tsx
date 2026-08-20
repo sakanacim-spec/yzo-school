@@ -9,6 +9,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { API_BASE_URL } from '../config';
+import { initI18nPdfDoc } from '../utils/pdfEngine';
+import { getFinancialTranslations } from '../utils/pdfFinancialTranslations';
 
 interface LevelBreakdown {
   maternelle_primaire: number;
@@ -130,8 +132,16 @@ export const SchoolSubscriptionWidget: React.FC = () => {
     }
   };
 
-  const generateYziowReceiptPDF = (payment: any) => {
-    const doc = new jsPDF();
+  const generateYziowReceiptPDF = async (payment: any) => {
+    const lang = useStore.getState().language;
+    const tFin = getFinancialTranslations(lang);
+    const pdfInst = await initI18nPdfDoc({
+      language: lang,
+      format: 'a4',
+      orientation: 'portrait',
+      currency: 'XOF',
+    });
+    const { doc, prepareText, effectiveFont } = pdfInst;
     
     // Header
     doc.setFillColor(37, 99, 235); // Blue-600
@@ -139,56 +149,56 @@ export const SchoolSubscriptionWidget: React.FC = () => {
     
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(effectiveFont, 'bold');
     doc.text('YZIOW PLATFORM', 14, 22);
     
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('REÇU OFFICIEL DE RÈGLEMENT ABONNEMENT', 14, 30);
+    doc.setFont(effectiveFont, 'normal');
+    doc.text(prepareText(tFin.receiptTitle), 14, 30);
     
-    doc.text(`Réf: ${payment.reference}`, 150, 22);
-    doc.text(`Date: ${payment.date}`, 150, 30);
+    doc.text(prepareText(`${tFin.ref}: ${payment.reference}`), 150, 22);
+    doc.text(prepareText(`${tFin.date}: ${payment.date}`), 150, 30);
 
     // Infos Établissement
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Établissement Bénéficiaire :', 14, 52);
+    doc.setFont(effectiveFont, 'bold');
+    doc.text(prepareText(`${tFin.institution} :`), 14, 52);
     
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`École : ${payment.school}`, 14, 60);
-    doc.text(`Responsable : ${payment.director}`, 14, 66);
-    doc.text(`Pays : ${payment.country}`, 14, 72);
-    doc.text(`Effectif sous licence : ${payment.totalStudents} élèves`, 14, 78);
+    doc.setFont(effectiveFont, 'normal');
+    doc.text(prepareText(`École : ${payment.school}`), 14, 60);
+    doc.text(prepareText(`Responsable : ${payment.director}`), 14, 66);
+    doc.text(prepareText(`Pays : ${payment.country}`), 14, 72);
+    doc.text(prepareText(`Effectif sous licence : ${payment.totalStudents} élèves`), 14, 78);
 
     // Table de détail
     autoTable(doc, {
       startY: 88,
-      head: [['Désignation du service', 'Période', 'Mode de Règlement', 'Montant Payé']],
+      head: [[prepareText(tFin.description), prepareText('Période'), prepareText(tFin.paymentMethod), prepareText(tFin.amountPaid)]],
       body: [
         [
-          `Abonnement SaaS Yziow Platform\n(${payment.type})`,
-          'Année Scolaire 2025-2026',
-          'Règlement d\'Abonnement Établissement',
+          prepareText(`Abonnement SaaS Yziow Platform\n(${payment.type})`),
+          prepareText('Année Scolaire 2025-2026'),
+          prepareText('Règlement d\'Abonnement Établissement'),
           payment.formattedAmount
         ]
       ],
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
-      styles: { fontSize: 10, cellPadding: 6 }
+      styles: { fontSize: 10, cellPadding: 6, font: effectiveFont as any }
     });
 
     // Signature et Cachet
     const finalY = (doc as any).lastAutoTable.finalY + 25;
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Pour l\'Administration Yziow Platform', 14, finalY);
-    doc.text('Tampon & Certification Digital', 140, finalY);
+    doc.setFont(effectiveFont, 'bold');
+    doc.text(prepareText('Pour l\'Administration Yziow Platform'), 14, finalY);
+    doc.text(prepareText('Tampon & Certification Digital'), 140, finalY);
 
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
+    doc.setFont(effectiveFont, 'italic');
     doc.setTextColor(100, 116, 139);
-    doc.text('Document généré automatiquement et certifié par Yziow SaaS Platform — yziow.com', 14, 280);
+    doc.text(prepareText(`${tFin.generatedOn} certifié par Yziow SaaS Platform — yziow.com`), 14, 280);
 
     doc.save(`Recu_Abonnement_Yziow_${payment.reference}.pdf`);
   };
@@ -433,7 +443,13 @@ export const SchoolSubscriptionWidget: React.FC = () => {
 
             <div className="flex items-center gap-3">
               <button
-                onClick={() => generateYziowReceiptPDF(lastPayment)}
+                onClick={async () => {
+                  try {
+                    await generateYziowReceiptPDF(lastPayment);
+                  } catch (err) {
+                    console.error('Erreur génération reçu abonnement:', err);
+                  }
+                }}
                 className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md"
               >
                 <Download className="w-4 h-4" />

@@ -213,7 +213,7 @@ async function runAllTests() {
 
   // 12. GÉNÉRATION RÉELLE DE 4 PDF AVEC INCORPORATION EFFECTIVE DES POLICES
   await test('12. Génération réelle des 4 PDF (fr, ru, ar, zh) et inspection binaire', async () => {
-    const generatedPdfs: { name: string; path: string; size: number; fontName: string }[] = [];
+    const generatedPdfs: { name: string; buf: Buffer; size: number; fontName: string }[] = [];
 
     // 12.1 PDF Français (NotoSans)
     const pdfFr = await initI18nPdfDoc({ language: 'fr', currency: 'EUR' });
@@ -224,9 +224,7 @@ async function runAllTests() {
     pdfFr.writeText(`Montant réglé : ${pdfFr.formatMoney(1500, 'EUR')}`, 15, 40);
     pdfFr.writeText(`Date : ${pdfFr.formatDate(new Date('2026-08-20'))}`, 15, 50);
     const bufFr = pdfFr.doc.output('arraybuffer');
-    const pathFr = path.resolve(process.cwd(), 'temp_test_fr.pdf');
-    fs.writeFileSync(pathFr, Buffer.from(bufFr));
-    generatedPdfs.push({ name: 'temp_test_fr.pdf', path: pathFr, size: bufFr.byteLength, fontName: 'NotoSans' });
+    generatedPdfs.push({ name: 'temp_test_fr.pdf', buf: Buffer.from(bufFr), size: bufFr.byteLength, fontName: 'NotoSans' });
 
     // 12.2 PDF Russe (NotoSans)
     const pdfRu = await initI18nPdfDoc({ language: 'ru', currency: 'RUB' });
@@ -236,9 +234,7 @@ async function runAllTests() {
     pdfRu.writeText('Ученик: Александр Смирнов', 15, 30);
     pdfRu.writeText(`Сумма: ${pdfRu.formatMoney(15000, 'RUB')}`, 15, 40);
     const bufRu = pdfRu.doc.output('arraybuffer');
-    const pathRu = path.resolve(process.cwd(), 'temp_test_ru.pdf');
-    fs.writeFileSync(pathRu, Buffer.from(bufRu));
-    generatedPdfs.push({ name: 'temp_test_ru.pdf', path: pathRu, size: bufRu.byteLength, fontName: 'NotoSans' });
+    generatedPdfs.push({ name: 'temp_test_ru.pdf', buf: Buffer.from(bufRu), size: bufRu.byteLength, fontName: 'NotoSans' });
 
     // 12.3 PDF Arabe (NotoSansArabic)
     const pdfAr = await initI18nPdfDoc({ language: 'ar', currency: 'AED' });
@@ -249,9 +245,7 @@ async function runAllTests() {
     pdfAr.writeText('النتيجة: 15/20', 190, 40, { align: 'right' });
     pdfAr.writeText('لا إله إلا الله', 190, 50, { align: 'right' });
     const bufAr = pdfAr.doc.output('arraybuffer');
-    const pathAr = path.resolve(process.cwd(), 'temp_test_ar.pdf');
-    fs.writeFileSync(pathAr, Buffer.from(bufAr));
-    generatedPdfs.push({ name: 'temp_test_ar.pdf', path: pathAr, size: bufAr.byteLength, fontName: 'NotoSansArabic' });
+    generatedPdfs.push({ name: 'temp_test_ar.pdf', buf: Buffer.from(bufAr), size: bufAr.byteLength, fontName: 'NotoSansArabic' });
 
     // 12.4 PDF Chinois (ZCOOLXiaoWei)
     const pdfZh = await initI18nPdfDoc({ language: 'zh', currency: 'CNY' });
@@ -261,14 +255,12 @@ async function runAllTests() {
     pdfZh.writeText('学生姓名: 李华', 15, 30);
     pdfZh.writeText(`学费: ${pdfZh.formatMoney(8000, 'CNY')}`, 15, 40);
     const bufZh = pdfZh.doc.output('arraybuffer');
-    const pathZh = path.resolve(process.cwd(), 'temp_test_zh.pdf');
-    fs.writeFileSync(pathZh, Buffer.from(bufZh));
-    generatedPdfs.push({ name: 'temp_test_zh.pdf', path: pathZh, size: bufZh.byteLength, fontName: 'ZCOOLXiaoWei' });
+    generatedPdfs.push({ name: 'temp_test_zh.pdf', buf: Buffer.from(bufZh), size: bufZh.byteLength, fontName: 'ZCOOLXiaoWei' });
 
     // Inspection binaire et rapport des tailles réelles
     console.log('\n--- RAPPORT D\'INCORPORATION DES POLICES DANS LES PDF RÉELS ---');
     for (const item of generatedPdfs) {
-      const content = fs.readFileSync(item.path).toString('latin1');
+      const content = item.buf.toString('latin1');
       assert.ok(item.size > 20000, `Le PDF ${item.name} avec police incorporée doit faire > 20 Ko (taille réelle: ${item.size} octets)`);
       assert.ok(
         content.includes(item.fontName) || content.includes('CIDFontType2') || content.includes('FontDescriptor'),
@@ -276,14 +268,6 @@ async function runAllTests() {
       );
       console.log(`    [PDF OK] ${item.name.padEnd(20)} | Taille: ${item.size.toString().padStart(8)} octets | Police incorporée: ${item.fontName}`);
     }
-
-    // Nettoyage des PDF temporaires
-    for (const item of generatedPdfs) {
-      if (fs.existsSync(item.path)) {
-        fs.unlinkSync(item.path);
-      }
-    }
-    console.log('    [NETTOYAGE] Tous les PDF temporaires ont été supprimés avec succès.\n');
   });
 
   console.log(`========================================`);

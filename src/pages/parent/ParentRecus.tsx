@@ -45,12 +45,16 @@ export const ParentRecus: React.FC = () => {
         fetchRecus();
     }, []);
 
-    const downloadReceipt = (payment: any) => {
+    const downloadReceipt = async (payment: any) => {
         const studentObj = {
             nom: payment.studentName,
             classe: payment.classe
         };
-        generatePaymentReceipt(payment, studentObj, settings);
+        try {
+            await generatePaymentReceipt(payment, studentObj, settings, language);
+        } catch (err) {
+            console.error('Erreur génération reçu:', err);
+        }
     };
 
     if (loading) {

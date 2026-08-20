@@ -657,7 +657,17 @@ export const Eleves: React.FC = () => {
                         <button onClick={() => setSelectedStudent(s)} className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400 transition-all hover:scale-110" title={t(language as Language, 'students.fullRecord') || 'Dossier complet'}>
                           <FileText className="w-4 h-4" />
                         </button>
-                        <button onClick={() => generateRecuPDF(s, schoolName, schoolYear, messageRemerciement, messageRappel, schoolLogo || undefined, schoolStamp || undefined)} className="p-2 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400 transition-all hover:scale-110" title={t(language as Language, 'students.generateReceipt') || 'Générer le reçu'}>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await generateRecuPDF(s, schoolName, schoolYear, messageRemerciement, messageRappel, schoolLogo || undefined, schoolStamp || undefined, language);
+                            } catch (err) {
+                              console.error('Erreur génération reçu:', err);
+                            }
+                          }}
+                          className="p-2 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400 transition-all hover:scale-110"
+                          title={t(language as Language, 'students.generateReceipt') || 'Générer le reçu'}
+                        >
                           <Download className="w-4 h-4" />
                         </button>
                         <WhatsAppBtn student={s} schoolName={schoolName} />
