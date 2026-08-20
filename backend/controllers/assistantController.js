@@ -1,4 +1,11 @@
-const Groq = require("groq-sdk");
+'use strict';
+const Groq = require('groq-sdk');
+const {
+    getClientIp,
+    validateChatMessages,
+    validatePedagogicalInput,
+    enforceQuota
+} = require('../utils/aiQuotaService');
 
 const SYSTEM_PROMPT = `Tu es l'Assistant Virtuel de la plateforme SaaS "Yziow".
 Ton rôle est d'orienter et d'aider les directeurs d'écoles, les parents d'élèves, et le personnel scolaire.
@@ -123,7 +130,6 @@ La plateforme utilise exclusivement Yziow Pay comme infrastructure de paiement (
 8. DONS : Si un directeur demande d'où viennent les fonds, explique les 4 sources et rappelle que 95% lui sont reversés (commission 5% Yziow Pay fixe).
 `;
 
-// Manuel complet des procédures pour les assistants privés (directeurs)
 const MANUEL_DIRECTEUR = `
 === MANUEL DE PROCÉDURES COMPLET YZIOW — TABLEAU DE BORD DIRECTEUR ===
 
@@ -208,7 +214,7 @@ let aiClient = null;
 const getClient = () => {
     if (!aiClient) {
         if (!process.env.GROQ_API_KEY) {
-            throw new Error("GROQ_API_KEY is missing");
+            throw new Error('GROQ_API_KEY is missing');
         }
         aiClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
     }
@@ -219,33 +225,55 @@ const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
 
 const formatHistory = (messages) => {
     return messages.map(msg => ({
-        role: msg.sender === 'user' ? 'user' : 'assistant',
-        content: msg.text || ""
+        role: (msg.sender === 'user' || msg.role === 'user') ? 'user' : 'assistant',
+        content: (msg.text !== undefined ? msg.text : msg.content) || ''
     }));
 };
 
+/**
+ * Assistant public (visiteur non connecté)
+ * POST /api/assistant/chat
+ */
 const chatWithAssistant = async (req, res) => {
     try {
-        const { messages, language = 'fr' } = req.body; 
+        const { messages, language = 'fr' } = req.body;
 
-        if (!messages || !Array.isArray(messages)) {
-            return res.status(400).json({ error: "Le tableau 'messages' est requis." });
+        // 1. Validation fail-closed des entrées utilisateur
+        const validation = validateChatMessages(messages);
+        if (!validation.isValid) {
+            return res.status(400).json({ error: validation.error });
         }
 
+        // 2. Contrôle et consommation atomique du quota (5/h, 10/j par IP)
+        const clientIp = getClientIp(req);
+        const quotaResult = await enforceQuota({
+            scope: 'public_ip',
+            subjectIdentifier: clientIp,
+            hourLimit: 5,
+            dayLimit: 10
+        });
+
+        if (!quotaResult.allowed) {
+            res.set('Retry-After', String(quotaResult.retryAfter));
+            return res.status(quotaResult.status).json(quotaResult.response);
+        }
+
+        // 3. Appel Groq sécurisé
         let groq;
         try {
             groq = getClient();
-        } catch(e) {
-            return res.status(503).json({ error: "L'assistant intelligent est temporairement indisponible (Clé API manquante)." });
+        } catch (_e) {
+            return res.status(503).json({ error: "L'assistant intelligent est temporairement indisponible." });
         }
-        
+
         const history = formatHistory(messages);
-        const dynamicPrompt = `${SYSTEM_PROMPT}\n\nIMPORTANT: L'utilisateur utilise actuellement l'interface dans la langue '${language}'. Tu dois OBLIGATOIREMENT formuler toutes tes réponses dans cette langue, tout en gardant un ton naturel et courtois.`;
+        const safeLanguage = (typeof language === 'string' && language.trim().length <= 10) ? language.trim() : 'fr';
+        const dynamicPrompt = `${SYSTEM_PROMPT}\n\nIMPORTANT: L'utilisateur utilise actuellement l'interface dans la langue '${safeLanguage}'. Tu dois OBLIGATOIREMENT formuler toutes tes réponses dans cette langue, tout en gardant un ton naturel et courtois.`;
 
         const response = await groq.chat.completions.create({
             model: GROQ_MODEL,
             messages: [
-                { role: "system", content: dynamicPrompt },
+                { role: 'system', content: dynamicPrompt },
                 ...history
             ],
             temperature: 0.5,
@@ -253,35 +281,61 @@ const chatWithAssistant = async (req, res) => {
         });
 
         const replyText = response.choices[0]?.message?.content || "Désolé, je n'ai pas pu générer de réponse.";
-        
-        res.json({ reply: replyText });
+        return res.json({ reply: replyText });
 
     } catch (error) {
-        console.error("Erreur avec l'assistant IA:", error);
-        res.status(500).json({ error: "Désolé, une erreur technique m'empêche de vous répondre pour le moment." });
+        console.error("Erreur technique avec l'assistant IA:", error.name || 'AI_ERROR');
+        return res.status(500).json({ error: "Désolé, une erreur technique m'empêche de vous répondre pour le moment." });
     }
 };
 
+/**
+ * Assistant privé (utilisateur connecté)
+ * POST /api/assistant/private
+ */
 const chatWithPrivateAssistant = async (req, res) => {
     try {
         const { messages, context } = req.body;
-        const userRole = req.user.role; 
+        const userRole = req.user?.role;
+        const userId = req.user?.id;
 
-        if (!messages || !Array.isArray(messages)) {
-            return res.status(400).json({ error: "Le tableau 'messages' est requis." });
+        if (!userId || typeof userId !== 'string' || !userId.trim()) {
+            return res.status(401).json({ error: 'Session utilisateur invalide.' });
         }
 
+        // 1. Validation fail-closed des entrées utilisateur
+        const validation = validateChatMessages(messages);
+        if (!validation.isValid) {
+            return res.status(400).json({ error: validation.error });
+        }
+
+        // 2. Contrôle et consommation atomique du quota (30/j par compte)
+        const quotaResult = await enforceQuota({
+            scope: 'authenticated_user',
+            subjectIdentifier: String(userId),
+            hourLimit: null,
+            dayLimit: 30
+        });
+
+        if (!quotaResult.allowed) {
+            res.set('Retry-After', String(quotaResult.retryAfter));
+            return res.status(quotaResult.status).json(quotaResult.response);
+        }
+
+        // 3. Appel Groq sécurisé
         let groq;
         try {
             groq = getClient();
-        } catch(e) {
-             return res.status(503).json({ error: "Clé API Groq manquante." });
+        } catch (_e) {
+            return res.status(503).json({ error: "L'assistant privé est temporairement indisponible." });
         }
 
-        let systemInstruction = "";
+        let systemInstruction = '';
+        const safeContext = (typeof context === 'string' && context.length <= 500) ? context.trim() : 'Non fourni';
+
         if (userRole === 'superadmin') {
             systemInstruction = `Tu es le conseiller stratégique exclusif du SuperAdmin (Propriétaire de Yziow).
-            Contexte global : ${context || 'Non fourni'}
+            Contexte global : ${safeContext}
             
             ${MANUEL_DIRECTEUR}
             
@@ -293,7 +347,7 @@ const chatWithPrivateAssistant = async (req, res) => {
             5. N'invente pas de taux de commission. La commission Yziow sur les dons est strictement de 5% via Yziow Pay.`;
         } else if (['admin', 'directeur', 'directeur_general', 'comptable'].includes(userRole)) {
             systemInstruction = `Tu es l'assistant personnel de gestion pour la direction de l'école.
-            Contexte de l'école : ${context || 'Non fourni'}
+            Contexte de l'école : ${safeContext}
             
             ${MANUEL_DIRECTEUR}
             
@@ -307,7 +361,7 @@ const chatWithPrivateAssistant = async (req, res) => {
             7. SUPPORT TECHNIQUE : Si l'utilisateur signale un bug, un bouton qui ne marche pas, ou un problème technique, invite-le à utiliser le menu "Support" de son tableau de bord pour envoyer un message direct à l'équipe Yziow. Tu ne peux pas résoudre les bugs techniques toi-même.`;
         } else if (userRole === 'parent') {
             systemInstruction = `Tu es un tuteur et assistant pour les parents d'élèves sur Yziow.
-            Contexte : ${context || 'Non fourni'}
+            Contexte : ${safeContext}
             
             === GUIDE DU PARENT YZIOW ===
             - CONSULTER LES NOTES : Tableau de bord → "Bulletins" → sélectionner l'enfant → voir les notes et le bulletin.
@@ -326,7 +380,7 @@ const chatWithPrivateAssistant = async (req, res) => {
             5. Si le parent signale un bug ou un problème technique, invite-le à contacter le support depuis son tableau de bord.`;
         } else {
             systemInstruction = `Tu es un assistant pédagogique pour le personnel de l'école (Professeur, Surveillant).
-            Contexte : ${context || 'Non fourni'}
+            Contexte : ${safeContext}
             
             === GUIDE DU PERSONNEL YZIOW ===
             - SAISIR DES NOTES : Tableau de bord → "Notes" → sélectionner la classe et la matière → saisir les notes → Valider.
@@ -348,46 +402,74 @@ const chatWithPrivateAssistant = async (req, res) => {
         const response = await groq.chat.completions.create({
             model: GROQ_MODEL,
             messages: [
-                { role: "system", content: systemInstruction },
+                { role: 'system', content: systemInstruction },
                 ...history
             ],
             temperature: 0.7,
             max_tokens: 1024,
         });
 
-        res.json({ reply: response.choices[0]?.message?.content || "Désolé, aucune réponse générée." });
+        return res.json({ reply: response.choices[0]?.message?.content || 'Désolé, aucune réponse générée.' });
     } catch (error) {
-        console.error("Erreur avec l'assistant privé:", error);
-        res.status(500).json({ error: "Erreur technique de l'assistant privé." });
+        console.error("Erreur technique avec l'assistant privé:", error.name || 'AI_ERROR');
+        return res.status(500).json({ error: "Erreur technique de l'assistant privé." });
     }
 };
 
+/**
+ * Génération de retours pédagogiques
+ * POST /api/assistant/pedagogy
+ */
 const generatePedagogicalFeedback = async (req, res) => {
     try {
-        const { studentName, matiere, notes } = req.body;
-        
+        const userId = req.user?.id;
+        if (!userId || typeof userId !== 'string' || !userId.trim()) {
+            return res.status(401).json({ error: 'Session utilisateur requise.' });
+        }
+
+        // 1. Validation fail-closed des entrées utilisateur
+        const validation = validatePedagogicalInput(req.body);
+        if (!validation.isValid) {
+            return res.status(400).json({ error: validation.error });
+        }
+
+        // 2. Contrôle et consommation atomique du quota (60/j par compte)
+        const quotaResult = await enforceQuota({
+            scope: 'pedagogical_user',
+            subjectIdentifier: String(userId),
+            hourLimit: null,
+            dayLimit: 60
+        });
+
+        if (!quotaResult.allowed) {
+            res.set('Retry-After', String(quotaResult.retryAfter));
+            return res.status(quotaResult.status).json(quotaResult.response);
+        }
+
+        // 3. Appel Groq sécurisé
         let groq;
         try {
             groq = getClient();
-        } catch(e) {
-             return res.status(503).json({ error: "Clé API Groq manquante." });
+        } catch (_e) {
+            return res.status(503).json({ error: 'Clé API Groq manquante.' });
         }
 
+        const { studentName, matiere, notes } = validation;
         const prompt = `Génère une appréciation de bulletin scolaire très courte (1 ou 2 phrases maximum) pour l'élève ${studentName} dans la matière "${matiere}". 
         Voici ses notes récentes : ${notes.join(', ')}. 
         L'appréciation doit être professionnelle, encourageante si les notes sont basses, ou félicitante si elles sont hautes. Ne dis pas "Bonjour", donne uniquement le texte de l'appréciation directement exploitable sur un bulletin.`;
 
         const response = await groq.chat.completions.create({
             model: GROQ_MODEL,
-            messages: [{ role: "user", content: prompt }],
+            messages: [{ role: 'user', content: prompt }],
             temperature: 0.4,
             max_tokens: 200,
         });
 
-        res.json({ appreciation: response.choices[0]?.message?.content?.trim() || "Bon travail dans l'ensemble." });
+        return res.json({ appreciation: response.choices[0]?.message?.content?.trim() || "Bon travail dans l'ensemble." });
     } catch (error) {
-        console.error("Erreur génération appréciation:", error);
-        res.status(500).json({ error: "Erreur lors de la génération de l'appréciation." });
+        console.error('Erreur technique génération appréciation:', error.name || 'AI_ERROR');
+        return res.status(500).json({ error: "Erreur lors de la génération de l'appréciation." });
     }
 };
 

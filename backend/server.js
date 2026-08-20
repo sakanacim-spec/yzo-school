@@ -10,13 +10,37 @@ if (fs.existsSync(rootEnvPath)) {
     require('dotenv').config({ path: rootEnvPath, quiet: true });
 }
 
-const requiredVariables = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET'];
+const requiredVariables = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET', 'AI_QUOTA_HASH_SECRET'];
 const missingVariables = requiredVariables.filter(name => !process.env[name]);
 
 if (missingVariables.length > 0) {
     console.error('VARIABLE_ABSENTE');
     process.exitCode = 1;
     throw new Error('VARIABLE_ABSENTE');
+}
+
+// Validation stricte de AI_QUOTA_HASH_SECRET (longueur minimale 32 caractères)
+const hashSecret = process.env.AI_QUOTA_HASH_SECRET;
+if (!hashSecret || typeof hashSecret !== 'string' || hashSecret.trim().length < 32) {
+    console.error('CONFIGURATION_INVALIDE: AI_QUOTA_HASH_SECRET doit comporter au moins 32 caractères.');
+    process.exitCode = 1;
+    throw new Error('CONFIGURATION_INVALIDE');
+}
+
+// Validation stricte au démarrage de AI_GLOBAL_DAILY_LIMIT
+if (process.env.AI_GLOBAL_DAILY_LIMIT !== undefined && process.env.AI_GLOBAL_DAILY_LIMIT !== null && process.env.AI_GLOBAL_DAILY_LIMIT !== '') {
+    const rawLimit = String(process.env.AI_GLOBAL_DAILY_LIMIT).trim();
+    if (!/^\d+$/.test(rawLimit)) {
+        console.error('CONFIGURATION_INVALIDE: AI_GLOBAL_DAILY_LIMIT doit être un entier strict.');
+        process.exitCode = 1;
+        throw new Error('CONFIGURATION_INVALIDE');
+    }
+    const numLimit = Number(rawLimit);
+    if (!Number.isSafeInteger(numLimit) || numLimit < 1 || numLimit > 100000) {
+        console.error('CONFIGURATION_INVALIDE: AI_GLOBAL_DAILY_LIMIT doit être compris entre 1 et 100000.');
+        process.exitCode = 1;
+        throw new Error('CONFIGURATION_INVALIDE');
+    }
 }
 
 const express = require('express');
