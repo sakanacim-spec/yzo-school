@@ -152,3 +152,18 @@ export function formatLocalizedCurrency(
     return `${amount} ${currencyCode || 'FCFA'}`;
   }
 }
+
+/**
+ * Récupère la langue active stockée dans le navigateur (localStorage) avec repli 'fr'.
+ */
+export function getStoredLanguage(): SupportedLanguage {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const stored = localStorage.getItem('yziow_lang') || localStorage.getItem('lang');
+      if (stored) return normalizeLanguage(stored);
+    } catch {
+      // ignore localStorage errors
+    }
+  }
+  return DEFAULT_LANGUAGE;
+}

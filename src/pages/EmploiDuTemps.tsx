@@ -12,6 +12,12 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { t } from '../i18n';
 import type { Language } from '../i18n';
+import {
+    initI18nPdfDoc,
+    normalizeLanguage,
+    isRtlLanguage,
+} from '../utils/pdfEngine';
+import { getAcademicTranslations } from '../utils/pdfAcademicTranslations';
 
 // ── Constantes configurables ─────────────────────────────────
 const JOURS_SEMAINE = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] as const;
@@ -52,7 +58,7 @@ const COULEURS = [
 ];
 
 // ── Export PDF ───────────────────────────────────────────────
-const exportPDF = (
+const exportPDF = async (
     seances: Seance[],
     matieres: any[],
     selectedClasse: string,
@@ -62,34 +68,49 @@ const exportPDF = (
     viewProf: string,
     schoolName: string,
     language: Language
-) => {
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const title = viewMode === 'prof' && viewProf
-        ? (t(language, 'schedule.scheduleProf') || 'Emploi du temps — {{prof}}').replace('{{prof}}', viewProf)
-        : (t(language, 'schedule.scheduleClass') || 'Emploi du temps — {{class}}').replace('{{class}}', selectedClasse);
+): Promise<jsPDF> => {
+    const normLang = normalizeLanguage(language);
+    const tAcad = getAcademicTranslations(normLang);
+    const isRtl = isRtlLanguage(normLang);
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text(title, 148, 18, { align: 'center' });
+    const pdfInst = await initI18nPdfDoc({ language: normLang, orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const { doc, prepareText, effectiveFont } = pdfInst;
+
+    const baseTitle = viewMode === 'prof' && viewProf
+        ? `${tAcad.timetableTitle} — ${viewProf}`
+        : `${tAcad.timetableTitle} — ${selectedClasse}`;
+
+    doc.setFont(effectiveFont, 'bold');
+    doc.setFontSize(16);
+    doc.text(prepareText(baseTitle), 148, 16, { align: 'center' });
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(schoolName, 148, 26, { align: 'center' });
+    doc.setFont(effectiveFont, 'normal');
+    doc.text(prepareText(schoolName), 148, 24, { align: 'center' });
 
     const filteredSeances = viewMode === 'prof' && viewProf
         ? seances.filter(s => s.professeur === viewProf)
         : seances.filter(s => s.classe === selectedClasse);
 
-    // Construire le tableau
-    const head = [[t(language, 'schedule.time') || 'Heure', ...jours.map(j => t(language, 'schedule.days.' + j.toLowerCase()) || j)]];
-    const body: string[][] = [];
+    const translatedDays = jours.map(j => {
+        const key = j.toLowerCase();
+        const tr = t(normLang as Language, `schedule.days.${key}`);
+        return tr || j;
+    });
 
-    // Trouver les séances uniques par slot/jour
-    const usedSlots = new Set(filteredSeances.flatMap(s => [s.heureDebut, s.heureFin]));
-    const relevantSlots = slots.filter(s => usedSlots.has(s) || true).slice(0, -1);
+    const orderedJours = isRtl ? [...jours].reverse() : jours;
+    const orderedTranslatedDays = isRtl ? [...translatedDays].reverse() : translatedDays;
+
+    const head = [[
+        prepareText(tAcad.time),
+        ...orderedTranslatedDays.map(j => prepareText(j))
+    ]];
+
+    const body: string[][] = [];
+    const relevantSlots = slots.slice(0, -1);
 
     relevantSlots.forEach(slot => {
         const row: string[] = [slot];
-        jours.forEach(jour => {
+        orderedJours.forEach(jour => {
             const seance = filteredSeances.find(s =>
                 s.jour === jour &&
                 timeToMin(s.heureDebut) <= timeToMin(slot) &&
@@ -97,7 +118,11 @@ const exportPDF = (
             );
             if (seance) {
                 const mat = matieres.find(m => m.id === seance.matiereId);
-                row.push(`${mat?.nom || '?'}\n${seance.professeur || ''}\n${seance.salle || ''}`);
+                const matName = mat?.nom || '?';
+                const profName = seance.professeur || '';
+                const salleName = seance.salle || '';
+                const cellText = [matName, profName, salleName].filter(Boolean).join('\n');
+                row.push(prepareText(cellText));
             } else {
                 row.push('');
             }
@@ -108,14 +133,32 @@ const exportPDF = (
     autoTable(doc, {
         head,
         body,
-        startY: 32,
+        startY: 30,
         theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+        headStyles: {
+            font: effectiveFont,
+            fillColor: [79, 70, 229],
+            textColor: 255,
+            fontStyle: 'bold',
+            halign: 'center',
+            fontSize: 8,
+        },
         alternateRowStyles: { fillColor: [248, 248, 255] },
-        styles: { fontSize: 7, cellPadding: 2 },
+        styles: {
+            font: effectiveFont,
+            fontSize: 7.5,
+            cellPadding: 2,
+            halign: isRtl ? 'right' : 'center',
+            valign: 'middle'
+        },
     });
 
-    doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
+    const cleanTitle = baseTitle.replace(/[^a-zA-Z0-9_\u0600-\u06FF\u0400-\u04FF\u4e00-\u9fa5]/g, '_');
+    if (typeof window !== 'undefined' && doc.save) {
+        doc.save(`${cleanTitle}.pdf`);
+    }
+
+    return doc;
 };
 
 // ── Composant principal ──────────────────────────────────────

@@ -208,6 +208,14 @@ export function processBiDiText(text: string, isRtl: boolean): string {
   if (!text || typeof text !== 'string') return '';
   if (!isRtl) return text;
 
+  // Si le texte contient des retours à la ligne, traiter chaque ligne séparément
+  if (text.includes('\n')) {
+    return text
+      .split('\n')
+      .map((line) => processBiDiText(line, isRtl))
+      .join('\n');
+  }
+
   // 1. Façonner d'abord les caractères arabes
   const shaped = shapeArabicText(text);
 

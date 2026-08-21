@@ -14,6 +14,12 @@ import {
 } from 'lucide-react';
 import { t } from '../i18n';
 import type { Language } from '../i18n';
+import {
+    initI18nPdfDoc,
+    normalizeLanguage,
+    isRtlLanguage,
+} from '../utils/pdfEngine';
+import { getAcademicTranslations } from '../utils/pdfAcademicTranslations';
 
 // ============================================================
 // COMPOSANT CARTE — Affichage écran
@@ -241,12 +247,17 @@ const generateCartesPDF = async (
     schoolLogo: string | null,
     onProgress: (n: number) => void,
     language: Language
-): Promise<void> => {
+): Promise<jsPDF> => {
+    const normLang = normalizeLanguage(language);
+    const tAcad = getAcademicTranslations(normLang);
+    const isRtl = isRtlLanguage(normLang);
+
     if (!students.length) {
-        throw new Error(t(language, 'idCard.noStudentSelected') || 'Aucun élève sélectionné');
+        throw new Error(tAcad.notProvided);
     }
 
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pdfInst = await initI18nPdfDoc({ language: normLang, orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const { doc, prepareText, effectiveFont } = pdfInst;
     const bannerH = 13;
 
     // ── Mise en page ────────────────────────────────────────
@@ -310,7 +321,7 @@ const generateCartesPDF = async (
         // ── Logo Frame ────────────────────────────────────
         const logoMM_W = 12;
         const logoMM_H = 10;
-        const logoX   = x + 4;
+        const logoX   = isRtl ? x + cardW - logoMM_W - 4 : x + 4;
         const logoY   = y + (bannerH - logoMM_H) / 2;
 
         doc.setFillColor(255, 255, 255);
@@ -321,26 +332,26 @@ const generateCartesPDF = async (
         } else {
             doc.setTextColor(15, 23, 42);
             doc.setFontSize(4);
-            doc.setFont('helvetica', 'bold');
+            doc.setFont(effectiveFont, 'bold');
             doc.text('ID', logoX + logoMM_W / 2, logoY + 6, { align: 'center' });
         }
 
         // ── Titre établissement ─────────────
-        const txtX      = logoX + logoMM_W + 3;
+        const txtX = isRtl ? x + cardW - logoMM_W - 7 : logoX + logoMM_W + 3;
         doc.setTextColor(15, 23, 42); // Bleu nuit (clair)
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        const schoolLine = (schoolName || t(language, 'idCard.schoolDefault') || 'ÉCOLE').toUpperCase();
-        doc.text(schoolLine, txtX, y + 6);
+        doc.setFontSize(7.5);
+        doc.setFont(effectiveFont, 'bold');
+        const schoolLine = (schoolName || tAcad.propertyNotice).toUpperCase();
+        doc.text(prepareText(schoolLine), txtX, y + 6, { align: isRtl ? 'right' : 'left' } as any);
         
         doc.setFontSize(4);
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(effectiveFont, 'bold');
         doc.setTextColor(15, 23, 42);
-        doc.text(`${t(language, 'idCard.cardTitle') || "CARTE D'IDENTITÉ SCOLAIRE"} • ${schoolYear}`, txtX, y + 10);
+        doc.text(prepareText(`${tAcad.idCardTitle} • ${schoolYear}`), txtX, y + 10, { align: isRtl ? 'right' : 'left' } as any);
 
         // ── QR Code Frame ─────────────────────────────────
         const qrMM    = 21;
-        const qrX     = x + cardW - qrMM - 4;
+        const qrX     = isRtl ? x + 4 : x + cardW - qrMM - 4;
         const qrY     = y + bannerH + 5;
         const qrPad   = 1.5;
 
@@ -356,22 +367,22 @@ const generateCartesPDF = async (
 
         doc.setTextColor(100, 116, 139);
         doc.setFontSize(3.5);
-        doc.setFont('helvetica', 'bold');
-        doc.text((t(language, 'idCard.secureScan') || "SCAN SÉCURISÉ").toUpperCase(), qrX + qrMM / 2, qrY + qrMM + 3, { align: 'center' });
+        doc.setFont(effectiveFont, 'bold');
+        doc.text(prepareText(tAcad.secureScan.toUpperCase()), qrX + qrMM / 2, qrY + qrMM + 3, { align: 'center' });
 
         // Identifiant raccourci
         doc.setTextColor(255, 255, 255);
         // @ts-ignore
         doc.setGState(new doc.GState({ opacity: 0.3 }));
         doc.setFontSize(5);
-        doc.text(student.id.split('-')[0].toUpperCase(), qrX + qrMM / 2, y + cardH - 3, { align: 'center' });
+        doc.text(prepareText(student.id.split('-')[0].toUpperCase()), qrX + qrMM / 2, y + cardH - 3, { align: 'center' });
         // @ts-ignore
         doc.setGState(new doc.GState({ opacity: 1 }));
 
         // ── Photo passeport ──────────────────────────────
-        const photoOffsetX = 6; 
         const photoW = 18;
         const photoH = 22;
+        const photoOffsetX = isRtl ? cardW - photoW - 6 : 6;
         const photoY = y + bannerH + 5;
 
         // Cadre photo (Premium)
@@ -400,32 +411,32 @@ const generateCartesPDF = async (
         doc.circle(x + photoOffsetX + photoW - 1, photoY + photoH - 1, 1.5, 'S');
 
         // ── Infos Élève : Nom ────────────────────────────
-        const infoStartX = x + photoOffsetX + photoW + 4;
+        const infoStartX = isRtl ? x + cardW - photoW - 10 : x + photoOffsetX + photoW + 4;
         const nameMaxW   = cardW - qrMM - photoW - 16;
         const fullName   = `${student.prenom} ${student.nom}`.toUpperCase();
         
         doc.setTextColor(148, 163, 184); // Muted
         doc.setFontSize(4);
-        doc.setFont('helvetica', 'bold');
-        doc.text((t(language, 'idCard.fullnameLabel') || "NOM & PRÉNOMS").toUpperCase(), infoStartX, photoY + 2);
+        doc.setFont(effectiveFont, 'bold');
+        doc.text(prepareText(tAcad.fullName.toUpperCase()), infoStartX, photoY + 2, { align: isRtl ? 'right' : 'left' } as any);
 
         doc.setTextColor(255, 255, 255); // Blanc
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(fullName.length > 20 ? 7 : 8);
-        const nameLines = doc.splitTextToSize(fullName, nameMaxW);
-        doc.text(nameLines, infoStartX, photoY + 6);
+        doc.setFont(effectiveFont, 'bold');
+        doc.setFontSize(fullName.length > 20 ? 6.5 : 7.5);
+        const nameLines = doc.splitTextToSize(prepareText(fullName), nameMaxW);
+        doc.text(nameLines, infoStartX, photoY + 6, { align: isRtl ? 'right' : 'left' } as any);
 
         // ── Tags (Classe & Contact) ─────────────────────────────────
         const tagY = photoY + 12;
         
         doc.setTextColor(148, 163, 184);
         doc.setFontSize(4);
-        doc.text((t(language, 'idCard.classLabel') || "CLASSE").toUpperCase(), infoStartX, tagY);
+        doc.text(prepareText(tAcad.classLabel.toUpperCase()), infoStartX, tagY, { align: isRtl ? 'right' : 'left' } as any);
         
         doc.setFillColor(234, 179, 8); // Or
         // @ts-ignore
         doc.setGState(new doc.GState({ opacity: 0.15 }));
-        doc.roundedRect(infoStartX, tagY + 1, 20, 5, 1, 1, 'F');
+        doc.roundedRect(isRtl ? infoStartX - 20 : infoStartX, tagY + 1, 20, 5, 1, 1, 'F');
         // @ts-ignore
         doc.setGState(new doc.GState({ opacity: 1 }));
         
@@ -433,22 +444,22 @@ const generateCartesPDF = async (
         // @ts-ignore
         doc.setGState(new doc.GState({ opacity: 0.3 }));
         doc.setLineWidth(0.2);
-        doc.roundedRect(infoStartX, tagY + 1, 20, 5, 1, 1, 'S');
+        doc.roundedRect(isRtl ? infoStartX - 20 : infoStartX, tagY + 1, 20, 5, 1, 1, 'S');
         // @ts-ignore
         doc.setGState(new doc.GState({ opacity: 1 }));
 
         doc.setTextColor(252, 211, 77); // Text Or clair
         doc.setFontSize(6.5);
-        doc.setFont('helvetica', 'bold');
-        doc.text(student.classe, infoStartX + 10, tagY + 4.5, { align: 'center' });
+        doc.setFont(effectiveFont, 'bold');
+        doc.text(prepareText(student.classe), isRtl ? infoStartX - 10 : infoStartX + 10, tagY + 4.5, { align: 'center' });
 
         const phoneY = tagY + 10;
         doc.setTextColor(148, 163, 184);
         doc.setFontSize(4);
-        doc.text((t(language, 'idCard.contactLabel') || "CONTACT").toUpperCase(), infoStartX, phoneY);
+        doc.text(prepareText(tAcad.contact.toUpperCase()), infoStartX, phoneY, { align: isRtl ? 'right' : 'left' } as any);
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(6);
-        doc.text(student.telephone || (t(language, 'idCard.notProvided') || 'Non renseigné'), infoStartX, phoneY + 4);
+        doc.text(prepareText(student.telephone || tAcad.notProvided), infoStartX, phoneY + 4, { align: isRtl ? 'right' : 'left' } as any);
 
         // Progression
         cardIndex++;
@@ -460,15 +471,19 @@ const generateCartesPDF = async (
     for (let p = 1; p <= nbPages; p++) {
         doc.setPage(p);
         doc.setFontSize(5.5);
-        doc.setFont('helvetica', 'normal');
+        doc.setFont(effectiveFont, 'normal');
         doc.setTextColor(160, 160, 160);
         doc.text(
-            `${t(language, 'idCard.pdfFooter') || 'Cartes scolaires'} ${schoolYear} — ${schoolName} — Page ${p}/${nbPages}`,
+            prepareText(`${tAcad.idCardTitle} ${schoolYear} — ${schoolName} — ${tAcad.page} ${p}/${nbPages}`),
             105, 293, { align: 'center' }
         );
     }
 
-    doc.save(`cartes_scolaires_${schoolYear.replace(/\//g, '-')}.pdf`);
+    if (typeof window !== 'undefined' && doc.save) {
+        doc.save(`cartes_scolaires_${schoolYear.replace(/\//g, '-')}.pdf`);
+    }
+
+    return doc;
 };
 
 // ============================================================
