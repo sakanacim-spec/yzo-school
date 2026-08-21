@@ -1,12 +1,12 @@
-import jsPDF from 'jspdf';
-import { Student, AppSettings } from '../types';
-import { getCycleByClass } from '../data/classes';
-import { getCountryName } from '../data/countries';
+import { jsPDF } from 'jspdf';
+import type { Student, AppSettings } from '../types/index.ts';
+import { getCycleByClass } from '../data/classes.ts';
+import { getCountryName } from '../data/countries.ts';
 
-import { formatMontant } from './helpers';
-
-const formatMoney = (amount: number, currency?: string): string => {
-  return formatMontant(amount, currency);
+export const formatMoney = (amount: number, currency?: string): string => {
+  const actualCurrency = (currency && currency.trim()) || 'FCFA';
+  const formatted = new Intl.NumberFormat('fr-FR').format(amount);
+  return formatted.replace(/\u202F|\u00A0/g, ' ') + ' ' + actualCurrency;
 };
 
 // Couleurs professionnelles
@@ -35,9 +35,10 @@ import {
   isRtlLanguage,
   getFontDescriptorForLanguage,
   ensureFontRegistered,
-} from './pdfEngine';
-import { getFinancialTranslations } from './pdfFinancialTranslations';
-import { getStoredLanguage } from '../i18n';
+  getStoredLanguage,
+} from './pdfEngine.ts';
+import { getFinancialTranslations } from './pdfFinancialTranslations.ts';
+import { getAcademicTranslations } from './pdfAcademicTranslations.ts';
 
 // En-tête commun pour tous les documents
 export const drawHeader = (
@@ -123,7 +124,13 @@ export const drawHeader = (
 };
 
 // Pied de page commun
-const drawFooter = (doc: jsPDF, pageNum?: number, totalPages?: number) => {
+const drawFooter = (doc: jsPDF, pageNum?: number, totalPages?: number, lang?: string) => {
+  const normLang = normalizeLanguage(lang || getStoredLanguage());
+  const tAcad = getAcademicTranslations(normLang);
+  const isRtl = isRtlLanguage(normLang);
+  const fontDesc = getFontDescriptorForLanguage(normLang);
+  const fontName = ensureFontRegistered(doc, fontDesc);
+
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
@@ -133,14 +140,19 @@ const drawFooter = (doc: jsPDF, pageNum?: number, totalPages?: number) => {
   
   doc.setFontSize(8);
   doc.setTextColor(128, 128, 128);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Document généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 15, pageHeight - 12);
+  doc.setFont(fontName, 'normal');
+  const now = new Date();
+  const dateStr = `${tAcad.generatedOn} ${formatLocalizedDate(now, normLang)} ${tAcad.at} ${now.toLocaleTimeString(normLang === 'ar' ? 'ar-SA' : 'fr-FR')}`;
+  doc.text(prepareTextForPdf(dateStr, normLang), isRtl ? pageWidth - 15 : 15, pageHeight - 12, { align: isRtl ? 'right' : 'left' } as any);
   
   if (pageNum && totalPages) {
-    doc.text(`Page ${pageNum}/${totalPages}`, pageWidth - 15, pageHeight - 12, { align: 'right' });
+    const pageStr = `${tAcad.page} ${pageNum}/${totalPages}`;
+    doc.text(prepareTextForPdf(pageStr, normLang), isRtl ? 15 : pageWidth - 15, pageHeight - 12, { align: isRtl ? 'left' : 'right' } as any);
   }
   
-  doc.text('Signature et cachet:', pageWidth - 60, pageHeight - 12);
+  const stampText = `${tAcad.signature} / ${tAcad.direction}`;
+  const stampX = isRtl ? 60 : pageWidth - 60;
+  doc.text(prepareTextForPdf(stampText, normLang), stampX, pageHeight - 12, { align: 'center' } as any);
 };
 
 export const generateReceipt = (student: Student, settings: AppSettings): void => {
@@ -325,7 +337,9 @@ export const generateReceipt = (student: Student, settings: AppSettings): void =
   }
   
   drawFooter(doc);
-  doc.save(`Recu_${student.nom}_${student.prenom}.pdf`);
+  if (typeof window !== 'undefined' && doc.save) {
+    doc.save(`Recu_${student.nom}_${student.prenom}.pdf`);
+  }
 };
 
 export const generateStudentCard = (student: Student, settings: AppSettings): void => {
@@ -856,7 +870,7 @@ export const generatePaymentReceipt = async (
   student: any,
   settings: AppSettings,
   targetLang?: string
-): Promise<void> => {
+): Promise<jsPDF> => {
   const lang = targetLang || getStoredLanguage();
   const tFin = getFinancialTranslations(lang);
   const pdfInst = await initI18nPdfDoc({
@@ -977,60 +991,77 @@ export const generatePaymentReceipt = async (
     }
   }
   
-  doc.save(`Recu_${recuId}.pdf`);
+  if (typeof window !== 'undefined' && doc.save) {
+    doc.save(`Recu_${recuId}.pdf`);
+  }
+  return doc;
 };
 
 // ── RELEVÉ DE NOTES PARENT (Généré à la demande) ──
-const getAppreciationLocal = (moy: number): string => {
-  if (moy >= 16) return 'Très Bien';
-  if (moy >= 14) return 'Bien';
-  if (moy >= 12) return 'Assez Bien';
-  if (moy >= 10) return 'Passable';
-  if (moy >= 8) return 'Insuffisant';
-  if (moy >= 5) return 'Faible';
-  return 'Médiocre';
+const getAppreciationAcademic = (moy: number, tAcad: any): string => {
+  if (moy >= 16) return tAcad.appVeryGood;
+  if (moy >= 14) return tAcad.appGood;
+  if (moy >= 12) return tAcad.appFairlyGood;
+  if (moy >= 10) return tAcad.appPassing;
+  if (moy >= 8) return tAcad.appInsufficient;
+  if (moy >= 5) return tAcad.appWeak;
+  return tAcad.appPoor;
 };
 
-export const generateGradeReport = (
+export const generateGradeReport = async (
   child: any,
   period: string,
   notes: any[],
   matieres: any[],
   classeMatieres: any[],
-  settings: AppSettings
-): void => {
-  const doc = new jsPDF();
+  settings: AppSettings,
+  targetLang?: string
+): Promise<jsPDF> => {
+  const normLang = normalizeLanguage(targetLang || getStoredLanguage());
+  const tAcad = getAcademicTranslations(normLang);
+  const isRtl = isRtlLanguage(normLang);
+
+  const pdfInst = await initI18nPdfDoc({ language: normLang, orientation: 'portrait' });
+  const { doc, prepareText, effectiveFont } = pdfInst;
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
   
-  let y = drawHeader(doc, settings, `RELEVÉ DE NOTES - ${period}`, 14);
+  let y = drawHeader(doc, settings, `${tAcad.transcriptTitle} - ${period}`, 14, normLang);
   
   // Section Identification Élève
   drawRoundedRect(doc, 15, y, pageWidth - 30, 24, 3, COLORS.light);
   
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(effectiveFont, 'bold');
+  doc.setFontSize(9.5);
   doc.setTextColor(...COLORS.dark);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('Nom & Prénom(s) :', 20, y + 8);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${child.nom} ${child.prenom}`, 55, y + 8);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('Classe :', 20, y + 16);
-  doc.setFont('helvetica', 'normal');
-  doc.text(child.classe, 55, y + 16);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('Matricule :', 110, y + 8);
-  doc.setFont('helvetica', 'normal');
-  doc.text(child.adsn || 'N/A', 132, y + 8);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('Année Scolaire :', 110, y + 16);
-  doc.setFont('helvetica', 'normal');
-  doc.text(settings.schoolYear || '', 142, y + 16);
+
+  const col1LabelX = isRtl ? pageWidth - 20 : 20;
+  const col1ValX   = isRtl ? pageWidth - 60 : 58;
+  const col2LabelX = isRtl ? pageWidth - 105 : 118;
+  const col2ValX   = isRtl ? pageWidth - 148 : 150;
+  const alignLabel = isRtl ? 'right' : 'left';
+  const alignVal   = isRtl ? 'right' : 'left';
+
+  // Ligne 1 : Nom & Prénom(s) | Matricule
+  doc.setFont(effectiveFont, 'bold');
+  doc.text(prepareText(`${tAcad.fullName} :`), col1LabelX, y + 8, { align: alignLabel } as any);
+  doc.setFont(effectiveFont, 'normal');
+  doc.text(prepareText(`${child.nom} ${child.prenom}`), col1ValX, y + 8, { align: alignVal } as any);
+
+  doc.setFont(effectiveFont, 'bold');
+  doc.text(prepareText(`${tAcad.matricule} :`), col2LabelX, y + 8, { align: alignLabel } as any);
+  doc.setFont(effectiveFont, 'normal');
+  doc.text(prepareText(child.adsn || child.id || tAcad.notProvided), col2ValX, y + 8, { align: alignVal } as any);
+
+  // Ligne 2 : Classe | Année Scolaire
+  doc.setFont(effectiveFont, 'bold');
+  doc.text(prepareText(`${tAcad.classLabel} :`), col1LabelX, y + 16, { align: alignLabel } as any);
+  doc.setFont(effectiveFont, 'normal');
+  doc.text(prepareText(child.classe || ''), col1ValX, y + 16, { align: alignVal } as any);
+
+  doc.setFont(effectiveFont, 'bold');
+  doc.text(prepareText(`${tAcad.schoolYear} :`), col2LabelX, y + 16, { align: alignLabel } as any);
+  doc.setFont(effectiveFont, 'normal');
+  doc.text(prepareText(settings.schoolYear || settings.academicYear || ''), col2ValX, y + 16, { align: alignVal } as any);
   
   y += 32;
   
@@ -1039,15 +1070,15 @@ export const generateGradeReport = (
   doc.rect(15, y, pageWidth - 30, 8, 'F');
   
   doc.setTextColor(...COLORS.white);
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setFont(effectiveFont, 'bold');
   
-  doc.text('MATIÈRE', 16, y + 5.5);
-  doc.text('COEF', 80, y + 5.5, { align: 'center' });
-  doc.text('DEV/INTERRO', 102, y + 5.5, { align: 'center' });
-  doc.text('COMPOSITION', 128, y + 5.5, { align: 'center' });
-  doc.text('MOY / 20', 154, y + 5.5, { align: 'center' });
-  doc.text('APPRÉCIATION', 180, y + 5.5, { align: 'center' });
+  doc.text(prepareText(tAcad.subject.toUpperCase()), isRtl ? pageWidth - 18 : 18, y + 5.5, { align: isRtl ? 'right' : 'left' } as any);
+  doc.text(prepareText(tAcad.coeffShort.toUpperCase()), 76, y + 5.5, { align: 'center' });
+  doc.text(prepareText(tAcad.homeworkGrade.toUpperCase()), 98, y + 5.5, { align: 'center' });
+  doc.text(prepareText(tAcad.compositionGrade.toUpperCase()), 124, y + 5.5, { align: 'center' });
+  doc.text(prepareText(`${tAcad.average.toUpperCase()} / 20`), 152, y + 5.5, { align: 'center' });
+  doc.text(prepareText(tAcad.appreciation.toUpperCase()), 180, y + 5.5, { align: 'center' });
   
   y += 8;
   
@@ -1057,7 +1088,7 @@ export const generateGradeReport = (
   let totalCoef = 0;
   let totalPoints = 0;
   
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setTextColor(...COLORS.dark);
   
   childClasseMatieres.forEach((cm: any, index: number) => {
@@ -1090,21 +1121,21 @@ export const generateGradeReport = (
       doc.rect(15, y, pageWidth - 30, 8, 'F');
     }
     
-    doc.setFont('helvetica', 'bold');
-    doc.text(matiere.nom, 16, y + 5.5);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(effectiveFont, 'bold');
+    doc.text(prepareText(matiere.nom), isRtl ? pageWidth - 18 : 18, y + 5.5, { align: isRtl ? 'right' : 'left' } as any);
+    doc.setFont(effectiveFont, 'normal');
     doc.text(`${coef}`, 80, y + 5.5, { align: 'center' });
     doc.text(hasMoy ? moyClasseMat.toFixed(2) : '--', 102, y + 5.5, { align: 'center' });
     doc.text(hasCompo ? compo.toFixed(2) : '--', 128, y + 5.5, { align: 'center' });
     
     if (finalAvg !== null) {
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(effectiveFont, 'bold');
       if (finalAvg < 10) doc.setTextColor(...COLORS.danger);
       else doc.setTextColor(...COLORS.success);
       doc.text(finalAvg.toFixed(2), 154, y + 5.5, { align: 'center' });
       doc.setTextColor(...COLORS.dark);
-      doc.setFont('helvetica', 'normal');
-      doc.text(getAppreciationLocal(finalAvg), 180, y + 5.5, { align: 'center' });
+      doc.setFont(effectiveFont, 'normal');
+      doc.text(prepareText(getAppreciationAcademic(finalAvg, tAcad)), 180, y + 5.5, { align: 'center' });
     } else {
       doc.text('--', 154, y + 5.5, { align: 'center' });
       doc.text('--', 180, y + 5.5, { align: 'center' });
@@ -1122,19 +1153,20 @@ export const generateGradeReport = (
   doc.setFillColor(...COLORS.light);
   doc.rect(15, y, pageWidth - 30, 9, 'F');
   
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(effectiveFont, 'bold');
   doc.setFontSize(8.5);
-  doc.text('TOTAL', 16, y + 6);
+  doc.text(prepareText(tAcad.total.toUpperCase()), isRtl ? pageWidth - 18 : 18, y + 6, { align: isRtl ? 'right' : 'left' } as any);
   doc.text(`${totalCoef}`, 80, y + 6, { align: 'center' });
   
   const totalGenAvg = totalCoef > 0 ? totalPoints / totalCoef : 0;
-  doc.text(`Points: ${totalPoints.toFixed(2)}`, 115, y + 6, { align: 'center' });
+  doc.text(prepareText(`${tAcad.totalPoints}: ${totalPoints.toFixed(2)}`), 115, y + 6, { align: 'center' });
   
   if (totalCoef > 0) {
     if (totalGenAvg < 10) doc.setTextColor(...COLORS.danger);
     else doc.setTextColor(...COLORS.success);
     doc.setFontSize(9.5);
-    doc.text(`Moyenne Générale: ${totalGenAvg.toFixed(2)} / 20`, pageWidth - 18, y + 6, { align: 'right' });
+    const genAvgText = `${tAcad.generalAverage}: ${totalGenAvg.toFixed(2)} / 20`;
+    doc.text(prepareText(genAvgText), isRtl ? 18 : pageWidth - 18, y + 6, { align: isRtl ? 'left' : 'right' } as any);
   }
   
   doc.setTextColor(...COLORS.dark);
@@ -1142,19 +1174,27 @@ export const generateGradeReport = (
   
   // Signature block
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'italic');
-  doc.text('Signature de la Direction', pageWidth - 65, y);
+  doc.setFont(effectiveFont, 'italic');
+  const sigX = isRtl ? 65 : pageWidth - 65;
+  doc.text(prepareText(tAcad.directorSignature), sigX, y, { align: 'center' } as any);
   
   if (settings.schoolStamp) {
     try {
-      doc.addImage(settings.schoolStamp, 'PNG', pageWidth - 65, y + 4, 25, 25);
-    } catch (e) {
+      doc.addImage(settings.schoolStamp, 'PNG', isRtl ? 52 : pageWidth - 77, y + 4, 25, 25);
+    } catch (_e) {
       // ignore stamp errors
     }
   }
   
-  drawFooter(doc);
-  doc.save(`Releve_Notes_${child.prenom}_${child.nom}_${period.replace(/\s+/g, '_')}.pdf`);
+  drawFooter(doc, undefined, undefined, normLang);
+
+  const cleanChild = `${child.prenom}_${child.nom}`.replace(/[^a-zA-Z0-9_\u0600-\u06FF\u0400-\u04FF\u4e00-\u9fa5]/g, '_');
+  const cleanPeriod = period.replace(/[^a-zA-Z0-9_\u0600-\u06FF\u0400-\u04FF\u4e00-\u9fa5]/g, '_');
+  if (typeof window !== 'undefined' && doc.save) {
+    doc.save(`Releve_Notes_${cleanChild}_${cleanPeriod}.pdf`);
+  }
+
+  return doc;
 };
 
 // ── ÉTAT DE COMPTE / FACTURE SCOLARITÉ ──
@@ -1163,7 +1203,7 @@ export const generateStudentInvoice = async (
   payments: any[],
   settings: AppSettings,
   targetLang?: string
-): Promise<void> => {
+): Promise<jsPDF> => {
   const lang = targetLang || getStoredLanguage();
   const tFin = getFinancialTranslations(lang);
   const pdfInst = await initI18nPdfDoc({
@@ -1375,5 +1415,8 @@ export const generateStudentInvoice = async (
     doc.text(`${tFin.page} 1/1`, pageWidth - 20, pageHeight - 10, { align: 'right' });
   }
 
-  doc.save(`Facture_${student.prenom || ''}_${student.nom || ''}.pdf`);
+  if (typeof window !== 'undefined' && doc.save) {
+    doc.save(`Facture_${student.prenom || ''}_${student.nom || ''}.pdf`);
+  }
+  return doc;
 };

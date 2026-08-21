@@ -266,7 +266,8 @@ export const SaisieNotes: React.FC = () => {
             studentsData,
             classAverage !== null ? classAverage.toFixed(2) : '--',
             settings,
-            evalConfigs
+            evalConfigs,
+            language as Language
         );
     };
 

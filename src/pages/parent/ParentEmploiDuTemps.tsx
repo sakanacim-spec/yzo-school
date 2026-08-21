@@ -7,7 +7,14 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { t } from '../../i18n';
 import type { Language } from '../../i18n';
+import {
+    initI18nPdfDoc,
+    normalizeLanguage,
+    isRtlLanguage,
+} from '../../utils/pdfEngine';
+import { getAcademicTranslations } from '../../utils/pdfAcademicTranslations';
 
 const generateSlots = (from: string, to: string, stepMin = 30): string[] => {
     const slots: string[] = [];
@@ -30,7 +37,7 @@ const timeToMin = (t: string) => {
     return h * 60 + m;
 };
 
-const exportPDF = (
+const exportPDF = async (
     seances: Seance[],
     matieres: any[],
     selectedClasse: string,
@@ -39,28 +46,45 @@ const exportPDF = (
     childName: string,
     schoolName: string,
     language: Language
-) => {
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const title = `Emploi du temps — ${childName} (${selectedClasse})`;
+): Promise<jsPDF> => {
+    const normLang = normalizeLanguage(language);
+    const tAcad = getAcademicTranslations(normLang);
+    const isRtl = isRtlLanguage(normLang);
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text(title, 148, 18, { align: 'center' });
+    const pdfInst = await initI18nPdfDoc({ language: normLang, orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const { doc, prepareText, effectiveFont } = pdfInst;
+
+    const title = `${tAcad.timetableTitle} — ${childName} (${selectedClasse})`;
+
+    doc.setFont(effectiveFont, 'bold');
+    doc.setFontSize(16);
+    doc.text(prepareText(title), 148, 16, { align: 'center' });
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(schoolName, 148, 26, { align: 'center' });
+    doc.setFont(effectiveFont, 'normal');
+    doc.text(prepareText(schoolName), 148, 24, { align: 'center' });
 
     const filteredSeances = seances.filter(s => s.classe === selectedClasse);
 
-    const head = [['Heure', ...jours]];
-    const body: string[][] = [];
+    const translatedDays = jours.map(j => {
+        const key = j.toLowerCase();
+        const tr = t(normLang as Language, `schedule.days.${key}`);
+        return tr || j;
+    });
 
-    const usedSlots = new Set(filteredSeances.flatMap(s => [s.heureDebut, s.heureFin]));
-    const relevantSlots = slots.filter(s => usedSlots.has(s) || true).slice(0, -1);
+    const orderedJours = isRtl ? [...jours].reverse() : jours;
+    const orderedTranslatedDays = isRtl ? [...translatedDays].reverse() : translatedDays;
+
+    const head = [[
+        prepareText(tAcad.time),
+        ...orderedTranslatedDays.map(j => prepareText(j))
+    ]];
+
+    const body: string[][] = [];
+    const relevantSlots = slots.slice(0, -1);
 
     relevantSlots.forEach(slot => {
         const row: string[] = [slot];
-        jours.forEach(jour => {
+        orderedJours.forEach(jour => {
             const seance = filteredSeances.find(s =>
                 s.jour === jour &&
                 timeToMin(s.heureDebut) <= timeToMin(slot) &&
@@ -68,7 +92,11 @@ const exportPDF = (
             );
             if (seance) {
                 const mat = matieres.find(m => m.id === seance.matiereId);
-                row.push(`${mat?.nom || '?'}\n${seance.professeur || ''}\n${seance.salle || ''}`);
+                const matName = mat?.nom || '?';
+                const profName = seance.professeur || '';
+                const salleName = seance.salle || '';
+                const cellText = [matName, profName, salleName].filter(Boolean).join('\n');
+                row.push(prepareText(cellText));
             } else {
                 row.push('');
             }
@@ -87,10 +115,23 @@ const exportPDF = (
     autoTable(doc, {
         head,
         body,
-        startY: 35,
+        startY: 30,
         theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 3, halign: 'center', valign: 'middle' },
-        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+        styles: {
+            font: effectiveFont,
+            fontSize: 7.5,
+            cellPadding: 2.5,
+            halign: isRtl ? 'right' : 'center',
+            valign: 'middle'
+        },
+        headStyles: {
+            font: effectiveFont,
+            fillColor: [79, 70, 229],
+            textColor: 255,
+            fontStyle: 'bold',
+            halign: 'center',
+            fontSize: 8,
+        },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         didParseCell: function(data) {
             if (data.row.index > -1 && data.column.index > 0) {
@@ -102,7 +143,12 @@ const exportPDF = (
         }
     });
 
-    doc.save(`Emploi_du_temps_${childName.replace(/\s+/g, '_')}_${selectedClasse}.pdf`);
+    const cleanTitle = title.replace(/[^a-zA-Z0-9_\u0600-\u06FF\u0400-\u04FF\u4e00-\u9fa5]/g, '_');
+    if (typeof window !== 'undefined' && doc.save) {
+        doc.save(`${cleanTitle}.pdf`);
+    }
+
+    return doc;
 };
 
 export const ParentEmploiDuTemps: React.FC = () => {

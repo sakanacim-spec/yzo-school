@@ -156,7 +156,7 @@ export const ParentNotes: React.FC = () => {
                                         )}
                                         {hasNotes && (
                                             <button
-                                                onClick={() => generateGradeReport(selectedChild, periode, notes, matieres, classeMatieres, settings)}
+                                                onClick={() => generateGradeReport(selectedChild, periode, notes, matieres, classeMatieres, settings, language as string)}
                                                 className="flex items-center gap-2 px-4 py-2 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-full text-xs font-bold shadow-sm transition-all active:scale-95"
                                             >
                                                 <Download className="w-3.5 h-3.5" /> {t(language as Language, 'parentNotes.pdfReport') || 'Relevé PDF'}

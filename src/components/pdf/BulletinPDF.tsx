@@ -3,6 +3,8 @@ import { BulletinEleveResultat } from '../../utils/bulletinCalculations';
 import { useStore } from '../../store/useStore';
 import { getCountryName } from '../../data/countries';
 import { t, Language } from '../../i18n';
+import { getAcademicTranslations } from '../../utils/pdfAcademicTranslations';
+import { formatLocalizedDate, isRtlLanguage } from '../../utils/pdfLocale';
 
 interface BulletinTogoPDFProps {
     data: BulletinEleveResultat;
@@ -15,11 +17,7 @@ interface BulletinTogoPDFProps {
 
 // Formatte la date du jour dans la langue choisie
 const getDateLocalized = (lang: Language): string => {
-    const d = new Date();
-    const monthsKey = t(lang, 'bulletin.months');
-    // Fallback: the months are stored as a comma-separated string from the i18n array
-    const months = monthsKey ? monthsKey.split(',') : ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    return formatLocalizedDate(new Date(), lang, { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
 export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps>(
@@ -27,7 +25,10 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
     const countryCode = useStore((s) => s.schoolCountry);
     const country = (getCountryName(countryCode) || 'TOGO').toUpperCase();
     const language = useStore((s) => s.language) as Language;
-    // Shorthand for bulletin translations
+    const tAcad = getAcademicTranslations(language);
+    const isRtl = isRtlLanguage(language);
+
+    // Shorthand for bulletin translations with academic dictionary fallback
     const b = (key: string) => t(language, `bulletin.${key}`);
     const phone = useStore((s) => s.schoolPhone) || b('phoneNotProvided');
     const address = useStore((s) => s.schoolAddress) || 'Apéssito';
@@ -45,13 +46,14 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
     return (
         <div
             ref={ref}
+            dir={isRtl ? 'rtl' : 'ltr'}
             className="bg-white text-black mx-auto relative z-0 flex flex-col justify-between"
             style={{
                 width: '210mm',
                 height: '297mm',
                 padding: '3mm 6mm 4mm 6mm',
                 boxSizing: 'border-box',
-                fontFamily: '"Times New Roman", Times, serif'
+                fontFamily: '"Noto Sans Arabic", "Noto Sans", "ZCOOL XiaoWei", "Times New Roman", Times, serif, system-ui'
             }}
         >
             {/* FILIGRANE LOGO */}
@@ -76,7 +78,7 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                                 />
                             ) : (
                                 <div className="w-[24mm] h-[24mm] flex flex-col items-center justify-center opacity-30 border border-dashed border-gray-300">
-                                    <span className="text-[10px] font-bold">SCEAU</span>
+                                    <span className="text-[10px] font-bold">{b('seal') || tAcad.seal}</span>
                                 </div>
                             )}
                         </div>
@@ -116,7 +118,7 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                                 />
                             ) : (
                                 <div className="w-[24mm] h-[24mm] flex flex-col items-center justify-center opacity-30 border border-dashed border-gray-300">
-                                    <span className="text-[10px] font-bold">LOGO</span>
+                                    <span className="text-[10px] font-bold">{b('logo') || tAcad.logo}</span>
                                 </div>
                             )}
                         </div>
@@ -199,7 +201,7 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                                         <circle cx="30" cy="22" r="16" fill="#555" />
                                         <ellipse cx="30" cy="70" rx="25" ry="20" fill="#555" />
                                     </svg>
-                                    <span className="text-[8px] text-gray-400 font-bold mt-1 uppercase tracking-widest">PHOTO</span>
+                                    <span className="text-[8px] text-gray-400 font-bold mt-1 uppercase tracking-widest">{b('photo') || tAcad.photo}</span>
                                 </div>
                             )}
                         </div>
@@ -271,7 +273,7 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                                 {/* SOUS TOTAL CATÉGORIE */}
                                 <tr className="bg-gray-50 font-bold border-black border-t-[1.5px]">
                                     <td colSpan={5 + (showClassAvg ? 1 : 0)} className="border-[1.5px] border-black p-0.5 text-right italic text-[9.5px] font-semibold">
-                                        Sous-Total {cat.categorie.split('-')[1]}
+                                        {tAcad.subtotal} {cat.categorie.includes('-') ? cat.categorie.split('-')[1] : cat.categorie}
                                     </td>
                                     <td className="border-[1.5px] border-black p-0.5 text-center font-bold text-[11px]">{cat.totalCoefs}</td>
                                     <td className="border-[1.5px] border-black p-0.5 text-center font-bold text-[12px] text-rose-700 bg-rose-50">{cat.totalPoints.toFixed(2)}</td>
@@ -281,7 +283,7 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                         ))}
                         {/* TOTAL GÉNÉRAL */}
                         <tr className="font-black bg-gray-200 border-t-[2px] border-black text-[11px]">
-                            <td colSpan={5 + (showClassAvg ? 1 : 0)} className="border-[1.5px] border-black p-0.5 text-right uppercase tracking-wider">TOTAL GÉNÉRAL</td>
+                            <td colSpan={5 + (showClassAvg ? 1 : 0)} className="border-[1.5px] border-black p-0.5 text-right uppercase tracking-wider">{tAcad.totalGeneral}</td>
                             <td className="border-[1.5px] border-black p-0.5 text-center text-[12px] text-blue-900">{data.totalCoefsGeneral}</td>
                             <td className="border-[1.5px] border-black p-0.5 text-center text-[13px] text-rose-900 bg-rose-100">{data.totalPointsGeneral.toFixed(2)}</td>
                             <td colSpan={3 + (showRank ? 1 : 0)} className="border-[1.5px] border-black p-0.5"></td>
@@ -309,27 +311,27 @@ export const BulletinPDF = React.forwardRef<HTMLDivElement, BulletinTogoPDFProps
                                 fontSize: '8px'
                             }}>
                                 {(() => {
-                                    const isTrim = data.periode.includes('TRIMESTRE');
+                                    const isTrim = data.periode.includes('TRIMESTRE') || data.periode.includes('TRIM');
                                     if (isTrim) {
                                         return (
                                             <>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>TRIM.1</div>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>RANG</div>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>TRIM.2</div>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>RANG</div>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>TRIM.3</div>
-                                                <div style={{ padding: '2px' }}>RANG</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{tAcad.trim1}</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{b('rank') || tAcad.rank}</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{tAcad.trim2}</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{b('rank') || tAcad.rank}</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{tAcad.trim3}</div>
+                                                <div style={{ padding: '2px' }}>{b('rank') || tAcad.rank}</div>
                                             </>
                                         );
                                     } else {
                                         return (
                                             <>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>SEM.1</div>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>RANG</div>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>SEM.2</div>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>RANG</div>
-                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>MOY. ANN</div>
-                                                <div style={{ padding: '2px' }}>RANG</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{tAcad.sem1}</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{b('rank') || tAcad.rank}</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{tAcad.sem2}</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{b('rank') || tAcad.rank}</div>
+                                                <div style={{ padding: '2px', borderRight: '1px solid black' }}>{b('annualAverage') || tAcad.annualAverage}</div>
+                                                <div style={{ padding: '2px' }}>{b('rank') || tAcad.rank}</div>
                                             </>
                                         );
                                     }
