@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-    Bot, X, Send, Sparkles, Building2, Users, GraduationCap, 
-    ChevronRight
+import {
+    Bot, X, Send, Sparkles, Building2, Users, GraduationCap,
+    ChevronRight, ChevronLeft
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Language } from '../i18n';
@@ -12,6 +12,8 @@ import {
     loadStoredAssistantHistory,
     saveStoredAssistantHistory
 } from '../services/assistantChatService';
+import { getAssistantTranslations } from '../services/assistantTranslations';
+import { getAssistantDirection, isRtlAssistantLanguage } from '../services/assistantLocale';
 
 interface GuideAssistantWidgetProps {
     onOpenRegisterSchool?: () => void;
@@ -32,6 +34,10 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
     onOpenLogin
 }) => {
     const language = useStore((s) => s.language as Language);
+    const t = getAssistantTranslations(language);
+    const isRtl = isRtlAssistantLanguage(language);
+    const dir = getAssistantDirection(language);
+
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
@@ -60,51 +66,37 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
             }, 1500);
             return () => clearTimeout(timer);
         }
-    }, []);
+    }, [language]);
 
     const initWelcomeMessages = () => {
-        const isEn = language?.startsWith('en');
-        const isAr = language?.startsWith('ar');
-        const isEs = language?.startsWith('es');
-
-        const tWelcome = isEn ? 'Hello ! 👋 Welcome to Yziow. I am your virtual assistant.' :
-                         isAr ? 'مرحباً ! 👋 مرحبًا بك في Yziow. أنا مساعدك الافتراضي.' :
-                         isEs ? '¡Hola ! 👋 Bienvenido a Yziow. Soy tu asistente virtual.' :
-                         'Bonjour ! 👋 Bienvenue sur Yziow. Je suis votre assistant virtuel.';
-        
-        const tProfile = isEn ? 'To guide you properly, please tell me your profile :' :
-                         isAr ? 'لتوجيهك بشكل صحيح، أخبرني ما هو ملفك الشخصي :' :
-                         isEs ? 'Para guiarte bien, dime cuál es tu perfil :' :
-                         'Pour bien vous orienter, dites-moi quel est votre profil :';
-
         setMessages([
             {
                 id: 'welcome-1',
                 sender: 'bot',
-                text: tWelcome,
+                text: t.welcomeTitle,
             },
             {
                 id: 'welcome-2',
                 sender: 'bot',
-                text: tProfile,
+                text: t.welcomeProfileSelect,
                 options: [
                     {
-                        label: isEn ? '🏫 I am a School Director' : isAr ? '🏫 أنا مدير مدرسة' : isEs ? '🏫 Soy Director de Escuela' : '🏫 Je suis Directeur / Établissement',
+                        label: t.roleDirector,
                         icon: <Building2 className="w-4 h-4 text-blue-600" />,
                         action: () => handleRoleSelect('director')
                     },
                     {
-                        label: isEn ? '👨‍👩‍👧 I am a Parent' : isAr ? '👨‍👩‍👧 أنا ولي أمر' : isEs ? '👨‍👩‍👧 Soy un Padre' : '👨‍👩‍👧 Je suis un Parent d\'élève',
+                        label: t.roleParent,
                         icon: <Users className="w-4 h-4 text-emerald-600" />,
                         action: () => handleRoleSelect('parent')
                     },
                     {
-                        label: isEn ? '👨‍🏫 I am a Teacher or Student' : isAr ? '👨‍🏫 أنا معلم أو طالب' : isEs ? '👨‍🏫 Soy Profesor o Estudiante' : '👨‍🏫 Je suis Enseignant ou Élève',
+                        label: t.roleTeacher,
                         icon: <GraduationCap className="w-4 h-4 text-purple-600" />,
                         action: () => handleRoleSelect('teacher')
                     },
                     {
-                        label: isEn ? '❓ Features & Pricing' : isAr ? '❓ الميزات والأسعار' : isEs ? '❓ Funciones y Precios' : '❓ Découvrir les fonctionnalités & Tarifs',
+                        label: t.roleInfo,
                         icon: <Sparkles className="w-4 h-4 text-amber-500" />,
                         action: () => handleRoleSelect('info')
                     }
@@ -114,79 +106,61 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
     };
 
     const handleRoleSelect = (role: 'director' | 'parent' | 'teacher' | 'info') => {
-        const isEn = language?.startsWith('en');
-        const isAr = language?.startsWith('ar');
-        const isEs = language?.startsWith('es');
-
         let userLabel = '';
         let botResponse = '';
         let options: { label: string; action: () => void; icon?: React.ReactNode }[] = [];
 
-        const tBack = isEn ? '⬅️ Back to main menu' : isAr ? '⬅️ العودة للقائمة الرئيسية' : isEs ? '⬅️ Volver al menú' : '⬅️ Retour au menu principal';
-
         if (role === 'director') {
-            userLabel = isEn ? '🏫 I am a School Director' : isAr ? '🏫 أنا مدير مدرسة' : isEs ? '🏫 Soy Director de Escuela' : '🏫 Je suis Directeur d\'école';
-            botResponse = isEn ? 'Excellent! With Yziow, you can manage your school from A to Z (PDF report cards, fees, QR code attendance).\n\nYou get a 14-day free trial!' :
-                          isAr ? 'ممتاز! مع Yziow، يمكنك إدارة مدرستك من الألف إلى الياء (الشهادات، الرسوم، الحضور).\n\nتحصل على نسخة تجريبية مجانية لمدة 14 يومًا!' :
-                          isEs ? '¡Excelente! Con Yziow, puedes administrar tu escuela de la A a la Z.\n\n¡Obtienes una prueba gratuita de 14 días!' :
-                          'Excellente démarche ! Avec Yziow, vous pouvez gérer votre école de A à Z (bulletins PDF officiels, gestion des frais, présences QR code).\n\nVous bénéficiez de 14 jours d\'essai gratuit sans engagement !';
+            userLabel = t.roleDirector;
+            botResponse = t.directorResponse;
             options = [
                 {
-                    label: isEn ? '🚀 Create my school (14d free)' : isAr ? '🚀 إنشاء مدرستي (14 يوم مجانا)' : isEs ? '🚀 Crear mi escuela (14d gratis)' : '🚀 Créer mon école (14j gratuits)',
+                    label: t.directorActionRegister,
                     action: () => { setIsOpen(false); onOpenRegisterSchool?.(); }
                 },
                 {
-                    label: isEn ? '🔑 Login to my space' : isAr ? '🔑 تسجيل الدخول' : isEs ? '🔑 Iniciar sesión' : '🔑 Se connecter à mon espace',
+                    label: t.directorActionLogin,
                     action: () => { setIsOpen(false); onOpenLogin?.(); }
                 },
-                { label: tBack, action: () => initWelcomeMessages() }
+                { label: t.backToMenu, action: () => initWelcomeMessages() }
             ];
         } else if (role === 'parent') {
-            userLabel = isEn ? '👨‍👩‍👧 I am a Parent' : isAr ? '👨‍👩‍👧 أنا ولي أمر' : isEs ? '👨‍👩‍👧 Soy un Padre' : '👨‍👩‍👧 Je suis un Parent';
-            botResponse = isEn ? 'Welcome! As a parent, Yziow allows you to track your child\'s grades, attendance, and receive report cards on your phone.' :
-                          isAr ? 'مرحباً! بصفتك ولي أمر، يتيح لك Yziow تتبع درجات طفلك وحضوره وتلقي الشهادات على هاتفك.' :
-                          isEs ? '¡Bienvenido! Como padre, Yziow te permite hacer un seguimiento de las notas de tu hijo, su asistencia y recibir boletines en tu teléfono.' :
-                          'Bienvenue ! En tant que parent, Yziow vous permet de suivre en temps réel les notes de votre enfant, ses présences et de recevoir ses bulletins sur votre téléphone.';
+            userLabel = t.roleParent;
+            botResponse = t.parentResponse;
             options = [
                 {
-                    label: isEn ? '✍️ Register as a Parent' : isAr ? '✍️ التسجيل كولي أمر' : isEs ? '✍️ Registrarse como Padre' : '✍️ S\'inscrire en tant que Parent',
+                    label: t.parentActionRegister,
                     action: () => { setIsOpen(false); onOpenRegisterParent?.(); }
                 },
                 {
-                    label: isEn ? '🔑 Login to my Parent account' : isAr ? '🔑 تسجيل الدخول' : isEs ? '🔑 Iniciar sesión' : '🔑 Se connecter à mon compte Parent',
+                    label: t.parentActionLogin,
                     action: () => { setIsOpen(false); onOpenLogin?.(); }
                 },
-                { label: tBack, action: () => initWelcomeMessages() }
+                { label: t.backToMenu, action: () => initWelcomeMessages() }
             ];
         } else if (role === 'teacher') {
-            userLabel = isEn ? '👨‍🏫 I am a Teacher / Student' : isAr ? '👨‍🏫 أنا معلم / طالب' : isEs ? '👨‍🏫 Soy Profesor / Estudiante' : '👨‍🏫 Je suis Enseignant / Élève';
-            botResponse = isEn ? 'Your account is created directly by your school\'s administration. You can use your credentials to access your courses and grades.' :
-                          isAr ? 'يتم إنشاء حسابك مباشرة من قبل إدارة مدرستك. يمكنك استخدام بيانات الاعتماد الخاصة بك للوصول إلى دوراتك ودرجاتك.' :
-                          isEs ? 'Tu cuenta es creada directamente por la administración de tu escuela. Puedes utilizar tus credenciales para acceder a tus cursos y notas.' :
-                          'Votre compte est créé directement par l\'administration de votre établissement. Vous pouvez utiliser vos identifiants pour accéder à vos cours et notes.';
+            userLabel = t.roleTeacher;
+            botResponse = t.teacherResponse;
             options = [
                 {
-                    label: isEn ? '🔑 Go to login page' : isAr ? '🔑 صفحة تسجيل الدخول' : isEs ? '🔑 Ir a la página de inicio de sesión' : '🔑 Accéder à la page de connexion',
+                    label: t.teacherActionLogin,
                     action: () => { setIsOpen(false); onOpenLogin?.(); }
                 },
-                { label: tBack, action: () => initWelcomeMessages() }
+                { label: t.backToMenu, action: () => initWelcomeMessages() }
             ];
         } else {
-            userLabel = isEn ? '❓ Features & Pricing' : isAr ? '❓ الميزات والأسعار' : isEs ? '❓ Funciones y Precios' : '❓ Informations & Tarifs';
-            botResponse = isEn ? 'Yziow offers:\n• Certified PDF report cards\n• QR Code scanner for attendance\n• Fees & Accounting management\n• Multi-language App\n\nWould you like to start now?' :
-                          isAr ? 'يقدم Yziow:\n• شهادات PDF معتمدة\n• ماسح ضوئي لرمز QR للحضور\n• إدارة الرسوم والمحاسبة\n• تطبيق متعدد اللغات\n\nهل ترغب في البدء الآن؟' :
-                          isEs ? 'Yziow ofrece:\n• Boletines PDF certificados\n• Escáner QR para asistencia\n• Gestión de pagos y contabilidad\n• App multilingüe\n\n¿Quieres empezar ahora?' :
-                          'Yziow propose :\n• Bulletins PDF certifiés & Calcul de moyennes\n• Scanner QR Code pour la présence des élèves\n• Gestion des reçus de scolarité & Comptabilité\n• Application multi-langue (FR, EN, ES, AR...)\n\nSouhaitez-vous commencer dès maintenant ?';
+            userLabel = t.roleInfo;
+            botResponse = t.infoResponse;
             options = [
                 {
-                    label: isEn ? '🏫 Register my school' : isAr ? '🏫 تسجيل مدرستي' : isEs ? '🏫 Registrar mi escuela' : '🏫 Inscrire mon école',
+                    label: t.infoActionRegisterSchool,
                     action: () => { setIsOpen(false); onOpenRegisterSchool?.(); }
                 },
                 {
-                    label: isEn ? '👨‍👩‍👧 Create Parent account' : isAr ? '👨‍👩‍👧 إنشاء حساب ولي أمر' : isEs ? '👨‍👩‍👧 Crear cuenta de Padre' : '👨‍👩‍👧 Créer un compte Parent',
+                    label: t.infoActionRegisterParent,
                     action: () => { setIsOpen(false); onOpenRegisterParent?.(); }
                 },
-                { label: tBack, action: () => initWelcomeMessages() }
+                { label: t.backToMenu, action: () => initWelcomeMessages() }
             ];
         }
 
@@ -207,7 +181,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
         setInput('');
 
         const newMsg: Message = { id: Date.now().toString(), sender: 'user', text: userText };
-        
+
         // Mise à jour optimiste de l'UI
         const updatedMessages = [...messages, newMsg];
         setMessages(updatedMessages);
@@ -226,7 +200,6 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                 body: JSON.stringify({ messages: payloadMessages, language: language || 'fr' })
             });
 
-            // Lire le corps JSON sans supposer systématiquement que la requête a réussi
             let data: any = null;
             try {
                 data = await res.json();
@@ -234,46 +207,44 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                 data = null;
             }
 
-            // Lire l'en-tête HTTP Retry-After
             const retryAfterHeader = res.headers.get('Retry-After') || (data && data.retryAfter);
 
             let botReply = '';
             if (res.ok) {
                 botReply = (data && typeof data.reply === 'string' && data.reply.trim())
                     ? data.reply.trim()
-                    : getAssistantErrorMessage(500);
+                    : getAssistantErrorMessage(500, null, language);
             } else {
-                botReply = getAssistantErrorMessage(res.status, retryAfterHeader);
+                botReply = getAssistantErrorMessage(res.status, retryAfterHeader, language);
             }
-            
+
             // Retirer le message de chargement et ajouter la réponse du bot
             setMessages((prev) => {
-                const withoutLoading = prev.filter(m => m.id !== loadingId);
-                const finalMessages: Message[] = [...withoutLoading, {
-                    id: (Date.now() + 2).toString(),
-                    sender: 'bot',
-                    text: botReply
-                }];
-                saveStoredAssistantHistory(finalMessages);
-                return finalMessages;
+                const filtered = prev.filter((m) => m.id !== loadingId);
+                const finalHistory = [...filtered, { id: (Date.now() + 2).toString(), sender: 'bot' as const, text: botReply }];
+                saveStoredAssistantHistory(finalHistory);
+                return finalHistory;
             });
+
         } catch (_error) {
-            const fallbackReply = getAssistantErrorMessage(500);
             setMessages((prev) => {
-                const withoutLoading = prev.filter(m => m.id !== loadingId);
-                const finalMessages: Message[] = [...withoutLoading, {
+                const filtered = prev.filter((m) => m.id !== loadingId);
+                const finalHistory = [...filtered, {
                     id: (Date.now() + 2).toString(),
-                    sender: 'bot',
-                    text: fallbackReply
+                    sender: 'bot' as const,
+                    text: t.errorConnection
                 }];
-                saveStoredAssistantHistory(finalMessages);
-                return finalMessages;
+                saveStoredAssistantHistory(finalHistory);
+                return finalHistory;
             });
         }
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-[99999] flex flex-col items-end pointer-events-auto">
+        <div
+            dir={dir}
+            className={`fixed bottom-6 ${isRtl ? 'left-6' : 'right-6'} z-[99999] flex flex-col items-end pointer-events-auto`}
+        >
             {/* Fenêtre du Chatbot */}
             {isOpen && (
                 <div className="w-[360px] sm:w-[400px] h-[520px] bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden mb-4 animate-scaleUp">
@@ -285,16 +256,16 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                             </div>
                             <div>
                                 <h4 className="font-bold text-sm leading-tight flex items-center gap-1.5">
-                                    Assistant Yziow
+                                    {t.botName}
                                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
                                 </h4>
-                                <p className="text-[11px] text-blue-100 opacity-90">Guide d'orientation instantané</p>
+                                <p className="text-[11px] text-blue-100 opacity-90">{t.botSubtitlePublic}</p>
                             </div>
                         </div>
                         <button
                             onClick={() => setIsOpen(false)}
                             className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white"
-                            title="Fermer"
+                            title={t.close}
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -302,25 +273,29 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
 
                     {/* Messages Body */}
                     <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50/50 dark:bg-slate-950/50">
-                        {messages.map((m) => (
+                        {messages.map((msg) => (
                             <div
-                                key={m.id}
-                                className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
+                                key={msg.id}
+                                className={`flex gap-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
+                                {msg.sender === 'bot' && (
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white shadow-sm mt-1">
+                                        <Bot className="w-4 h-4" />
+                                    </div>
+                                )}
                                 <div
-                                    className={`max-w-[85%] p-3.5 rounded-[20px] text-xs leading-relaxed font-medium shadow-sm ${
-                                        m.sender === 'user'
-                                            ? 'bg-blue-600 text-white rounded-br-none'
-                                            : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700/60 rounded-bl-none whitespace-pre-line'
+                                    className={`relative p-3.5 px-4 text-sm whitespace-pre-wrap leading-relaxed shadow-sm max-w-[85%] ${
+                                        msg.sender === 'user'
+                                            ? 'bg-blue-600 text-white rounded-2xl rounded-tr-sm ml-auto'
+                                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl rounded-tl-sm border border-slate-100 dark:border-slate-700'
                                     }`}
                                 >
-                                    {m.text}
+                                    {msg.text}
                                 </div>
-
                                 {/* Options cliquables sous le message du bot */}
-                                {m.options && m.options.length > 0 && (
+                                {msg.options && msg.options.length > 0 && (
                                     <div className="mt-2 space-y-1.5 w-full max-w-[90%]">
-                                        {m.options.map((opt, idx) => (
+                                        {msg.options.map((opt, idx) => (
                                             <button
                                                 key={idx}
                                                 onClick={opt.action}
@@ -330,7 +305,11 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                                                     {opt.icon}
                                                     {opt.label}
                                                 </span>
-                                                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                                                {isRtl ? (
+                                                    <ChevronLeft className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:-translate-x-0.5 transition-all" />
+                                                ) : (
+                                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                                                )}
                                             </button>
                                         ))}
                                     </div>
@@ -346,15 +325,15 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="Posez une question (ex: tarifs, inscription)..."
+                            placeholder={t.inputPlaceholder}
                             className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white px-3.5 py-2.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-400"
                         />
                         <button
                             type="submit"
                             disabled={!input.trim()}
-                            className="w-9 h-9 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-all shrink-0"
+                            className="p-2.5 rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 text-white transition-colors"
                         >
-                            <Send className="w-4 h-4" />
+                            <Send className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
                         </button>
                     </form>
                 </div>
@@ -365,21 +344,18 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                 onClick={() => setIsOpen(!isOpen)}
                 className="relative group flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-3.5 rounded-full shadow-2xl hover:scale-105 transition-all duration-300 active:scale-95"
             >
-                {/* Avatar Icon */}
                 <div className="relative">
                     <Bot className="w-7 h-7 text-white" />
                     <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white animate-pulse" />
                 </div>
 
-                {/* Badge d'aide visible quand fermé */}
                 {!isOpen && (
                     <span className="hidden sm:flex items-center gap-1.5 pr-2 font-bold text-xs">
                         <Sparkles className="w-4 h-4 text-amber-300" />
-                        Besoin d'aide pour commencer ?
+                        {t.needHelpPrompt}
                     </span>
                 )}
 
-                {/* Notification unread badge */}
                 {hasUnread && !isOpen && (
                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-md">
                         1
