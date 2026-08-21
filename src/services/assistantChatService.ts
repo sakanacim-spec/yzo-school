@@ -1,7 +1,11 @@
 /**
  * Service et utilitaires pour l'Assistant Yziow (Frontend)
- * Gestion stricte de l'historique, normalisation localStorage, quotas 429, statuts HTTP 400/503.
+ * Gestion stricte de l'historique, normalisation localStorage, quotas 429, statuts HTTP 400/503 et i18n 9 langues.
  */
+
+import type { AssistantLanguage } from './assistantLocale.ts';
+import { normalizeAssistantLanguage } from './assistantLocale.ts';
+import { getAssistantTranslations } from './assistantTranslations.ts';
 
 export interface RawMessage {
     id?: string;
@@ -122,41 +126,52 @@ export function prepareAssistantHistory(
 }
 
 /**
- * Formate le message pour HTTP 429 avec Retry-After
+ * Formate le message pour HTTP 429 avec Retry-After et support multi-langue
  */
-export function formatRetryAfterMessage(retryAfter?: string | number | null): string {
+export function formatRetryAfterMessage(
+    retryAfter?: string | number | null,
+    targetLang?: string | null
+): string {
+    const t = getAssistantTranslations(targetLang);
+
     if (retryAfter === undefined || retryAfter === null || retryAfter === '') {
-        return 'Vous avez atteint votre limite de questions. Veuillez réessayer plus tard.';
+        return t.error429Generic;
     }
 
     const seconds = typeof retryAfter === 'number' ? retryAfter : Number(String(retryAfter).trim());
 
     if (!Number.isFinite(seconds) || seconds <= 0) {
-        return 'Vous avez atteint votre limite de questions. Veuillez réessayer plus tard.';
+        return t.error429Generic;
     }
 
     const minutes = Math.max(1, Math.ceil(seconds / 60));
-    return `Vous avez atteint votre limite de questions. Veuillez réessayer dans ${minutes} minute(s).`;
+    return t.error429WithMinutes(minutes);
 }
 
 /**
- * Fournit un message d'erreur utilisateur sécurisé selon le code de statut HTTP
+ * Fournit un message d'erreur utilisateur sécurisé selon le code de statut HTTP et la langue
  * Ne divulgue aucun code interne, secret ou détail technique.
  */
 export function getAssistantErrorMessage(
     status: number,
-    retryAfter?: string | number | null
+    retryAfter?: string | number | null,
+    targetLang?: string | null
 ): string {
+    const t = getAssistantTranslations(targetLang);
+
     if (status === 429) {
-        return formatRetryAfterMessage(retryAfter);
+        return formatRetryAfterMessage(retryAfter, targetLang);
     }
     if (status === 400) {
-        return 'Votre message ou l’historique de la conversation n’est pas valide. Veuillez recommencer.';
+        return t.error400;
+    }
+    if (status === 401) {
+        return t.error401;
     }
     if (status === 503) {
-        return 'L’assistant est temporairement indisponible. Veuillez réessayer plus tard.';
+        return t.error503;
     }
-    return 'Une erreur est survenue. Veuillez réessayer plus tard.';
+    return t.error500;
 }
 
 /**
