@@ -6,7 +6,7 @@ const { JWT_SECRET, JWT_EXPIRES } = require('../config');
 const { sendWelcomeSMS, sendPasswordResetSMS } = require('../utils/smsService');
 const Joi = require('joi');
 const crypto = require('crypto');
-const { normalizePhone, buildAuthEmail } = require('../utils/helpers');
+const { normalizePhone, buildAuthEmail, hashOtp } = require('../utils/helpers');
 
 // Joi validation schema for Parent registration
 const parentRegisterSchema = Joi.object({
@@ -184,9 +184,9 @@ async function register(req, res) {
         }
 
         const token = jwt.sign(
-            { id: parent.id, nom: parent.nom, role: parent.role, schoolSlug: school_slug },
+            { id: parent.id, nom: parent.nom, role: parent.role, schoolSlug: school_slug, token_type: 'access' },
             JWT_SECRET,
-            { expiresIn: JWT_EXPIRES }
+            { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
         );
 
         sendWelcomeSMS(phoneNormalized, school.name || 'Votre École').catch(err => console.error("Erreur SMS Bienvenue:", err.message));
@@ -359,9 +359,9 @@ async function registerSchool(req, res) {
         const adminUser = rpcData;
 
         const token = jwt.sign(
-            { id: adminUser.id, nom: adminUser.nom, role: adminUser.role, schoolSlug: cleanSlug },
+            { id: adminUser.id, nom: adminUser.nom, role: adminUser.role, schoolSlug: cleanSlug, token_type: 'access' },
             JWT_SECRET,
-            { expiresIn: JWT_EXPIRES }
+            { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
         );
 
         return res.status(201).json({
@@ -401,25 +401,21 @@ async function login(req, res) {
     }
 
     try {
-        // 1. Branche SuperAdmin ISOLÉE (Utilise la table superadmins)
-        let superadmin = null;
-        const { data: saList } = await supabase.from('superadmins').select('*');
-        if (saList && saList.length > 0) {
-            const inputClean = telephone.trim().toLowerCase();
-            superadmin = saList.find(s => 
-                (s.username && s.username.toLowerCase() === inputClean) ||
-                (s.telephone && s.telephone.trim() === telephone.trim()) ||
-                (s.email && s.email.toLowerCase() === inputClean)
-            );
-        }
+        // 1. Branche SuperAdmin ISOLÉE (Recherche ciblée sans scan complet)
+        const inputClean = telephone.trim().toLowerCase();
+        const { data: superadmin } = await supabase
+            .from('superadmins')
+            .select('id, nom, username, telephone, email, password')
+            .or(`username.ilike.${inputClean},email.ilike.${inputClean},telephone.eq.${telephone.trim()}`)
+            .maybeSingle();
 
         if (superadmin) {
             const valid = await bcrypt.compare(password, superadmin.password);
             if (valid) {
                 const token = jwt.sign(
-                    { id: superadmin.id, nom: superadmin.nom, role: 'superadmin', schoolSlug: null },
+                    { id: superadmin.id, nom: superadmin.nom, role: 'superadmin', schoolSlug: null, token_type: 'access' },
                     JWT_SECRET,
-                    { expiresIn: JWT_EXPIRES }
+                    { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
                 );
                 return res.json({
                     message: 'Connexion globale réussie.',
@@ -497,9 +493,9 @@ async function login(req, res) {
         }
 
         const token = jwt.sign(
-            { id: user.id, nom: user.nom, role: user.role, schoolSlug },
+            { id: user.id, nom: user.nom, role: user.role, schoolSlug, token_type: 'access' },
             JWT_SECRET,
-            { expiresIn: JWT_EXPIRES }
+            { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
         );
 
         // Update last login
@@ -645,12 +641,19 @@ async function updateProfile(req, res) {
 }
 
 // ----------------------------------------------------
-// MOT DE PASSE OUBLIÉ (Génération OTP avec Sécurité Réponse Neutre + Rate Limit)
+// MOT DE PASSE OUBLIÉ (Génération OTP sécurisée + Réponse Neutre + Rate Limit)
 // ----------------------------------------------------
 const forgotPassword = async (req, res) => {
     try {
-        const { phone, schoolSlug, countryCode, channel } = req.body;
-        if (!phone || !schoolSlug) return res.status(400).json({ error: 'Le numéro de téléphone et l\'établissement sont requis.' });
+        const { phone, schoolSlug, countryCode } = req.body;
+        if (!phone || typeof phone !== 'string' || !schoolSlug || typeof schoolSlug !== 'string') {
+            return res.status(400).json({ error: 'Le numéro de téléphone et l\'établissement sont requis.' });
+        }
+
+        const cleanSchoolSlug = schoolSlug.trim().toLowerCase();
+        if (cleanSchoolSlug !== 'global' && !/^[a-z0-9_]{1,50}$/.test(cleanSchoolSlug)) {
+            return res.status(400).json({ error: 'Identifiant d\'établissement invalide.' });
+        }
 
         let phoneNormalized;
         try {
@@ -659,7 +662,7 @@ const forgotPassword = async (req, res) => {
             return res.status(400).json({ error: 'Numéro de téléphone invalide.' });
         }
 
-        // Rate limiting : Vérifier le nombre de demandes récentes (max 3 en 15 minutes)
+        // Rate limiting en base : Vérifier le nombre de demandes récentes (max 3 en 15 minutes)
         const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
         const { data: recentRequests } = await supabase
             .from('password_resets')
@@ -668,66 +671,68 @@ const forgotPassword = async (req, res) => {
             .gte('created_at', fifteenMinsAgo);
 
         if (recentRequests && recentRequests.length >= 3) {
-            return res.status(429).json({ error: 'Trop de demandes de réinitialisation. Veuillez ré-essayer dans 15 minutes.' });
+            res.setHeader('Retry-After', '900');
+            return res.status(429).json({ error: 'Trop de demandes de réinitialisation. Veuillez réessayer dans 15 minutes.' });
         }
 
         let userFound = false;
 
-        if (schoolSlug === 'global') {
+        if (cleanSchoolSlug === 'global') {
+            const inputClean = phone.trim().toLowerCase();
             const { data: superadmin } = await supabase
                 .from('superadmins')
                 .select('id')
-                .or(`telephone.eq.${phone.trim()},username.eq.${phone.trim()}`)
+                .or(`telephone.eq.${phoneNormalized},telephone.eq.${phone.trim()},username.ilike.${inputClean},email.ilike.${inputClean}`)
                 .maybeSingle();
             if (superadmin) userFound = true;
         } else {
             const { data: profile } = await supabase
-                .from(`profiles_${schoolSlug}`)
+                .from(`profiles_${cleanSchoolSlug}`)
                 .select('id')
                 .eq('phone_normalized', phoneNormalized)
                 .maybeSingle();
             if (profile) userFound = true;
         }
 
-        // Sécurité : Réponse générique neutre même si le compte n'existe pas
+        // Sécurité : Réponse générique neutre même si le compte n'existe pas (anti-énumération)
         if (!userFound) {
             return res.json({ message: 'Si ce numéro est enregistré, vous recevrez un code de réinitialisation.' });
         }
 
-        const otp = crypto.randomInt(100000, 999999).toString();
+        const rawOtp = crypto.randomInt(100000, 999999).toString();
+        const otpHash = hashOtp(phoneNormalized, cleanSchoolSlug, rawOtp);
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-        const { error: insertError } = await supabase
-            .from('password_resets')
-            .insert({ 
-                phone: phoneNormalized,
-                school_slug: schoolSlug,
-                otp: otp,
-                attempts: 0,
-                expires_at: expiresAt
-            });
+        // 1. Exécution via la RPC transactionnelle atomique PostgreSQL
+        const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('request_password_reset_otp', {
+            p_phone: phoneNormalized,
+            p_school_slug: cleanSchoolSlug,
+            p_otp_hash: otpHash,
+            p_expires_at: expiresAt
+        });
 
-        if (insertError) {
-            console.error('Insert OTP error:', insertError);
+        if (rpcError || !rpcResult) {
+            console.error('RPC request_password_reset_otp Error:', rpcError?.message);
             return res.status(500).json({ error: 'Erreur lors de la génération du code.' });
         }
 
-        if (channel === 'whatsapp') {
-            return res.json({ 
-                message: 'Code de réinitialisation généré pour WhatsApp.',
-                otp,
-                channel: 'whatsapp'
-            });
+        if (rpcResult.success === false) {
+            if (rpcResult.reason === 'RATE_LIMIT_EXCEEDED') {
+                res.setHeader('Retry-After', String(rpcResult.retry_after || 900));
+                return res.status(429).json({ error: 'Trop de demandes de réinitialisation. Veuillez réessayer dans 15 minutes.' });
+            }
+            return res.status(500).json({ error: 'Erreur lors de la génération du code.' });
         }
 
-        await sendPasswordResetSMS(phoneNormalized, otp).catch(e => console.error("SMS reset error:", e));
+        // Expédition exclusive via canal sécurisé (SMS). L'OTP brut n'est JAMAIS renvoyé dans la réponse HTTP ni stocké en clair.
+        await sendPasswordResetSMS(phoneNormalized, rawOtp).catch(e => console.error("SMS reset error:", e.message));
 
-        return res.json({ message: 'Si ce numéro est enregistré, vous recevrez un code de réinitialisation.', channel: 'sms' });
+        return res.json({ message: 'Si ce numéro est enregistré, vous recevrez un code de réinitialisation.' });
     } catch (err) {
         console.error('Forgot Password Error:', err.message);
         return res.status(500).json({ error: 'Erreur serveur.' });
     }
-}
+};
 
 // ----------------------------------------------------
 // RÉINITIALISATION DU MOT DE PASSE (Vérification OTP + Supabase Auth updateUserById)
@@ -736,11 +741,22 @@ const resetPassword = async (req, res) => {
     try {
         const { phone, schoolSlug, countryCode, otp, newPassword } = req.body;
         
-        if (!phone || !schoolSlug || !otp || !newPassword) {
-            return res.status(400).json({ error: 'Tous les champs sont requis.' });
+        if (!phone || typeof phone !== 'string' || !schoolSlug || typeof schoolSlug !== 'string' || !otp || typeof otp !== 'string' || !newPassword || typeof newPassword !== 'string') {
+            return res.status(400).json({ error: 'Tous les champs sont requis (phone, schoolSlug, otp, newPassword).' });
         }
-        if (newPassword.length < 6) {
-            return res.status(400).json({ error: 'Le mot de passe doit faire au moins 6 caractères.' });
+
+        const cleanSchoolSlug = schoolSlug.trim().toLowerCase();
+        if (cleanSchoolSlug !== 'global' && !/^[a-z0-9_]{1,50}$/.test(cleanSchoolSlug)) {
+            return res.status(400).json({ error: 'Identifiant d\'établissement invalide.' });
+        }
+
+        const cleanOtp = otp.trim();
+        if (!/^\d{6}$/.test(cleanOtp)) {
+            return res.status(400).json({ error: 'Le code de réinitialisation doit comporter exactement 6 chiffres.' });
+        }
+
+        if (newPassword.length < 6 || newPassword.length > 128) {
+            return res.status(400).json({ error: 'Le mot de passe doit comporter entre 6 et 128 caractères.' });
         }
 
         let phoneNormalized;
@@ -750,49 +766,49 @@ const resetPassword = async (req, res) => {
             return res.status(400).json({ error: 'Numéro de téléphone invalide.' });
         }
 
-        const { data: resetRecord, error: fetchError } = await supabase
-            .from('password_resets')
-            .select('*')
-            .eq('phone', phoneNormalized)
-            .eq('school_slug', schoolSlug)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        const submittedOtpHash = hashOtp(phoneNormalized, cleanSchoolSlug, cleanOtp);
 
-        if (fetchError || !resetRecord) {
+        // 1. Exécution via la RPC transactionnelle atomique FOR UPDATE (consommation unique)
+        const { data: rpcConsume, error: rpcConsumeErr } = await supabaseAdmin.rpc('verify_and_consume_password_reset_otp', {
+            p_phone: phoneNormalized,
+            p_school_slug: cleanSchoolSlug,
+            p_submitted_otp_hash: submittedOtpHash
+        });
+
+        if (rpcConsumeErr || !rpcConsume) {
+            console.error('RPC verify_and_consume_password_reset_otp Error:', rpcConsumeErr?.message);
+            return res.status(500).json({ error: 'Échec de vérification du code.' });
+        }
+
+        if (rpcConsume.success !== true) {
+            if (rpcConsume.reason === 'MAX_ATTEMPTS_EXCEEDED') {
+                return res.status(400).json({ error: 'Nombre maximal de tentatives dépassé. Veuillez demander un nouveau code.' });
+            }
+            if (rpcConsume.reason === 'EXPIRED') {
+                return res.status(400).json({ error: 'Le code de réinitialisation a expiré.' });
+            }
             return res.status(400).json({ error: 'Code de réinitialisation invalide ou expiré.' });
         }
 
-        // Vérifier l'expiration (15 mins)
-        if (new Date(resetRecord.expires_at) < new Date()) {
-            await supabase.from('password_resets').delete().eq('id', resetRecord.id);
-            return res.status(400).json({ error: 'Le code de réinitialisation a expiré.' });
-        }
+        if (cleanSchoolSlug === 'global') {
+            const inputClean = phone.trim().toLowerCase();
+            const { data: sa } = await supabase
+                .from('superadmins')
+                .select('id')
+                .or(`telephone.eq.${phoneNormalized},telephone.eq.${phone.trim()},username.ilike.${inputClean},email.ilike.${inputClean}`)
+                .maybeSingle();
 
-        // Limitation des tentatives (max 5)
-        const currentAttempts = (resetRecord.attempts || 0) + 1;
-        if (currentAttempts > 5) {
-            await supabase.from('password_resets').delete().eq('id', resetRecord.id);
-            return res.status(400).json({ error: 'Nombre maximal de tentatives dépassé. Veuillez demander un nouveau code.' });
-        }
-
-        // Vérification de la correspondance OTP
-        if (resetRecord.otp !== otp.trim()) {
-            await supabase.from('password_resets').update({ attempts: currentAttempts }).eq('id', resetRecord.id);
-            return res.status(400).json({ error: 'Code de réinitialisation invalide.' });
-        }
-
-        if (schoolSlug === 'global') {
-            const { data: sa } = await supabase.from('superadmins').select('id').or(`telephone.eq.${phone.trim()},username.eq.${phone.trim()}`).maybeSingle();
-            if (sa) {
-                const salt = await bcrypt.genSalt(10);
-                const hashedPassword = await bcrypt.hash(newPassword, salt);
-                await supabase.from('superadmins').update({ password: hashedPassword }).eq('id', sa.id);
+            if (!sa) {
+                return res.status(400).json({ error: 'Compte SuperAdmin introuvable pour ce numéro.' });
             }
+
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(newPassword, salt);
+            await supabase.from('superadmins').update({ password: hashedPassword }).eq('id', sa.id);
         } else {
             // 1. Récupérer l'UUID Auth (id) du profil par phone_normalized
             const { data: profile, error: profileErr } = await supabase
-                .from(`profiles_${schoolSlug}`)
+                .from(`profiles_${cleanSchoolSlug}`)
                 .select('id')
                 .eq('phone_normalized', phoneNormalized)
                 .maybeSingle();
@@ -809,20 +825,16 @@ const resetPassword = async (req, res) => {
 
             if (updateAuthError) {
                 console.error('❌ Échec de la mise à jour du mot de passe dans Supabase Auth:', updateAuthError.message);
-                // Si l'opération Auth échoue : on ne supprime PAS l'OTP, on n'annonce PAS la réussite, on n'écrit AUCUNE colonne password.
-                return res.status(500).json({ error: 'Échec de la réinitialisation du mot de passe : ' + updateAuthError.message });
+                return res.status(500).json({ error: 'Échec de la réinitialisation du mot de passe.' });
             }
         }
-
-        // Invalidation immédiate après réinitialisation réussie (usage unique)
-        await supabase.from('password_resets').delete().eq('id', resetRecord.id);
 
         return res.json({ message: 'Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.' });
     } catch (err) {
         console.error('Reset Password Error:', err.message);
         return res.status(500).json({ error: 'Erreur serveur.' });
     }
-}
+};
 
 /**
  * Modification synchronisée du téléphone propre (Mise à jour Supabase Auth + Profil + Compensation + Relecture)

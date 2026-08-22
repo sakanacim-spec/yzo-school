@@ -68,9 +68,9 @@ async function register(req, res) {
 
         // Générer le token JWT
         const token = jwt.sign(
-            { id: affiliate.id, nom: affiliate.nom, role: 'affiliate' },
+            { id: affiliate.id, nom: affiliate.nom, role: 'affiliate', token_type: 'access' },
             JWT_SECRET,
-            { expiresIn: JWT_EXPIRES }
+            { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
         );
 
         return res.status(201).json({
@@ -113,9 +113,9 @@ async function login(req, res) {
         }
 
         const token = jwt.sign(
-            { id: affiliate.id, nom: affiliate.nom, role: 'affiliate' },
+            { id: affiliate.id, nom: affiliate.nom, role: 'affiliate', token_type: 'access' },
             JWT_SECRET,
-            { expiresIn: JWT_EXPIRES }
+            { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
         );
 
         return res.json({

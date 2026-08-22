@@ -10,7 +10,7 @@ if (fs.existsSync(rootEnvPath)) {
     require('dotenv').config({ path: rootEnvPath, quiet: true });
 }
 
-const requiredVariables = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET', 'AI_QUOTA_HASH_SECRET'];
+const requiredVariables = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET', 'AI_QUOTA_HASH_SECRET', 'PASSWORD_RESET_OTP_SECRET'];
 const missingVariables = requiredVariables.filter(name => !process.env[name]);
 
 if (missingVariables.length > 0) {
@@ -23,6 +23,14 @@ if (missingVariables.length > 0) {
 const hashSecret = process.env.AI_QUOTA_HASH_SECRET;
 if (!hashSecret || typeof hashSecret !== 'string' || hashSecret.trim().length < 32) {
     console.error('CONFIGURATION_INVALIDE: AI_QUOTA_HASH_SECRET doit comporter au moins 32 caractères.');
+    process.exitCode = 1;
+    throw new Error('CONFIGURATION_INVALIDE');
+}
+
+// Validation stricte de PASSWORD_RESET_OTP_SECRET (longueur minimale 32 caractères)
+const otpSecret = process.env.PASSWORD_RESET_OTP_SECRET;
+if (!otpSecret || typeof otpSecret !== 'string' || otpSecret.trim().length < 32) {
+    console.error('CONFIGURATION_INVALIDE: PASSWORD_RESET_OTP_SECRET doit comporter au moins 32 caractères.');
     process.exitCode = 1;
     throw new Error('CONFIGURATION_INVALIDE');
 }

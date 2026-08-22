@@ -61,7 +61,29 @@ function buildAuthEmail(schoolSlug, phoneNormalized) {
     return `u_${hash}@auth.yziow.internal`;
 }
 
+/**
+ * Calcule l'empreinte HMAC-SHA256 sécurisée d'un OTP pour stockage en base.
+ * @param {string} phoneNormalized - Numéro normalisé E.164
+ * @param {string} schoolSlug - Slug de l'école ou 'global'
+ * @param {string} rawOtp - Code OTP à 6 chiffres
+ * @returns {string} Empreinte HMAC hexadécimale de 64 caractères
+ */
+function hashOtp(phoneNormalized, schoolSlug, rawOtp) {
+    const secret = process.env.PASSWORD_RESET_OTP_SECRET;
+    if (!secret || typeof secret !== 'string' || secret.trim().length < 32) {
+        throw new Error('CONFIGURATION_INVALIDE: PASSWORD_RESET_OTP_SECRET manquant ou insuffisant (min 32 caractères).');
+    }
+    const phone = String(phoneNormalized ?? '').trim();
+    const slug = String(schoolSlug ?? '').trim().toLowerCase();
+    const otp = String(rawOtp ?? '').trim();
+
+    return crypto.createHmac('sha256', secret.trim())
+        .update(`${slug}:${phone}:${otp}`)
+        .digest('hex');
+}
+
 module.exports = {
     normalizePhone,
-    buildAuthEmail
+    buildAuthEmail,
+    hashOtp
 };

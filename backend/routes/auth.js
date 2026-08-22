@@ -9,10 +9,26 @@ const rateLimit = require('express-rate-limit');
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limiter chaque IP à 10 requêtes par `window` (15 minutes)
+    max: 10,
     message: { error: 'Trop de tentatives de connexion depuis cette IP, veuillez réessayer après 15 minutes.' },
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const forgotPasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5,
+    message: { error: 'Trop de demandes de réinitialisation depuis cette IP, veuillez réessayer après 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const resetPasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10,
+    message: { error: 'Trop de tentatives de réinitialisation depuis cette IP, veuillez réessayer après 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 
 router.post('/register', register);
@@ -22,7 +38,7 @@ router.put('/profile', authenticateToken, updateProfile);
 router.put('/update-phone', authenticateToken, updatePhone);
 router.post('/update-push-token', authenticateToken, updatePushToken);
 router.delete('/me', authenticateToken, deleteSelfAccount);
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password', resetPassword);
+router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
+router.post('/reset-password', resetPasswordLimiter, resetPassword);
 
 module.exports = router;
