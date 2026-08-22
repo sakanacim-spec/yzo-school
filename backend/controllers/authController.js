@@ -401,19 +401,19 @@ async function login(req, res) {
     }
 
     try {
-        const inputClean = String(telephone || '').trim().toLowerCase();
-        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
+        const schoolSlugNormalized = String(schoolSlug ?? '').trim().toLowerCase();
+        const identifierNormalized = String(telephone ?? '').trim().toLowerCase();
 
-        const isSuperAdminAttempt =
-            schoolSlugClean === 'global' &&
-            inputClean === 'superadmin';
+        const isExactSuperAdminAttempt =
+            schoolSlugNormalized === 'global' &&
+            identifierNormalized === 'superadmin';
 
         // 1. Branche SuperAdmin ISOLÉE (Recherche ciblée UNIQUEMENT pour schoolSlug=global et identifiant=superadmin)
-        if (isSuperAdminAttempt) {
+        if (isExactSuperAdminAttempt) {
             const { data: superadmin, error: superadminError } = await supabase
                 .from('superadmins')
                 .select('id, username, password')
-                .ilike('username', inputClean)
+                .ilike('username', identifierNormalized)
                 .maybeSingle();
 
             if (superadminError) {
@@ -442,8 +442,13 @@ async function login(req, res) {
             }
         }
 
+        // Si l'identifiant est 'superadmin' mais que l'établissement n'est pas 'global'
+        if (identifierNormalized === 'superadmin' && schoolSlugNormalized !== 'global') {
+            return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
+        }
+
         // Si l'établissement est 'global' mais que l'identifiant n'est pas 'superadmin'
-        if (schoolSlugClean === 'global') {
+        if (schoolSlugNormalized === 'global') {
             return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
         }
         
