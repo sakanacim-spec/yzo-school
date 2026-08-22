@@ -4,7 +4,20 @@ const { supabase } = require('../utils/supabase');
 
 exports.getSchoolWithdrawals = async (req, res) => {
     try {
-        const { schoolId, slug } = req.user;
+        const { schoolSlug } = req.user;
+        if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
+
+        const { data: school, error: sErr } = await supabase
+            .from('schools')
+            .select('id, slug')
+            .eq('slug', schoolSlug)
+            .maybeSingle();
+
+        if (sErr || !school) {
+            return res.status(403).json({ error: 'Établissement non trouvé.' });
+        }
+
+        const schoolId = school.id;
         
         const { data, error } = await supabase
             .from('school_withdrawals')
@@ -22,16 +35,30 @@ exports.getSchoolWithdrawals = async (req, res) => {
 
 exports.requestWithdrawal = async (req, res) => {
     try {
-        const { schoolId, slug } = req.user;
+        const { schoolSlug } = req.user;
+        if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
+
         const { amount, paymentMethod, paymentDetails } = req.body;
 
         if (!amount || amount <= 0 || !paymentMethod || !paymentDetails) {
             return res.status(400).json({ error: 'Données de retrait invalides.' });
         }
 
+        const { data: school, error: sErr } = await supabase
+            .from('schools')
+            .select('id, slug')
+            .eq('slug', schoolSlug)
+            .maybeSingle();
+
+        if (sErr || !school) {
+            return res.status(403).json({ error: 'Établissement non trouvé.' });
+        }
+
+        const schoolId = school.id;
+
         // 1. Calculer le solde disponible
         // Total collecté
-        const tableName = `campaigns_${slug}`;
+        const tableName = `campaigns_${schoolSlug}`;
         const { data: campaigns, error: campErr } = await supabase
             .from(tableName)
             .select('current_amount');
@@ -63,7 +90,7 @@ exports.requestWithdrawal = async (req, res) => {
             .from('school_withdrawals')
             .insert({
                 school_id: schoolId,
-                school_slug: slug,
+                school_slug: schoolSlug,
                 amount,
                 payment_method: paymentMethod,
                 payment_details: paymentDetails

@@ -25,6 +25,11 @@ async function syncFromFrontend(req, res) {
         return res.status(403).json({ error: 'Compte non associé à un établissement spécifique.' });
     }
 
+    // Sécurité Lot 5B (SEC-011) : Seule la direction / administration peut demander une remise à zéro complète
+    if (replace && !['admin', 'directeur', 'directeur_general', 'superadmin'].includes(role)) {
+        return res.status(403).json({ error: "Permission refusée. Seule la direction peut remplacer l'ensemble des données." });
+    }
+
     // Helper function pour générer les noms de table dynamiques
     const tbl = (name) => `${name}_${schoolSlug}`;
 

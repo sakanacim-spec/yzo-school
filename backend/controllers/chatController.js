@@ -43,10 +43,29 @@ async function getConversations(req, res) {
  */
 async function getMessages(req, res) {
     const { conversationId } = req.params;
-    const { schoolSlug } = req.user;
+    const { id: userId, role, schoolSlug } = req.user;
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
     try {
+        // Vérifier l'existence et l'appartenance de la conversation
+        const { data: conv, error: convErr } = await supabase
+            .from(`conversations_${schoolSlug}`)
+            .select('*')
+            .eq('id', conversationId)
+            .maybeSingle();
+
+        if (convErr) throw convErr;
+        if (!conv) {
+            return res.status(404).json({ error: 'Conversation non trouvée.' });
+        }
+
+        const isParentOwner = (role === 'parent' && conv.parent_id === userId);
+        const isStaff = ['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur', 'superadmin'].includes(role);
+
+        if (!isParentOwner && !isStaff) {
+            return res.status(403).json({ error: 'Accès non autorisé à cette conversation.' });
+        }
+
         const { data, error } = await supabase
             .from(`messages_${schoolSlug}`)
             .select('*')
@@ -60,7 +79,7 @@ async function getMessages(req, res) {
             .from(`messages_${schoolSlug}`)
             .update({ read_status: true })
             .eq('conversation_id', conversationId)
-            .neq('sender_id', req.user.id);
+            .neq('sender_id', userId);
 
         return res.json(data);
     } catch (err) {
@@ -78,6 +97,27 @@ async function sendMessage(req, res) {
 
     try {
         let convId = conversationId;
+
+        // Si une conversation existante est fournie, vérifier la participation
+        if (convId) {
+            const { data: conv, error: convErr } = await supabase
+                .from(`conversations_${schoolSlug}`)
+                .select('*')
+                .eq('id', convId)
+                .maybeSingle();
+
+            if (convErr) throw convErr;
+            if (!conv) {
+                return res.status(404).json({ error: 'Conversation non trouvée.' });
+            }
+
+            const isParentOwner = (role === 'parent' && conv.parent_id === id);
+            const isStaff = ['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur', 'superadmin'].includes(role);
+
+            if (!isParentOwner && !isStaff) {
+                return res.status(403).json({ error: 'Accès non autorisé à cette conversation.' });
+            }
+        }
 
         // Si parent initie sans conversationId
         if (!convId && role === 'parent') {
@@ -363,10 +403,29 @@ async function initiateConversation(req, res) {
  */
 async function deleteConversation(req, res) {
     const { id: conversationId } = req.params;
-    const { schoolSlug } = req.user;
+    const { id: userId, role, schoolSlug } = req.user;
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
     try {
+        // Vérifier l'existence et l'appartenance de la conversation
+        const { data: conv, error: convErr } = await supabase
+            .from(`conversations_${schoolSlug}`)
+            .select('*')
+            .eq('id', conversationId)
+            .maybeSingle();
+
+        if (convErr) throw convErr;
+        if (!conv) {
+            return res.status(404).json({ error: 'Conversation non trouvée.' });
+        }
+
+        const isParentOwner = (role === 'parent' && conv.parent_id === userId);
+        const isStaff = ['admin', 'directeur', 'directeur_general', 'comptable', 'superadmin'].includes(role);
+
+        if (!isParentOwner && !isStaff) {
+            return res.status(403).json({ error: 'Accès non autorisé pour supprimer cette conversation.' });
+        }
+
         // Suppression des messages liés d'abord pour éviter les erreurs de clé étrangère
         await supabase
             .from(`messages_${schoolSlug}`)

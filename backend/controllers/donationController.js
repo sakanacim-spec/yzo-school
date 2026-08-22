@@ -74,9 +74,15 @@ exports.getDonations = async (req, res) => {
 
 // --- PUBLIC ROUTES ---
 
+const SLUG_REGEX = /^[a-z0-9_]{1,50}$/;
+
 exports.getAllPublicCampaigns = async (req, res) => {
     try {
         const { schoolSlug } = req.params;
+        if (!schoolSlug || !SLUG_REGEX.test(schoolSlug)) {
+            return res.status(400).json({ error: 'Identifiant d\'établissement invalide.' });
+        }
+
         const tableName = `campaigns_${schoolSlug}`;
         
         const { data, error } = await supabase
@@ -85,7 +91,10 @@ exports.getAllPublicCampaigns = async (req, res) => {
             .eq('status', 'active')
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            if (error.code === '42P01') return res.json([]);
+            throw error;
+        }
         res.json(data || []);
     } catch (err) {
         console.error('Get all public campaigns error:', err);
@@ -96,6 +105,10 @@ exports.getAllPublicCampaigns = async (req, res) => {
 exports.getPublicCampaign = async (req, res) => {
     try {
         const { schoolSlug, campaignId } = req.params;
+        if (!schoolSlug || !SLUG_REGEX.test(schoolSlug)) {
+            return res.status(400).json({ error: 'Identifiant d\'établissement invalide.' });
+        }
+
         const tableName = `campaigns_${schoolSlug}`;
         
         const { data, error } = await supabase

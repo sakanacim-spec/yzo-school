@@ -6,10 +6,22 @@ const { supabase } = require('../utils/supabase');
 
 // GET /api/support/messages
 async function getSchoolMessages(req, res) {
-    const { schoolId } = req.user;
-    if (!schoolId) return res.status(403).json({ error: 'Accès non autorisé.' });
+    const { schoolSlug } = req.user;
+    if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
     try {
+        const { data: school, error: sErr } = await supabase
+            .from('schools')
+            .select('id, slug')
+            .eq('slug', schoolSlug)
+            .maybeSingle();
+
+        if (sErr || !school) {
+            return res.status(403).json({ error: 'Établissement non trouvé.' });
+        }
+
+        const schoolId = school.id;
+
         const { data, error } = await supabase
             .from('platform_support_messages')
             .select('*')
@@ -35,13 +47,25 @@ async function getSchoolMessages(req, res) {
 
 // POST /api/support/send
 async function sendSchoolMessage(req, res) {
-    const { schoolId } = req.user;
+    const { schoolSlug } = req.user;
     const { message } = req.body;
     
-    if (!schoolId) return res.status(403).json({ error: 'Accès non autorisé.' });
+    if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
     if (!message) return res.status(400).json({ error: 'Message vide.' });
 
     try {
+        const { data: school, error: sErr } = await supabase
+            .from('schools')
+            .select('id, slug')
+            .eq('slug', schoolSlug)
+            .maybeSingle();
+
+        if (sErr || !school) {
+            return res.status(403).json({ error: 'Établissement non trouvé.' });
+        }
+
+        const schoolId = school.id;
+
         const { data, error } = await supabase
             .from('platform_support_messages')
             .insert({

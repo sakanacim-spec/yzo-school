@@ -8,10 +8,17 @@ const { sendPushNotification, broadcastPushToSchool } = require('../utils/webPus
  */
 async function sendNotification(req, res) {
     const { studentId, message, type = 'general', title, broadcastAll = false } = req.body;
-    const { schoolSlug, id: senderId } = req.user;
+    const { schoolSlug, id: senderId, role } = req.user;
 
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
-    if (!message) return res.status(400).json({ error: 'Message requis.' });
+    if (!message || typeof message !== 'string') return res.status(400).json({ error: 'Message requis.' });
+    if (message.length > 2000) return res.status(400).json({ error: 'Message trop long (max 2000 caractères).' });
+    if (title && (typeof title !== 'string' || title.length > 200)) return res.status(400).json({ error: 'Titre trop long (max 200 caractères).' });
+
+    const isStaff = ['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur', 'professeur', 'superadmin'].includes(role);
+    if (!isStaff) {
+        return res.status(403).json({ error: 'Permission refusée. Seul le personnel autorisé peut envoyer des notifications.' });
+    }
 
     try {
         // ── CAS 1 : Broadcast à toute l'école (annonces) ──────────────
@@ -24,6 +31,17 @@ async function sendNotification(req, res) {
         // ── CAS 2 : Notification vers les parents d'un élève spécifique ──
         if (!studentId) {
             return res.status(400).json({ error: 'studentId requis pour une notification individuelle.' });
+        }
+
+        // Vérifier que l'élève appartient bien à cet établissement
+        const { data: student, error: sErr } = await supabase
+            .from(`students_${schoolSlug}`)
+            .select('id')
+            .eq('id', studentId)
+            .maybeSingle();
+
+        if (sErr || !student) {
+            return res.status(404).json({ error: 'Élève non trouvé dans cet établissement.' });
         }
 
         const { data: links, error: lErr } = await supabase
@@ -109,10 +127,17 @@ async function sendNotification(req, res) {
  */
 async function broadcastAnnouncement(req, res) {
     const { title, message } = req.body;
-    const { schoolSlug } = req.user;
+    const { schoolSlug, role } = req.user;
 
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
     if (!message || !title) return res.status(400).json({ error: 'title et message requis.' });
+    if (typeof message !== 'string' || message.length > 2000) return res.status(400).json({ error: 'Message trop long (max 2000 caractères).' });
+    if (typeof title !== 'string' || title.length > 200) return res.status(400).json({ error: 'Titre trop long (max 200 caractères).' });
+
+    const isStaff = ['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur', 'superadmin'].includes(role);
+    if (!isStaff) {
+        return res.status(403).json({ error: 'Permission refusée. Seul le personnel autorisé peut diffuser des annonces.' });
+    }
 
     try {
         const count = await broadcastPushToSchool(schoolSlug, title, message, 'announcement');
