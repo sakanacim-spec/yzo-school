@@ -54,21 +54,25 @@ async function getDashboard(req, res) {
  * GET /api/parent/payments/:studentId
  */
 async function getPayments(req, res) {
-    const { id: parentId, schoolSlug } = req.user;
+    const { id: parentId, role, schoolSlug } = req.user;
     const { studentId } = req.params;
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
-    try {
-        // Vérifier lien dans la table parent_student
-        const { data: isLinked, error: lErr } = await supabase
-            .from(`parent_student_${schoolSlug}`)
-            .select('student_id')
-            .eq('parent_id', parentId)
-            .eq('student_id', studentId)
-            .single();
+    const isStaff = ['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur', 'superadmin'].includes(role);
 
-        if (lErr || !isLinked) {
-            return res.status(403).json({ error: 'Accès refusé ou enfant non lié.' });
+    try {
+        if (!isStaff) {
+            // Vérifier lien dans la table parent_student
+            const { data: isLinked, error: lErr } = await supabase
+                .from(`parent_student_${schoolSlug}`)
+                .select('student_id')
+                .eq('parent_id', parentId)
+                .eq('student_id', studentId)
+                .single();
+
+            if (lErr || !isLinked) {
+                return res.status(403).json({ error: 'Accès refusé ou enfant non lié.' });
+            }
         }
 
         const { data: student, error: sErr } = await supabase
@@ -135,11 +139,14 @@ async function getBadges(req, res) {
  * Utilisé par l'admin pour voir le nombre de parents inscrits en temps réel
  */
 async function getActiveParentsCount(req, res) {
-    try {
-        console.log('🔍 [ActiveCount] start');
-        const schoolSlug = req.user ? req.user.schoolSlug : null;
-        if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
+    const { role, schoolSlug } = req.user;
+    if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
+    if (!['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur', 'superadmin'].includes(role)) {
+        return res.status(403).json({ error: 'Permission refusée.' });
+    }
+
+    try {
         const { count, error } = await supabase
             .from(`profiles_${schoolSlug}`)
             .select('*', { count: 'exact', head: true })
@@ -149,7 +156,6 @@ async function getActiveParentsCount(req, res) {
             console.error('❌ [ActiveCount] Supabase error:', error.message);
             throw error;
         }
-        console.log(`📊 [ActiveCount] parents count: ${count || 0}`);
         return res.json({ count: count || 0 });
     } catch (err) {
         console.error('❌ [ActiveCount] handler error:', err);
@@ -158,11 +164,14 @@ async function getActiveParentsCount(req, res) {
 }
 
 async function getAllParents(req, res) {
-    try {
-        console.log('🔍 [ParentList] fetching all parents');
-        const schoolSlug = req.user ? req.user.schoolSlug : null;
-        if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
+    const { role, schoolSlug } = req.user;
+    if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
+    if (!['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur', 'superadmin'].includes(role)) {
+        return res.status(403).json({ error: 'Permission refusée.' });
+    }
+
+    try {
         const { data, error } = await supabase
             .from(`profiles_${schoolSlug}`)
             .select('id, nom, telephone, created_at, role')
@@ -173,8 +182,7 @@ async function getAllParents(req, res) {
             console.error('❌ [ParentList] Supabase error:', error.message);
             throw error;
         }
-        console.log(`✅ [ParentList] returned ${data?.length || 0} items`);
-        return res.json(data);
+        return res.json(data || []);
     } catch (err) {
         console.error('❌ [ParentList] handler error:', err);
         return res.status(500).json({ error: err.message });
@@ -257,21 +265,25 @@ async function adminDeleteAccount(req, res) {
  * GET /api/parent/presences/:studentId
  */
 async function getPresences(req, res) {
-    const { id: parentId, schoolSlug } = req.user;
+    const { id: parentId, role, schoolSlug } = req.user;
     const { studentId } = req.params;
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
-    try {
-        // Vérifier lien dans la table parent_student
-        const { data: isLinked, error: lErr } = await supabase
-            .from(`parent_student_${schoolSlug}`)
-            .select('student_id')
-            .eq('parent_id', parentId)
-            .eq('student_id', studentId)
-            .single();
+    const isStaff = ['admin', 'directeur', 'directeur_general', 'comptable', 'superviseur', 'proviseur', 'censeur', 'superadmin'].includes(role);
 
-        if (lErr || !isLinked) {
-            return res.status(403).json({ error: 'Accès refusé ou enfant non lié.' });
+    try {
+        if (!isStaff) {
+            // Vérifier lien dans la table parent_student
+            const { data: isLinked, error: lErr } = await supabase
+                .from(`parent_student_${schoolSlug}`)
+                .select('student_id')
+                .eq('parent_id', parentId)
+                .eq('student_id', studentId)
+                .single();
+
+            if (lErr || !isLinked) {
+                return res.status(403).json({ error: 'Accès refusé ou enfant non lié.' });
+            }
         }
 
         const { data: presences, error: pErr } = await supabase
