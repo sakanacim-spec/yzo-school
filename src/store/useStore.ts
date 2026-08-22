@@ -58,9 +58,10 @@ export interface AppState {
   // Élèves
   students: Student[];
   setStudents: (students: Student[]) => void;
-  addStudent: (student: Omit<Student, 'id' | 'createdAt' | 'updatedAt' | 'cycle' | 'status' | 'restant' | 'historiquesPaiements'>) => string | undefined;
-  updateStudent: (id: string, updates: Partial<Student>) => void;
+  addStudent: (student: Omit<Student, 'id' | 'createdAt' | 'updatedAt' | 'cycle' | 'status' | 'restant' | 'historiquesPaiements'>, skipAutoSync?: boolean) => string | undefined;
+  updateStudent: (id: string, updates: Partial<Student>, skipAutoSync?: boolean) => void;
   deleteStudent: (id: string) => void;
+  rollbackStudentLocal: (id: string) => void;
   addPayment: (studentId: string, payment: Omit<Payment, 'id' | 'studentId'>) => void;
 
   // Parents
@@ -382,14 +383,14 @@ export const useStore = create<AppState>()(
       setTranches: (tranches) => {
         set({ tranches });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend(get()).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend(get()).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       classes: CLASS_CONFIG_FR,
       setClasses: (classes) => {
         set({ classes });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend(get()).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend(get()).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       getEcolage: (className: string): number => {
@@ -628,7 +629,7 @@ export const useStore = create<AppState>()(
       // ── Élèves ──────────────────────────────────────────
       students: [],
       setStudents: (students) => set({ students: deduplicateStudents(students.map(repairStudent)).list }),
-      addStudent: (data) => {
+      addStudent: (data, skipAutoSync = false) => {
         const ecolage = data.ecolage;
         const restant = ecolage - ((data as { dejaPaye?: number }).dejaPaye || 0);
         const studentId = uuid();
@@ -640,7 +641,7 @@ export const useStore = create<AppState>()(
 
         if (existing) {
           console.warn(`[AddStudent] L'élève ${data.prenom} ${data.nom} existe déjà dans cette classe. Mise à jour de l'existant.`);
-          get().updateStudent(existing.id, data);
+          get().updateStudent(existing.id, data, skipAutoSync);
           return existing.id;
         }
 
@@ -660,18 +661,20 @@ export const useStore = create<AppState>()(
 
         set({ students: [...get().students, student] });
 
-        // Background sync
-        import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({
-            students: get().students,
-            presences: get().presences, devoirs: get().devoirs,
-            activityLogs: get().activityLogs
-          }).then(() => set({ lastSyncTimestamp: Date.now() }));
-        });
+        // Background sync uniquement si non ignoré explicitement
+        if (!skipAutoSync) {
+          import('../services/backendSync').then(({ syncToBackend }) => {
+            syncToBackend({
+              students: get().students,
+              presences: get().presences, devoirs: get().devoirs,
+              activityLogs: get().activityLogs
+            }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
+          });
+        }
 
         return studentId;
       },
-      updateStudent: (id, updates) => {
+      updateStudent: (id, updates, skipAutoSync = false) => {
         const students = get().students.map((s) => {
           if (s.id !== id) return s;
           const updated = { ...s, ...updates, updatedAt: new Date().toISOString() };
@@ -699,14 +702,16 @@ export const useStore = create<AppState>()(
 
         set({ students });
 
-        // Background sync
-        import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({
-            students: get().students,
-            presences: get().presences, devoirs: get().devoirs,
-            activityLogs: get().activityLogs
-          }).then(() => set({ lastSyncTimestamp: Date.now() }));
-        });
+        // Background sync uniquement si non ignoré explicitement
+        if (!skipAutoSync) {
+          import('../services/backendSync').then(({ syncToBackend }) => {
+            syncToBackend({
+              students: get().students,
+              presences: get().presences, devoirs: get().devoirs,
+              activityLogs: get().activityLogs
+            }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
+          });
+        }
       },
       deleteStudent: async (id) => {
         const u = get().user;
@@ -728,6 +733,11 @@ export const useStore = create<AppState>()(
         } catch (err) {
           console.error('Failed to delete student from cloud:', err);
         }
+      },
+      rollbackStudentLocal: (id) => {
+        set({
+          students: get().students.filter((s) => s.id !== id)
+        });
       },
       addPayment: (studentId, paymentData) => {
         const students = get().students.map((s) => {
@@ -759,7 +769,7 @@ export const useStore = create<AppState>()(
             students: get().students,
             presences: get().presences, devoirs: get().devoirs,
             activityLogs: get().activityLogs
-          }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
 
@@ -852,7 +862,7 @@ export const useStore = create<AppState>()(
             students: get().students,
             presences: get().presences, devoirs: get().devoirs,
             activityLogs: get().activityLogs
-          }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       savePresencesBatch: (newPresences) => {
@@ -878,7 +888,7 @@ export const useStore = create<AppState>()(
             students: get().students,
             presences: get().presences, devoirs: get().devoirs,
             activityLogs: get().activityLogs
-          }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       getPresencesToday: () => {
@@ -902,13 +912,13 @@ export const useStore = create<AppState>()(
       addDevoir: (devoir) => {
         set({ devoirs: [devoir, ...get().devoirs] });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ devoirs: get().devoirs }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ devoirs: get().devoirs }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       deleteDevoir: (id) => {
         set({ devoirs: get().devoirs.filter(d => d.id !== id) });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ devoirs: get().devoirs }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ devoirs: get().devoirs }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
 
@@ -917,21 +927,21 @@ export const useStore = create<AppState>()(
         const updated = [...get().seances, seance];
         set({ seances: updated });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ seances: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ seances: updated }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       updateSeance: (id, newSeance) => {
         const updated = get().seances.map(s => s.id === id ? { ...s, ...newSeance } : s);
         set({ seances: updated });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ seances: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ seances: updated }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       deleteSeance: (id) => {
         const updated = get().seances.filter(s => s.id !== id);
         set({ seances: updated });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ seances: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ seances: updated }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
 
@@ -940,21 +950,21 @@ export const useStore = create<AppState>()(
         const updated = [expense, ...get().expenses];
         set({ expenses: updated });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ expenses: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ expenses: updated }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       updateExpense: (id, newExpense) => {
         const updated = get().expenses.map(e => e.id === id ? { ...e, ...newExpense } : e);
         set({ expenses: updated });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ expenses: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ expenses: updated }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       deleteExpense: (id) => {
         const updated = get().expenses.filter(e => e.id !== id);
         set({ expenses: updated });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ expenses: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ expenses: updated }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
 
@@ -964,14 +974,14 @@ export const useStore = create<AppState>()(
         const updated = [resource, ...get().resources];
         set({ resources: updated });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ resources: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ resources: updated }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       deleteResource: (id) => {
         const updated = get().resources.filter(r => r.id !== id);
         set({ resources: updated });
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend({ resources: updated }).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend({ resources: updated }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
 
@@ -1014,7 +1024,7 @@ export const useStore = create<AppState>()(
         set({ cycleSchedules: schedules });
         // Sync to backend
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend(get()).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend(get()).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       getHeureLimite: (cycle: string) => {
@@ -1062,7 +1072,7 @@ export const useStore = create<AppState>()(
 
         // Sync global pour garder la cohérence
         import('../services/backendSync').then(({ syncToBackend }) => {
-          syncToBackend(get()).then(() => set({ lastSyncTimestamp: Date.now() }));
+          syncToBackend(get()).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
       deleteAnnouncement: async (id) => {
@@ -1118,7 +1128,7 @@ export const useStore = create<AppState>()(
         // car l'URL /api/sync est restreinte.
         if (user && user.role !== 'parent') {
           import('../services/backendSync').then(({ syncToBackend }) => {
-            syncToBackend({ announcementReads: newReads }).then(() => set({ lastSyncTimestamp: Date.now() }));
+            syncToBackend({ announcementReads: newReads }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
           });
         }
       },
@@ -1376,7 +1386,7 @@ export const useStore = create<AppState>()(
               console.warn(`🧹 [Sync] Déduplication effectuée : ${rawCount} reçus -> ${repairedStudents.length} uniques (${countRemoved} doublons supprimés).`);
               console.log("🚀 Lancement du nettoyage permanent sur le Cloud...");
               import('../services/backendSync').then(({ syncToBackend }) => {
-                syncToBackend(get(), true); 
+                syncToBackend(get(), true).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
               });
             } else {
               console.log(`✅ [Sync] ${repairedStudents.length} élèves chargés (Source: Cloud).`);
@@ -1528,13 +1538,13 @@ export const useStore = create<AppState>()(
       addMatiere: (m) => {
         set(s => ({ matieres: [...s.matieres, m] }));
         import('../services/backendSync').then(({ syncToBackend }) =>
-          syncToBackend({ matieres: get().matieres }).then(() => set({ lastSyncTimestamp: Date.now() }))
+          syncToBackend({ matieres: get().matieres }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); })
         );
       },
       updateMatiere: (id, m) => {
         set(s => ({ matieres: s.matieres.map(x => x.id === id ? { ...x, ...m } : x) }));
         import('../services/backendSync').then(({ syncToBackend }) =>
-          syncToBackend({ matieres: get().matieres }).then(() => set({ lastSyncTimestamp: Date.now() }))
+          syncToBackend({ matieres: get().matieres }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); })
         );
       },
       deleteMatiere: async (id) => {
@@ -1558,13 +1568,13 @@ export const useStore = create<AppState>()(
       addClasseMatiere: (cm) => {
         set(s => ({ classeMatieres: [...s.classeMatieres, cm] }));
         import('../services/backendSync').then(({ syncToBackend }) =>
-          syncToBackend({ classeMatieres: get().classeMatieres }).then(() => set({ lastSyncTimestamp: Date.now() }))
+          syncToBackend({ classeMatieres: get().classeMatieres }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); })
         );
       },
       updateClasseMatiere: (id, cm) => {
         set(s => ({ classeMatieres: s.classeMatieres.map(x => x.id === id ? { ...x, ...cm } : x) }));
         import('../services/backendSync').then(({ syncToBackend }) =>
-          syncToBackend({ classeMatieres: get().classeMatieres }).then(() => set({ lastSyncTimestamp: Date.now() }))
+          syncToBackend({ classeMatieres: get().classeMatieres }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); })
         );
       },
       deleteClasseMatiere: async (id) => {

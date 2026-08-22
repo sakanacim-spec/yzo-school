@@ -21,8 +21,12 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
     // On vérifie le rôle pour éviter les erreurs 403 persistantes dans le dashboard parent
     const currentUser = (store as any).user || null;
     if (currentUser?.role === 'parent') {
-        // console.log('👤 [Sync] Skip sync for parent (restricted endpoint)');
-        return null;
+        return { success: false, error: 'Accès non autorisé pour le rôle parent.' };
+    }
+
+    if (replace && (!store.students || store.students.length === 0)) {
+        console.warn('⚠️ [Sync] Remplacement refusé : la liste des élèves est vide.');
+        return { success: false, error: 'Remplacement refusé avec une liste vide.' };
     }
 
     const payload: any = { replace };
@@ -91,7 +95,7 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
         // If response is empty, server is likely down
         if (!text) {
             console.warn('⚠️ Sync: empty response from backend');
-            return null;
+            return { success: false, error: 'Réponse vide du serveur.' };
         }
 
         let result: any;
@@ -101,13 +105,13 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
             // Response is not JSON (HTML error page, nginx error, etc)
             const preview = text.substring(0, 150).replace(/\n/g, ' ');
             console.warn('⚠️ Sync: non-JSON response:', `[${response.status}]`, preview);
-            return null;
+            return { success: false, error: `Erreur serveur (${response.status})` };
         }
 
         if (!response.ok) {
-            const errorMsg = result?.error || result?.message || 'Unknown sync error';
+            const errorMsg = result?.error || result?.message || 'Erreur lors de la synchronisation.';
             console.warn('⚠️ Sync failed:', `[${response.status}]`, errorMsg);
-            return null;
+            return { success: false, error: errorMsg, status: response.status };
         }
 
         if (payload.appSettings) {
@@ -115,11 +119,11 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
         } else {
             console.log('✅ Data Sync successful:', result.count || 0, 'students synced');
         }
-        return result;
+        return { success: true, ...result };
     } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         console.warn('⚠️ Sync fetch error:', errorMessage);
-        return null;
+        return { success: false, error: errorMessage };
     }
 }
 
