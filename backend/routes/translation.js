@@ -1,13 +1,56 @@
 const router = require('express').Router();
+const rateLimit = require('express-rate-limit');
 
-// Simple in-memory translation cache to avoid hitting MyMemory repeatedly for the same string during high load
+// Simple bounded in-memory translation cache to avoid hitting MyMemory repeatedly for the same string
 const serverCache = new Map();
+const MAX_CACHE_SIZE = 1000;
 
-router.post('/', async (req, res) => {
+function setInCache(key, value) {
+    if (serverCache.size >= MAX_CACHE_SIZE) {
+        // Supprime les 200 entrées les plus anciennes pour éviter la fuite mémoire
+        const keysToDelete = Array.from(serverCache.keys()).slice(0, 200);
+        for (const k of keysToDelete) {
+            serverCache.delete(k);
+        }
+    }
+    serverCache.set(key, value);
+}
+
+const translationLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60,
+    message: { error: 'Trop de requêtes de traduction, veuillez réessayer dans 1 minute.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+router.post('/', translationLimiter, async (req, res) => {
     const { text, targetLanguage, sourceLanguage = 'fr' } = req.body;
 
     if (!text || !targetLanguage) {
         return res.status(400).json({ error: 'Champs requis: text, targetLanguage' });
+    }
+
+    if (typeof targetLanguage !== 'string' || targetLanguage.trim().length < 2 || targetLanguage.trim().length > 10) {
+        return res.status(400).json({ error: 'Code langue cible invalide.' });
+    }
+
+    if (typeof sourceLanguage !== 'string' || sourceLanguage.trim().length < 2 || sourceLanguage.trim().length > 10) {
+        return res.status(400).json({ error: 'Code langue source invalide.' });
+    }
+
+    // Validation et bornage de la taille du texte
+    if (Array.isArray(text)) {
+        if (text.length > 25) {
+            return res.status(400).json({ error: 'Nombre maximal de textes par requête dépassé (max 25).' });
+        }
+        for (const item of text) {
+            if (typeof item !== 'string' || item.length > 5000) {
+                return res.status(400).json({ error: 'Chaque élément de texte doit être une chaîne de moins de 5000 caractères.' });
+            }
+        }
+    } else if (typeof text !== 'string' || text.length > 5000) {
+        return res.status(400).json({ error: 'Le texte doit être une chaîne de moins de 5000 caractères.' });
     }
 
     const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
@@ -80,11 +123,10 @@ router.post('/', async (req, res) => {
                         if (response.ok) {
                             const data = await response.json();
                             if (data.responseData && data.responseData.translatedText) {
-                                // Validate MyMemory didn't return an error disguised as a translation
                                 const translated = data.responseData.translatedText;
                                 if (translated !== t && !translated.startsWith('MYMEMORY WARNING')) {
                                     translationMap.set(t, translated);
-                                    serverCache.set(cacheKey, translated);
+                                    setInCache(cacheKey, translated);
                                     return;
                                 }
                             }
@@ -96,7 +138,6 @@ router.post('/', async (req, res) => {
                     // Fallback ultime SANS préfixe (on renvoie le texte source)
                     translationMap.set(t, t);
                 }));
-                // Supprimé le délai artificiel pour accélérer la résolution locale et en production
             }
 
             // Reconstruct the array in original order
@@ -111,11 +152,10 @@ router.post('/', async (req, res) => {
         }
     } catch (err) {
         console.error('❌ Erreur de traduction globale:', err.message);
-        // Fallback ultime : renvoie le texte d'origine
+        // Fallback ultime : renvoie le texte d'origine sans révéler d'erreur interne
         return res.json({
             translations: text,
-            provider: 'fallback_error',
-            error: err.message
+            provider: 'fallback_error'
         });
     }
 });

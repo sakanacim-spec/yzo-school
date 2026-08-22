@@ -31,8 +31,16 @@ const resetPasswordLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-router.post('/register', register);
-router.post('/register-school', registerSchool);
+const registerLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10,
+    message: { error: 'Trop de tentatives d\'inscription depuis cette IP, veuillez réessayer après 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+router.post('/register', registerLimiter, register);
+router.post('/register-school', registerLimiter, registerSchool);
 router.post('/login', loginLimiter, login);
 router.put('/profile', authenticateToken, updateProfile);
 router.put('/update-phone', authenticateToken, updatePhone);

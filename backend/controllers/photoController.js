@@ -42,6 +42,8 @@ async function uploadStudentPhoto(req, res) {
         return res.status(400).json({ error: 'Image base64 manquante.' });
     }
 
+    const allowedFormats = ['jpeg', 'jpg', 'png', 'webp'];
+
     try {
         // ── 1. Décoder le base64 ─────────────────────────────────
         // Format attendu: "data:image/jpeg;base64,/9j/..."
@@ -50,13 +52,28 @@ async function uploadStudentPhoto(req, res) {
             return res.status(400).json({ error: 'Format base64 invalide. Attendu: data:image/...;base64,...' });
         }
 
-        const imageFormat = matches[1]; // ex: "jpeg", "png", "webp"
+        const imageFormat = matches[1].toLowerCase();
+        if (!allowedFormats.includes(imageFormat)) {
+            return res.status(400).json({ error: 'Format d\'image non supporté. Formats autorisés : JPEG, PNG, WEBP.' });
+        }
+
         const base64Data  = matches[2];
         const imageBuffer = Buffer.from(base64Data, 'base64');
+
+        if (imageBuffer.length === 0) {
+            return res.status(400).json({ error: 'Image vide reçue.' });
+        }
 
         // Limiter la taille : max 3 MB
         if (imageBuffer.length > 3 * 1024 * 1024) {
             return res.status(413).json({ error: 'Image trop grande. Maximum 3 MB.' });
+        }
+
+        // Contrôle strict de la signature binaire réelle de l'image
+        const { verifyFileMagicBytes } = require('../utils/helpers');
+        const magicCheck = verifyFileMagicBytes(imageBuffer, ['image']);
+        if (!magicCheck.valid) {
+            return res.status(400).json({ error: 'Contenu d\'image non conforme ou signature binaire invalide.' });
         }
 
         // ── 2. Upload vers Supabase Storage ──────────────────────
@@ -80,35 +97,40 @@ async function uploadStudentPhoto(req, res) {
 
         console.log('✅ [Photo] Uploaded to storage:', filePath, uploadData);
 
-        // ── 3. Récupérer l'URL publique ──────────────────────────
-        const { data: urlData } = client.storage
+        // ── 3. Récupérer l'URL signée privée (1 heure) ────────────
+        const { data: signedData, error: signedError } = await client.storage
             .from(BUCKET_NAME)
-            .getPublicUrl(filePath);
+            .createSignedUrl(filePath, 3600);
 
-        const publicUrl = urlData.publicUrl;
+        if (signedError || !signedData?.signedUrl) {
+            return res.status(500).json({ error: 'Erreur génération URL signée: ' + (signedError?.message || 'Inconnue') });
+        }
+
+        const signedUrl = signedData.signedUrl;
 
         // ── 4. Mettre à jour la table students_{schoolSlug} ──────
         const tableName = `students_${schoolSlug}`;
         const { error: updateError } = await client
             .from(tableName)
-            .update({ photo_url: publicUrl })
+            .update({ photo_url: filePath })
             .eq('id', studentId);
 
         if (updateError) {
             console.error('❌ [Photo] DB update error:', updateError.message);
-            // L'upload a réussi mais la mise à jour DB a échoué — on retourne quand même l'URL
             return res.status(207).json({
                 warning: 'Photo uploadée mais mise à jour DB échouée: ' + updateError.message,
-                photoUrl: publicUrl
+                photoUrl: signedUrl,
+                filePath
             });
         }
 
-        console.log(`✅ [Photo] photo_url mis à jour pour élève ${studentId}: ${publicUrl}`);
+        console.log(`✅ [Photo] photo_url mis à jour pour élève ${studentId}`);
 
         return res.json({
             success: true,
             message: 'Photo uploadée avec succès.',
-            photoUrl: publicUrl,
+            photoUrl: signedUrl,
+            filePath,
             studentId
         });
 

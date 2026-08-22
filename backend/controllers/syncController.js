@@ -693,15 +693,29 @@ async function syncToFrontend(req, res) {
                 createdAt: a.created_at,
                 date: a.created_at ? a.created_at.split('T')[0] : new Date().toISOString().split('T')[0]
             })),
-            devoirs: dbDevoirs ? dbDevoirs.map(d => ({
-                id: d.id,
-                dateDonnee: d.date_donnee,
-                dateRendu: d.date_rendu,
-                matiere: d.matiere,
-                description: d.description,
-                classe: d.classe,
-                professeurNom: d.professeur_nom,
-                fichierUrl: d.fichier_url
+            devoirs: dbDevoirs ? await Promise.all(dbDevoirs.map(async (d) => {
+                let fichierUrl = d.fichier_url;
+                if (fichierUrl && !fichierUrl.startsWith('http')) {
+                    try {
+                        const { data: sData } = await supabase.storage
+                            .from('devoirs')
+                            .createSignedUrl(fichierUrl, 1800); // 30 minutes
+                        if (sData?.signedUrl) fichierUrl = sData.signedUrl;
+                    } catch (e) {
+                        console.error('Erreur signature devoir:', e.message);
+                    }
+                }
+                return {
+                    id: d.id,
+                    dateDonnee: d.date_donnee,
+                    dateRendu: d.date_rendu,
+                    matiere: d.matiere,
+                    description: d.description,
+                    classe: d.classe,
+                    professeurNom: d.professeur_nom,
+                    fichierUrl: fichierUrl,
+                    fichierStoragePath: d.fichier_url
+                };
             })) : [],
             matieres: dbMatieres ? dbMatieres.map(m => ({
                 id: m.id,
@@ -859,30 +873,54 @@ async function deleteStudent(req, res) {
     }
 }
 
+const { verifyFileMagicBytes } = require('../utils/helpers');
+
 async function uploadDevoirFile(req, res) {
     if (!req.user || !['professeur', 'admin', 'directeur', 'directeur_general'].includes(req.user.role)) {
         return res.status(403).json({ error: 'Non autorisé à uploader des devoirs.' });
     }
-    if (!req.file) return res.status(400).json({ error: 'Aucun fichier.' });
+    if (!req.user.schoolSlug) {
+        return res.status(403).json({ error: 'Établissement non identifié.' });
+    }
+    if (!req.file || !req.file.buffer || req.file.buffer.length === 0) {
+        return res.status(400).json({ error: 'Fichier manquant ou vide.' });
+    }
     
+    // Contrôle strict de la signature binaire réelle (PDF et Images vérifiés)
+    const magicCheck = verifyFileMagicBytes(req.file.buffer, ['pdf', 'image']);
+    if (!magicCheck.valid) {
+        return res.status(400).json({ error: 'Contenu de fichier non conforme (document PDF ou image valide attendu).' });
+    }
+
     try {
-        const fileName = `${Date.now()}_${req.file.originalname}`;
+        const schoolSlug = req.user.schoolSlug;
+        let detectedExt = magicCheck.detectedType || 'pdf';
+        if (detectedExt === 'jpeg') detectedExt = 'jpg';
+        const fileUUID = require('crypto').randomBytes(16).toString('hex');
+        const fileName = `${schoolSlug}/${fileUUID}.${detectedExt}`;
+
         const { data, error } = await supabase.storage
             .from('devoirs')
             .upload(fileName, req.file.buffer, {
-                contentType: req.file.mimetype
+                contentType: req.file.mimetype,
+                upsert: false
             });
             
         if (error) throw error;
         
-        const { data: { publicUrl } } = supabase.storage
+        // Génération d'une URL signée privée à durée limitée (24 heures)
+        const { data: signedData, error: signedErr } = await supabase.storage
             .from('devoirs')
-            .getPublicUrl(fileName);
+            .createSignedUrl(fileName, 86400);
+
+        if (signedErr || !signedData?.signedUrl) {
+            throw signedErr || new Error('Impossible de générer l\'URL signée.');
+        }
             
-        return res.json({ fichierUrl: publicUrl });
+        return res.json({ fichierUrl: signedData.signedUrl, filePath: fileName });
     } catch (err) {
-        console.error('Erreur upload:', err);
-        return res.status(500).json({ error: err.message });
+        console.error('Erreur upload:', err.message);
+        return res.status(500).json({ error: 'Erreur lors du téléversement du devoir.' });
     }
 }
 

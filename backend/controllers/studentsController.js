@@ -44,9 +44,24 @@ async function listStudents(req, res) {
 
             if (error) throw error;
 
-            const results = (students || []).map(s => ({
-                ...s,
-                is_linked: true
+            const results = await Promise.all((students || []).map(async (s) => {
+                let photoUrl = s.photo_url;
+                if (photoUrl && !photoUrl.startsWith('http')) {
+                    try {
+                        const { data: sData } = await supabase.storage
+                            .from('student-photos')
+                            .createSignedUrl(photoUrl, 900); // 15 minutes
+                        if (sData?.signedUrl) photoUrl = sData.signedUrl;
+                    } catch (e) {
+                        console.error('Erreur signature photo:', e.message);
+                    }
+                }
+                return {
+                    ...s,
+                    photo_url: photoUrl,
+                    photo_storage_path: s.photo_url,
+                    is_linked: true
+                };
             }));
 
             return res.json({ students: results, total: results.length });
@@ -86,9 +101,24 @@ async function listStudents(req, res) {
             if (links) linkedIds = links.map(l => l.student_id);
         }
 
-        const results = (students || []).map(s => ({
-            ...s,
-            is_linked: linkedIds.includes(s.id)
+        const results = await Promise.all((students || []).map(async (s) => {
+            let photoUrl = s.photo_url;
+            if (photoUrl && !photoUrl.startsWith('http')) {
+                try {
+                    const { data: sData } = await supabase.storage
+                        .from('student-photos')
+                        .createSignedUrl(photoUrl, 900); // 15 minutes
+                    if (sData?.signedUrl) photoUrl = sData.signedUrl;
+                } catch (e) {
+                    console.error('Erreur signature photo:', e.message);
+                }
+            }
+            return {
+                ...s,
+                photo_url: photoUrl,
+                photo_storage_path: s.photo_url,
+                is_linked: linkedIds.includes(s.id)
+            };
         }));
 
         return res.json({ students: results, total: results.length });
