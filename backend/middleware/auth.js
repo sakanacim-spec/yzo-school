@@ -9,8 +9,15 @@ function authenticateToken(req, res, next) {
     }
 
     const token = authHeader.split(' ')[1];
+    if (!token || typeof token !== 'string') {
+        return res.status(401).json({ error: 'Accès refusé. Token manquant.' });
+    }
+
     try {
-        const payload = jwt.verify(token, JWT_SECRET);
+        const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+        if (!payload.token_type || payload.token_type !== 'access') {
+            return res.status(401).json({ error: 'Session expirée ou invalide. Type de jeton non autorisé.' });
+        }
         req.user = payload; // Contient id, nom, role, schoolSlug (ou null pour superadmin)
         next();
     } catch (err) {

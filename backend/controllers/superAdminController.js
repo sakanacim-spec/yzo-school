@@ -488,9 +488,9 @@ async function impersonateSchool(req, res) {
         const userId = req.user.id || 'superadmin_impersonate';
         
         const token = jwt.sign(
-            { id: userId, nom: userName, role: 'admin', schoolSlug: school.slug },
+            { id: userId, nom: userName, role: 'admin', schoolSlug: school.slug, token_type: 'access' },
             JWT_SECRET,
-            { expiresIn: JWT_EXPIRES }
+            { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
         );
 
         console.log(`🦸‍♂️ SuperAdmin Impersonate: Accès à l'école ${school.slug}`);
@@ -781,38 +781,31 @@ async function changeSuperAdminPassword(req, res) {
         const { currentPassword, newPassword } = req.body;
         const superadminId = req.user ? req.user.id : null;
 
-        if (!newPassword || newPassword.length < 6) {
-            return res.status(400).json({ error: 'Le nouveau mot de passe doit faire au moins 6 caractères.' });
+        if (!superadminId) {
+            return res.status(401).json({ error: 'Session SuperAdmin invalide.' });
         }
 
-        let superadmin = null;
-        if (superadminId) {
-            const { data } = await supabase
-                .from('superadmins')
-                .select('*')
-                .eq('id', superadminId)
-                .single();
-            superadmin = data;
+        if (!currentPassword || typeof currentPassword !== 'string' || !currentPassword.trim()) {
+            return res.status(400).json({ error: 'Le mot de passe actuel est requis.' });
         }
 
-        if (!superadmin) {
-            const { data: firstSA } = await supabase
-                .from('superadmins')
-                .select('*')
-                .limit(1)
-                .single();
-            superadmin = firstSA;
+        if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+            return res.status(400).json({ error: 'Le nouveau mot de passe doit comporter au moins 6 caractères.' });
         }
 
-        if (!superadmin) {
+        const { data: superadmin, error: fetchErr } = await supabase
+            .from('superadmins')
+            .select('id, password')
+            .eq('id', superadminId)
+            .maybeSingle();
+
+        if (fetchErr || !superadmin) {
             return res.status(404).json({ error: 'Compte SuperAdmin introuvable.' });
         }
 
-        if (currentPassword && currentPassword.trim() !== '') {
-            const valid = await bcrypt.compare(currentPassword, superadmin.password);
-            if (!valid) {
-                return res.status(400).json({ error: 'Le mot de passe actuel saisi est incorrect.' });
-            }
+        const valid = await bcrypt.compare(currentPassword.trim(), superadmin.password);
+        if (!valid) {
+            return res.status(400).json({ error: 'Le mot de passe actuel saisi est incorrect.' });
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -826,7 +819,7 @@ async function changeSuperAdminPassword(req, res) {
         return res.json({ success: true, message: 'Mot de passe SuperAdmin mis à jour avec succès !' });
     } catch (err) {
         console.error('changeSuperAdminPassword Error:', err.message);
-        return res.status(500).json({ error: err.message || 'Erreur lors de la modification du mot de passe.' });
+        return res.status(500).json({ error: 'Erreur lors de la modification du mot de passe.' });
     }
 }
 

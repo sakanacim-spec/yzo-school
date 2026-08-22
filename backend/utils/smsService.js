@@ -11,6 +11,19 @@ if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
     twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 }
 
+function maskPhoneNumber(phone) {
+    if (!phone || typeof phone !== 'string') return '***';
+    const clean = phone.trim();
+    if (clean.length <= 6) return '***';
+    return clean.slice(0, 4) + '***' + clean.slice(-2);
+}
+
+function sanitizeMessageForLogs(msg) {
+    if (!msg || typeof msg !== 'string') return '';
+    // Mask 6-digit OTP codes in log outputs
+    return msg.replace(/\b\d{6}\b/g, '******');
+}
+
 /**
  * Envoie un SMS à un numéro donné
  * @param {string} to - Le numéro de téléphone (ex: +22899999999)
@@ -23,11 +36,9 @@ async function sendSMS(to, message, schoolName = 'École') {
 
         // Si Twilio n'est pas configuré, on simule l'envoi pour le développement
         if (!twilioClient) {
-            console.log(`\n======================================================`);
-            console.log(`[SIMULATION SMS] - (Twilio non configuré dans .env)`);
-            console.log(`Destinataire : ${to}`);
-            console.log(`Message      : ${fullMessage}`);
-            console.log(`======================================================\n`);
+            const maskedTo = maskPhoneNumber(to);
+            const safeMsg = sanitizeMessageForLogs(fullMessage);
+            console.log(`[SIMULATION SMS] Envoi simulé vers ${maskedTo} : ${safeMsg}`);
             return true;
         }
 
@@ -43,7 +54,7 @@ async function sendSMS(to, message, schoolName = 'École') {
         console.log(`[SMS Envoyé] SID: ${response.sid}`);
         return true;
     } catch (error) {
-        console.error(`[Erreur d'envoi SMS] à ${to}:`, error.message);
+        console.error(`[Erreur d'envoi SMS] vers ${maskPhoneNumber(to)}:`, error.message);
         return false;
     }
 }
