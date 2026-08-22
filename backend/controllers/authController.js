@@ -402,25 +402,30 @@ async function login(req, res) {
 
     try {
         // 1. Branche SuperAdmin ISOLÉE (Recherche ciblée sans scan complet)
-        const inputClean = telephone.trim().toLowerCase();
-        const { data: superadmin } = await supabase
+        const inputClean = String(telephone || '').trim().toLowerCase();
+        const { data: superadmin, error: superadminError } = await supabase
             .from('superadmins')
-            .select('id, nom, username, telephone, email, password')
-            .or(`username.ilike.${inputClean},email.ilike.${inputClean},telephone.eq.${telephone.trim()}`)
+            .select('id, username, password')
+            .ilike('username', inputClean)
             .maybeSingle();
+
+        if (superadminError) {
+            console.error('❌ Erreur technique lors de la recherche SuperAdmin.');
+            return res.status(500).json({ error: 'Erreur de connexion serveur.' });
+        }
 
         if (superadmin) {
             const valid = await bcrypt.compare(password, superadmin.password);
             if (valid) {
                 const token = jwt.sign(
-                    { id: superadmin.id, nom: superadmin.nom, role: 'superadmin', schoolSlug: null, token_type: 'access' },
+                    { id: superadmin.id, nom: superadmin.username, role: 'superadmin', schoolSlug: null, token_type: 'access' },
                     JWT_SECRET,
                     { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
                 );
                 return res.json({
                     message: 'Connexion globale réussie.',
                     token,
-                    user: { id: superadmin.id, nom: superadmin.nom, telephone: superadmin.telephone || superadmin.username, role: 'superadmin' }
+                    user: { id: superadmin.id, nom: superadmin.username, username: superadmin.username, telephone: superadmin.username, role: 'superadmin' }
                 });
             } else {
                 return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
@@ -589,12 +594,14 @@ async function deleteSelfAccount(req, res) {
 async function updatePushToken(req, res) {
     const { id, role, schoolSlug } = req.user;
     const { push_token } = req.body;
-    
-    const table = role === 'superadmin' ? 'superadmins' : `profiles_${schoolSlug}`;
+
+    if (role === 'superadmin') {
+        return res.json({ success: true, message: 'Push token non applicable pour le SuperAdmin.' });
+    }
 
     try {
         const { error } = await supabase
-            .from(table)
+            .from(`profiles_${schoolSlug}`)
             .update({ push_token })
             .eq('id', id);
 
@@ -678,12 +685,15 @@ const forgotPassword = async (req, res) => {
         let userFound = false;
 
         if (cleanSchoolSlug === 'global') {
-            const inputClean = phone.trim().toLowerCase();
-            const { data: superadmin } = await supabase
+            const inputClean = String(phone || '').trim().toLowerCase();
+            const { data: superadmin, error: saErr } = await supabase
                 .from('superadmins')
-                .select('id')
-                .or(`telephone.eq.${phoneNormalized},telephone.eq.${phone.trim()},username.ilike.${inputClean},email.ilike.${inputClean}`)
+                .select('id, username')
+                .ilike('username', inputClean)
                 .maybeSingle();
+            if (saErr) {
+                console.error('❌ Erreur technique lors de la vérification SuperAdmin dans forgotPassword.');
+            }
             if (superadmin) userFound = true;
         } else {
             const { data: profile } = await supabase
@@ -791,20 +801,29 @@ const resetPassword = async (req, res) => {
         }
 
         if (cleanSchoolSlug === 'global') {
-            const inputClean = phone.trim().toLowerCase();
-            const { data: sa } = await supabase
+            const inputClean = String(phone || '').trim().toLowerCase();
+            const { data: sa, error: saErr } = await supabase
                 .from('superadmins')
-                .select('id')
-                .or(`telephone.eq.${phoneNormalized},telephone.eq.${phone.trim()},username.ilike.${inputClean},email.ilike.${inputClean}`)
+                .select('id, username')
+                .ilike('username', inputClean)
                 .maybeSingle();
 
+            if (saErr) {
+                console.error('❌ Erreur technique lors de la vérification SuperAdmin dans resetPassword.');
+                return res.status(500).json({ error: 'Échec de la réinitialisation du mot de passe.' });
+            }
+
             if (!sa) {
-                return res.status(400).json({ error: 'Compte SuperAdmin introuvable pour ce numéro.' });
+                return res.status(400).json({ error: 'Compte SuperAdmin introuvable pour cet identifiant.' });
             }
 
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(newPassword, salt);
-            await supabase.from('superadmins').update({ password: hashedPassword }).eq('id', sa.id);
+            const { error: updateSaErr } = await supabase.from('superadmins').update({ password: hashedPassword }).eq('id', sa.id);
+            if (updateSaErr) {
+                console.error('❌ Erreur technique lors de la mise à jour du mot de passe SuperAdmin.');
+                return res.status(500).json({ error: 'Échec de la réinitialisation du mot de passe.' });
+            }
         } else {
             // 1. Récupérer l'UUID Auth (id) du profil par phone_normalized
             const { data: profile, error: profileErr } = await supabase
