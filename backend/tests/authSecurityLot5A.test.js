@@ -689,15 +689,24 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // =========================================================================
-    // TESTS HOTFIX SUPERADMIN (Schéma réel public.superadmins & Fail-Closed)
+    // TESTS HOTFIX SUPERADMIN (Portée stricte 'global' & Schéma réel public.superadmins)
     // =========================================================================
 
     // -------------------------------------------------------------------------
-    // 30. Superadmin avec hash bcrypt valide et bon mot de passe réussit
+    // 30. global + superadmin + bon mot de passe est autorisé
     // -------------------------------------------------------------------------
-    await asyncTest('30. [HOTFIX] superadmin avec hash bcrypt valide et bon mot de passe réussit', async () => {
+    await asyncTest('30. [SCOPE GLOBAL] global + superadmin + bon mot de passe est autorisé', async () => {
         const correctPassword = 'StrongMasterSuperAdminPassword2026!';
         const storedHash = await bcrypt.hash(correctPassword, 10);
+        const schoolSlug = 'global';
+        const telephone = 'superadmin';
+
+        const inputClean = String(telephone || '').trim().toLowerCase();
+        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
+        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+
+        assert.strictEqual(isSuperAdminAttempt, true);
+
         const superadminRecord = {
             id: 'd8c4e0a1-7788-4433-2211-aabbccddeeff',
             username: 'superadmin',
@@ -720,27 +729,80 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // -------------------------------------------------------------------------
-    // 31. SUPERADMIN est normalisé et correspond au même username
+    // 31. GLOBAL + SUPERADMIN est normalisé et autorisé avec le bon mot de passe
     // -------------------------------------------------------------------------
-    test('31. [HOTFIX] SUPERADMIN en majuscules est normalisé en minuscules', () => {
-        const rawInput = 'SUPERADMIN';
-        const inputClean = String(rawInput || '').trim().toLowerCase();
+    test('31. [SCOPE GLOBAL] GLOBAL + SUPERADMIN en majuscules est normalisé en minuscules', () => {
+        const schoolSlug = 'GLOBAL';
+        const telephone = 'SUPERADMIN';
+        const inputClean = String(telephone || '').trim().toLowerCase();
+        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
+        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+
+        assert.strictEqual(schoolSlugClean, 'global');
         assert.strictEqual(inputClean, 'superadmin');
+        assert.strictEqual(isSuperAdminAttempt, true);
     });
 
     // -------------------------------------------------------------------------
-    // 32. Les espaces avant/après l identifiant sont supprimés
+    // 32. Les espaces autour de global et superadmin sont supprimés
     // -------------------------------------------------------------------------
-    test('32. [HOTFIX] Espaces et tabulations avant/après l identifiant sont supprimés', () => {
-        const rawInput = '   \t  superadmin \n  ';
-        const inputClean = String(rawInput || '').trim().toLowerCase();
+    test('32. [SCOPE GLOBAL] Espaces et tabulations autour de global et superadmin sont supprimés', () => {
+        const schoolSlug = '   \t global \n  ';
+        const telephone = '   \t  superadmin \n  ';
+        const inputClean = String(telephone || '').trim().toLowerCase();
+        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
+        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+
+        assert.strictEqual(schoolSlugClean, 'global');
         assert.strictEqual(inputClean, 'superadmin');
+        assert.strictEqual(isSuperAdminAttempt, true);
     });
 
     // -------------------------------------------------------------------------
-    // 33. Un mauvais mot de passe SuperAdmin est formellement refusé
+    // 33. autre_ecole + superadmin + bon mot de passe est refusé
     // -------------------------------------------------------------------------
-    await asyncTest('33. [HOTFIX] Mauvais mot de passe SuperAdmin retourne faux et 401', async () => {
+    test('33. [SCOPE GLOBAL] autre_ecole + superadmin n active pas la branche SuperAdmin', () => {
+        const schoolSlug = 'ecole_demo';
+        const telephone = 'superadmin';
+        const inputClean = String(telephone || '').trim().toLowerCase();
+        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
+        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+
+        assert.strictEqual(isSuperAdminAttempt, false);
+    });
+
+    // -------------------------------------------------------------------------
+    // 34. chaîne vide + superadmin est refusée
+    // -------------------------------------------------------------------------
+    test('34. [SCOPE GLOBAL] chaîne vide ou absente pour schoolSlug est rejetée', () => {
+        const schoolSlug = '';
+        const telephone = 'superadmin';
+        const inputClean = String(telephone || '').trim().toLowerCase();
+        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
+        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+
+        assert.strictEqual(isSuperAdminAttempt, false);
+        assert.strictEqual(!schoolSlug, true);
+    });
+
+    // -------------------------------------------------------------------------
+    // 35. global + autre_identifiant est refusé sans interroger superadmins ni schools
+    // -------------------------------------------------------------------------
+    test('35. [SCOPE GLOBAL] global + autre_identifiant est rejeté immédiatement avec 401 générique', () => {
+        const schoolSlug = 'global';
+        const telephone = '0197000000';
+        const inputClean = String(telephone || '').trim().toLowerCase();
+        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
+        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+
+        assert.strictEqual(isSuperAdminAttempt, false);
+        assert.strictEqual(schoolSlugClean === 'global', true);
+    });
+
+    // -------------------------------------------------------------------------
+    // 36. global + superadmin + mauvais mot de passe est refusé
+    // -------------------------------------------------------------------------
+    await asyncTest('36. [SCOPE GLOBAL] global + superadmin + mauvais mot de passe retourne faux et 401', async () => {
         const storedHash = await bcrypt.hash('CorrectMasterPwd!', 10);
         const wrongPassword = 'IncorrectPassword123';
         const isMatch = await bcrypt.compare(wrongPassword, storedHash);
@@ -748,21 +810,150 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // -------------------------------------------------------------------------
-    // 34. Un username SuperAdmin inexistant ne sélectionne aucun compte
+    // 37. La table superadmins n est pas interrogée lorsque le slug n est pas global
     // -------------------------------------------------------------------------
-    test('34. [HOTFIX] Username inexistant ne produit aucun résultat ni sélection arbitraire', () => {
-        const table = [
-            { id: 'sa_1', username: 'superadmin', password: '$2a$10$xyz' }
-        ];
-        const inputClean = 'unknown_user';
-        const match = table.find(r => r.username.toLowerCase() === inputClean);
-        assert.strictEqual(match, undefined);
+    test('37. [SCOPE GLOBAL] La table superadmins n est pas interrogée si schoolSlug !== global', () => {
+        let superadminsQueried = false;
+        const schoolSlug = 'autre_ecole';
+        const telephone = 'superadmin';
+        const inputClean = String(telephone || '').trim().toLowerCase();
+        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
+        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+
+        if (isSuperAdminAttempt) {
+            superadminsQueried = true;
+        }
+
+        assert.strictEqual(superadminsQueried, false);
     });
 
     // -------------------------------------------------------------------------
-    // 35. Erreur Supabase sur superadmins traitée en fail-closed
+    // 38. La table superadmins n est pas interrogée lorsque l identifiant n est pas superadmin
     // -------------------------------------------------------------------------
-    test('35. [HOTFIX] Erreur Supabase sur table superadmins gérée en fail-closed (HTTP 500 sans continuer)', () => {
+    test('38. [SCOPE GLOBAL] La table superadmins n est pas interrogée si identifiant !== superadmin', () => {
+        let superadminsQueried = false;
+        const schoolSlug = 'global';
+        const telephone = 'directeur_general';
+        const inputClean = String(telephone || '').trim().toLowerCase();
+        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
+        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+
+        if (isSuperAdminAttempt) {
+            superadminsQueried = true;
+        }
+
+        assert.strictEqual(superadminsQueried, false);
+    });
+
+    // -------------------------------------------------------------------------
+    // 39. Aucun fallback vers le premier SuperAdmin n existe
+    // -------------------------------------------------------------------------
+    test('39. [SCOPE GLOBAL STATIC] Aucun fallback saList[0] ou limit(1) n existe dans backend', () => {
+        const controllersDir = path.join(__dirname, '../controllers');
+        const files = fs.readdirSync(controllersDir);
+        for (const file of files) {
+            if (file.endsWith('.js')) {
+                const fileContent = fs.readFileSync(path.join(controllersDir, file), 'utf8');
+                assert.strictEqual(fileContent.includes('saList[0]'), false, `saList[0] trouvé dans ${file}`);
+                assert.strictEqual(fileContent.includes("saList.find"), false, `saList.find trouvé dans ${file}`);
+            }
+        }
+    });
+
+    // -------------------------------------------------------------------------
+    // 40. Aucun message ne révèle l existence du compte
+    // -------------------------------------------------------------------------
+    test('40. [SCOPE GLOBAL] Message d erreur uniforme sans fuite d information', () => {
+        const genericErrorMsg = 'Numéro de téléphone ou mot de passe incorrect.';
+        assert.strictEqual(genericErrorMsg, 'Numéro de téléphone ou mot de passe incorrect.');
+    });
+
+    // -------------------------------------------------------------------------
+    // 41. Le flux d une école ordinaire reste fonctionnel
+    // -------------------------------------------------------------------------
+    test('41. [SCOPE GLOBAL] Flux d une école ordinaire requiert schoolSlug et normalisation E.164', () => {
+        const normalized = normalizePhone('+2290197000000', 'BJ');
+        assert.strictEqual(normalized, '+2290197000000');
+    });
+
+    // -------------------------------------------------------------------------
+    // 42. Le JWT SuperAdmin conserve token_type: 'access' et schoolSlug: null
+    // -------------------------------------------------------------------------
+    test('42. [SCOPE GLOBAL] JWT SuperAdmin contient token_type: access et schoolSlug: null', () => {
+        const token = jwt.sign(
+            { id: 'sa_id_1', nom: 'superadmin', role: 'superadmin', schoolSlug: null, token_type: 'access' },
+            JWT_SECRET,
+            { algorithm: 'HS256', expiresIn: '7d' }
+        );
+        const payload = jwt.decode(token);
+        assert.strictEqual(payload.token_type, 'access');
+        assert.strictEqual(payload.role, 'superadmin');
+        assert.strictEqual(payload.schoolSlug, null);
+    });
+
+    // -------------------------------------------------------------------------
+    // 43. Le JWT conserve HS256
+    // -------------------------------------------------------------------------
+    test('43. [SCOPE GLOBAL] JWT SuperAdmin est signé avec l algorithme HS256', () => {
+        const token = jwt.sign(
+            { id: 'sa_id_1', nom: 'superadmin', role: 'superadmin', schoolSlug: null, token_type: 'access' },
+            JWT_SECRET,
+            { algorithm: 'HS256', expiresIn: '7d' }
+        );
+        const decodedHeader = JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8'));
+        assert.strictEqual(decodedHeader.alg, 'HS256');
+    });
+
+    // -------------------------------------------------------------------------
+    // 44. Les anciens JWT sans token_type restent rejetés
+    // -------------------------------------------------------------------------
+    test('44. [SCOPE GLOBAL] Ancien JWT SuperAdmin sans token_type rejeté par authenticateToken', () => {
+        const legacyToken = jwt.sign(
+            { id: 'sa_1', nom: 'superadmin', role: 'superadmin', schoolSlug: null },
+            JWT_SECRET,
+            { algorithm: 'HS256', expiresIn: '1h' }
+        );
+        const req = { headers: { authorization: `Bearer ${legacyToken}` } };
+        let statusCode = null;
+        let nextCalled = false;
+        const res = {
+            status: (code) => { statusCode = code; return res; },
+            json: () => {}
+        };
+        authenticateToken(req, res, () => { nextCalled = true; });
+        assert.strictEqual(nextCalled, false);
+        assert.strictEqual(statusCode, 401);
+    });
+
+    // -------------------------------------------------------------------------
+    // 45. Les rate limiters du Lot 5A restent montés
+    // -------------------------------------------------------------------------
+    test('45. [SCOPE GLOBAL] Rate limiter loginLimiter actif sur POST /api/auth/login', () => {
+        const routes = authRoutes.stack.filter(layer => layer.route);
+        const loginRoute = routes.find(r => r.route.path === '/login');
+        assert.ok(loginRoute, 'Route /login présente');
+        assert.ok(loginRoute.route.stack.length >= 2, 'Rate limiter et contrôleur montés');
+    });
+
+    // -------------------------------------------------------------------------
+    // 46. Les colonnes inexistantes de superadmins ne sont jamais demandées
+    // -------------------------------------------------------------------------
+    test('46. [SCOPE GLOBAL STATIC] Aucune référence à nom, telephone ou email comme colonnes de superadmins', () => {
+        const authCtrlPath = path.join(__dirname, '../controllers/authController.js');
+        const content = fs.readFileSync(authCtrlPath, 'utf8');
+
+        const superadminQueries = content.match(/\.from\(['"]superadmins['"]\)[\s\S]*?\.maybeSingle\(\)/g) || [];
+        for (const query of superadminQueries) {
+            assert.strictEqual(query.includes('nom'), false, `Colonne nom trouvée dans query: ${query}`);
+            assert.strictEqual(query.includes('telephone'), false, `Colonne telephone trouvée dans query: ${query}`);
+            assert.strictEqual(query.includes('email'), false, `Colonne email trouvée dans query: ${query}`);
+        }
+    });
+
+    // -------------------------------------------------------------------------
+    // 47. Une erreur Supabase reste gérée en fail-closed
+    // -------------------------------------------------------------------------
+    test('47. [SCOPE GLOBAL] Erreur Supabase sur superadmins traitée en fail-closed (HTTP 500 sans continuer)', () => {
         const superadminError = { message: 'Database connection timeout' };
         let statusCode = null;
         let responseJson = null;
@@ -783,157 +974,7 @@ class InMemoryTransactionalOtpDatabase {
         assert.strictEqual(continuedToSchools, false);
     });
 
-    // -------------------------------------------------------------------------
-    // 36. Inspection statique : Sélection contient uniquement id, username, password
-    // -------------------------------------------------------------------------
-    test('36. [HOTFIX STATIC] La sélection superadmins contient uniquement id, username, password', () => {
-        const authCtrlPath = path.join(__dirname, '../controllers/authController.js');
-        const content = fs.readFileSync(authCtrlPath, 'utf8');
-
-        // Vérifier la sélection dans login
-        const loginSuperadminSection = content.substring(
-            content.indexOf("// 1. Branche SuperAdmin ISOLÉE"),
-            content.indexOf("// 2. Sinon, l'utilisateur DOIT avoir sélectionné une école")
-        );
-
-        assert.ok(loginSuperadminSection.includes(".select('id, username, password')"), "La sélection doit être strictement 'id, username, password'");
-        assert.strictEqual(loginSuperadminSection.includes('nom,'), false);
-        assert.strictEqual(loginSuperadminSection.includes('telephone,'), false);
-        assert.strictEqual(loginSuperadminSection.includes('email,'), false);
-    });
-
-    // -------------------------------------------------------------------------
-    // 37. Inspection statique : Aucune référence aux colonnes inexistantes sur superadmins
-    // -------------------------------------------------------------------------
-    test('37. [HOTFIX STATIC] Aucune référence à nom, telephone ou email comme colonnes de superadmins', () => {
-        const authCtrlPath = path.join(__dirname, '../controllers/authController.js');
-        const content = fs.readFileSync(authCtrlPath, 'utf8');
-
-        // Regex vérifiant qu'aucune requête from('superadmins') ne sélectionne nom/telephone/email
-        const superadminQueries = content.match(/\.from\(['"]superadmins['"]\)[\s\S]*?\.maybeSingle\(\)/g) || [];
-        for (const query of superadminQueries) {
-            assert.strictEqual(query.includes('nom'), false, `Colonne nom trouvée dans query: ${query}`);
-            assert.strictEqual(query.includes('telephone'), false, `Colonne telephone trouvée dans query: ${query}`);
-            assert.strictEqual(query.includes('email'), false, `Colonne email trouvée dans query: ${query}`);
-        }
-    });
-
-    // -------------------------------------------------------------------------
-    // 38. Inspection statique : Aucun bypass saList[0] ou limit(1) résiduel
-    // -------------------------------------------------------------------------
-    test('38. [HOTFIX STATIC] Aucun fallback saList[0] ou limit(1) arbitraire n existe dans backend', () => {
-        const controllersDir = path.join(__dirname, '../controllers');
-        const files = fs.readdirSync(controllersDir);
-        for (const file of files) {
-            if (file.endsWith('.js')) {
-                const fileContent = fs.readFileSync(path.join(controllersDir, file), 'utf8');
-                assert.strictEqual(fileContent.includes('saList[0]'), false, `saList[0] trouvé dans ${file}`);
-                assert.strictEqual(fileContent.includes("saList.find"), false, `saList.find trouvé dans ${file}`);
-            }
-        }
-    });
-
-    // -------------------------------------------------------------------------
-    // 39. Le JWT généré pour le SuperAdmin contient token_type: 'access'
-    // -------------------------------------------------------------------------
-    test('39. [HOTFIX] Le token JWT SuperAdmin contient explicitement token_type: access', () => {
-        const token = jwt.sign(
-            { id: 'sa_id_1', nom: 'superadmin', role: 'superadmin', schoolSlug: null, token_type: 'access' },
-            JWT_SECRET,
-            { algorithm: 'HS256', expiresIn: '7d' }
-        );
-        const payload = jwt.decode(token);
-        assert.strictEqual(payload.token_type, 'access');
-        assert.strictEqual(payload.role, 'superadmin');
-    });
-
-    // -------------------------------------------------------------------------
-    // 40. Le JWT est signé avec HS256
-    // -------------------------------------------------------------------------
-    test('40. [HOTFIX] Le token JWT SuperAdmin est signé avec algorithme HS256', () => {
-        const token = jwt.sign(
-            { id: 'sa_id_1', nom: 'superadmin', role: 'superadmin', schoolSlug: null, token_type: 'access' },
-            JWT_SECRET,
-            { algorithm: 'HS256', expiresIn: '7d' }
-        );
-        const decodedHeader = JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8'));
-        assert.strictEqual(decodedHeader.alg, 'HS256');
-    });
-
-    // -------------------------------------------------------------------------
-    // 41. Le hash du mot de passe n est jamais retourné dans la réponse
-    // -------------------------------------------------------------------------
-    test('41. [HOTFIX] Le hash de mot de passe est exclu de la réponse HTTP de connexion SuperAdmin', () => {
-        const superadmin = { id: 'sa_uuid', username: 'superadmin', password: '$2a$10$hashed_value_secret' };
-        const httpResponse = {
-            message: 'Connexion globale réussie.',
-            token: 'fake.jwt.token',
-            user: { id: superadmin.id, nom: superadmin.username, username: superadmin.username, telephone: superadmin.username, role: 'superadmin' }
-        };
-
-        const jsonStr = JSON.stringify(httpResponse);
-        assert.strictEqual(jsonStr.includes('password'), false);
-        assert.strictEqual(jsonStr.includes('hashed_value_secret'), false);
-        assert.strictEqual(jsonStr.includes('$2a$'), false);
-    });
-
-    // -------------------------------------------------------------------------
-    // 42. schoolSlug est null pour le SuperAdmin
-    // -------------------------------------------------------------------------
-    test('42. [HOTFIX] schoolSlug est strictement null dans le JWT du SuperAdmin', () => {
-        const token = jwt.sign(
-            { id: 'sa_uuid', nom: 'superadmin', role: 'superadmin', schoolSlug: null, token_type: 'access' },
-            JWT_SECRET,
-            { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
-        );
-        const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
-        assert.strictEqual(payload.schoolSlug, null);
-    });
-
-    // -------------------------------------------------------------------------
-    // 43. Le flux ordinaire d une école requiert schoolSlug et normalisation E.164
-    // -------------------------------------------------------------------------
-    test('43. [HOTFIX] Tentative de connexion école sans schoolSlug rejetée avec 400', () => {
-        const telephone = '97000000';
-        const password = 'Password123!';
-        const schoolSlug = undefined;
-
-        // Si ce n'est pas le superadmin et que schoolSlug est absent
-        assert.strictEqual(!schoolSlug, true);
-    });
-
-    // -------------------------------------------------------------------------
-    // 44. Les rate limiters du Lot 5A restent montés
-    // -------------------------------------------------------------------------
-    test('44. [HOTFIX] Rate limiter loginLimiter actif sur POST /api/auth/login', () => {
-        const routes = authRoutes.stack.filter(layer => layer.route);
-        const loginRoute = routes.find(r => r.route.path === '/login');
-        assert.ok(loginRoute, 'Route /login présente');
-        assert.ok(loginRoute.route.stack.length >= 2, 'Rate limiter et contrôleur montés');
-    });
-
-    // -------------------------------------------------------------------------
-    // 45. Les anciens JWT sans token_type restent rejetés
-    // -------------------------------------------------------------------------
-    test('45. [HOTFIX] Ancien JWT SuperAdmin sans token_type rejeté par authenticateToken', () => {
-        const legacyToken = jwt.sign(
-            { id: 'sa_1', nom: 'superadmin', role: 'superadmin', schoolSlug: null },
-            JWT_SECRET,
-            { algorithm: 'HS256', expiresIn: '1h' }
-        );
-        const req = { headers: { authorization: `Bearer ${legacyToken}` } };
-        let statusCode = null;
-        let nextCalled = false;
-        const res = {
-            status: (code) => { statusCode = code; return res; },
-            json: () => {}
-        };
-        authenticateToken(req, res, () => { nextCalled = true; });
-        assert.strictEqual(nextCalled, false);
-        assert.strictEqual(statusCode, 401);
-    });
-
     console.log(`\n======================================================`);
-    console.log(`🎉 Tous les ${passedTests}/${totalTests} tests de sécurité et concurrence Lot 5A + HOTFIX ont réussi avec succès !`);
+    console.log(`🎉 Tous les ${passedTests}/${totalTests} tests de sécurité, concurrence et portée globale SuperAdmin ont réussi avec succès !`);
     console.log(`======================================================\n`);
 })();

@@ -401,35 +401,50 @@ async function login(req, res) {
     }
 
     try {
-        // 1. Branche SuperAdmin ISOLÉE (Recherche ciblée sans scan complet)
         const inputClean = String(telephone || '').trim().toLowerCase();
-        const { data: superadmin, error: superadminError } = await supabase
-            .from('superadmins')
-            .select('id, username, password')
-            .ilike('username', inputClean)
-            .maybeSingle();
+        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
 
-        if (superadminError) {
-            console.error('❌ Erreur technique lors de la recherche SuperAdmin.');
-            return res.status(500).json({ error: 'Erreur de connexion serveur.' });
-        }
+        const isSuperAdminAttempt =
+            schoolSlugClean === 'global' &&
+            inputClean === 'superadmin';
 
-        if (superadmin) {
-            const valid = await bcrypt.compare(password, superadmin.password);
-            if (valid) {
-                const token = jwt.sign(
-                    { id: superadmin.id, nom: superadmin.username, role: 'superadmin', schoolSlug: null, token_type: 'access' },
-                    JWT_SECRET,
-                    { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
-                );
-                return res.json({
-                    message: 'Connexion globale réussie.',
-                    token,
-                    user: { id: superadmin.id, nom: superadmin.username, username: superadmin.username, telephone: superadmin.username, role: 'superadmin' }
-                });
+        // 1. Branche SuperAdmin ISOLÉE (Recherche ciblée UNIQUEMENT pour schoolSlug=global et identifiant=superadmin)
+        if (isSuperAdminAttempt) {
+            const { data: superadmin, error: superadminError } = await supabase
+                .from('superadmins')
+                .select('id, username, password')
+                .ilike('username', inputClean)
+                .maybeSingle();
+
+            if (superadminError) {
+                console.error('❌ Erreur technique lors de la recherche SuperAdmin.');
+                return res.status(500).json({ error: 'Erreur de connexion serveur.' });
+            }
+
+            if (superadmin) {
+                const valid = await bcrypt.compare(password, superadmin.password);
+                if (valid) {
+                    const token = jwt.sign(
+                        { id: superadmin.id, nom: superadmin.username, role: 'superadmin', schoolSlug: null, token_type: 'access' },
+                        JWT_SECRET,
+                        { algorithm: 'HS256', expiresIn: JWT_EXPIRES }
+                    );
+                    return res.json({
+                        message: 'Connexion globale réussie.',
+                        token,
+                        user: { id: superadmin.id, nom: superadmin.username, username: superadmin.username, telephone: superadmin.username, role: 'superadmin' }
+                    });
+                } else {
+                    return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
+                }
             } else {
                 return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
             }
+        }
+
+        // Si l'établissement est 'global' mais que l'identifiant n'est pas 'superadmin'
+        if (schoolSlugClean === 'global') {
+            return res.status(401).json({ error: 'Numéro de téléphone ou mot de passe incorrect.' });
         }
         
         // 2. Sinon, l'utilisateur DOIT avoir sélectionné une école
