@@ -57,23 +57,83 @@ const { supabase } = require('./utils/supabase');
 
 const { PORT } = require('./config');
 
-// ── Créer les dossiers nécessaires ───────────────────────────
-if (!process.env.VERCEL) {
-    const uploadsDir = path.join(__dirname, 'uploads', 'messages');
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
 // ── Application Express ───────────────────────────────────────
 const app = express();
+
+// Désactiver la bannière X-Powered-By
+app.disable('x-powered-by');
 
 // Configuration explicite du proxy (Vercel / reverse-proxy depth = 1)
 app.set('trust proxy', 1);
 
-// Middleware globaux
-app.use(cors({
-    origin: true, // Accepte dynamiquement toutes les origines locales
+// ── En-têtes de Sécurité HTTP ─────────────────────────────────
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
+
+    // Strict-Transport-Security en production HTTPS
+    if (process.env.NODE_ENV === 'production') {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+
+    // Content-Security-Policy permissive mais protectrice pour les ressources légitimes
+    res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.sheetjs.com https://unpkg.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+        "font-src 'self' https://fonts.gstatic.com data:; " +
+        "img-src 'self' data: blob: https:; " +
+        "connect-src 'self' https://*.supabase.co https://api.groq.com https://generativelanguage.googleapis.com https://translation.googleapis.com https://api.mymemory.translated.net https://api.fedapay.com https://sandbox-api.fedapay.com; " +
+        "frame-ancestors 'self';"
+    );
+
+    next();
+});
+
+// ── Configuration CORS Sécurisée ──────────────────────────────
+const productionAllowedOrigins = [
+    'https://yziow.com',
+    'https://www.yziow.com'
+];
+
+const developmentAllowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000'
+];
+
+const envAllowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+const baseAllowedOrigins = process.env.NODE_ENV === 'production'
+    ? productionAllowedOrigins
+    : [...productionAllowedOrigins, ...developmentAllowedOrigins];
+
+const allowedOriginsSet = new Set([...baseAllowedOrigins, ...envAllowedOrigins]);
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        // Autorise les requêtes sans Origin (applications mobiles Capacitor, requêtes internes, curl)
+        if (!origin) return callback(null, true);
+
+        if (allowedOriginsSet.has(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Origine non autorisée par la politique de sécurité CORS.'));
+    },
     credentials: true,
-}));
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
 
 // Parseurs JSON pré-instanciés
 const webhookJsonParser = express.json({
@@ -84,10 +144,10 @@ const webhookJsonParser = express.json({
 });
 
 const globalJsonParser = express.json({
-    limit: '10mb'
+    limit: '2mb'
 });
 
-// Sélecteur de parseur JSON : limite dédiée 256 KB pour le webhook, 10 MB pour les autres routes
+// Sélecteur de parseur JSON : limite dédiée 256 KB pour le webhook, 2 MB pour les autres routes
 app.use((req, res, next) => {
     const pathname = (req.originalUrl ? req.originalUrl.split('?')[0] : req.path) || '';
     if (req.method === 'POST' && pathname === '/api/payment/webhook') {
@@ -96,7 +156,7 @@ app.use((req, res, next) => {
     return globalJsonParser(req, res, next);
 });
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.urlencoded({ extended: false, limit: '512kb' }));
 
 // Logger simple des requêtes
 app.use((req, res, next) => {
@@ -165,8 +225,11 @@ if (fs.existsSync(frontendDir)) {
 
 // ── Gestion globale des erreurs ───────────────────────────────
 app.use((err, req, res, _next) => {
-    console.error('❌ Erreur serveur:', err.message);
-    res.status(500).json({ error: 'Erreur interne du serveur.', detail: err.message });
+    if (err && err.message && err.message.includes('CORS')) {
+        return res.status(403).json({ error: 'Accès interdit par la politique CORS.' });
+    }
+    console.error('❌ Erreur serveur:', err.message || err);
+    res.status(err.status || 500).json({ error: 'Erreur interne du serveur.' });
 });
 
 // ── Démarrage ─────────────────────────────────────────────────

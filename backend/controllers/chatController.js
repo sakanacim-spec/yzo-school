@@ -74,6 +74,23 @@ async function getMessages(req, res) {
 
         if (error) throw error;
 
+        // Génération d'URL signée à la lecture pour chaque pièce jointe (15 minutes)
+        const enrichedMessages = await Promise.all((data || []).map(async (msg) => {
+            if (msg.image_url && !msg.image_url.startsWith('http')) {
+                try {
+                    const { data: sData } = await supabase.storage
+                        .from('messages')
+                        .createSignedUrl(msg.image_url, 900); // 15 minutes
+                    if (sData?.signedUrl) {
+                        return { ...msg, image_url: sData.signedUrl, storage_path: msg.image_url };
+                    }
+                } catch (e) {
+                    console.error('Erreur signature image message:', e.message);
+                }
+            }
+            return msg;
+        }));
+
         // Marquer comme lu pour le récepteur
         await supabase
             .from(`messages_${schoolSlug}`)
@@ -81,7 +98,7 @@ async function getMessages(req, res) {
             .eq('conversation_id', conversationId)
             .neq('sender_id', userId);
 
-        return res.json(data);
+        return res.json(enrichedMessages);
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
@@ -216,7 +233,7 @@ async function sendMessage(req, res) {
                 conversation_id: convId,
                 sender_id: id,
                 message_text: text,
-                image_url: imageUrl
+                image_url: req.body.filePath || imageUrl || null
             })
             .select()
             .single();
@@ -321,26 +338,51 @@ async function getUnreadCount(req, res) {
         return res.status(500).json({ error: err.message });
     }
 }
+const { verifyFileMagicBytes } = require('../utils/helpers');
+
 async function uploadImage(req, res) {
-    if (!req.file) return res.status(400).json({ error: 'Aucun fichier.' });
+    if (!req.user || !req.user.schoolSlug) {
+        return res.status(403).json({ error: 'Établissement non identifié.' });
+    }
+    if (!req.file || !req.file.buffer || req.file.buffer.length === 0) {
+        return res.status(400).json({ error: 'Fichier manquant ou vide.' });
+    }
+
+    // Contrôle strict de la signature binaire réelle
+    const magicCheck = verifyFileMagicBytes(req.file.buffer, ['image']);
+    if (!magicCheck.valid) {
+        return res.status(400).json({ error: 'Contenu de fichier non conforme (signature d\'image JPEG/PNG/WEBP/GIF attendue).' });
+    }
 
     try {
-        const fileName = `${Date.now()}_${req.file.originalname}`;
+        const schoolSlug = req.user.schoolSlug;
+        const detectedType = magicCheck.detectedType || 'jpg';
+        const safeExt = detectedType === 'jpeg' ? 'jpg' : detectedType;
+        const fileUUID = require('crypto').randomBytes(16).toString('hex');
+        const fileName = `${schoolSlug}/${fileUUID}.${safeExt}`;
+
         const { data, error } = await supabase.storage
             .from('messages')
             .upload(fileName, req.file.buffer, {
-                contentType: req.file.mimetype
+                contentType: `image/${detectedType}`,
+                upsert: false
             });
 
         if (error) throw error;
 
-        const { data: { publicUrl } } = supabase.storage
+        // Génération d'une URL signée privée à durée limitée (1 heure)
+        const { data: signedData, error: signedErr } = await supabase.storage
             .from('messages')
-            .getPublicUrl(fileName);
+            .createSignedUrl(fileName, 3600);
 
-        return res.json({ imageUrl: publicUrl });
+        if (signedErr || !signedData?.signedUrl) {
+            throw signedErr || new Error('Impossible de générer l\'URL signée.');
+        }
+
+        return res.json({ imageUrl: signedData.signedUrl, filePath: fileName });
     } catch (err) {
-        return res.status(500).json({ error: err.message });
+        console.error('Upload image error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors du téléversement de l\'image.' });
     }
 }
 

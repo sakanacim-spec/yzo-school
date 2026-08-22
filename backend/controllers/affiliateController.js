@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const { supabase } = require('../utils/supabase');
 const { JWT_SECRET, JWT_EXPIRES } = require('../config');
 
+const { validateBoundedString } = require('../utils/helpers');
+
 // Inscription d'un ambassadeur
 async function register(req, res) {
     const { nom, telephone, email, password, country, photo_url } = req.body;
@@ -10,12 +12,21 @@ async function register(req, res) {
     if (!nom || !telephone || !password || !country || !email) {
         return res.status(400).json({ error: 'Tous les champs sont requis (nom, email, telephone, password, pays).' });
     }
-    if (password.length < 6) {
-        return res.status(400).json({ error: 'Le mot de passe doit faire au moins 6 caractères.' });
+
+    if (typeof nom !== 'string' || typeof telephone !== 'string' || typeof password !== 'string' || typeof country !== 'string' || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Format de données invalide.' });
+    }
+
+    const cleanNom = nom.trim().substring(0, 150);
+    const cleanEmail = email.trim().toLowerCase().substring(0, 200);
+    const cleanCountry = country.trim().substring(0, 100);
+
+    if (password.length < 6 || password.length > 200) {
+        return res.status(400).json({ error: 'Le mot de passe doit faire entre 6 et 200 caractères.' });
     }
     
     const phoneDigits = telephone.replace(/\D/g, '');
-    if (phoneDigits.length < 8) {
+    if (phoneDigits.length < 8 || phoneDigits.length > 15) {
         return res.status(400).json({ error: 'Le numéro de téléphone est invalide.' });
     }
 
@@ -24,7 +35,7 @@ async function register(req, res) {
         const { data: existing } = await supabase
             .from('affiliates')
             .select('id')
-            .eq('telephone', telephone)
+            .eq('telephone', telephone.trim())
             .single();
 
         if (existing) {
@@ -32,11 +43,11 @@ async function register(req, res) {
         }
 
         // Vérifier si l'email existe déjà
-        if (email) {
+        if (cleanEmail) {
             const { data: existingEmail } = await supabase
                 .from('affiliates')
                 .select('id')
-                .eq('email', email)
+                .eq('email', cleanEmail)
                 .single();
             if (existingEmail) {
                 return res.status(409).json({ error: 'Cet email est déjà utilisé par un autre ambassadeur.' });

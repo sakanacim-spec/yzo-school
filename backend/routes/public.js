@@ -1,10 +1,20 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { supabase } = require('../utils/supabase');
+const { validateBoundedString } = require('../utils/helpers');
+
+const publicFormLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10,
+    message: { error: 'Trop de soumissions de formulaires depuis cette IP, veuillez réessayer après 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // POST /api/public/contact
 // Envoi d'un message depuis le formulaire de contact
-router.post('/contact', async (req, res) => {
+router.post('/contact', publicFormLimiter, async (req, res) => {
     try {
         const { name, country, email, message } = req.body;
 
@@ -12,10 +22,15 @@ router.post('/contact', async (req, res) => {
             return res.status(400).json({ error: 'Tous les champs sont requis.' });
         }
 
-        const { data, error } = await supabase
+        const validName = validateBoundedString(name, 1, 150);
+        const validCountry = validateBoundedString(country, 1, 100);
+        const validEmail = validateBoundedString(email, 3, 200);
+        const validMessage = validateBoundedString(message, 1, 5000);
+
+        const { error } = await supabase
             .from('contact_messages')
             .insert([
-                { name, country, email, message, status: 'unread' }
+                { name: validName, country: validCountry, email: validEmail, message: validMessage, status: 'unread' }
             ]);
 
         if (error) {
@@ -25,14 +40,14 @@ router.post('/contact', async (req, res) => {
 
         res.status(200).json({ success: true, message: 'Message envoyé avec succès.' });
     } catch (err) {
-        console.error('Erreur API public contact:', err);
+        console.error('Erreur API public contact:', err.message);
         res.status(500).json({ error: 'Erreur lors de l\'envoi du message.' });
     }
 });
 
 // POST /api/public/careers
 // Envoi d'une candidature depuis la modale carrières
-router.post('/careers', async (req, res) => {
+router.post('/careers', publicFormLimiter, async (req, res) => {
     try {
         const { job_title, name, country, email, cover_letter } = req.body;
 
@@ -40,10 +55,16 @@ router.post('/careers', async (req, res) => {
             return res.status(400).json({ error: 'Tous les champs sont requis.' });
         }
 
-        const { data, error } = await supabase
+        const validJobTitle = validateBoundedString(job_title, 1, 150);
+        const validName = validateBoundedString(name, 1, 150);
+        const validCountry = validateBoundedString(country, 1, 100);
+        const validEmail = validateBoundedString(email, 3, 200);
+        const validCoverLetter = validateBoundedString(cover_letter, 1, 10000);
+
+        const { error } = await supabase
             .from('job_applications')
             .insert([
-                { job_title, name, country, email, cover_letter, status: 'pending' }
+                { job_title: validJobTitle, name: validName, country: validCountry, email: validEmail, cover_letter: validCoverLetter, status: 'pending' }
             ]);
 
         if (error) {
@@ -53,7 +74,7 @@ router.post('/careers', async (req, res) => {
 
         res.status(200).json({ success: true, message: 'Candidature envoyée avec succès.' });
     } catch (err) {
-        console.error('Erreur API public careers:', err);
+        console.error('Erreur API public careers:', err.message);
         res.status(500).json({ error: 'Erreur lors de l\'envoi de la candidature.' });
     }
 });
@@ -78,7 +99,7 @@ router.get('/announcements/global', async (req, res) => {
 
 // POST /api/public/recommend-school
 // Demande d'ouverture d'une école par un parent d'élève
-router.post('/recommend-school', async (req, res) => {
+router.post('/recommend-school', publicFormLimiter, async (req, res) => {
     try {
         const { parent_name, parent_phone, school_name, city, country, director_phone, notes } = req.body;
 
@@ -86,12 +107,20 @@ router.post('/recommend-school', async (req, res) => {
             return res.status(400).json({ error: 'Le nom du parent, le téléphone et le nom de l\'école sont requis.' });
         }
 
-        const messageBody = `[DEMANDE OUVERTURE ÉCOLE PAR PARENT]\nParent: ${parent_name} (${parent_phone})\nÉcole demandée: ${school_name}\nVille/Pays: ${city || 'Non renseigné'} / ${country || 'Non renseigné'}\nTél Directeur/Secrétariat: ${director_phone || 'Non fourni'}\nNotes: ${notes || ''}`;
+        const validParentName = validateBoundedString(parent_name, 1, 150);
+        const validParentPhone = validateBoundedString(parent_phone, 1, 50);
+        const validSchoolName = validateBoundedString(school_name, 1, 200);
+        const validCity = city ? validateBoundedString(city, 1, 100) : 'Non renseigné';
+        const validCountry = country ? validateBoundedString(country, 1, 100) : 'Non renseigné';
+        const validDirectorPhone = director_phone ? validateBoundedString(director_phone, 1, 50) : 'Non fourni';
+        const validNotes = notes ? validateBoundedString(notes, 0, 3000) : '';
+
+        const messageBody = `[DEMANDE OUVERTURE ÉCOLE PAR PARENT]\nParent: ${validParentName} (${validParentPhone})\nÉcole demandée: ${validSchoolName}\nVille/Pays: ${validCity} / ${validCountry}\nTél Directeur/Secrétariat: ${validDirectorPhone}\nNotes: ${validNotes}`;
 
         const { error } = await supabase
             .from('contact_messages')
             .insert([
-                { name: parent_name, country: country || 'Afrique', email: `${parent_phone.replace(/\D/g, '')}@yziow-parent-lead.com`, message: messageBody, status: 'unread' }
+                { name: validParentName, country: validCountry, email: `${validParentPhone.replace(/\D/g, '')}@yziow-parent-lead.com`, message: messageBody, status: 'unread' }
             ]);
 
         if (error) {
@@ -101,7 +130,7 @@ router.post('/recommend-school', async (req, res) => {
 
         res.status(200).json({ success: true, message: 'Demande d\'ouverture enregistrée avec succès.' });
     } catch (err) {
-        console.error('Erreur API public recommend-school:', err);
+        console.error('Erreur API public recommend-school:', err.message);
         res.status(500).json({ error: 'Erreur lors de l\'enregistrement de la demande.' });
     }
 });
