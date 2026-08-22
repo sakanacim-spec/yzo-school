@@ -1,19 +1,50 @@
 -- ============================================================
 -- 🔒 MIGRATION P5 — SÉCURISATION ET CONFINEMENT PRIVÉ DES BUCKETS STORAGE
 -- BUCKETS : messages, devoirs, student-photos
+-- Compatible Supabase SQL Editor (rôle standard postgres, sans privilèges sur storage.objects)
 -- ============================================================
--- Script transactionnel et idempotent.
+-- Script 100% transactionnel, idempotent et fail-closed.
 -- Objectifs :
--- 1. Créer les buckets s'ils n'existent pas ou mettre à jour les existants.
--- 2. Forcer public = false sur les 3 buckets scolaires privés.
--- 3. Imposer les quotas de taille et les listes blanches de types MIME stricts.
--- 4. Supprimer toute policy de lecture publique anonyme (anon) sur ces buckets.
--- 5. Conserver l'accès exclusif backend service_role pour la génération des URLs signées.
+-- 1. Vérifier que storage.objects possède la RLS active et aucune policy non maîtrisée.
+-- 2. Créer ou mettre à jour les 3 buckets privés dans storage.buckets avec public = false,
+--    quotas stricts et listes blanches MIME.
+-- 3. Vérifier post-migration la conformité absolue des 3 buckets et l'absence de policy.
 -- ============================================================
 
 BEGIN;
 
--- ── 1. Configuration Idempotente des Buckets Privés ──────────
+-- ── 1. Contrôles Préalables Fail-Closed (Catalogue pg_catalog) ──
+
+DO $$
+DECLARE
+    policy_count integer;
+BEGIN
+    -- A. Vérification de l'activation de RLS sur storage.objects
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n
+          ON n.oid = c.relnamespace
+        WHERE n.nspname = 'storage'
+          AND c.relname = 'objects'
+          AND c.relrowsecurity = true
+    ) THEN
+        RAISE EXCEPTION 'RLS_NOT_ENABLED_ON_STORAGE_OBJECTS';
+    END IF;
+
+    -- B. Vérification d'absence de toute policy résiduelle sur storage.objects
+    SELECT count(*)
+    INTO policy_count
+    FROM pg_catalog.pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects';
+
+    IF policy_count > 0 THEN
+        RAISE EXCEPTION 'UNEXPECTED_STORAGE_POLICY_PRESENT';
+    END IF;
+END $$;
+
+-- ── 2. Configuration Idempotente des Buckets Privés ──────────
 
 -- Bucket : messages (Pièces jointes de messagerie école-famille)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -57,24 +88,57 @@ ON CONFLICT (id) DO UPDATE SET
     file_size_limit = 3145728,
     allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp']::text[];
 
--- ── 2. Nettoyage des Politiques RLS Publiques sur ces Buckets ─
+-- ── 3. Contrôle Post-Migration Fail-Closed ────────────────────
 
--- Activer RLS sur storage.objects de manière idempotente
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-
--- Supprimer toute ancienne politique autorisant la lecture publique / anonyme sur ces 3 buckets
 DO $$
+DECLARE
+    private_count integer;
+    config_valid_count integer;
+    policy_count_after integer;
 BEGIN
-    -- Suppression des politiques publiques nommées couramment si elles existent
-    DROP POLICY IF EXISTS "Public Access messages" ON storage.objects;
-    DROP POLICY IF EXISTS "Public Access devoirs" ON storage.objects;
-    DROP POLICY IF EXISTS "Public Access student-photos" ON storage.objects;
-    DROP POLICY IF EXISTS "Allow anon read messages" ON storage.objects;
-    DROP POLICY IF EXISTS "Allow anon read devoirs" ON storage.objects;
-    DROP POLICY IF EXISTS "Allow anon read student-photos" ON storage.objects;
-    DROP POLICY IF EXISTS "Give anon full access to messages" ON storage.objects;
-    DROP POLICY IF EXISTS "Give anon full access to devoirs" ON storage.objects;
-    DROP POLICY IF EXISTS "Give anon full access to student-photos" ON storage.objects;
+    -- A. Vérifier que les 3 buckets sont bien configurés à public = false
+    SELECT count(*)
+    INTO private_count
+    FROM storage.buckets
+    WHERE id IN ('messages', 'devoirs', 'student-photos')
+      AND public = false;
+
+    IF private_count <> 3 THEN
+        RAISE EXCEPTION 'PRIVATE_BUCKET_VERIFICATION_FAILED';
+    END IF;
+
+    -- B. Vérifier les tailles et les types MIME stricts
+    SELECT count(*)
+    INTO config_valid_count
+    FROM storage.buckets
+    WHERE (
+        id = 'messages'
+        AND file_size_limit = 5242880
+        AND allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']::text[]
+    ) OR (
+        id = 'devoirs'
+        AND file_size_limit = 10485760
+        AND allowed_mime_types = ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp']::text[]
+    ) OR (
+        id = 'student-photos'
+        AND file_size_limit = 3145728
+        AND allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp']::text[]
+    );
+
+    IF config_valid_count <> 3 THEN
+        RAISE EXCEPTION 'BUCKET_CONFIGURATION_VERIFICATION_FAILED';
+    END IF;
+
+    -- C. Vérifier qu'aucune policy n'a été ajoutée
+    SELECT count(*)
+    INTO policy_count_after
+    FROM pg_catalog.pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects';
+
+    IF policy_count_after > 0 THEN
+        RAISE EXCEPTION 'UNEXPECTED_STORAGE_POLICY_PRESENT';
+    END IF;
 END $$;
 
 COMMIT;

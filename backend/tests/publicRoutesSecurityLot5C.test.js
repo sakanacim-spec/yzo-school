@@ -397,11 +397,13 @@ async function runAllTests() {
         assert.strictEqual(sql.includes('DROP TABLE'), false, 'Aucun drop de table destructif');
     });
 
-    it('D3: Migration P5 supprime les politiques de lecture anonyme (anon)', () => {
+    it('D3: Absence totale de DROP POLICY, SET ROLE, RESET ROLE ou ALTER TABLE storage.objects', () => {
         const sql = fs.readFileSync(path.join(__dirname, '../scripts/migration_p5_private_storage_buckets.sql'), 'utf8');
-        assert.ok(sql.includes('DROP POLICY IF EXISTS "Allow anon read messages"'));
-        assert.ok(sql.includes('DROP POLICY IF EXISTS "Allow anon read devoirs"'));
-        assert.ok(sql.includes('DROP POLICY IF EXISTS "Allow anon read student-photos"'));
+        assert.strictEqual(sql.toLowerCase().includes('drop policy'), false, 'Aucun DROP POLICY direct interdit');
+        assert.strictEqual(sql.toLowerCase().includes('set role'), false, 'Aucun SET ROLE');
+        assert.strictEqual(sql.toLowerCase().includes('set local role'), false, 'Aucun SET LOCAL ROLE');
+        assert.strictEqual(sql.toLowerCase().includes('reset role'), false, 'Aucun RESET ROLE');
+        assert.strictEqual(sql.includes('ALTER TABLE storage.objects'), false, 'Aucun ALTER TABLE storage.objects');
     });
 
     it('D4: UUID valide accepté et injection SQL rejetée', () => {
@@ -437,6 +439,43 @@ async function runAllTests() {
         assert.strictEqual(req.user.id, 'jwt-user-uuid-123');
         assert.strictEqual(req.user.role, 'parent');
         assert.strictEqual(req.user.schoolSlug, 'ecole_vraie');
+    });
+
+    it('D9: ALTER TABLE storage.objects, ALTER OWNER et DISABLE RLS strictement absents', () => {
+        const sql = fs.readFileSync(path.join(__dirname, '../scripts/migration_p5_private_storage_buckets.sql'), 'utf8');
+        assert.strictEqual(sql.includes('ALTER TABLE storage.objects'), false, 'ALTER TABLE storage.objects interdit');
+        assert.strictEqual(sql.toLowerCase().includes('owner to'), false, 'ALTER OWNER interdit');
+        assert.strictEqual(sql.toLowerCase().includes('disable row level security'), false, 'DISABLE RLS interdit');
+    });
+
+    it('D10: Contrôle fail-closed relrowsecurity présent et aucun DROP BUCKET ni DELETE FROM objects', () => {
+        const sql = fs.readFileSync(path.join(__dirname, '../scripts/migration_p5_private_storage_buckets.sql'), 'utf8');
+        assert.ok(sql.includes('relrowsecurity = true'), 'Contrôle relrowsecurity présent');
+        assert.ok(sql.includes('RLS_NOT_ENABLED_ON_STORAGE_OBJECTS'), 'Exception fail-closed présente');
+        assert.strictEqual(sql.toLowerCase().includes('drop bucket'), false, 'Aucun DROP BUCKET');
+        assert.strictEqual(sql.includes('DELETE FROM storage.objects'), false, 'Aucune suppression d\'objet');
+    });
+
+    it('D11: Absence totale de RAISE NOTICE de sécurité ou de fallback permissif', () => {
+        const sql = fs.readFileSync(path.join(__dirname, '../scripts/migration_p5_private_storage_buckets.sql'), 'utf8');
+        assert.strictEqual(sql.toUpperCase().includes('RAISE NOTICE'), false, 'Aucun RAISE NOTICE toléré');
+    });
+
+    it('D12: Exceptions bloquantes strictes (UNEXPECTED_STORAGE_POLICY_PRESENT, PRIVATE_BUCKET_VERIFICATION_FAILED, BUCKET_CONFIGURATION_VERIFICATION_FAILED)', () => {
+        const sql = fs.readFileSync(path.join(__dirname, '../scripts/migration_p5_private_storage_buckets.sql'), 'utf8');
+        assert.ok(sql.includes('UNEXPECTED_STORAGE_POLICY_PRESENT'), 'Exception policy inattendue présente');
+        assert.ok(sql.includes('PRIVATE_BUCKET_VERIFICATION_FAILED'), 'Exception vérification 3 buckets présente');
+        assert.ok(sql.includes('BUCKET_CONFIGURATION_VERIFICATION_FAILED'), 'Exception configuration détaillée présente');
+    });
+
+    it('D13: Contrôle zéro policy et configurations exactes des 3 buckets (messages, devoirs, student-photos)', () => {
+        const sql = fs.readFileSync(path.join(__dirname, '../scripts/migration_p5_private_storage_buckets.sql'), 'utf8');
+        assert.ok(sql.includes("file_size_limit = 5242880"), '5MB pour messages');
+        assert.ok(sql.includes("file_size_limit = 10485760"), '10MB pour devoirs');
+        assert.ok(sql.includes("file_size_limit = 3145728"), '3MB pour student-photos');
+        assert.ok(sql.includes("policy_count > 0"), 'Vérification zéro policy préalable');
+        assert.ok(sql.includes("policy_count_after > 0"), 'Vérification zéro policy post-migration');
+        assert.strictEqual(sql.toLowerCase().includes('supabase_storage_admin'), false, 'Aucune dépendance supabase_storage_admin');
     });
 
     // ────────────────────────────────────────────────────────────
