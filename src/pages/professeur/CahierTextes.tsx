@@ -49,7 +49,22 @@ export const CahierTextes: React.FC = () => {
 
   const [selectedClasse, setSelectedClasse] = useState(myAssignations[0]?.classe || '');
   const [selectedMatiereId, setSelectedMatiereId] = useState(myAssignations[0]?.matiereId || '');
+  const [formError, setFormError] = useState('');
   
+  // Resynchroniser selectedClasse et selectedMatiereId lorsque myAssignations se charge
+  React.useEffect(() => {
+    if (myAssignations.length > 0) {
+      if (!selectedClasse || !myAssignations.some(a => a.classe === selectedClasse)) {
+        setSelectedClasse(myAssignations[0].classe);
+      }
+      const currentClasse = selectedClasse && myAssignations.some(a => a.classe === selectedClasse) ? selectedClasse : myAssignations[0].classe;
+      const matching = myAssignations.filter(a => a.classe === currentClasse);
+      if (!selectedMatiereId || !matching.some(a => a.matiereId === selectedMatiereId)) {
+        setSelectedMatiereId(matching[0]?.matiereId || '');
+      }
+    }
+  }, [myAssignations, selectedClasse, selectedMatiereId]);
+
   // Devoirs state
   const [desc, setDesc] = useState('');
   const [dateRendu, setDateRendu] = useState(new Date().toISOString().split('T')[0]);
@@ -63,7 +78,25 @@ export const CahierTextes: React.FC = () => {
 
   const handleAddDevoir = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!desc || !selectedClasse || !selectedMatiereId) return;
+    setFormError('');
+
+    if (myAssignations.length === 0) {
+      setFormError(t(language as Language, 'cahierTextes.noClassAssignedDesc') || "Aucune classe ou matière ne vous a été attribuée. Contactez la direction.");
+      return;
+    }
+    if (!selectedClasse) {
+      setFormError("Veuillez sélectionner une classe.");
+      return;
+    }
+    if (!selectedMatiereId) {
+      setFormError("Veuillez sélectionner une matière.");
+      return;
+    }
+    if (!desc.trim()) {
+      setFormError("Veuillez saisir une description pour le devoir.");
+      return;
+    }
+
     const matiere = matieres.find(m => m.id === selectedMatiereId)?.nom || (t(language as Language, 'common.unknown') || 'Inconnue');
     
     let fichierUrl = undefined;
@@ -71,9 +104,9 @@ export const CahierTextes: React.FC = () => {
       setIsUploading(true);
       try {
         fichierUrl = await uploadDevoirFile(file);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Erreur upload", err);
-        alert(t(language as Language, 'cahierTextes.uploadError') || "L'envoi du fichier a échoué.");
+        setFormError(err.message || t(language as Language, 'cahierTextes.uploadError') || "L'envoi du fichier a échoué (formats acceptés : PDF, JPG, PNG, WebP).");
         setIsUploading(false);
         return;
       }
@@ -85,7 +118,7 @@ export const CahierTextes: React.FC = () => {
       dateDonnee: new Date().toISOString().split('T')[0],
       dateRendu,
       matiere,
-      description: desc,
+      description: desc.trim(),
       classe: selectedClasse,
       professeurNom: user?.nom || (t(language as Language, 'common.professor') || 'Professeur'),
       fichierUrl
@@ -104,7 +137,7 @@ export const CahierTextes: React.FC = () => {
       {myAssignations.length === 0 && (
         <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl mb-6">
           <h3 className="font-bold text-amber-800">{t(language as Language, 'cahierTextes.noClassAssignedTitle') || 'Aucune classe assignée'}</h3>
-          <p className="text-amber-700 text-sm">{t(language as Language, 'cahierTextes.noClassAssignedDesc') || 'Veuillez demander à l\'administration de vous assigner des matières et des classes depuis le menu "Académique".'}</p>
+          <p className="text-amber-700 text-sm">{t(language as Language, 'cahierTextes.noClassAssignedDesc') || 'Aucune classe ou matière ne vous a été attribuée. Contactez la direction.'}</p>
         </div>
       )}
 
@@ -118,20 +151,30 @@ export const CahierTextes: React.FC = () => {
           <select 
             value={selectedClasse} 
             onChange={e => setSelectedClasse(e.target.value)}
-            className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+            disabled={myAssignations.length === 0}
+            className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium disabled:opacity-50"
           >
-            {[...new Set(myAssignations.map(a => a.classe))].map(c => (
-              <option key={c} value={c}>{t(language as Language, 'common.class') || 'Classe'}: {c}</option>
-            ))}
+            {myAssignations.length === 0 ? (
+              <option value="">{t(language as Language, 'cahierTextes.noClassAssignedTitle') || 'Aucune classe'}</option>
+            ) : (
+              [...new Set(myAssignations.map(a => a.classe))].map(c => (
+                <option key={c} value={c}>{t(language as Language, 'common.class') || 'Classe'}: {c}</option>
+              ))
+            )}
           </select>
           <select 
             value={selectedMatiereId} 
             onChange={e => setSelectedMatiereId(e.target.value)}
-            className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+            disabled={myAssignations.length === 0}
+            className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium disabled:opacity-50"
           >
-            {myAssignations.filter(a => a.classe === selectedClasse).map(a => (
-              <option key={a.matiereId} value={a.matiereId}>{matieres.find(m => m.id === a.matiereId)?.nom}</option>
-            ))}
+            {myAssignations.length === 0 ? (
+              <option value="">{t(language as Language, 'common.unknown') || 'Aucune matière'}</option>
+            ) : (
+              myAssignations.filter(a => a.classe === selectedClasse).map(a => (
+                <option key={a.matiereId} value={a.matiereId}>{matieres.find(m => m.id === a.matiereId)?.nom}</option>
+              ))
+            )}
           </select>
         </div>
       </div>
@@ -139,6 +182,13 @@ export const CahierTextes: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 h-fit">
             <h2 className="text-lg font-black mb-4">{t(language as Language, 'cahierTextes.addHomework') || 'Ajouter un devoir'}</h2>
+
+            {formError && (
+              <div className="p-3 mb-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-xl animate-shake">
+                {formError}
+              </div>
+            )}
+
             <form onSubmit={handleAddDevoir} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t(language as Language, 'cahierTextes.dueDate') || 'Pour le (Date de rendu)'}</label>
@@ -152,7 +202,7 @@ export const CahierTextes: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t(language as Language, 'cahierTextes.attachedFile') || 'Fichier joint (PDF, Image) - Optionnel'}</label>
                 <input type="file" accept=".pdf,image/*" onChange={e => setFile(e.target.files?.[0] || null)} className="w-full bg-slate-50 border p-2 rounded-xl dark:bg-slate-900 dark:border-slate-700 text-sm" />
               </div>
-              <button type="submit" disabled={isUploading} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl flex justify-center items-center gap-2">
+              <button type="submit" disabled={isUploading || myAssignations.length === 0} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl flex justify-center items-center gap-2">
                 <Plus className="w-5 h-5" /> {isUploading ? (t(language as Language, 'common.uploading') || 'Envoi en cours...') : (t(language as Language, 'common.publish') || 'Publier')}
               </button>
             </form>

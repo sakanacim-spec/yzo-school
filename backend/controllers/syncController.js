@@ -35,6 +35,9 @@ async function syncFromFrontend(req, res) {
 
     try {
         if (replace) {
+            if (!Array.isArray(students) || students.length === 0) {
+                return res.status(400).json({ error: "Remplacement global refusé : la liste des élèves fournie est vide." });
+            }
             console.log('🧹 [Sync] Mode Remplacer activé : Nettoyage universel de la base locale...');
             
             await supabase.from(tbl('presences')).delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -105,25 +108,22 @@ async function syncFromFrontend(req, res) {
                     nom: s.nom,
                     prenom: s.prenom || '',
                     classe: s.classe || 'Inconnue',
-                    cycle: s.cycle || 'Primaire',
-                    ecolage: s.ecolage || 0,
-                    deja_paye: s.dejaPaye || 0,
-                    restant: s.restant || 0,
-                    status: s.status || 'Non soldé',
+                    matricule: s.matricule || null,
+                    genre: s.sexe || s.genre || 'M',
+                    statut: s.status || s.statut || 'Actif',
+                    ecolage: Number(s.ecolage) || 0,
+                    deja_paye: Number(s.dejaPaye !== undefined ? s.dejaPaye : s.deja_paye) || 0,
                     telephone_parent: rawPhone ? String(rawPhone).trim() : null,
                     telephone_parent_normalized: normPhone,
-                    sexe: s.sexe || 'M',
-                    redoublant: s.redoublant || false,
-                    ecole_provenance: s.ecoleProvenance || '',
-                    date_naissance: s.dateNaissance || null,
-                    adsn: s.adsn || null,
-                    photo_url: s.photoUrl || null
+                    date_naissance: s.dateNaissance || s.date_naissance || null,
+                    updated_at: new Date().toISOString()
                 };
             });
 
             for (let i = 0; i < studentData.length; i += CHUNK_SIZE) {
                 const chunk = studentData.slice(i, i + CHUNK_SIZE);
-                await supabase.from(tbl('students')).upsert(chunk, { onConflict: 'id' });
+                const { error: upsertErr } = await supabase.from(tbl('students')).upsert(chunk, { onConflict: 'id' });
+                if (upsertErr) throw upsertErr;
             }
 
             // --- 2. Sync Payments ---

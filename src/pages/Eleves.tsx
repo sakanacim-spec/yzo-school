@@ -5,10 +5,11 @@ import { Student } from '../types';
 import { generateRecuPDF } from '../utils/pdfGenerator';
 import { uploadStudentPhoto, deleteStudentPhoto } from '../services/photoService';
 import { COUNTRIES } from '../data/countries';
+import { normalizePhoneNumber } from '../utils/phoneUtils';
 import {
   Search, Plus, Trash2, Edit2, FileText,
   MessageCircle, ChevronUp, ChevronDown, ChevronRight, X, Check,
-  Download, Filter, Camera, User, Users, GraduationCap, Building2, Smartphone, Phone, School, Wallet
+  Download, Filter, Camera, User, Users, GraduationCap, Building2, Smartphone, Phone, School, Wallet, AlertCircle
 } from 'lucide-react';
 import { StudentDetail } from '../components/StudentDetail';
 import { CountrySelect } from '../components/CountrySelect';
@@ -37,6 +38,7 @@ interface ModalProps { student?: Student | null; onClose: () => void }
 const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
   const addStudent = useStore((s) => s.addStudent);
   const updateStudent = useStore((s) => s.updateStudent);
+  const rollbackStudentLocal = useStore((s) => s.rollbackStudentLocal);
   const currency = useStore((s) => s.currency);
   const classes = useStore((s) => s.classes);
   const addPayment = useStore((s) => s.addPayment);
@@ -45,6 +47,9 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
 
   const schoolCountry = useStore((s) => s.schoolCountry) || 'BJ';
   const [parentCountryCode, setParentCountryCode] = useState(schoolCountry);
+  const [phoneError, setPhoneError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     nom: student?.nom ?? '',
@@ -59,39 +64,92 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
     recuAssociatif: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPhoneError('');
+    setSubmitError('');
+
+    // Étape 1 : validation téléphone avant passage à l'étape 2
     if (modalStep === 1) {
+      if (form.telephone.trim()) {
+        const phoneCheck = normalizePhoneNumber(form.telephone, parentCountryCode);
+        if (!phoneCheck.valid) {
+          setPhoneError("Numéro de téléphone invalide pour le pays sélectionné. Format attendu : local ou +/00.");
+          return;
+        }
+      }
       setModalStep(2);
       return;
     }
     
+    // Étape 2 : validation et synchronisation finale
+    let normalizedPhone = '';
+    if (form.telephone.trim()) {
+      const phoneCheck = normalizePhoneNumber(form.telephone, parentCountryCode);
+      if (!phoneCheck.valid) {
+        setPhoneError("Numéro de téléphone invalide pour le pays sélectionné.");
+        setModalStep(1);
+        return;
+      }
+      normalizedPhone = phoneCheck.e164;
+    }
+
     const baseStudent = {
       nom: form.nom.trim(),
       prenom: form.prenom.trim(),
       classe: form.classe,
       ecolage: form.ecolage,
       sexe: form.sexe as 'M' | 'F',
-      telephone: form.telephone || '',
+      telephone: normalizedPhone || form.telephone.trim(),
       ecoleProvenance: form.ecoleProvenance || '',
       redoublant: form.estRedoublant,
       dejaPaye: student ? student.dejaPaye : 0,
       recu: student ? student.recu : form.recuAssociatif
     };
     
-    if (student) {
-      updateStudent(student.id, baseStudent);
-      if (form.montantPaye > 0) {
-        addPayment(student.id, { montant: form.montantPaye, date: new Date().toISOString(), recu: form.recuAssociatif, mode: 'ESPECES', commentaire: 'Scolarité' });
+    setIsSubmitting(true);
+    let studentId: string | undefined = undefined;
+
+    try {
+      if (student) {
+        studentId = student.id;
+        updateStudent(student.id, baseStudent, true);
+        if (form.montantPaye > 0) {
+          addPayment(student.id, { montant: form.montantPaye, date: new Date().toISOString(), recu: form.recuAssociatif, mode: 'ESPECES', commentaire: 'Scolarité' });
+        }
+      } else {
+        studentId = addStudent(baseStudent, true);
+        if (form.montantPaye > 0 && studentId) {
+          addPayment(studentId, { montant: form.montantPaye, date: new Date().toISOString(), recu: form.recuAssociatif, mode: 'ESPECES', commentaire: 'Scolarité' });
+        }
       }
-    } else {
-      const studentId = addStudent(baseStudent);
-      if (form.montantPaye > 0 && studentId) {
-        addPayment(studentId, { montant: form.montantPaye, date: new Date().toISOString(), recu: form.recuAssociatif, mode: 'ESPECES', commentaire: 'Scolarité' });
+
+      // Synchronisation avec confirmation
+      const { syncToBackend } = await import('../services/backendSync');
+      const syncRes = await syncToBackend({
+        students: useStore.getState().students,
+        presences: useStore.getState().presences,
+        devoirs: useStore.getState().devoirs,
+        activityLogs: useStore.getState().activityLogs
+      });
+
+      if (syncRes && syncRes.success === false) {
+        if (!student && studentId) {
+          rollbackStudentLocal(studentId);
+        }
+        setSubmitError(syncRes.error || "Erreur lors de l'enregistrement sur le serveur.");
+        setIsSubmitting(false);
+        return;
       }
+
+      onClose();
+    } catch (err: any) {
+      if (!student && studentId) {
+        rollbackStudentLocal(studentId);
+      }
+      setSubmitError(err?.message || "Erreur inattendue lors de l'enregistrement.");
+      setIsSubmitting(false);
     }
-    
-    onClose();
   };
 
   return (
@@ -122,6 +180,13 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
             </div>
 
             <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
+              {submitError && (
+                <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl flex items-start gap-3 animate-shake">
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="text-xs font-bold">{submitError}</div>
+                </div>
+              )}
+
               <form id="student-form" onSubmit={handleSubmit} className="space-y-6">
                 
                 <div className={`space-y-6 transition-all duration-500 ${modalStep === 1 ? 'opacity-100 translate-x-0 block' : 'opacity-0 -translate-x-10 hidden'}`}>
@@ -159,8 +224,11 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                       </label>
                       <div className="flex gap-2">
                         <CountrySelect value={parentCountryCode} onChange={setParentCountryCode} className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-3 text-xs font-bold text-slate-800" />
-                        <input type="text" className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: 01 97 00 00 00 / +229..." value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
+                        <input type="text" className={`flex-1 bg-slate-50 border rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium ${phoneError ? 'border-rose-400' : 'border-slate-200'}`} placeholder="Ex: 01 97 00 00 00 / +229..." value={form.telephone} onChange={(e) => { setForm({ ...form, telephone: e.target.value }); setPhoneError(''); }} />
                       </div>
+                      {phoneError && (
+                        <p className="text-[11px] font-bold text-rose-500 mt-1">{phoneError}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -256,11 +324,11 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                 </button>
               ) : <div></div>}
               
-              <button type="submit" form="student-form" className={`px-8 py-3.5 rounded-2xl text-[13px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-2 ${modalStep === 1 ? 'bg-slate-800 shadow-slate-800/20 hover:bg-slate-900' : 'bg-blue-600 shadow-blue-600/30 hover:bg-blue-700'}`}>
+              <button type="submit" form="student-form" disabled={isSubmitting} className={`px-8 py-3.5 rounded-2xl text-[13px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-2 disabled:opacity-50 ${modalStep === 1 ? 'bg-slate-800 shadow-slate-800/20 hover:bg-slate-900' : 'bg-blue-600 shadow-blue-600/30 hover:bg-blue-700'}`}>
                 {modalStep === 1 ? (
                   <>{t(language as Language, 'common.continue') || 'Continuer'} <ChevronRight className="w-4 h-4" /></>
                 ) : (
-                  <>{student ? (t(language as Language, 'common.update') || 'Mettre à jour') : (t(language as Language, 'students.registerStudent') || 'Inscrire l\'élève')} <Check className="w-4 h-4" /></>
+                  <>{isSubmitting ? (t(language as Language, 'common.saving') || 'Enregistrement...') : (student ? (t(language as Language, 'common.update') || 'Mettre à jour') : (t(language as Language, 'students.registerStudent') || 'Inscrire l\'élève'))} <Check className="w-4 h-4" /></>
                 )}
               </button>
             </div>
