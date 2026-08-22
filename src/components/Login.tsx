@@ -335,8 +335,6 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                 const match = schools.find(s => s.name.toLowerCase().trim() === lower || s.slug.toLowerCase().trim() === lower);
                                 if (match) {
                                     setSelectedSchool(match.slug);
-                                } else if (lower.includes('superadmin') || lower.includes('global') || lower.includes('accès global')) {
-                                    setSelectedSchool('global');
                                 } else {
                                     setSelectedSchool(val);
                                 }
@@ -600,8 +598,6 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                                     const match = schools.find(s => s.name.toLowerCase().trim() === lower || s.slug.toLowerCase().trim() === lower);
                                     if (match) {
                                         setSelectedSchool(match.slug);
-                                    } else if (lower.includes('superadmin') || lower.includes('global') || lower.includes('accès global')) {
-                                        setSelectedSchool('global');
                                     } else {
                                         setSelectedSchool(val);
                                     }

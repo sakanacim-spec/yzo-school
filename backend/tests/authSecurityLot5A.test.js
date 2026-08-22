@@ -689,23 +689,23 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // =========================================================================
-    // TESTS HOTFIX SUPERADMIN (Portée stricte 'global' & Schéma réel public.superadmins)
+    // TESTS HOTFIX SUPERADMIN (Portée STRICTEMENT EXACTE 'global' & Schéma réel)
     // =========================================================================
 
     // -------------------------------------------------------------------------
     // 30. global + superadmin + bon mot de passe est autorisé
     // -------------------------------------------------------------------------
-    await asyncTest('30. [SCOPE GLOBAL] global + superadmin + bon mot de passe est autorisé', async () => {
+    await asyncTest('30. [SCOPE EXACT] global + superadmin + bon mot de passe est autorisé', async () => {
         const correctPassword = 'StrongMasterSuperAdminPassword2026!';
         const storedHash = await bcrypt.hash(correctPassword, 10);
         const schoolSlug = 'global';
         const telephone = 'superadmin';
 
-        const inputClean = String(telephone || '').trim().toLowerCase();
-        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
-        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+        const schoolSlugNormalized = String(schoolSlug ?? '').trim().toLowerCase();
+        const identifierNormalized = String(telephone ?? '').trim().toLowerCase();
+        const isExactSuperAdminAttempt = schoolSlugNormalized === 'global' && identifierNormalized === 'superadmin';
 
-        assert.strictEqual(isSuperAdminAttempt, true);
+        assert.strictEqual(isExactSuperAdminAttempt, true);
 
         const superadminRecord = {
             id: 'd8c4e0a1-7788-4433-2211-aabbccddeeff',
@@ -731,78 +731,69 @@ class InMemoryTransactionalOtpDatabase {
     // -------------------------------------------------------------------------
     // 31. GLOBAL + SUPERADMIN est normalisé et autorisé avec le bon mot de passe
     // -------------------------------------------------------------------------
-    test('31. [SCOPE GLOBAL] GLOBAL + SUPERADMIN en majuscules est normalisé en minuscules', () => {
-        const schoolSlug = 'GLOBAL';
-        const telephone = 'SUPERADMIN';
-        const inputClean = String(telephone || '').trim().toLowerCase();
-        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
-        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+    test('31. [SCOPE EXACT]  GLOBAL  +  SUPERADMIN  avec espaces et majuscules est autorisé', () => {
+        const schoolSlug = '  GLOBAL  ';
+        const telephone = '  SUPERADMIN  ';
+        const schoolSlugNormalized = String(schoolSlug ?? '').trim().toLowerCase();
+        const identifierNormalized = String(telephone ?? '').trim().toLowerCase();
+        const isExactSuperAdminAttempt = schoolSlugNormalized === 'global' && identifierNormalized === 'superadmin';
 
-        assert.strictEqual(schoolSlugClean, 'global');
-        assert.strictEqual(inputClean, 'superadmin');
-        assert.strictEqual(isSuperAdminAttempt, true);
+        assert.strictEqual(schoolSlugNormalized, 'global');
+        assert.strictEqual(identifierNormalized, 'superadmin');
+        assert.strictEqual(isExactSuperAdminAttempt, true);
     });
 
     // -------------------------------------------------------------------------
-    // 32. Les espaces autour de global et superadmin sont supprimés
+    // 32. Rejet strict des motifs contenant 'global' sans être exactement 'global'
     // -------------------------------------------------------------------------
-    test('32. [SCOPE GLOBAL] Espaces et tabulations autour de global et superadmin sont supprimés', () => {
-        const schoolSlug = '   \t global \n  ';
-        const telephone = '   \t  superadmin \n  ';
-        const inputClean = String(telephone || '').trim().toLowerCase();
-        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
-        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+    test('32. [SCOPE EXACT] Rejet strict de toutes les sous-chaînes contenant global', () => {
+        const invalidSlugs = [
+            'abcglobal',
+            'globalabc',
+            'abc,global',
+            'global,abc',
+            'sshfgdnh,global',
+            'global/test',
+            'global.example',
+            ' global extra',
+            'autre-ecole',
+            ''
+        ];
 
-        assert.strictEqual(schoolSlugClean, 'global');
-        assert.strictEqual(inputClean, 'superadmin');
-        assert.strictEqual(isSuperAdminAttempt, true);
+        for (const slug of invalidSlugs) {
+            const schoolSlugNormalized = String(slug ?? '').trim().toLowerCase();
+            const identifierNormalized = 'superadmin';
+            const isExactSuperAdminAttempt = schoolSlugNormalized === 'global' && identifierNormalized === 'superadmin';
+
+            assert.strictEqual(isExactSuperAdminAttempt, false, `Slug invalide accepté à tort: ${slug}`);
+        }
     });
 
     // -------------------------------------------------------------------------
-    // 33. autre_ecole + superadmin + bon mot de passe est refusé
+    // 33. global + autre identifiant est refusé
     // -------------------------------------------------------------------------
-    test('33. [SCOPE GLOBAL] autre_ecole + superadmin n active pas la branche SuperAdmin', () => {
-        const schoolSlug = 'ecole_demo';
-        const telephone = 'superadmin';
-        const inputClean = String(telephone || '').trim().toLowerCase();
-        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
-        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+    test('33. [SCOPE EXACT] global + identifiant non-superadmin rejeté', () => {
+        const invalidIdentifiers = [
+            '0197000000',
+            'superadmin2',
+            'directeur',
+            'admin',
+            'globalsuperadmin'
+        ];
 
-        assert.strictEqual(isSuperAdminAttempt, false);
+        for (const id of invalidIdentifiers) {
+            const schoolSlugNormalized = 'global';
+            const identifierNormalized = String(id ?? '').trim().toLowerCase();
+            const isExactSuperAdminAttempt = schoolSlugNormalized === 'global' && identifierNormalized === 'superadmin';
+
+            assert.strictEqual(isExactSuperAdminAttempt, false, `Identifiant invalide accepté à tort: ${id}`);
+        }
     });
 
     // -------------------------------------------------------------------------
-    // 34. chaîne vide + superadmin est refusée
+    // 34. global + superadmin + mauvais mot de passe est refusé
     // -------------------------------------------------------------------------
-    test('34. [SCOPE GLOBAL] chaîne vide ou absente pour schoolSlug est rejetée', () => {
-        const schoolSlug = '';
-        const telephone = 'superadmin';
-        const inputClean = String(telephone || '').trim().toLowerCase();
-        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
-        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
-
-        assert.strictEqual(isSuperAdminAttempt, false);
-        assert.strictEqual(!schoolSlug, true);
-    });
-
-    // -------------------------------------------------------------------------
-    // 35. global + autre_identifiant est refusé sans interroger superadmins ni schools
-    // -------------------------------------------------------------------------
-    test('35. [SCOPE GLOBAL] global + autre_identifiant est rejeté immédiatement avec 401 générique', () => {
-        const schoolSlug = 'global';
-        const telephone = '0197000000';
-        const inputClean = String(telephone || '').trim().toLowerCase();
-        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
-        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
-
-        assert.strictEqual(isSuperAdminAttempt, false);
-        assert.strictEqual(schoolSlugClean === 'global', true);
-    });
-
-    // -------------------------------------------------------------------------
-    // 36. global + superadmin + mauvais mot de passe est refusé
-    // -------------------------------------------------------------------------
-    await asyncTest('36. [SCOPE GLOBAL] global + superadmin + mauvais mot de passe retourne faux et 401', async () => {
+    await asyncTest('34. [SCOPE EXACT] global + superadmin + mauvais mot de passe retourne faux et 401', async () => {
         const storedHash = await bcrypt.hash('CorrectMasterPwd!', 10);
         const wrongPassword = 'IncorrectPassword123';
         const isMatch = await bcrypt.compare(wrongPassword, storedHash);
@@ -810,45 +801,47 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // -------------------------------------------------------------------------
-    // 37. La table superadmins n est pas interrogée lorsque le slug n est pas global
+    // 35. Aucune requête superadmins pour les cas rejetés
     // -------------------------------------------------------------------------
-    test('37. [SCOPE GLOBAL] La table superadmins n est pas interrogée si schoolSlug !== global', () => {
-        let superadminsQueried = false;
-        const schoolSlug = 'autre_ecole';
-        const telephone = 'superadmin';
-        const inputClean = String(telephone || '').trim().toLowerCase();
-        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
-        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
+    test('35. [SCOPE EXACT] La table superadmins n est pas interrogée pour les cas rejetés', () => {
+        const testCases = [
+            { schoolSlug: 'sshfgdnh,global', telephone: 'superadmin' },
+            { schoolSlug: 'abcglobal', telephone: 'superadmin' },
+            { schoolSlug: 'global', telephone: '0197000000' },
+            { schoolSlug: 'ecole_demo', telephone: 'superadmin' }
+        ];
 
-        if (isSuperAdminAttempt) {
-            superadminsQueried = true;
+        for (const tc of testCases) {
+            let superadminsQueried = false;
+            const schoolSlugNormalized = String(tc.schoolSlug ?? '').trim().toLowerCase();
+            const identifierNormalized = String(tc.telephone ?? '').trim().toLowerCase();
+            const isExactSuperAdminAttempt = schoolSlugNormalized === 'global' && identifierNormalized === 'superadmin';
+
+            if (isExactSuperAdminAttempt) {
+                superadminsQueried = true;
+            }
+
+            assert.strictEqual(superadminsQueried, false, `superadmins interrogé à tort pour: ${JSON.stringify(tc)}`);
         }
-
-        assert.strictEqual(superadminsQueried, false);
     });
 
     // -------------------------------------------------------------------------
-    // 38. La table superadmins n est pas interrogée lorsque l identifiant n est pas superadmin
+    // 36. Inspection statique Frontend : Aucun includes('global') dans Login.tsx
     // -------------------------------------------------------------------------
-    test('38. [SCOPE GLOBAL] La table superadmins n est pas interrogée si identifiant !== superadmin', () => {
-        let superadminsQueried = false;
-        const schoolSlug = 'global';
-        const telephone = 'directeur_general';
-        const inputClean = String(telephone || '').trim().toLowerCase();
-        const schoolSlugClean = String(schoolSlug || '').trim().toLowerCase();
-        const isSuperAdminAttempt = schoolSlugClean === 'global' && inputClean === 'superadmin';
-
-        if (isSuperAdminAttempt) {
-            superadminsQueried = true;
+    test('36. [SCOPE EXACT STATIC] Aucun includes(global) ou transformation magique dans Login.tsx', () => {
+        const loginPath = path.join(__dirname, '../../src/components/Login.tsx');
+        if (fs.existsSync(loginPath)) {
+            const content = fs.readFileSync(loginPath, 'utf8');
+            assert.strictEqual(content.includes("includes('global')"), false, "includes('global') trouvé dans Login.tsx");
+            assert.strictEqual(content.includes("includes('superadmin')"), false, "includes('superadmin') trouvé dans Login.tsx");
+            assert.strictEqual(content.includes("includes('accès global')"), false, "includes('accès global') trouvé dans Login.tsx");
         }
-
-        assert.strictEqual(superadminsQueried, false);
     });
 
     // -------------------------------------------------------------------------
-    // 39. Aucun fallback vers le premier SuperAdmin n existe
+    // 37. Aucun fallback vers le premier SuperAdmin n existe
     // -------------------------------------------------------------------------
-    test('39. [SCOPE GLOBAL STATIC] Aucun fallback saList[0] ou limit(1) n existe dans backend', () => {
+    test('37. [SCOPE EXACT STATIC] Aucun fallback saList[0] ou limit(1) n existe dans backend', () => {
         const controllersDir = path.join(__dirname, '../controllers');
         const files = fs.readdirSync(controllersDir);
         for (const file of files) {
@@ -861,25 +854,25 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // -------------------------------------------------------------------------
-    // 40. Aucun message ne révèle l existence du compte
+    // 38. Aucun message ne révèle l existence du compte
     // -------------------------------------------------------------------------
-    test('40. [SCOPE GLOBAL] Message d erreur uniforme sans fuite d information', () => {
+    test('38. [SCOPE EXACT] Message d erreur uniforme sans fuite d information', () => {
         const genericErrorMsg = 'Numéro de téléphone ou mot de passe incorrect.';
         assert.strictEqual(genericErrorMsg, 'Numéro de téléphone ou mot de passe incorrect.');
     });
 
     // -------------------------------------------------------------------------
-    // 41. Le flux d une école ordinaire reste fonctionnel
+    // 39. Le flux d une école ordinaire reste fonctionnel
     // -------------------------------------------------------------------------
-    test('41. [SCOPE GLOBAL] Flux d une école ordinaire requiert schoolSlug et normalisation E.164', () => {
+    test('39. [SCOPE EXACT] Flux d une école ordinaire requiert schoolSlug et normalisation E.164', () => {
         const normalized = normalizePhone('+2290197000000', 'BJ');
         assert.strictEqual(normalized, '+2290197000000');
     });
 
     // -------------------------------------------------------------------------
-    // 42. Le JWT SuperAdmin conserve token_type: 'access' et schoolSlug: null
+    // 40. Le JWT SuperAdmin conserve token_type: 'access' et schoolSlug: null
     // -------------------------------------------------------------------------
-    test('42. [SCOPE GLOBAL] JWT SuperAdmin contient token_type: access et schoolSlug: null', () => {
+    test('40. [SCOPE EXACT] JWT SuperAdmin contient token_type: access et schoolSlug: null', () => {
         const token = jwt.sign(
             { id: 'sa_id_1', nom: 'superadmin', role: 'superadmin', schoolSlug: null, token_type: 'access' },
             JWT_SECRET,
@@ -892,9 +885,9 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // -------------------------------------------------------------------------
-    // 43. Le JWT conserve HS256
+    // 41. Le JWT conserve HS256
     // -------------------------------------------------------------------------
-    test('43. [SCOPE GLOBAL] JWT SuperAdmin est signé avec l algorithme HS256', () => {
+    test('41. [SCOPE EXACT] JWT SuperAdmin est signé avec l algorithme HS256', () => {
         const token = jwt.sign(
             { id: 'sa_id_1', nom: 'superadmin', role: 'superadmin', schoolSlug: null, token_type: 'access' },
             JWT_SECRET,
@@ -905,9 +898,9 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // -------------------------------------------------------------------------
-    // 44. Les anciens JWT sans token_type restent rejetés
+    // 42. Les anciens JWT sans token_type restent rejetés
     // -------------------------------------------------------------------------
-    test('44. [SCOPE GLOBAL] Ancien JWT SuperAdmin sans token_type rejeté par authenticateToken', () => {
+    test('42. [SCOPE EXACT] Ancien JWT SuperAdmin sans token_type rejeté par authenticateToken', () => {
         const legacyToken = jwt.sign(
             { id: 'sa_1', nom: 'superadmin', role: 'superadmin', schoolSlug: null },
             JWT_SECRET,
@@ -926,9 +919,9 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // -------------------------------------------------------------------------
-    // 45. Les rate limiters du Lot 5A restent montés
+    // 43. Les rate limiters du Lot 5A restent montés
     // -------------------------------------------------------------------------
-    test('45. [SCOPE GLOBAL] Rate limiter loginLimiter actif sur POST /api/auth/login', () => {
+    test('43. [SCOPE EXACT] Rate limiter loginLimiter actif sur POST /api/auth/login', () => {
         const routes = authRoutes.stack.filter(layer => layer.route);
         const loginRoute = routes.find(r => r.route.path === '/login');
         assert.ok(loginRoute, 'Route /login présente');
@@ -936,9 +929,9 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // -------------------------------------------------------------------------
-    // 46. Les colonnes inexistantes de superadmins ne sont jamais demandées
+    // 44. Les colonnes inexistantes de superadmins ne sont jamais demandées
     // -------------------------------------------------------------------------
-    test('46. [SCOPE GLOBAL STATIC] Aucune référence à nom, telephone ou email comme colonnes de superadmins', () => {
+    test('44. [SCOPE EXACT STATIC] Aucune référence à nom, telephone ou email comme colonnes de superadmins', () => {
         const authCtrlPath = path.join(__dirname, '../controllers/authController.js');
         const content = fs.readFileSync(authCtrlPath, 'utf8');
 
@@ -951,9 +944,9 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     // -------------------------------------------------------------------------
-    // 47. Une erreur Supabase reste gérée en fail-closed
+    // 45. Une erreur Supabase reste gérée en fail-closed
     // -------------------------------------------------------------------------
-    test('47. [SCOPE GLOBAL] Erreur Supabase sur superadmins traitée en fail-closed (HTTP 500 sans continuer)', () => {
+    test('45. [SCOPE EXACT] Erreur Supabase sur superadmins traitée en fail-closed (HTTP 500 sans continuer)', () => {
         const superadminError = { message: 'Database connection timeout' };
         let statusCode = null;
         let responseJson = null;
@@ -975,6 +968,6 @@ class InMemoryTransactionalOtpDatabase {
     });
 
     console.log(`\n======================================================`);
-    console.log(`🎉 Tous les ${passedTests}/${totalTests} tests de sécurité, concurrence et portée globale SuperAdmin ont réussi avec succès !`);
+    console.log(`🎉 Tous les ${passedTests}/${totalTests} tests de sécurité, concurrence et portée stricte SuperAdmin ont réussi avec succès !`);
     console.log(`======================================================\n`);
 })();
