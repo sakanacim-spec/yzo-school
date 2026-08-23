@@ -34,10 +34,6 @@ export interface AppState {
   setCurrency: (currency: string) => void;
   tranches: any[];
   setTranches: (tranches: any[]) => void;
-  classes: ClassConfig[];
-  setClasses: (classes: ClassConfig[]) => void;
-  getEcolage: (className: string) => number;
-  getCycle: (className: string) => Cycle;
 
   // Auth
   user: User | null;
@@ -82,6 +78,14 @@ export interface AppState {
   chatRecipientId: string | null;
   setChatRecipientId: (id: string | null) => void;
 
+  classes: ClassConfig[];
+  setClasses: (classes: ClassConfig[]) => void;
+  addClass: (cls: Omit<ClassConfig, 'id'> | ClassConfig) => { success: boolean; error?: string };
+  updateClass: (id: string, updates: Partial<ClassConfig>) => { success: boolean; error?: string };
+  deleteClass: (id: string) => { success: boolean; error?: string };
+  getEcolage: (className: string) => number;
+  getCycle: (className: string) => Cycle;
+
   schoolYear: string;
   setSchoolYear: (year: string) => void;
   messageRemerciement: string;
@@ -115,7 +119,7 @@ export interface AppState {
     payoutMomoNumber?: string | null,
     payoutMethod?: 'momo' | 'rib',
     evalConfigs?: EvalConfig[]
-  }) => Promise<void>;
+  }) => Promise<{ success: boolean; error?: string }>;
   settings: AppSettings;
   updateSettings: (settings: AppSettings) => void;
 
@@ -392,6 +396,95 @@ export const useStore = create<AppState>()(
         import('../services/backendSync').then(({ syncToBackend }) => {
           syncToBackend(get()).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
+      },
+      addClass: (cls) => {
+        const currentClasses = get().classes || [];
+        const name = (cls.name || '').trim();
+        const cycle = (cls.cycle || '').trim() || 'Primaire';
+        if (!name) return { success: false, error: 'Le nom de la classe est obligatoire.' };
+        if (name.length > 50) return { success: false, error: 'Le nom de la classe ne peut dépasser 50 caractères.' };
+        if (cycle.length > 50) return { success: false, error: 'Le nom du cycle ne peut dépasser 50 caractères.' };
+
+        // Empêcher les doublons insensibles à la casse
+        const exists = currentClasses.some(c => c.name.toLowerCase() === name.toLowerCase());
+        if (exists) return { success: false, error: `La classe « ${name} » existe déjà.` };
+
+        const newClass: ClassConfig = {
+          id: (cls as any).id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `class-${Date.now()}`),
+          name,
+          cycle,
+          ecolage: Number(cls.ecolage) || 0,
+          order: Number(cls.order) || (currentClasses.length + 1),
+          active: cls.active !== false
+        };
+
+        const updated = [...currentClasses, newClass];
+        set({ classes: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend(get()).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
+        });
+        return { success: true };
+      },
+      updateClass: (id, updates) => {
+        const currentClasses = get().classes || [];
+        const target = currentClasses.find(c => c.id === id || c.name === id);
+        if (!target) return { success: false, error: 'Classe introuvable.' };
+
+        if (updates.name) {
+          const newName = updates.name.trim();
+          if (newName.length > 50) return { success: false, error: 'Le nom de la classe ne peut dépasser 50 caractères.' };
+          const duplicate = currentClasses.some(c => (c.id !== target.id && c.name !== target.name) && c.name.toLowerCase() === newName.toLowerCase());
+          if (duplicate) return { success: false, error: `Une autre classe porte déjà le nom « ${newName} ».` };
+        }
+
+        const oldName = target.name;
+        const newName = updates.name ? updates.name.trim() : target.name;
+
+        const updated = currentClasses.map(c => {
+          if (c.id === target.id || c.name === target.name) {
+            return {
+              ...c,
+              ...updates,
+              name: newName,
+              cycle: updates.cycle !== undefined ? updates.cycle.trim() : c.cycle,
+              ecolage: updates.ecolage !== undefined ? Number(updates.ecolage) : c.ecolage,
+              active: updates.active !== undefined ? Boolean(updates.active) : c.active
+            };
+          }
+          return c;
+        });
+
+        // Si le nom a changé, mettre à jour la continuité pour les élèves existants
+        let updatedStudents = get().students;
+        if (oldName !== newName) {
+          updatedStudents = updatedStudents.map(s => s.classe === oldName ? { ...s, classe: newName } : s);
+        }
+
+        set({ classes: updated, students: updatedStudents });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend(get()).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
+        });
+        return { success: true };
+      },
+      deleteClass: (id) => {
+        const currentClasses = get().classes || [];
+        const target = currentClasses.find(c => c.id === id || c.name === id);
+        if (!target) return { success: false, error: 'Classe introuvable.' };
+
+        const hasStudents = get().students.some(s => s.classe.toLowerCase() === target.name.toLowerCase());
+        if (hasStudents) {
+          return {
+            success: false,
+            error: `Impossible de supprimer la classe « ${target.name} » car des élèves y sont déjà inscrits. Vous pouvez la désactiver pour ne plus la proposer sans perdre l'historique.`
+          };
+        }
+
+        const updated = currentClasses.filter(c => c.id !== target.id && c.name !== target.name);
+        set({ classes: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend(get()).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
+        });
+        return { success: true };
       },
       getEcolage: (className: string): number => {
         const state = get();
@@ -798,46 +891,6 @@ export const useStore = create<AppState>()(
         "Nous vous rappelons cordialement que le règlement du solde de scolarité est attendu. Veuillez régulariser votre situation dans les meilleurs délais.",
       setMessageRappel: (m) => set({ messageRappel: m }),
 
-      updateAllSettings: async (newSettings) => {
-        console.log('💾 [Store] Saving all settings to cloud...', Object.keys(newSettings));
-        set((state) => {
-          const { 
-            bulletinTemplate, bulletinShowPhoto, bulletinShowRank, 
-            bulletinShowClassAverage, bulletinShowAppreciation,
-            paymentGateway, paymentPublicKey, paymentSecretKey, payoutMomoNumber, payoutMethod,
-            ...rootSettings 
-          } = newSettings as any;
-          
-          return {
-            ...rootSettings,
-            settings: {
-              ...state.settings,
-              ...(bulletinTemplate !== undefined && { bulletinTemplate }),
-              ...(bulletinShowPhoto !== undefined && { bulletinShowPhoto }),
-              ...(bulletinShowRank !== undefined && { bulletinShowRank }),
-              ...(bulletinShowClassAverage !== undefined && { bulletinShowClassAverage }),
-              ...(bulletinShowAppreciation !== undefined && { bulletinShowAppreciation }),
-              ...(paymentGateway !== undefined && { paymentGateway }),
-              ...(paymentPublicKey !== undefined && { paymentPublicKey }),
-              ...(paymentSecretKey !== undefined && { paymentSecretKey }),
-              ...(payoutMomoNumber !== undefined && { payoutMomoNumber }),
-              ...(payoutMethod !== undefined && { payoutMethod })
-            }
-          };
-        });
-        
-        try {
-          const { syncToBackend } = await import('../services/backendSync');
-          const result = await syncToBackend(get());
-          if (result) {
-            console.log('✅ [Store] All settings synced successfully!');
-          }
-        } catch (err) {
-          console.error('❌ [Store] Error syncing settings:', err);
-        }
-      },
-      settings: INITIAL_SETTINGS,
-      updateSettings: (newSettings) => set({ settings: newSettings }),
 
       // ── Présences ─────────────────────────────────────────
       presences: [], devoirs: [], seances: [], expenses: [],
@@ -1642,6 +1695,66 @@ export const useStore = create<AppState>()(
           });
         } catch (err) {
           console.error('Failed to delete note from cloud:', err);
+        }
+      },
+
+      // ── Paramètres globaux & synchronisation ────────────────
+      settings: INITIAL_SETTINGS,
+      updateSettings: (newSettings) => {
+        set((state) => ({ settings: { ...state.settings, ...newSettings } }));
+      },
+      updateAllSettings: async (newSettings) => {
+        const current = get();
+        const updatedClasses = newSettings.classes !== undefined ? newSettings.classes : current.classes;
+        const updatedSchoolYear = newSettings.schoolYear !== undefined ? newSettings.schoolYear.trim() : current.schoolYear;
+        const updatedSchoolName = newSettings.schoolName !== undefined ? newSettings.schoolName.trim() : current.schoolName;
+
+        set({
+          appName: newSettings.appName || current.appName,
+          schoolName: updatedSchoolName,
+          schoolYear: updatedSchoolYear,
+          schoolAddress: newSettings.schoolAddress !== undefined ? newSettings.schoolAddress : current.schoolAddress,
+          schoolPhone: newSettings.schoolPhone !== undefined ? newSettings.schoolPhone : current.schoolPhone,
+          schoolSlogan: newSettings.schoolSlogan !== undefined ? newSettings.schoolSlogan : current.schoolSlogan,
+          schoolMinistry: newSettings.schoolMinistry !== undefined ? newSettings.schoolMinistry : current.schoolMinistry,
+          schoolCountry: newSettings.schoolCountry !== undefined ? newSettings.schoolCountry : current.schoolCountry,
+          schoolLogo: newSettings.schoolLogo !== undefined ? newSettings.schoolLogo : current.schoolLogo,
+          schoolStamp: newSettings.schoolStamp !== undefined ? newSettings.schoolStamp : current.schoolStamp,
+          messageRemerciement: newSettings.messageRemerciement !== undefined ? newSettings.messageRemerciement : current.messageRemerciement,
+          messageRappel: newSettings.messageRappel !== undefined ? newSettings.messageRappel : current.messageRappel,
+          classes: updatedClasses,
+          tranches: newSettings.tranches !== undefined ? newSettings.tranches : current.tranches,
+          cycleSchedules: newSettings.cycleSchedules !== undefined ? newSettings.cycleSchedules : current.cycleSchedules,
+          settings: {
+            ...current.settings,
+            schoolYear: updatedSchoolYear,
+            schoolName: updatedSchoolName,
+            bulletinTemplate: newSettings.bulletinTemplate || current.settings?.bulletinTemplate || 'officiel',
+            bulletinShowPhoto: newSettings.bulletinShowPhoto !== undefined ? newSettings.bulletinShowPhoto : current.settings?.bulletinShowPhoto,
+            bulletinShowRank: newSettings.bulletinShowRank !== undefined ? newSettings.bulletinShowRank : current.settings?.bulletinShowRank,
+            bulletinShowClassAverage: newSettings.bulletinShowClassAverage !== undefined ? newSettings.bulletinShowClassAverage : current.settings?.bulletinShowClassAverage,
+            bulletinShowAppreciation: newSettings.bulletinShowAppreciation !== undefined ? newSettings.bulletinShowAppreciation : current.settings?.bulletinShowAppreciation,
+            paymentGateway: newSettings.paymentGateway || current.settings?.paymentGateway || 'fedapay',
+            paymentPublicKey: newSettings.paymentPublicKey !== undefined ? newSettings.paymentPublicKey : current.settings?.paymentPublicKey,
+            paymentSecretKey: newSettings.paymentSecretKey !== undefined ? newSettings.paymentSecretKey : current.settings?.paymentSecretKey,
+            payoutMomoNumber: newSettings.payoutMomoNumber !== undefined ? newSettings.payoutMomoNumber : current.settings?.payoutMomoNumber,
+            payoutMethod: newSettings.payoutMethod || current.settings?.payoutMethod || 'momo',
+            evalConfigs: newSettings.evalConfigs || current.settings?.evalConfigs
+          }
+        });
+
+        // Synchronisation atomique avec le backend
+        try {
+          const { syncToBackend } = await import('../services/backendSync');
+          const syncRes = await syncToBackend(get());
+          if (syncRes && syncRes.success) {
+            set({ lastSyncTimestamp: Date.now() });
+            return { success: true };
+          }
+          return { success: false, error: syncRes?.error || 'Erreur de synchronisation cloud.' };
+        } catch (err: any) {
+          console.error('❌ Erreur updateAllSettings:', err);
+          return { success: false, error: err?.message || 'Erreur réseau.' };
         }
       }
 

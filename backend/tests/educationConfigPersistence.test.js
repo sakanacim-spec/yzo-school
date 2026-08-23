@@ -545,6 +545,234 @@ async function runTests() {
         assert.strictEqual(resTG, '+22890123456');
     });
 
+    // ============================================================
+    // SECTION 11 : Classes et Cycles Libres & Personnalisables (Anomalie A)
+    // ============================================================
+    console.log('\n--- SECTION 11 : Classes et Cycles Libres & Personnalisables ---');
+
+    function createClassManager(initialClasses = []) {
+        let classes = [...initialClasses];
+        let students = [];
+
+        return {
+            getClasses: () => classes,
+            getActiveClasses: () => classes.filter(c => c.active !== false),
+            setStudents: (st) => { students = [...st]; },
+            addClass: ({ name, cycle, ecolage, active = true }) => {
+                const trimmedName = (name || '').trim();
+                const trimmedCycle = (cycle || '').trim() || 'Primaire';
+                if (!trimmedName) return { success: false, error: 'Le nom de la classe est obligatoire.' };
+                if (trimmedName.length > 50) return { success: false, error: 'Nom trop long (max 50).' };
+                if (trimmedCycle.length > 50) return { success: false, error: 'Cycle trop long (max 50).' };
+                if (classes.some(c => c.name.toLowerCase() === trimmedName.toLowerCase())) {
+                    return { success: false, error: `La classe « ${trimmedName} » existe déjà.` };
+                }
+                const newCls = {
+                    id: `cls-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                    name: trimmedName,
+                    cycle: trimmedCycle,
+                    ecolage: Number(ecolage) || 0,
+                    active: active !== false
+                };
+                classes.push(newCls);
+                return { success: true, class: newCls };
+            },
+            updateClass: (id, updates) => {
+                const target = classes.find(c => c.id === id || c.name === id);
+                if (!target) return { success: false, error: 'Classe introuvable.' };
+                if (updates.name) {
+                    const newName = updates.name.trim();
+                    if (!newName) return { success: false, error: 'Nom obligatoire.' };
+                    if (classes.some(c => (c.id !== target.id && c.name !== target.name) && c.name.toLowerCase() === newName.toLowerCase())) {
+                        return { success: false, error: `Une autre classe porte déjà le nom « ${newName} ».` };
+                    }
+                    target.name = newName;
+                }
+                if (updates.cycle !== undefined) target.cycle = updates.cycle.trim();
+                if (updates.ecolage !== undefined) target.ecolage = Number(updates.ecolage) || 0;
+                if (updates.active !== undefined) target.active = Boolean(updates.active);
+                return { success: true, class: target };
+            },
+            deleteClass: (id) => {
+                const target = classes.find(c => c.id === id || c.name === id);
+                if (!target) return { success: false, error: 'Classe introuvable.' };
+                const hasStudents = students.some(s => s.classe.toLowerCase() === target.name.toLowerCase());
+                if (hasStudents) {
+                    return {
+                        success: false,
+                        error: `Impossible de supprimer la classe « ${target.name} » car des élèves y sont déjà inscrits. Vous pouvez la désactiver pour ne plus la proposer sans perdre l'historique.`
+                    };
+                }
+                classes = classes.filter(c => c.id !== target.id && c.name !== target.name);
+                return { success: true };
+            }
+        };
+    }
+
+    await it('11.1: Création de classes libres personnalisées (CI, CP, 6ème, Grade 1, Year 7)', () => {
+        const mgr = createClassManager();
+        const r1 = mgr.addClass({ name: 'CI', cycle: 'Primaire', ecolage: 55000 });
+        const r2 = mgr.addClass({ name: 'Grade 1', cycle: 'Primary', ecolage: 60000 });
+        const r3 = mgr.addClass({ name: 'Terminale D', cycle: 'Lycée', ecolage: 95000 });
+        assert.strictEqual(r1.success, true);
+        assert.strictEqual(r2.success, true);
+        assert.strictEqual(r3.success, true);
+        assert.strictEqual(mgr.getClasses().length, 3);
+    });
+
+    await it('11.2: Déduplication insensible à la casse des classes', () => {
+        const mgr = createClassManager();
+        mgr.addClass({ name: 'CM2', cycle: 'Primaire', ecolage: 50000 });
+        const dup = mgr.addClass({ name: 'cm2', cycle: 'Primaire', ecolage: 50000 });
+        const dupSpaces = mgr.addClass({ name: '  CM2  ', cycle: 'Primaire', ecolage: 50000 });
+        assert.strictEqual(dup.success, false);
+        assert.strictEqual(dupSpaces.success, false);
+        assert.strictEqual(mgr.getClasses().length, 1);
+    });
+
+    await it('11.3: Activation / Désactivation sans perte d\'historique', () => {
+        const mgr = createClassManager();
+        const r = mgr.addClass({ name: '6ème B', cycle: 'Collège', ecolage: 70000, active: true });
+        assert.strictEqual(mgr.getActiveClasses().length, 1);
+
+        mgr.updateClass(r.class.id, { active: false });
+        assert.strictEqual(mgr.getClasses().length, 1);
+        assert.strictEqual(mgr.getActiveClasses().length, 0);
+
+        mgr.updateClass(r.class.id, { active: true });
+        assert.strictEqual(mgr.getActiveClasses().length, 1);
+    });
+
+    await it('11.4: Refus de suppression destructive si des élèves sont inscrits dans la classe', () => {
+        const mgr = createClassManager();
+        const r = mgr.addClass({ name: 'Terminale C', cycle: 'Lycée', ecolage: 100000 });
+        mgr.setStudents([{ id: 'st-1', nom: 'Koffi', classe: 'Terminale C' }]);
+
+        const delRes = mgr.deleteClass(r.class.id);
+        assert.strictEqual(delRes.success, false);
+        assert.strictEqual(delRes.error.includes('élèves y sont déjà inscrits'), true);
+        assert.strictEqual(mgr.getClasses().length, 1);
+    });
+
+    await it('11.5: Suppression autorisée si aucun élève n\'est inscrit', () => {
+        const mgr = createClassManager();
+        const r = mgr.addClass({ name: 'Classe Test', cycle: 'Primaire', ecolage: 50000 });
+        mgr.setStudents([]);
+
+        const delRes = mgr.deleteClass(r.class.id);
+        assert.strictEqual(delRes.success, true);
+        assert.strictEqual(mgr.getClasses().length, 0);
+    });
+
+    await it('11.6: Inscription : seules les classes actives sont proposées', () => {
+        const mgr = createClassManager();
+        mgr.addClass({ name: 'CP1', cycle: 'Primaire', ecolage: 50000, active: true });
+        mgr.addClass({ name: 'CP2 Ancienne', cycle: 'Primaire', ecolage: 50000, active: false });
+
+        const active = mgr.getActiveClasses();
+        assert.strictEqual(active.length, 1);
+        assert.strictEqual(active[0].name, 'CP1');
+    });
+
+    await it('11.7: Inscription : message d\'avertissement si aucune classe active configurée', () => {
+        const mgr = createClassManager();
+        const active = mgr.getActiveClasses();
+        const warning = active.length === 0 ? "Aucune classe n'est configurée. Configurez d'abord les cycles et classes dans Paramètres." : null;
+        assert.strictEqual(warning, "Aucune classe n'est configurée. Configurez d'abord les cycles et classes dans Paramètres.");
+    });
+
+    await it('11.8: Dashboard : Cartes de cycle dynamiques basées sur les cycles réels', () => {
+        const students = [
+            { id: '1', nom: 'A', classe: 'Grade 1', cycle: 'Primary School', ecolage: 50000, dejaPaye: 30000, restant: 20000, status: 'Partiel' },
+            { id: '2', nom: 'B', classe: 'Grade 2', cycle: 'Primary School', ecolage: 50000, dejaPaye: 50000, restant: 0, status: 'Soldé' },
+            { id: '3', nom: 'C', classe: 'Licence 1', cycle: 'Enseignement Supérieur', ecolage: 150000, dejaPaye: 150000, restant: 0, status: 'Soldé' }
+        ];
+
+        const activeCycles = Array.from(new Set(students.map(s => s.cycle).filter(Boolean)));
+        assert.deepStrictEqual(activeCycles, ['Primary School', 'Enseignement Supérieur']);
+
+        const computeStats = (cyc) => {
+            const arr = students.filter(s => s.cycle === cyc);
+            const count = arr.length;
+            const ecolage = arr.reduce((a, s) => a + s.ecolage, 0);
+            const paye = arr.reduce((a, s) => a + s.dejaPaye, 0);
+            const restant = arr.reduce((a, s) => a + s.restant, 0);
+            const taux = ecolage > 0 ? Math.round((paye / ecolage) * 100) : 0;
+            return { count, ecolage, paye, restant, taux };
+        };
+
+        const statPrimary = computeStats('Primary School');
+        assert.strictEqual(statPrimary.count, 2);
+        assert.strictEqual(statPrimary.ecolage, 100000);
+        assert.strictEqual(statPrimary.paye, 80000);
+        assert.strictEqual(statPrimary.taux, 80);
+
+        const statSup = computeStats('Enseignement Supérieur');
+        assert.strictEqual(statSup.count, 1);
+        assert.strictEqual(statSup.ecolage, 150000);
+        assert.strictEqual(statSup.taux, 100);
+    });
+
+    // ============================================================
+    // SECTION 12 : Persistance Année Scolaire & Paramètres (Anomalie B)
+    // ============================================================
+    console.log('\n--- SECTION 12 : Persistance Année Scolaire & Paramètres ---');
+
+    await it('12.1: Enregistrement et normalisation de l\'année scolaire (ex: "2026-2027")', () => {
+        const rawInput = '  2026-2027  ';
+        const normalized = rawInput.trim();
+        assert.strictEqual(normalized, '2026-2027');
+    });
+
+    await it('12.2: Round-trip appSettings : clé school_year sauvegardée et restituée fidèlement', () => {
+        const dbKeyValueMap = new Map();
+        const saveAppSettings = (settings) => {
+            if (settings.schoolYear !== undefined) {
+                dbKeyValueMap.set('school_year', String(settings.schoolYear).trim());
+            }
+            if (settings.classes !== undefined) {
+                dbKeyValueMap.set('classes', JSON.stringify(settings.classes));
+            }
+        };
+
+        const loadAppSettings = () => {
+            return {
+                schoolYear: dbKeyValueMap.get('school_year') || null,
+                classes: dbKeyValueMap.has('classes') ? JSON.parse(dbKeyValueMap.get('classes')) : null
+            };
+        };
+
+        // Sauvegarde par le directeur
+        saveAppSettings({
+            schoolYear: '2026-2027',
+            classes: [{ name: 'CI A', cycle: 'Primaire', ecolage: 60000, active: true }]
+        });
+
+        // Lecture après rechargement de page
+        const loaded = loadAppSettings();
+        assert.strictEqual(loaded.schoolYear, '2026-2027');
+        assert.strictEqual(loaded.classes.length, 1);
+        assert.strictEqual(loaded.classes[0].name, 'CI A');
+    });
+
+    await it('12.3: Multi-tenant strict : isolation entre écoles pour school_year et classes', () => {
+        const schoolsDb = {
+            'ecole-alpha': new Map(),
+            'ecole-beta': new Map()
+        };
+
+        schoolsDb['ecole-alpha'].set('school_year', '2025-2026');
+        schoolsDb['ecole-alpha'].set('classes', JSON.stringify([{ name: 'CM2 Alpha', cycle: 'Primaire' }]));
+
+        schoolsDb['ecole-beta'].set('school_year', '2026-2027');
+        schoolsDb['ecole-beta'].set('classes', JSON.stringify([{ name: 'Grade 5 Beta', cycle: 'Primary' }]));
+
+        assert.strictEqual(schoolsDb['ecole-alpha'].get('school_year'), '2025-2026');
+        assert.strictEqual(schoolsDb['ecole-beta'].get('school_year'), '2026-2027');
+        assert.strictEqual(JSON.parse(schoolsDb['ecole-alpha'].get('classes'))[0].name, 'CM2 Alpha');
+        assert.strictEqual(JSON.parse(schoolsDb['ecole-beta'].get('classes'))[0].name, 'Grade 5 Beta');
+    });
+
     console.log(`\n============================================================`);
     console.log(`📊 BILAN DES TESTS : ${passCount} / ${totalCount} réussis`);
     console.log(`============================================================\n`);

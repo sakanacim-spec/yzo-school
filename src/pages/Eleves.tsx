@@ -48,6 +48,8 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
   const activeClasses = useMemo(() => classes.filter(c => c.active !== false), [classes]);
   const addPayment = useStore((s) => s.addPayment);
   const language = useStore((s) => s.language);
+  const user = useStore((s) => s.user);
+  const setCurrentPage = useStore((s) => s.setCurrentPage);
   const [modalStep, setModalStep] = useState<1 | 2>(1);
 
   const schoolCountry = useStore((s) => s.schoolCountry) || 'BJ';
@@ -322,12 +324,23 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
 
                 <div className={`space-y-6 transition-all duration-500 ${modalStep === 2 ? 'opacity-100 translate-x-0 block' : 'opacity-0 translate-x-10 hidden'}`}>
                   {activeClasses.length === 0 && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs font-bold flex items-start gap-2.5">
-                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
-                      <div>
-                        {t(language as Language, 'settings.noClassConfigured') || 'Aucune classe configurée dans l\'établissement.'}
-                        <div className="mt-1 font-medium opacity-90">Veuillez d'abord paramétrer les classes de votre établissement dans les Paramètres système.</div>
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-800 dark:text-amber-200 text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                        <div>
+                          <p className="font-black text-sm">Aucune classe n'est configurée.</p>
+                          <p className="mt-0.5 font-medium">Configurez d'abord les cycles et classes dans Paramètres.</p>
+                        </div>
                       </div>
+                      {['directeur', 'admin', 'directeur_general', 'superadmin'].includes(user?.role || '') && (
+                        <button
+                          type="button"
+                          onClick={() => { onClose(); setCurrentPage('parametres'); }}
+                          className="shrink-0 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl text-[11px] uppercase tracking-wider transition-all"
+                        >
+                          Aller aux Paramètres
+                        </button>
+                      )}
                     </div>
                   )}
 
