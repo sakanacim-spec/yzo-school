@@ -168,7 +168,8 @@ export function computeProjection(students: Student[]): ProjectionResult {
  * @returns ClassFinanceRow[] trié par taux décroissant
  */
 export function computeClassComparison(students: Student[]): ClassFinanceRow[] {
-  const rows: ClassFinanceRow[] = useStore.getState().classes
+  const configuredClasses = useStore.getState().classes || [];
+  const rows: ClassFinanceRow[] = configuredClasses
     .map((config) => {
       const classeStudents = students.filter((s) => s.classe === config.name);
       if (classeStudents.length === 0) return null;

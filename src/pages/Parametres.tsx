@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, School, MessageSquare, Shield, Info,
-  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight, CheckCircle
+  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight, CheckCircle, ChevronUp, ChevronDown, Eye, EyeOff, Edit3, BookOpen, Search
 } from 'lucide-react';
 import { GestionPersonnel } from '../components/GestionPersonnel';
 import { BACKEND_URL } from '../config';
@@ -152,13 +152,6 @@ export const Parametres: React.FC = () => {
     setLocalTranches(tranches);
   }, [tranches]);
 
-  const [localClasses, setLocalClasses] = useState(classes);
-  const [classesSaved, setClassesSaved] = useState(false);
-
-  useEffect(() => {
-    setLocalClasses(classes);
-  }, [classes]);
-
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLogoError('');
     const file = e.target.files?.[0];
@@ -246,16 +239,155 @@ export const Parametres: React.FC = () => {
   const updateAllSettings = useStore((s) => s.updateAllSettings);
   const currency = useStore((s) => s.currency);
 
+  // ── GESTION DYNAMIQUE DES CYCLES ET CLASSES ─────────────
+  const addClassStore = useStore((s) => s.addClass);
+  const updateClassStore = useStore((s) => s.updateClass);
+  const deleteClassStore = useStore((s) => s.deleteClass);
+  const students = useStore((s) => s.students) || [];
+
+  const [classModalOpen, setClassModalOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState<any | null>(null);
+  const [classNameInput, setClassNameInput] = useState('');
+  const [classCycleInput, setClassCycleInput] = useState('');
+  const [classCustomCycle, setClassCustomCycle] = useState('');
+  const [classEcolageInput, setClassEcolageInput] = useState(50000);
+  const [classActiveInput, setClassActiveInput] = useState(true);
+  const [classFormError, setClassFormError] = useState<string | null>(null);
+  const [classActionSuccess, setClassActionSuccess] = useState<string | null>(null);
+  const [classActionError, setClassActionError] = useState<string | null>(null);
+  const [classFilterCycle, setClassFilterCycle] = useState<string>('all');
+  const [classSearch, setClassSearch] = useState<string>('');
+
+  const [isSavingIdentity, setIsSavingIdentity] = useState(false);
+  const [identityFeedback, setIdentityFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const openAddClassModal = (defaultCycle?: string) => {
+    setEditingClass(null);
+    setClassNameInput('');
+    setClassCycleInput(defaultCycle || (activeCycles[0] || 'Primaire'));
+    setClassCustomCycle('');
+    setClassEcolageInput(50000);
+    setClassActiveInput(true);
+    setClassFormError(null);
+    setClassModalOpen(true);
+  };
+
+  const openEditClassModal = (cls: any) => {
+    setEditingClass(cls);
+    setClassNameInput(cls.name);
+    setClassCycleInput(cls.cycle);
+    setClassCustomCycle('');
+    setClassEcolageInput(cls.ecolage || 0);
+    setClassActiveInput(cls.active !== false);
+    setClassFormError(null);
+    setClassModalOpen(true);
+  };
+
+  const handleSaveClassForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    setClassFormError(null);
+    const finalName = classNameInput.trim();
+    const finalCycle = (classCycleInput === '__custom__' ? classCustomCycle : classCycleInput).trim();
+
+    if (!finalName) {
+      setClassFormError('Le nom de la classe est obligatoire.');
+      return;
+    }
+    if (!finalCycle) {
+      setClassFormError('Le nom du cycle est obligatoire.');
+      return;
+    }
+
+    if (editingClass) {
+      const res = updateClassStore(editingClass.id || editingClass.name, {
+        name: finalName,
+        cycle: finalCycle,
+        ecolage: Number(classEcolageInput) || 0,
+        active: classActiveInput
+      });
+      if (!res.success) {
+        setClassFormError(res.error || 'Erreur lors de la mise à jour.');
+        return;
+      }
+      setClassActionSuccess(`Classe « ${finalName} » mise à jour avec succès.`);
+    } else {
+      const res = addClassStore({
+        name: finalName,
+        cycle: finalCycle,
+        ecolage: Number(classEcolageInput) || 0,
+        active: classActiveInput
+      });
+      if (!res.success) {
+        setClassFormError(res.error || "Erreur lors de l'ajout.");
+        return;
+      }
+      setClassActionSuccess(`Classe « ${finalName} » créée avec succès.`);
+    }
+
+    setTimeout(() => setClassActionSuccess(null), 3500);
+    setClassModalOpen(false);
+  };
+
+  const handleToggleClassActive = (cls: any) => {
+    const nextState = cls.active === false;
+    updateClassStore(cls.id || cls.name, { active: nextState });
+    setClassActionSuccess(`Classe « ${cls.name} » ${nextState ? 'activée' : 'désactivée'}.`);
+    setTimeout(() => setClassActionSuccess(null), 3000);
+  };
+
+  const handleDeleteClass = (cls: any) => {
+    setClassActionError(null);
+    setClassActionSuccess(null);
+    const res = deleteClassStore(cls.id || cls.name);
+    if (!res.success) {
+      setClassActionError(res.error || 'Impossible de supprimer cette classe.');
+      setTimeout(() => setClassActionError(null), 6000);
+      return;
+    }
+    setClassActionSuccess(`Classe « ${cls.name} » supprimée.`);
+    setTimeout(() => setClassActionSuccess(null), 3000);
+  };
+
+  const isIdentityDirty = useMemo(() => {
+    return (
+      localSchool !== (schoolName || '') ||
+      localMinistry !== (schoolMinistry || '') ||
+      localSlogan !== (schoolSlogan || '') ||
+      localAddress !== (schoolAddress || '') ||
+      localPhone !== (schoolPhone || '') ||
+      localYear !== (schoolYear || '') ||
+      localRem !== (messageRemerciement || '') ||
+      localRap !== (messageRappel || '') ||
+      logoPreview !== (schoolLogo || null) ||
+      stampPreview !== (schoolStamp || null)
+    );
+  }, [localSchool, localMinistry, localSlogan, localAddress, localPhone, localYear, localRem, localRap, logoPreview, stampPreview, schoolName, schoolMinistry, schoolSlogan, schoolAddress, schoolPhone, schoolYear, messageRemerciement, messageRappel, schoolLogo, schoolStamp]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isIdentityDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isIdentityDirty]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingIdentity) return;
+    setIsSavingIdentity(true);
+    setIdentityFeedback(null);
     
-    await updateAllSettings({
-      schoolName: localSchool,
-      schoolAddress: localAddress,
-      schoolPhone: localPhone,
-      schoolSlogan: localSlogan,
-      schoolMinistry: localMinistry,
-      schoolYear: localYear,
+    const yearTrimmed = localYear.trim();
+    const saveRes = await updateAllSettings({
+      schoolName: localSchool.trim(),
+      schoolAddress: localAddress.trim(),
+      schoolPhone: localPhone.trim(),
+      schoolSlogan: localSlogan.trim(),
+      schoolMinistry: localMinistry.trim(),
+      schoolYear: yearTrimmed,
       messageRemerciement: localRem,
       messageRappel: localRap,
       schoolLogo: logoPreview,
@@ -281,10 +413,10 @@ export const Parametres: React.FC = () => {
           method: 'PUT',
           headers,
           body: JSON.stringify({
-            school_address: localAddress,
-            school_phone: localPhone,
-            school_slogan: localSlogan,
-            school_ministry: localMinistry
+            school_address: localAddress.trim(),
+            school_phone: localPhone.trim(),
+            school_slogan: localSlogan.trim(),
+            school_ministry: localMinistry.trim()
           })
         });
         if (!response.ok) {
@@ -293,15 +425,20 @@ export const Parametres: React.FC = () => {
         } else {
           console.log('✅ Identité établissement sauvegardée en base (table schools)');
         }
-      } else {
-        console.warn('⚠️ Aucun token trouvé - impossible de mettre à jour le profil école');
       }
     } catch (err) {
       console.error('Erreur MAJ profil ecole', err);
     }
 
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setIsSavingIdentity(false);
+    if (saveRes && saveRes.success !== false) {
+      setSaved(true);
+      setIdentityFeedback({ type: 'success', text: "Paramètres enregistrés avec succès." });
+      setTimeout(() => setSaved(false), 3000);
+      setTimeout(() => setIdentityFeedback(null), 4000);
+    } else {
+      setIdentityFeedback({ type: 'error', text: saveRes?.error || "Erreur lors de l'enregistrement." });
+    }
   };
 
   return (
@@ -500,23 +637,365 @@ export const Parametres: React.FC = () => {
                     </div>
                 </div>
 
-                {(user?.role === 'directeur' || user?.role === 'comptable') && (
-                    <div className="flex justify-end pt-4">
+                {identityFeedback && (
+                  <div className={`p-4 rounded-xl flex items-center gap-3 text-xs font-bold ${
+                    identityFeedback.type === 'success'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                      : 'bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                  }`}>
+                    {identityFeedback.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
+                    {identityFeedback.text}
+                  </div>
+                )}
+
+                {(user?.role === 'directeur' || user?.role === 'comptable' || user?.role === 'admin' || user?.role === 'directeur_general') && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+                        <div>
+                          {isIdentityDirty && !saved && !isSavingIdentity && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-300 text-[11px] font-bold">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                              Modifications non enregistrées
+                            </span>
+                          )}
+                        </div>
                         <button
-                        type="submit"
-                        className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
-                            saved
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20'
-                        }`}
+                          type="submit"
+                          disabled={isSavingIdentity}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
+                              saved
+                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                              : isSavingIdentity
+                              ? 'bg-indigo-400 text-white cursor-not-allowed opacity-75'
+                              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20'
+                          }`}
                         >
-                        <Save className="w-4 h-4" />
-                        {saved ? (t(language as Language, 'common.saved') || 'Enregistré') : (t(language as Language, 'common.save') || 'Enregistrer')}
+                          <Save className="w-4 h-4" />
+                          {isSavingIdentity ? 'Enregistrement…' : saved ? (t(language as Language, 'common.saved') || 'Enregistré') : (t(language as Language, 'common.save') || 'Enregistrer')}
                         </button>
                     </div>
                 )}
                 </form>
             </div>
+
+            {/* ── CYCLES ET CLASSES DE L'ÉTABLISSEMENT ───────────── */}
+            {(user?.role === 'directeur' || user?.role === 'admin' || user?.role === 'directeur_general' || user?.role === 'superadmin') && (
+              <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3">
+                      <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
+                        <GraduationCap className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      Cycles et classes de l'établissement
+                    </h3>
+                    <p className="text-xs text-slate-500 font-bold mt-1">
+                      Définissez librement les cycles (Maternelle, Primaire, Collège, Lycée, etc.) et les classes personnalisées de votre établissement.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openAddClassModal()}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md shadow-indigo-600/20"
+                    >
+                      <Plus className="w-4 h-4" /> Ajouter une classe
+                    </button>
+                  </div>
+                </div>
+
+                {/* Notifications d'action */}
+                {classActionSuccess && (
+                  <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                    <CheckCircle className="w-4 h-4 shrink-0 text-emerald-500" />
+                    {classActionSuccess}
+                  </div>
+                )}
+                {classActionError && (
+                  <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                    {classActionError}
+                  </div>
+                )}
+
+                {/* Filtres et recherche */}
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <div className="relative flex-1 w-full">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={classSearch}
+                      onChange={(e) => setClassSearch(e.target.value)}
+                      placeholder="Rechercher une classe ou un cycle..."
+                      className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <select
+                      value={classFilterCycle}
+                      onChange={(e) => setClassFilterCycle(e.target.value)}
+                      className="w-full sm:w-auto bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    >
+                      <option value="all">Tous les cycles ({classes.length})</option>
+                      {activeCycles.map(cyc => (
+                        <option key={cyc} value={cyc}>{cyc} ({classes.filter(c => c.cycle === cyc).length})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Liste des classes par cycle */}
+                {classes.length === 0 ? (
+                  <div className="text-center py-10 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                    <GraduationCap className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Aucune classe configurée</p>
+                    <p className="text-xs text-slate-500 mt-1 mb-4">Ajoutez les classes enseignées dans votre établissement.</p>
+                    <button
+                      type="button"
+                      onClick={() => openAddClassModal()}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl"
+                    >
+                      <Plus className="w-4 h-4" /> Créer la première classe
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {activeCycles
+                      .filter(cyc => classFilterCycle === 'all' || classFilterCycle === cyc)
+                      .map(cycleName => {
+                        const cycleClasses = classes.filter(c => {
+                          if (c.cycle !== cycleName) return false;
+                          if (!classSearch.trim()) return true;
+                          const q = classSearch.toLowerCase();
+                          return c.name.toLowerCase().includes(q) || c.cycle.toLowerCase().includes(q);
+                        });
+
+                        if (cycleClasses.length === 0 && classSearch.trim()) return null;
+
+                        return (
+                          <div key={cycleName} className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 rounded-2xl p-4">
+                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200/50 dark:border-slate-700/50">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                                <span className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-wider">{cycleName}</span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
+                                  {cycleClasses.length} classe{cycleClasses.length > 1 ? 's' : ''}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => openAddClassModal(cycleName)}
+                                className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                              >
+                                <Plus className="w-3 h-3" /> Ajouter dans {cycleName}
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {cycleClasses.map(cls => {
+                                const enrolledCount = students.filter(s => s.classe.toLowerCase() === cls.name.toLowerCase()).length;
+                                const isActive = cls.active !== false;
+
+                                return (
+                                  <div
+                                    key={cls.id || cls.name}
+                                    className={`p-3.5 rounded-xl border transition-all ${
+                                      isActive
+                                        ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-sm'
+                                        : 'bg-slate-100/60 dark:bg-slate-800/20 border-slate-200/50 dark:border-slate-800 opacity-60'
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                      <div>
+                                        <h4 className="font-black text-sm text-slate-900 dark:text-white tracking-tight">{cls.name}</h4>
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{cls.cycle}</p>
+                                      </div>
+                                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                                        isActive
+                                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                                      }`}>
+                                        {isActive ? 'Active' : 'Inactive'}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-xs mb-3 text-slate-600 dark:text-slate-400">
+                                      <span className="font-bold">Écolage :</span>
+                                      <span className="font-black text-slate-900 dark:text-white">{cls.ecolage?.toLocaleString() || 0} {currency}</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 dark:border-slate-800">
+                                      <span className="text-slate-500 font-bold">
+                                        {enrolledCount} élève{enrolledCount > 1 ? 's' : ''} inscrit{enrolledCount > 1 ? 's' : ''}
+                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleToggleClassActive(cls)}
+                                          title={isActive ? 'Désactiver (ne plus proposer aux inscriptions)' : 'Activer'}
+                                          className={`p-1.5 rounded-lg transition-colors ${
+                                            isActive
+                                              ? 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                              : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                          }`}
+                                        >
+                                          {isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => openEditClassModal(cls)}
+                                          title="Modifier"
+                                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteClass(cls)}
+                                          title={enrolledCount > 0 ? 'Des élèves sont inscrits (désactivation conseillée)' : 'Supprimer'}
+                                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── MODALE CRÉATION / ÉDITION DE CLASSE ─────────────── */}
+            {classModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl animate-scaleUp">
+                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl text-indigo-600 dark:text-indigo-400">
+                        <GraduationCap className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-lg text-slate-900 dark:text-white">
+                          {editingClass ? 'Modifier la classe' : 'Nouvelle classe'}
+                        </h3>
+                        <p className="text-xs text-slate-500 font-bold">
+                          {editingClass ? `Édition de « ${editingClass.name} »` : 'Ajout d\'une classe personnalisée'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setClassModalOpen(false)}
+                      className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {classFormError && (
+                    <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                      {classFormError}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSaveClassForm} className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                        Nom de la classe <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={50}
+                        value={classNameInput}
+                        onChange={(e) => setClassNameInput(e.target.value)}
+                        placeholder="Ex: CI, CM2, 6ème A, Grade 1, Year 7..."
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                        Cycle de rattachement <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={classCycleInput}
+                        onChange={(e) => setClassCycleInput(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none mb-2"
+                      >
+                        {activeCycles.map(cyc => (
+                          <option key={cyc} value={cyc}>{cyc}</option>
+                        ))}
+                        <option value="__custom__">+ Autre cycle (personnalisé)...</option>
+                      </select>
+
+                      {classCycleInput === '__custom__' && (
+                        <input
+                          type="text"
+                          required
+                          maxLength={50}
+                          value={classCustomCycle}
+                          onChange={(e) => setClassCustomCycle(e.target.value)}
+                          placeholder="Nom du nouveau cycle (ex: Secondaire, Kindergarten, Université...)"
+                          className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                        Écolage annuel par défaut ({currency})
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={classEcolageInput}
+                        onChange={(e) => setClassEcolageInput(Number(e.target.value))}
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+
+                    <div className="pt-2">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={classActiveInput}
+                          onChange={(e) => setClassActiveInput(e.target.checked)}
+                          className="w-5 h-5 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700"
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">Classe active pour les nouvelles inscriptions</span>
+                          <span className="text-[10px] text-slate-500 block">Si décochée, la classe reste visible dans les historiques mais n'est plus proposée aux inscriptions.</span>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setClassModalOpen(false)}
+                        className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md shadow-indigo-600/20"
+                      >
+                        {editingClass ? 'Enregistrer les modifications' : 'Créer la classe'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
 
             {/* ── TRANCHES DE PAIEMENT ────────────────────────────── */}
             {(user?.role === 'directeur' || user?.role === 'comptable' || user?.role === 'admin' || user?.role === 'directeur_general') && (
@@ -733,125 +1212,6 @@ export const Parametres: React.FC = () => {
                     </div>
                 </div>
             )}
-
-
-            {/* ── CLASSES ET FRAIS DE SCOLARITÉ ────────────────────────────── */}
-            {(user?.role === 'directeur' || user?.role === 'comptable' || user?.role === 'admin' || user?.role === 'directeur_general') && (
-                <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800 mt-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                        <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3">
-                            <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
-                                <School className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                            </div>
-                            {t(language as Language, 'settings.classesAndTuition') || 'Classes & Frais de Scolarité'}
-                        </h3>
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                const currentClasses = Array.isArray(localClasses) ? localClasses : [];
-                                const updated = [...currentClasses, { name: `${t(language as Language, 'settings.newClass') || 'Nouvelle Classe'} ${currentClasses.length + 1}`, cycle: 'Primaire' as any, ecolage: 50000 }];
-                                setLocalClasses(updated);
-                            }}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-500 text-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:hover:bg-indigo-500 dark:text-indigo-400 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all"
-                        >
-                            <Plus className="w-3.5 h-3.5" /> {t(language as Language, 'common.add') || 'Ajouter'}
-                        </button>
-                    </div>
-
-                    <div className="space-y-3 mb-6">
-                        {(!Array.isArray(localClasses) || localClasses.length === 0) ? (
-                        <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
-                            <p className="text-sm font-bold text-slate-500">{t(language as Language, 'settings.noClassConfigured') || 'Aucune classe paramétrée'}</p>
-                        </div>
-                        ) : (
-                        localClasses.map((c, idx) => (
-                            <div key={idx} className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
-                                <input
-                                    type="text"
-                                    value={c.name}
-                                    onChange={(e) => {
-                                        const updated = [...localClasses];
-                                        updated[idx].name = e.target.value;
-                                        setLocalClasses(updated);
-                                    }}
-                                    placeholder={t(language as Language, 'settings.classNamePlaceholder') || 'Nom de la classe (ex: CP1)'}
-                                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full"
-                                />
-                                <input
-                                    type="text"
-                                    list="cycle-suggestions"
-                                    value={c.cycle}
-                                    onChange={(e) => {
-                                        const updated = [...localClasses];
-                                        updated[idx].cycle = e.target.value as any;
-                                        setLocalClasses(updated);
-                                    }}
-                                    placeholder={t(language as Language, 'settings.cyclePlaceholder') || 'Cycle (ex: Primaire, Université)'}
-                                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-auto"
-                                />
-                                <datalist id="cycle-suggestions">
-                                    <option value="Maternelle" />
-                                    <option value="Primaire" />
-                                    <option value="Collège" />
-                                    <option value="Lycée" />
-                                    <option value="Licence" />
-                                    <option value="Master" />
-                                    <option value="Université" />
-                                    <option value="Formation Professionnelle" />
-                                </datalist>
-                                <div className="flex items-center gap-2 w-full sm:w-auto">
-                                    <div className="relative flex-1">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={c.ecolage}
-                                            onChange={(e) => {
-                                                const updated = [...localClasses];
-                                                updated[idx].ecolage = Number(e.target.value);
-                                                setLocalClasses(updated);
-                                            }}
-                                            className="w-full sm:w-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-12 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-right"
-                                        />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{currency}</span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const updated = localClasses.filter((_, i) => i !== idx);
-                                            setLocalClasses(updated);
-                                        }}
-                                        className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors ml-auto sm:ml-1 shrink-0"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                        )}
-                    </div>
-
-                    <div className="flex justify-end">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setClasses(localClasses);
-                                updateAllSettings({ classes: localClasses });
-                                setClassesSaved(true);
-                                setTimeout(() => setClassesSaved(false), 3000);
-                            }}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
-                            classesSaved
-                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20'
-                            }`}
-                        >
-                            <Save className="w-4 h-4" />
-                            {classesSaved ? (t(language as Language, 'common.saved') || 'Enregistré') : (t(language as Language, 'common.save') || 'Enregistrer')}
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
 
         {/* COLONNE DROITE (Secondaire) */}
@@ -948,10 +1308,15 @@ export const Parametres: React.FC = () => {
                           </div>
                         ) : (
                           (Array.isArray(localSchedules) ? localSchedules : []).map((schedule, idx) => (
-                          <div key={schedule.cycle} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
-                              <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">
-                                  {schedule.cycle}
-                              </span>
+                          <div key={schedule.cycle} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 gap-2">
+                              <div>
+                                <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest block">
+                                    {schedule.cycle}
+                                </span>
+                                <span className="text-[11px] text-slate-500 font-bold">
+                                  Heure limite d’arrivée
+                                </span>
+                              </div>
                               <input
                                   type="time"
                                   value={schedule.heureLimite}
@@ -960,19 +1325,20 @@ export const Parametres: React.FC = () => {
                                       updated[idx] = { ...schedule, heureLimite: e.target.value };
                                       setLocalSchedules(updated);
                                   }}
-                                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-sm font-bold font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm font-bold font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-36 text-center"
                               />
                           </div>
                           ))
                         )}
                     </div>
                     <button
-                        onClick={() => {
+                        onClick={async () => {
                             setCycleSchedules(localSchedules);
-                            // Persiste les horaires vers le backend via le sync
-                            updateAllSettings({ cycleSchedules: localSchedules });
-                            setScheduleSaved(true);
-                            setTimeout(() => setScheduleSaved(false), 3000);
+                            const res = await updateAllSettings({ cycleSchedules: localSchedules });
+                            if (res && res.success !== false) {
+                              setScheduleSaved(true);
+                              setTimeout(() => setScheduleSaved(false), 3000);
+                            }
                         }}
                         className={`w-full flex justify-center items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
                             scheduleSaved

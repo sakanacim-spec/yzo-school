@@ -339,11 +339,20 @@ async function getParentData(req, res) {
             .eq('read_status', false)
             .neq('sender_id', parentId);
 
-        // 4. Paramètres de l'école (Logo, Nom, etc.)
-        const { data: dbSettings } = await supabase
+        // 4. Paramètres de l'école (Logo, Nom, etc. via schéma clé-valeur)
+        const { data: dbSettingsRows } = await supabase
             .from(`app_settings_${schoolSlug}`)
-            .select('*')
-            .single();
+            .select('*');
+
+        const settingsMap = new Map();
+        (dbSettingsRows || []).forEach(r => {
+            if (r.key) settingsMap.set(r.key, r.value);
+        });
+
+        const safeJsonParse = (val, fallback = null) => {
+            if (!val) return fallback;
+            try { return typeof val === 'string' ? JSON.parse(val) : val; } catch { return fallback; }
+        };
 
         const { data: schoolInfo } = await supabase
             .from('schools')
@@ -352,19 +361,19 @@ async function getParentData(req, res) {
             .single();
         
         const appSettings = {
-            appName: dbSettings?.app_name || schoolInfo?.name || null,
-            schoolName: dbSettings?.school_name || schoolInfo?.name || null,
-            schoolYear: dbSettings?.school_year || null,
-            schoolLogo: dbSettings?.school_logo || null,
-            schoolStamp: dbSettings?.school_stamp || null,
-            messageRemerciement: dbSettings?.message_remerciement || null,
-            messageRappel: dbSettings?.message_rappel || null,
-            tranches: dbSettings?.tranches || [],
-            schoolCountry: dbSettings?.school_country || schoolInfo?.country || null,
-            schoolAddress: dbSettings?.school_address || schoolInfo?.address || null,
-            schoolPhone: dbSettings?.school_phone || schoolInfo?.phone || null,
-            schoolSlogan: dbSettings?.school_slogan || schoolInfo?.slogan || null,
-            schoolMinistry: dbSettings?.school_ministry || schoolInfo?.ministry || null,
+            appName: settingsMap.get('app_name') || schoolInfo?.name || null,
+            schoolName: settingsMap.get('school_name') || schoolInfo?.name || null,
+            schoolYear: settingsMap.get('school_year') || null,
+            schoolLogo: settingsMap.get('school_logo') || null,
+            schoolStamp: settingsMap.get('school_stamp') || null,
+            messageRemerciement: settingsMap.get('message_remerciement') || null,
+            messageRappel: settingsMap.get('message_rappel') || null,
+            tranches: safeJsonParse(settingsMap.get('tranches'), []),
+            schoolCountry: schoolInfo?.country || null,
+            schoolAddress: schoolInfo?.address || null,
+            schoolPhone: schoolInfo?.phone || null,
+            schoolSlogan: schoolInfo?.slogan || null,
+            schoolMinistry: schoolInfo?.ministry || null,
             schoolEmail: schoolInfo?.email || null
         };
 

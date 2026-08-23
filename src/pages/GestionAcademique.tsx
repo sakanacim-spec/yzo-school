@@ -11,10 +11,15 @@ export const GestionAcademique: React.FC = () => {
     const { 
         matieres, addMatiere, deleteMatiere,
         classeMatieres, addClasseMatiere, deleteClasseMatiere,
-        students
+        students, classes, personnels
     } = useStore();
 
-    const classesList = Array.from(new Set(students.map(s => s.classe))).sort();
+    const configuredClasses = (classes || []).filter(c => c.active !== false).map(c => c.name);
+    const studentClasses = Array.from(new Set(students.map(s => s.classe)));
+    const classesList = Array.from(new Set([...configuredClasses, ...studentClasses])).filter(Boolean).sort();
+
+    const profsList = (personnels || []).filter(p => p.role === 'professeur');
+
     const [activeTab, setActiveTab] = useState<'matieres' | 'liaisons'>('matieres');
 
     const [nomMatiere, setNomMatiere] = useState('');
@@ -22,14 +27,18 @@ export const GestionAcademique: React.FC = () => {
 
     const [selectedClasse, setSelectedClasse] = useState('');
     const [selectedMatiere, setSelectedMatiere] = useState('');
-    const [professeur, setProfesseur] = useState('');
+    const [selectedProfId, setSelectedProfId] = useState('');
+    const [professeurCustom, setProfesseurCustom] = useState('');
     const [coefficient, setCoefficient] = useState(1);
+    const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
     const handleAddMatiere = (e: React.FormEvent) => {
         e.preventDefault();
         if (!nomMatiere.trim()) return;
         addMatiere({ id: uuid(), nom: nomMatiere.trim(), categorie });
         setNomMatiere('');
+        setSuccessNotice('Matière ajoutée avec succès.');
+        setTimeout(() => setSuccessNotice(null), 4000);
     };
 
     const handleAddLiaison = (e: React.FormEvent) => {
@@ -41,16 +50,23 @@ export const GestionAcademique: React.FC = () => {
             return;
         }
 
+        const chosenProf = profsList.find(p => p.id === selectedProfId);
+        const profName = chosenProf ? chosenProf.nom : professeurCustom.trim();
+
         addClasseMatiere({
             id: uuid(),
             classe: selectedClasse,
             matiereId: selectedMatiere,
-            professeur: professeur.trim(),
+            professeurId: chosenProf ? chosenProf.id : undefined,
+            professeur: profName,
             coefficient
         });
         setSelectedMatiere('');
-        setProfesseur('');
+        setSelectedProfId('');
+        setProfesseurCustom('');
         setCoefficient(1);
+        setSuccessNotice('Assignation créée et synchronisée avec succès.');
+        setTimeout(() => setSuccessNotice(null), 4000);
     };
 
     return (
@@ -95,9 +111,15 @@ export const GestionAcademique: React.FC = () => {
                         : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
                     }`}
                 >
-                    <Users className="w-4 h-4" /> {t(language as Language, 'academic.assignmentsCoefficients') || 'Assignations & Coefficients'}
+                    <Users className="w-4 h-4" /> {t(language as Language, 'academic.classSubjectsLinks') || 'Liaisons Classes & Matières'}
                 </button>
             </div>
+
+            {successNotice && (
+                <div className="p-4 bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-2xl flex items-center gap-3 shadow-lg shadow-emerald-500/10 animate-slideDown">
+                    <span className="text-sm font-black">{successNotice}</span>
+                </div>
+            )}
 
             {/* ── TAB: MATIERES ── */}
             {activeTab === 'matieres' && (
@@ -242,15 +264,32 @@ export const GestionAcademique: React.FC = () => {
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">
-                                    {t(language as Language, 'academic.teacherOptional') || 'Professeur (Optionnel)'}
+                                    {t(language as Language, 'academic.teacherOptional') || 'Professeur (Assignation)'}
                                 </label>
-                                <input
-                                    type="text"
-                                    value={professeur}
-                                    onChange={(e) => setProfesseur(e.target.value)}
-                                    placeholder={t(language as Language, 'academic.teacherPlaceholder') || "Ex: M. DUBOIS"}
-                                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                />
+                                <select
+                                    value={selectedProfId}
+                                    onChange={(e) => {
+                                        setSelectedProfId(e.target.value);
+                                        if (e.target.value !== '__custom__') setProfesseurCustom('');
+                                    }}
+                                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
+                                >
+                                    <option value="">{t(language as Language, 'academic.selectTeacher') || 'Sélectionner un professeur...'}</option>
+                                    {profsList.map(p => (
+                                        <option key={p.id} value={p.id}>{p.nom}</option>
+                                    ))}
+                                    <option value="__custom__">Autre enseignant (saisie libre)...</option>
+                                </select>
+
+                                {selectedProfId === '__custom__' && (
+                                    <input
+                                        type="text"
+                                        value={professeurCustom}
+                                        onChange={(e) => setProfesseurCustom(e.target.value)}
+                                        placeholder={t(language as Language, 'academic.teacherPlaceholder') || "Ex: M. DUBOIS"}
+                                        className="w-full mt-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                    />
+                                )}
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">

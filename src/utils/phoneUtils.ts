@@ -66,3 +66,50 @@ export function normalizePhoneNumber(
     };
   }
 }
+
+/**
+ * Décompose un numéro de téléphone stocké (ex: +2290141222222 ou 0141222222)
+ * en pays (ex: 'BJ') et numéro local/national propre (ex: '0141222222').
+ */
+export function extractCountryAndLocalPhone(
+  rawPhone: string,
+  fallbackCountry: string = 'BJ'
+): { countryCode: string; localNumber: string } {
+  if (!rawPhone || !rawPhone.trim()) {
+    return { countryCode: (fallbackCountry || 'BJ').toUpperCase(), localNumber: '' };
+  }
+
+  const trimmed = rawPhone.trim();
+  const normalized = trimmed.startsWith('00') ? `+${trimmed.slice(2)}` : trimmed;
+
+  if (normalized.startsWith('+')) {
+    try {
+      const parsed = parsePhoneNumberFromString(normalized);
+      if (parsed && parsed.country) {
+        const callingCode = parsed.countryCallingCode;
+        const local = normalized.slice(callingCode.length + 1); // retire +<codeCalling>
+        return {
+          countryCode: parsed.country,
+          localNumber: local
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return {
+    countryCode: (fallbackCountry || 'BJ').toUpperCase(),
+    localNumber: trimmed
+  };
+}
+
+/**
+ * Reconstruit un numéro E.164 depuis une saisie locale et un code pays sélectionné.
+ */
+export function buildE164PhoneNumber(
+  localPhone: string,
+  countryCode: string = 'BJ'
+): PhoneValidationResult {
+  return normalizePhoneNumber(localPhone, countryCode);
+}

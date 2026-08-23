@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { Student } from '../types';
 
 import { generateRecuPDF } from '../utils/pdfGenerator';
 import { uploadStudentPhoto, deleteStudentPhoto } from '../services/photoService';
 import { COUNTRIES } from '../data/countries';
-import { normalizePhoneNumber } from '../utils/phoneUtils';
+import { normalizePhoneNumber, extractCountryAndLocalPhone, buildE164PhoneNumber } from '../utils/phoneUtils';
 import {
   Search, Plus, Trash2, Edit2, FileText,
   MessageCircle, ChevronUp, ChevronDown, ChevronRight, X, Check,
@@ -33,30 +33,75 @@ const StatusBadge: React.FC<{ status: Student['status'] }> = ({ status }) => {
 };
 
 // ── Modale Ajout/Édition ─────────────────────────────────────
-interface ModalProps { student?: Student | null; onClose: () => void }
+interface ModalProps {
+  student?: Student | null;
+  onClose: () => void;
+  onSuccess?: (msg: string) => void;
+}
 
-const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
+const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => {
   const addStudent = useStore((s) => s.addStudent);
   const updateStudent = useStore((s) => s.updateStudent);
   const rollbackStudentLocal = useStore((s) => s.rollbackStudentLocal);
   const currency = useStore((s) => s.currency);
-  const classes = useStore((s) => s.classes);
+  const classes = useStore((s) => s.classes) || [];
+  const activeClasses = useMemo(() => classes.filter(c => c.active !== false), [classes]);
   const addPayment = useStore((s) => s.addPayment);
   const language = useStore((s) => s.language);
+  const user = useStore((s) => s.user);
+  const setCurrentPage = useStore((s) => s.setCurrentPage);
   const [modalStep, setModalStep] = useState<1 | 2>(1);
 
   const schoolCountry = useStore((s) => s.schoolCountry) || 'BJ';
-  const [parentCountryCode, setParentCountryCode] = useState(schoolCountry);
+  const initialExtracted = useMemo(
+    () => extractCountryAndLocalPhone(student?.telephone || '', schoolCountry),
+    [student?.telephone, schoolCountry]
+  );
+
+  const [parentCountryCode, setParentCountryCode] = useState(initialExtracted.countryCode);
   const [phoneError, setPhoneError] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getPhonePlaceholder = (countryCode: string) => {
+    switch (countryCode) {
+      case 'BJ': return '0141222222';
+      case 'TG': return '90123456';
+      case 'SN': return '771234567';
+      case 'CI': return '0708091011';
+      case 'FR': return '0612345678';
+      case 'MA': return '0612345678';
+      case 'US': return '2025550123';
+      default: return '0141222222';
+    }
+  };
+
+  const validatePhone = (phone: string, countryCode: string): boolean => {
+    const trimmed = phone.trim();
+    if (!trimmed) {
+      setPhoneError("Le numéro de téléphone du parent est obligatoire.");
+      return false;
+    }
+    const phoneCheck = buildE164PhoneNumber(trimmed, countryCode);
+    if (!phoneCheck.valid) {
+      setPhoneError("Numéro de téléphone invalide pour le pays sélectionné. Format attendu : local ou +/00.");
+      return false;
+    }
+    setPhoneError('');
+    return true;
+  };
+
+  const initialClass = student?.classe ?? (activeClasses.length > 0 ? activeClasses[0].name : '');
+  const initialClassDef = activeClasses.find(c => c.name === initialClass);
+  const initialEcolage = student?.ecolage ?? (initialClassDef ? initialClassDef.ecolage : 0);
 
   const [form, setForm] = useState({
     nom: student?.nom ?? '',
     prenom: student?.prenom ?? '',
-    classe: student?.classe ?? (classes.length > 0 ? classes[0].name : ''),
-    ecolage: student?.ecolage ?? (classes.length > 0 ? classes[0].ecolage : 0),
-    telephone: student?.telephone ?? '',
+    classe: initialClass,
+    ecolage: initialEcolage,
+    telephone: initialExtracted.localNumber,
     sexe: (student?.sexe ?? 'M') as 'M' | 'F',
     estRedoublant: student?.redoublant ?? false,
     ecoleProvenance: student?.ecoleProvenance ?? '',
@@ -69,30 +114,32 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
     setPhoneError('');
     setSubmitError('');
 
-    // Étape 1 : validation téléphone avant passage à l'étape 2
+    // Étape 1 : validation téléphone obligatoire avant passage à l'étape 2
     if (modalStep === 1) {
-      if (form.telephone.trim()) {
-        const phoneCheck = normalizePhoneNumber(form.telephone, parentCountryCode);
-        if (!phoneCheck.valid) {
-          setPhoneError("Numéro de téléphone invalide pour le pays sélectionné. Format attendu : local ou +/00.");
-          return;
-        }
+      setPhoneTouched(true);
+      if (!validatePhone(form.telephone, parentCountryCode)) {
+        return;
       }
       setModalStep(2);
       return;
     }
     
     // Étape 2 : validation et synchronisation finale
-    let normalizedPhone = '';
-    if (form.telephone.trim()) {
-      const phoneCheck = normalizePhoneNumber(form.telephone, parentCountryCode);
-      if (!phoneCheck.valid) {
-        setPhoneError("Numéro de téléphone invalide pour le pays sélectionné.");
-        setModalStep(1);
-        return;
-      }
-      normalizedPhone = phoneCheck.e164;
+    if (!form.classe) {
+      setSubmitError("Veuillez sélectionner une classe active.");
+      return;
     }
+
+    const phoneCheck = buildE164PhoneNumber(form.telephone, parentCountryCode);
+    if (!phoneCheck.valid) {
+      setPhoneError("Numéro de téléphone invalide pour le pays sélectionné.");
+      setModalStep(1);
+      return;
+    }
+    const normalizedPhone = phoneCheck.e164;
+
+    const selectedClassDef = activeClasses.find(c => c.name === form.classe) || classes.find(c => c.name === form.classe);
+    const deducedCycle = selectedClassDef ? selectedClassDef.cycle : 'Primaire';
 
     const baseStudent = {
       nom: form.nom.trim(),
@@ -104,7 +151,8 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
       ecoleProvenance: form.ecoleProvenance || '',
       redoublant: form.estRedoublant,
       dejaPaye: student ? student.dejaPaye : 0,
-      recu: student ? student.recu : form.recuAssociatif
+      recu: student ? student.recu : form.recuAssociatif,
+      cycle: deducedCycle
     };
     
     setIsSubmitting(true);
@@ -142,6 +190,10 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
         return;
       }
 
+      const successMsg = student
+        ? (t(language as Language, 'students.studentUpdatedSuccess') || 'Élève modifié et synchronisé avec succès.')
+        : 'Félicitations ! L’élève a été inscrit(e) avec succès.';
+      onSuccess?.(successMsg);
       onClose();
     } catch (err: any) {
       if (!student && studentId) {
@@ -219,42 +271,107 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Phone className="w-3 h-3" /> {t(language as Language, 'students.parentPhone') || "Téléphone Parent"}
+                      <label htmlFor="parent-phone-input" className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Phone className="w-3 h-3 text-amber-500" /> {t(language as Language, 'students.parentPhone') || "Téléphone Parent"} *
                       </label>
-                      <div className="flex gap-2">
-                        <CountrySelect value={parentCountryCode} onChange={setParentCountryCode} className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-3 text-xs font-bold text-slate-800" />
-                        <input type="text" className={`flex-1 bg-slate-50 border rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium ${phoneError ? 'border-rose-400' : 'border-slate-200'}`} placeholder="Ex: 01 97 00 00 00 / +229..." value={form.telephone} onChange={(e) => { setForm({ ...form, telephone: e.target.value }); setPhoneError(''); }} />
+                      <div className="flex flex-col sm:flex-row gap-2 w-full items-stretch sm:items-center">
+                        <div className="w-full sm:w-[108px] sm:shrink-0">
+                          <CountrySelect
+                            value={parentCountryCode}
+                            onChange={(newCode) => {
+                              setParentCountryCode(newCode);
+                              if (phoneTouched && form.telephone.trim()) {
+                                validatePhone(form.telephone, newCode);
+                              }
+                            }}
+                            short={true}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-2.5 py-3.5 text-xs font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all cursor-pointer"
+                            aria-label="Indicatif pays"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0 w-full relative">
+                          <input
+                            id="parent-phone-input"
+                            type="tel"
+                            inputMode="tel"
+                            required
+                            aria-label="Numéro de téléphone du parent"
+                            className={`w-full min-w-0 bg-slate-50 border rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium ${phoneError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-200'}`}
+                            placeholder={getPhonePlaceholder(parentCountryCode)}
+                            value={form.telephone}
+                            onChange={(e) => {
+                              setForm({ ...form, telephone: e.target.value });
+                              if (phoneError) setPhoneError('');
+                            }}
+                            onBlur={() => {
+                              setPhoneTouched(true);
+                              if (form.telephone.trim()) {
+                                validatePhone(form.telephone, parentCountryCode);
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
                       {phoneError && (
-                        <p className="text-[11px] font-bold text-rose-500 mt-1">{phoneError}</p>
+                        <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1.5 animate-shake">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{phoneError}</span>
+                        </p>
                       )}
                     </div>
                   </div>
                 </div>
 
                 <div className={`space-y-6 transition-all duration-500 ${modalStep === 2 ? 'opacity-100 translate-x-0 block' : 'opacity-0 translate-x-10 hidden'}`}>
+                  {activeClasses.length === 0 && (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-800 dark:text-amber-200 text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                        <div>
+                          <p className="font-black text-sm">Aucune classe n'est configurée.</p>
+                          <p className="mt-0.5 font-medium">Configurez d'abord les cycles et classes dans Paramètres.</p>
+                        </div>
+                      </div>
+                      {['directeur', 'admin', 'directeur_general', 'superadmin'].includes(user?.role || '') && (
+                        <button
+                          type="button"
+                          onClick={() => { onClose(); setCurrentPage('parametres'); }}
+                          className="shrink-0 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl text-[11px] uppercase tracking-wider transition-all"
+                        >
+                          Aller aux Paramètres
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
                         {t(language as Language, 'common.class') || "Classe"} *
                       </label>
                       <div className="relative">
-                        <input
-                          type="text"
-                          list="classes-list"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" 
-                          placeholder={t(language as Language, 'students.selectOrEnterClass') || 'Sélectionner ou saisir une classe'}
-                          value={form.classe} 
+                        <select
+                          required
+                          value={form.classe}
                           onChange={(e) => {
                             const newClasse = e.target.value;
-                            const classDef = classes.find(c => c.name === newClasse);
-                            setForm({ ...form, classe: newClasse, ecolage: classDef ? classDef.ecolage : form.ecolage });
+                            const classDef = activeClasses.find(c => c.name === newClasse);
+                            setForm({
+                              ...form,
+                              classe: newClasse,
+                              ecolage: classDef ? classDef.ecolage : form.ecolage
+                            });
                           }}
-                        />
-                        <datalist id="classes-list">
-                          {classes.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-                        </datalist>
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer appearance-none"
+                        >
+                          <option value="">{t(language as Language, 'students.selectClass') || 'Sélectionner une classe...'}</option>
+                          {activeClasses.map((c) => (
+                            <option key={c.id || c.name} value={c.name}>
+                              {c.name} ({c.cycle})
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                       </div>
                     </div>
 
@@ -483,11 +600,19 @@ export const Eleves: React.FC = () => {
 
   const [modal, setModal] = useState<{ open: boolean; student?: Student | null }>({ open: false });
   const [photoModal, setPhotoModal] = useState<{ open: boolean; student: Student | null }>({ open: false, student: null });
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const updateStudent = useStore((s) => s.updateStudent);
   const [sortKey, setSortKey] = useState<SortKey>('nom');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    if (successBanner) {
+      const timer = setTimeout(() => setSuccessBanner(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successBanner]);
 
   const filtered = useMemo(() => {
     let list = [...students];
@@ -538,7 +663,20 @@ export const Eleves: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-20 max-w-[1600px] mx-auto animate-slideUp">
-      
+      {successBanner && (
+        <div className="p-4 bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-emerald-500/10 animate-slideDown">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-500/30">
+              <Check className="w-5 h-5" />
+            </div>
+            <span className="text-sm font-black">{successBanner}</span>
+          </div>
+          <button onClick={() => setSuccessBanner(null)} className="p-1.5 hover:bg-emerald-500/20 rounded-lg transition-colors text-emerald-700 dark:text-emerald-300">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="relative pro-card p-8 overflow-hidden group bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl">
         <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] group-hover:scale-110 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
@@ -788,7 +926,13 @@ export const Eleves: React.FC = () => {
         )}
       </div>
 
-      {modal.open && <StudentModal student={modal.student} onClose={() => setModal({ open: false })} />}
+      {modal.open && (
+        <StudentModal
+          student={modal.student}
+          onClose={() => setModal({ open: false })}
+          onSuccess={(msg) => setSuccessBanner(msg)}
+        />
+      )}
       {photoModal.open && photoModal.student && (
         <PhotoModal 
           student={photoModal.student} 

@@ -57,7 +57,17 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
     } = store;
     
     // Si l'un des paramètres de configuration est fourni, on envoie appSettings
-    if (appName !== undefined || schoolName !== undefined || schoolLogo !== undefined || schoolStamp !== undefined || cycleSchedules !== undefined || tranches !== undefined || classes !== undefined || schoolAddress !== undefined || schoolPhone !== undefined || schoolSlogan !== undefined || schoolMinistry !== undefined || settings?.paymentGateway !== undefined) {
+    if (
+        appName !== undefined || schoolName !== undefined || schoolYear !== undefined ||
+        messageRemerciement !== undefined || messageRappel !== undefined ||
+        schoolLogo !== undefined || schoolStamp !== undefined || cycleSchedules !== undefined ||
+        tranches !== undefined || classes !== undefined ||
+        schoolAddress !== undefined || schoolPhone !== undefined || schoolSlogan !== undefined ||
+        schoolMinistry !== undefined || schoolCountry !== undefined ||
+        settings?.paymentGateway !== undefined || settings?.payoutMomoNumber !== undefined ||
+        settings?.payoutMethod !== undefined || settings?.bulletinTemplate !== undefined ||
+        settings?.evalConfigs !== undefined
+    ) {
         payload.appSettings = {
             appName,
             schoolName,
@@ -78,7 +88,13 @@ export async function syncToBackend(store: Partial<AppState>, replace: boolean =
             paymentPublicKey: settings?.paymentPublicKey,
             paymentSecretKey: settings?.paymentSecretKey,
             payoutMomoNumber: settings?.payoutMomoNumber,
-            payoutMethod: settings?.payoutMethod
+            payoutMethod: settings?.payoutMethod,
+            bulletinTemplate: settings?.bulletinTemplate,
+            bulletinShowPhoto: settings?.bulletinShowPhoto,
+            bulletinShowRank: settings?.bulletinShowRank,
+            bulletinShowClassAverage: settings?.bulletinShowClassAverage,
+            bulletinShowAppreciation: settings?.bulletinShowAppreciation,
+            evalConfigs: settings?.evalConfigs
         };
     }
 
