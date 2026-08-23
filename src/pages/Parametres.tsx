@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, School, MessageSquare, Shield, Info,
@@ -151,13 +151,6 @@ export const Parametres: React.FC = () => {
   useEffect(() => {
     setLocalTranches(tranches);
   }, [tranches]);
-
-  const [localClasses, setLocalClasses] = useState(classes);
-  const [classesSaved, setClassesSaved] = useState(false);
-
-  useEffect(() => {
-    setLocalClasses(classes);
-  }, [classes]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLogoError('');
@@ -355,8 +348,35 @@ export const Parametres: React.FC = () => {
     setTimeout(() => setClassActionSuccess(null), 3000);
   };
 
+  const isIdentityDirty = useMemo(() => {
+    return (
+      localSchool !== (schoolName || '') ||
+      localMinistry !== (schoolMinistry || '') ||
+      localSlogan !== (schoolSlogan || '') ||
+      localAddress !== (schoolAddress || '') ||
+      localPhone !== (schoolPhone || '') ||
+      localYear !== (schoolYear || '') ||
+      localRem !== (messageRemerciement || '') ||
+      localRap !== (messageRappel || '') ||
+      logoPreview !== (schoolLogo || null) ||
+      stampPreview !== (schoolStamp || null)
+    );
+  }, [localSchool, localMinistry, localSlogan, localAddress, localPhone, localYear, localRem, localRap, logoPreview, stampPreview, schoolName, schoolMinistry, schoolSlogan, schoolAddress, schoolPhone, schoolYear, messageRemerciement, messageRappel, schoolLogo, schoolStamp]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isIdentityDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isIdentityDirty]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingIdentity) return;
     setIsSavingIdentity(true);
     setIdentityFeedback(null);
     
@@ -413,7 +433,7 @@ export const Parametres: React.FC = () => {
     setIsSavingIdentity(false);
     if (saveRes && saveRes.success !== false) {
       setSaved(true);
-      setIdentityFeedback({ type: 'success', text: "Paramètres et année scolaire enregistrés et synchronisés." });
+      setIdentityFeedback({ type: 'success', text: "Paramètres enregistrés avec succès." });
       setTimeout(() => setSaved(false), 3000);
       setTimeout(() => setIdentityFeedback(null), 4000);
     } else {
@@ -629,20 +649,28 @@ export const Parametres: React.FC = () => {
                 )}
 
                 {(user?.role === 'directeur' || user?.role === 'comptable' || user?.role === 'admin' || user?.role === 'directeur_general') && (
-                    <div className="flex justify-end pt-4">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+                        <div>
+                          {isIdentityDirty && !saved && !isSavingIdentity && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-300 text-[11px] font-bold">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                              Modifications non enregistrées
+                            </span>
+                          )}
+                        </div>
                         <button
-                        type="submit"
-                        disabled={isSavingIdentity}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
-                            saved
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                            : isSavingIdentity
-                            ? 'bg-indigo-400 text-white cursor-not-allowed'
-                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20'
-                        }`}
+                          type="submit"
+                          disabled={isSavingIdentity}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
+                              saved
+                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                              : isSavingIdentity
+                              ? 'bg-indigo-400 text-white cursor-not-allowed opacity-75'
+                              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20'
+                          }`}
                         >
-                        <Save className="w-4 h-4" />
-                        {isSavingIdentity ? 'Enregistrement...' : saved ? (t(language as Language, 'common.saved') || 'Enregistré') : (t(language as Language, 'common.save') || 'Enregistrer')}
+                          <Save className="w-4 h-4" />
+                          {isSavingIdentity ? 'Enregistrement…' : saved ? (t(language as Language, 'common.saved') || 'Enregistré') : (t(language as Language, 'common.save') || 'Enregistrer')}
                         </button>
                     </div>
                 )}
@@ -1184,199 +1212,6 @@ export const Parametres: React.FC = () => {
                     </div>
                 </div>
             )}
-
-
-            {/* ── CLASSES ET FRAIS DE SCOLARITÉ ────────────────────────────── */}
-            {(user?.role === 'directeur' || user?.role === 'comptable' || user?.role === 'admin' || user?.role === 'directeur_general') && (
-                <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800 mt-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                        <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3">
-                            <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
-                                <School className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                            </div>
-                            {t(language as Language, 'settings.classesAndTuition') || 'Classes & Frais de Scolarité'}
-                        </h3>
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                const currentClasses = Array.isArray(localClasses) ? localClasses : [];
-                                const newId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cls-${Date.now()}`;
-                                const updated = [...currentClasses, {
-                                    id: newId,
-                                    name: `${t(language as Language, 'settings.newClass') || 'Nouvelle Classe'} ${currentClasses.length + 1}`,
-                                    cycle: 'Primaire' as any,
-                                    ecolage: 50000,
-                                    order: currentClasses.length + 1,
-                                    active: true
-                                }];
-                                setLocalClasses(updated);
-                            }}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-500 text-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:hover:bg-indigo-500 dark:text-indigo-400 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all"
-                        >
-                            <Plus className="w-3.5 h-3.5" /> {t(language as Language, 'common.add') || 'Ajouter'}
-                        </button>
-                    </div>
-
-                    <div className="space-y-3 mb-6">
-                        {(!Array.isArray(localClasses) || localClasses.length === 0) ? (
-                        <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
-                            <p className="text-sm font-bold text-slate-500">{t(language as Language, 'settings.noClassConfigured') || 'Aucune classe paramétrée'}</p>
-                            <p className="text-xs text-slate-400 mt-1">Créez vos classes personnalisées sans contrainte de nomenclature.</p>
-                        </div>
-                        ) : (
-                        localClasses.map((c, idx) => {
-                            const isActive = c.active !== false;
-                            return (
-                            <div key={c.id || idx} className={`flex flex-col lg:flex-row items-center gap-3 p-3.5 rounded-2xl border transition-all ${
-                                isActive
-                                    ? 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
-                                    : 'bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/50 dark:border-slate-800 opacity-60'
-                            }`}>
-                                <div className="flex items-center gap-1.5 shrink-0 self-start lg:self-center">
-                                    <button
-                                        type="button"
-                                        disabled={idx === 0}
-                                        onClick={() => {
-                                            if (idx === 0) return;
-                                            const updated = [...localClasses];
-                                            const temp = updated[idx - 1];
-                                            updated[idx - 1] = updated[idx];
-                                            updated[idx] = temp;
-                                            setLocalClasses(updated);
-                                        }}
-                                        className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
-                                        title="Monter"
-                                    >
-                                        <ChevronUp className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={idx === localClasses.length - 1}
-                                        onClick={() => {
-                                            if (idx === localClasses.length - 1) return;
-                                            const updated = [...localClasses];
-                                            const temp = updated[idx + 1];
-                                            updated[idx + 1] = updated[idx];
-                                            updated[idx] = temp;
-                                            setLocalClasses(updated);
-                                        }}
-                                        className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
-                                        title="Descendre"
-                                    >
-                                        <ChevronDown className="w-4 h-4" />
-                                    </button>
-                                    <span className="text-[10px] font-black text-slate-400 w-5 text-center">{idx + 1}</span>
-                                </div>
-
-                                <input
-                                    type="text"
-                                    value={c.name}
-                                    onChange={(e) => {
-                                        const updated = [...localClasses];
-                                        updated[idx] = { ...updated[idx], name: e.target.value };
-                                        setLocalClasses(updated);
-                                    }}
-                                    placeholder={t(language as Language, 'settings.classNamePlaceholder') || 'Nom de la classe (ex: CP1, Grade 10, 6e)'}
-                                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full"
-                                />
-
-                                <input
-                                    type="text"
-                                    list="cycle-suggestions"
-                                    value={c.cycle}
-                                    onChange={(e) => {
-                                        const updated = [...localClasses];
-                                        updated[idx] = { ...updated[idx], cycle: e.target.value as any };
-                                        setLocalClasses(updated);
-                                    }}
-                                    placeholder={t(language as Language, 'settings.cyclePlaceholder') || 'Cycle (ex: Primaire, High School)'}
-                                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full lg:w-48"
-                                />
-                                <datalist id="cycle-suggestions">
-                                    <option value="Maternelle" />
-                                    <option value="Primaire" />
-                                    <option value="Collège" />
-                                    <option value="Lycée" />
-                                    <option value="Technique" />
-                                    <option value="Professionnel" />
-                                    <option value="Supérieur" />
-                                    <option value="Université" />
-                                    <option value="Autre" />
-                                </datalist>
-
-                                <div className="flex items-center gap-2 w-full lg:w-auto">
-                                    <div className="relative flex-1 lg:w-32">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={c.ecolage}
-                                            onChange={(e) => {
-                                                const updated = [...localClasses];
-                                                updated[idx] = { ...updated[idx], ecolage: Number(e.target.value) };
-                                                setLocalClasses(updated);
-                                            }}
-                                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-3 pr-10 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-right"
-                                        />
-                                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">{currency}</span>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const updated = [...localClasses];
-                                            updated[idx] = { ...updated[idx], active: !isActive };
-                                            setLocalClasses(updated);
-                                        }}
-                                        className={`p-2.5 rounded-xl transition-colors shrink-0 flex items-center gap-1 text-xs font-bold ${
-                                            isActive
-                                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 hover:bg-emerald-100'
-                                                : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-300'
-                                        }`}
-                                        title={isActive ? "Classe active (visible aux inscriptions)" : "Classe archivée/désactivée"}
-                                    >
-                                        {isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const updated = localClasses.filter((_, i) => i !== idx);
-                                            setLocalClasses(updated);
-                                        }}
-                                        className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors shrink-0"
-                                        title="Supprimer la classe"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                            );
-                        })
-                        )}
-                    </div>
-
-                    <div className="flex justify-end">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setClasses(localClasses);
-                                updateAllSettings({ classes: localClasses });
-                                setClassesSaved(true);
-                                setTimeout(() => setClassesSaved(false), 3000);
-                            }}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
-                            classesSaved
-                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20'
-                            }`}
-                        >
-                            <Save className="w-4 h-4" />
-                            {classesSaved ? (t(language as Language, 'common.saved') || 'Enregistré') : (t(language as Language, 'common.save') || 'Enregistrer')}
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
 
         {/* COLONNE DROITE (Secondaire) */}
@@ -1473,10 +1308,15 @@ export const Parametres: React.FC = () => {
                           </div>
                         ) : (
                           (Array.isArray(localSchedules) ? localSchedules : []).map((schedule, idx) => (
-                          <div key={schedule.cycle} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
-                              <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">
-                                  {schedule.cycle}
-                              </span>
+                          <div key={schedule.cycle} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 gap-2">
+                              <div>
+                                <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest block">
+                                    {schedule.cycle}
+                                </span>
+                                <span className="text-[11px] text-slate-500 font-bold">
+                                  Heure limite d’arrivée
+                                </span>
+                              </div>
                               <input
                                   type="time"
                                   value={schedule.heureLimite}
@@ -1485,19 +1325,20 @@ export const Parametres: React.FC = () => {
                                       updated[idx] = { ...schedule, heureLimite: e.target.value };
                                       setLocalSchedules(updated);
                                   }}
-                                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-sm font-bold font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm font-bold font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-36 text-center"
                               />
                           </div>
                           ))
                         )}
                     </div>
                     <button
-                        onClick={() => {
+                        onClick={async () => {
                             setCycleSchedules(localSchedules);
-                            // Persiste les horaires vers le backend via le sync
-                            updateAllSettings({ cycleSchedules: localSchedules });
-                            setScheduleSaved(true);
-                            setTimeout(() => setScheduleSaved(false), 3000);
+                            const res = await updateAllSettings({ cycleSchedules: localSchedules });
+                            if (res && res.success !== false) {
+                              setScheduleSaved(true);
+                              setTimeout(() => setScheduleSaved(false), 3000);
+                            }
                         }}
                         className={`w-full flex justify-center items-center gap-2 px-6 py-3 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
                             scheduleSaved

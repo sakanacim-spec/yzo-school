@@ -192,7 +192,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
 
       const successMsg = student
         ? (t(language as Language, 'students.studentUpdatedSuccess') || 'Élève modifié et synchronisé avec succès.')
-        : (t(language as Language, 'students.studentRegisteredSuccess') || 'Élève inscrit et synchronisé avec succès.');
+        : 'Félicitations ! L’élève a été inscrit(e) avec succès.';
       onSuccess?.(successMsg);
       onClose();
     } catch (err: any) {

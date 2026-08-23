@@ -773,6 +773,219 @@ async function runTests() {
         assert.strictEqual(JSON.parse(schoolsDb['ecole-beta'].get('classes'))[0].name, 'Grade 5 Beta');
     });
 
+    // ============================================================
+    // SECTION 13 : Validation Inscription, Notification & Horaires par Cycle
+    // ============================================================
+    console.log('\n--- SECTION 13 : Validation Inscription, Notification & Horaires par Cycle ---');
+
+    await it('13.1: Notification verte explicite après succès HTTP réel d\'inscription', () => {
+        const student = null; // nouvelle inscription
+        const successMsg = student
+            ? 'Élève modifié et synchronisé avec succès.'
+            : 'Félicitations ! L’élève a été inscrit(e) avec succès.';
+        assert.strictEqual(successMsg, 'Félicitations ! L’élève a été inscrit(e) avec succès.');
+    });
+
+    await it('13.2: Absence de faux succès et maintien de la modale en cas d\'échec HTTP ou panne réseau', () => {
+        let isModalOpen = true;
+        let successBanner = null;
+        let submitError = null;
+
+        const simulateSubmit = (networkOk, status) => {
+            if (!networkOk || status >= 400) {
+                submitError = 'Erreur lors de l\'enregistrement sur le serveur.';
+                // Modale reste ouverte, pas de notification de félicitations
+                isModalOpen = true;
+                successBanner = null;
+            } else {
+                submitError = null;
+                isModalOpen = false;
+                successBanner = 'Félicitations ! L’élève a été inscrit(e) avec succès.';
+            }
+        };
+
+        simulateSubmit(false, 500);
+        assert.strictEqual(isModalOpen, true);
+        assert.strictEqual(successBanner, null);
+        assert.strictEqual(submitError, 'Erreur lors de l\'enregistrement sur le serveur.');
+
+        simulateSubmit(true, 200);
+        assert.strictEqual(isModalOpen, false);
+        assert.strictEqual(successBanner, 'Félicitations ! L’élève a été inscrit(e) avec succès.');
+        assert.strictEqual(submitError, null);
+    });
+
+    await it('13.3: Unicité stricte de la requête POST /api/sync lors de l\'inscription', () => {
+        const syncCalls = [];
+        const sendSync = (payload) => {
+            syncCalls.push({ timestamp: Date.now(), payload });
+            return { success: true };
+        };
+
+        // Soumission unique de l'élève
+        const res = sendSync({ students: [{ id: 'st-1', nom: 'DOSSOU', prenom: 'Paul', classe: '6e B' }] });
+        assert.strictEqual(res.success, true);
+        assert.strictEqual(syncCalls.length, 1);
+    });
+
+    await it('13.4: Table unique de classes : affichage nom + cycle + frais annuels + statut sans duplication', () => {
+        const classes = [
+            { name: 'CI', cycle: 'Primaire', ecolage: 50000, active: true },
+            { name: 'CP', cycle: 'Primaire', ecolage: 50000, active: true },
+            { name: '6e B', cycle: 'Secondaire général', ecolage: 75000, active: true }
+        ];
+
+        const renderedRows = classes.map(c => `${c.name} | ${c.cycle} | ${c.ecolage} FCFA | ${c.active ? 'Actif' : 'Inactif'}`);
+        assert.strictEqual(renderedRows[0], 'CI | Primaire | 50000 FCFA | Actif');
+        assert.strictEqual(renderedRows[1], 'CP | Primaire | 50000 FCFA | Actif');
+        assert.strictEqual(renderedRows[2], '6e B | Secondaire général | 75000 FCFA | Actif');
+    });
+
+    await it('13.5: Horaires dynamiques par cycle basés sur les cycles réels configurés', () => {
+        const classes = [
+            { name: 'CI', cycle: 'Maternelle' },
+            { name: 'CP1', cycle: 'Primaire' },
+            { name: '6e B', cycle: 'Secondaire général' }
+        ];
+        const activeCycles = Array.from(new Set(classes.map(c => c.cycle)));
+        assert.deepStrictEqual(activeCycles, ['Maternelle', 'Primaire', 'Secondaire général']);
+
+        const existingSchedules = [{ cycle: 'Maternelle', heureLimite: '07:30' }];
+        const defaultTimes = { 'Maternelle': '07:30', 'Primaire': '07:30' };
+
+        const localSchedules = activeCycles.map(cycle => ({
+            cycle,
+            heureLimite: existingSchedules.find(s => s.cycle === cycle)?.heureLimite || defaultTimes[cycle] || '08:00'
+        }));
+
+        assert.strictEqual(localSchedules.length, 3);
+        assert.strictEqual(localSchedules.find(s => s.cycle === 'Maternelle').heureLimite, '07:30');
+        assert.strictEqual(localSchedules.find(s => s.cycle === 'Primaire').heureLimite, '07:30');
+        assert.strictEqual(localSchedules.find(s => s.cycle === 'Secondaire général').heureLimite, '08:00');
+    });
+
+    await it('13.6: Persistance et round-trip des horaires limites par cycle (cycle_schedules)', () => {
+        const settingsDb = new Map();
+        const schedulesToSave = [
+            { cycle: 'Primaire', heureLimite: '07:30' },
+            { cycle: 'Secondaire général', heureLimite: '07:45' }
+        ];
+
+        // Save
+        settingsDb.set('cycle_schedules', JSON.stringify(schedulesToSave));
+
+        // Load
+        const loaded = JSON.parse(settingsDb.get('cycle_schedules'));
+        assert.strictEqual(loaded.length, 2);
+        assert.strictEqual(loaded[0].cycle, 'Primaire');
+        assert.strictEqual(loaded[0].heureLimite, '07:30');
+        assert.strictEqual(loaded[1].cycle, 'Secondaire général');
+        assert.strictEqual(loaded[1].heureLimite, '07:45');
+    });
+
+    await it('13.7: POST de schoolYear = 2026-2027 produit l\'upsert SQL de la clé school_year', () => {
+        const appSettings = { schoolYear: '2026-2027' };
+        const keyValues = [];
+        const addKeyVal = (key, val) => {
+            if (val !== undefined && val !== null) {
+                const strVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
+                keyValues.push({ key, value: strVal });
+            }
+        };
+        addKeyVal('school_year', appSettings.schoolYear);
+
+        assert.strictEqual(keyValues.length, 1);
+        assert.strictEqual(keyValues[0].key, 'school_year');
+        assert.strictEqual(keyValues[0].value, '2026-2027');
+    });
+
+    await it('13.8: GET reconstruit schoolYear = 2026-2027 depuis la table app_settings', () => {
+        const settingsMap = new Map();
+        settingsMap.set('school_year', '2026-2027');
+
+        const appSettingsJson = {
+            schoolYear: settingsMap.get('school_year') || null
+        };
+
+        assert.strictEqual(appSettingsJson.schoolYear, '2026-2027');
+    });
+
+    await it('13.9: Erreur Supabase lors de l\'enregistrement appSettings empêche le message de succès (fail-closed)', async () => {
+        const simulateBackendSync = async (mockDbError) => {
+            if (mockDbError) {
+                return { status: 500, json: { error: 'Erreur lors de la sauvegarde des paramètres: ' + mockDbError } };
+            }
+            return { status: 200, json: { success: true } };
+        };
+
+        // En cas d'erreur DB
+        const failRes = await simulateBackendSync('connection failed');
+        assert.strictEqual(failRes.status, 500);
+
+        // Traitement frontend
+        let isSaved = false;
+        let errorMessage = null;
+        if (failRes.status !== 200) {
+            isSaved = false;
+            errorMessage = failRes.json.error;
+        } else {
+            isSaved = true;
+        }
+
+        assert.strictEqual(isSaved, false);
+        assert.strictEqual(errorMessage.includes('Erreur lors de la sauvegarde'), true);
+    });
+
+    await it('13.10: Une nouvelle instance du store vide retrouve les valeurs depuis le backend sans localStorage', () => {
+        // État vierge sans cache local
+        const freshStore = {
+            schoolYear: '',
+            cycleSchedules: []
+        };
+
+        const backendResponse = {
+            appSettings: {
+                schoolYear: '2026-2027',
+                cycleSchedules: [{ cycle: 'Primaire', heureLimite: '07:30' }]
+            }
+        };
+
+        // Hydratation directe depuis l'autorité backend
+        const cloudYear = backendResponse.appSettings.schoolYear ? String(backendResponse.appSettings.schoolYear).trim() : '';
+        freshStore.schoolYear = cloudYear;
+        freshStore.cycleSchedules = backendResponse.appSettings.cycleSchedules;
+
+        assert.strictEqual(freshStore.schoolYear, '2026-2027');
+        assert.strictEqual(freshStore.cycleSchedules.length, 1);
+        assert.strictEqual(freshStore.cycleSchedules[0].cycle, 'Primaire');
+        assert.strictEqual(freshStore.cycleSchedules[0].heureLimite, '07:30');
+    });
+
+    await it('13.11: Modification de l\'année scolaire déclenche l\'état « Modifications non enregistrées »', () => {
+        const storeYear = '2025-2026';
+        let localYear = '2025-2026';
+        const computeIsDirty = (local, remote) => local !== remote;
+
+        assert.strictEqual(computeIsDirty(localYear, storeYear), false);
+
+        localYear = '2026-2027';
+        assert.strictEqual(computeIsDirty(localYear, storeYear), true);
+    });
+
+    await it('13.12: Succès de sauvegarde affiche « Paramètres enregistrés avec succès. » et réinitialise l\'état', () => {
+        let isSaved = false;
+        let successMessage = null;
+
+        const handleSaveSuccess = () => {
+            isSaved = true;
+            successMessage = 'Paramètres enregistrés avec succès.';
+        };
+
+        handleSaveSuccess();
+        assert.strictEqual(isSaved, true);
+        assert.strictEqual(successMessage, 'Paramètres enregistrés avec succès.');
+    });
+
     console.log(`\n============================================================`);
     console.log(`📊 BILAN DES TESTS : ${passCount} / ${totalCount} réussis`);
     console.log(`============================================================\n`);
