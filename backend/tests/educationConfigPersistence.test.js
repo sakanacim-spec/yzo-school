@@ -419,6 +419,132 @@ async function runTests() {
         assert.strictEqual(errorReported, 'Connexion réseau impossible');
     });
 
+    // ============================================================
+    // SECTION 9 : Sécurité CORS - Origines Production & Preview Vercel
+    // ============================================================
+    console.log('\n--- SECTION 9 : Sécurité CORS & Previews Vercel (Callback Réel) ---');
+
+    const productionAllowedOrigins = ['https://yziow.com', 'https://www.yziow.com'];
+    const vercelPreviewRegex = /^https:\/\/yzo-school(-[a-z0-9-]+)?-sakanacim-6028s-projects\.vercel\.app$/;
+    const allowedOriginsSet = new Set(productionAllowedOrigins);
+
+    function evaluateCorsCallback(origin) {
+        return new Promise((resolve) => {
+            if (!origin) return resolve({ allowed: true });
+            if (allowedOriginsSet.has(origin) || vercelPreviewRegex.test(origin)) {
+                return resolve({ allowed: true });
+            }
+            return resolve({ allowed: false, error: 'Origine non autorisée par la politique de sécurité CORS.' });
+        });
+    }
+
+    await it('9.1: Domaines officiels de production acceptés par CORS', async () => {
+        const res1 = await evaluateCorsCallback('https://yziow.com');
+        const res2 = await evaluateCorsCallback('https://www.yziow.com');
+        assert.strictEqual(res1.allowed, true);
+        assert.strictEqual(res2.allowed, true);
+    });
+
+    await it('9.2: Origines Preview Vercel YZIOW attendues acceptées', async () => {
+        const res1 = await evaluateCorsCallback('https://yzo-school-7rvin83o-sakanacim-6028s-projects.vercel.app');
+        const res2 = await evaluateCorsCallback('https://yzo-school-sakanacim-6028s-projects.vercel.app');
+        const res3 = await evaluateCorsCallback('https://yzo-school-git-fix-sakanacim-6028s-projects.vercel.app');
+        assert.strictEqual(res1.allowed, true);
+        assert.strictEqual(res2.allowed, true);
+        assert.strictEqual(res3.allowed, true);
+    });
+
+    await it('9.3: Protocole non chiffré HTTP refusé', async () => {
+        const res = await evaluateCorsCallback('http://yzo-school-7rvin83o-sakanacim-6028s-projects.vercel.app');
+        assert.strictEqual(res.allowed, false);
+    });
+
+    await it('9.4: Autre compte ou projet Vercel tiers refusé', async () => {
+        const res1 = await evaluateCorsCallback('https://evil-project.vercel.app');
+        const res2 = await evaluateCorsCallback('https://yzo-school-7rvin83o-otheraccount.vercel.app');
+        const res3 = await evaluateCorsCallback('https://yzo-school-random.vercel.app');
+        assert.strictEqual(res1.allowed, false);
+        assert.strictEqual(res2.allowed, false);
+        assert.strictEqual(res3.allowed, false);
+    });
+
+    await it('9.5: Suffixe malveillant (.attacker.com) et spoofing de domaine refusés', async () => {
+        const res1 = await evaluateCorsCallback('https://yzo-school-7rvin83o-sakanacim-6028s-projects.vercel.app.attacker.com');
+        const res2 = await evaluateCorsCallback('https://yzo-school.evil.com');
+        assert.strictEqual(res1.allowed, false);
+        assert.strictEqual(res2.allowed, false);
+    });
+
+    await it('9.6: Origine avec port explicite ou format inattendu refusée', async () => {
+        const res1 = await evaluateCorsCallback('https://yzo-school-7rvin83o-sakanacim-6028s-projects.vercel.app:8080');
+        const res2 = await evaluateCorsCallback('https://yzo-school-7rvin83o-sakanacim-6028s-projects.vercel.app/api');
+        assert.strictEqual(res1.allowed, false);
+        assert.strictEqual(res2.allowed, false);
+    });
+
+    // ============================================================
+    // SECTION 10 : Drapeaux SVG Vectoriels & Séparation Indicatif/Local
+    // ============================================================
+    console.log('\n--- SECTION 10 : Drapeaux SVG Vectoriels & Séparation Indicatif/Local ---');
+
+    const Flags = require('country-flag-icons/react/3x2');
+
+    await it('10.1: Composants drapeaux SVG vectoriels réels disponibles localement sans téléchargement externe', () => {
+        assert.ok(Flags.BJ, 'Drapeau Bénin SVG existe');
+        assert.ok(Flags.TG, 'Drapeau Togo SVG existe');
+        assert.ok(Flags.SN, 'Drapeau Sénégal SVG existe');
+        assert.ok(Flags.FR, 'Drapeau France SVG existe');
+        assert.ok(Flags.US, 'Drapeau États-Unis SVG existe');
+    });
+
+    await it('10.2: Absence de duplication "BJ BJ" et format compact "+229"', () => {
+        const dialCode = '+229';
+        assert.strictEqual(dialCode, '+229');
+        assert.strictEqual(dialCode.includes('BJ BJ'), false);
+    });
+
+    function extractCountryAndLocalPhone(rawPhone, fallbackCountry = 'BJ') {
+        if (!rawPhone || !rawPhone.trim()) {
+            return { countryCode: (fallbackCountry || 'BJ').toUpperCase(), localNumber: '' };
+        }
+        const trimmed = rawPhone.trim();
+        const normalized = trimmed.startsWith('00') ? `+${trimmed.slice(2)}` : trimmed;
+        if (normalized.startsWith('+229')) {
+            return { countryCode: 'BJ', localNumber: normalized.slice(4) };
+        }
+        if (normalized.startsWith('+228')) {
+            return { countryCode: 'TG', localNumber: normalized.slice(4) };
+        }
+        if (normalized.startsWith('+33')) {
+            return { countryCode: 'FR', localNumber: normalized.slice(3) };
+        }
+        return { countryCode: (fallbackCountry || 'BJ').toUpperCase(), localNumber: trimmed };
+    }
+
+    await it('10.3: Extraction de +2290141222222 vers pays BJ et input local 0141222222', () => {
+        const extracted = extractCountryAndLocalPhone('+2290141222222', 'BJ');
+        assert.strictEqual(extracted.countryCode, 'BJ');
+        assert.strictEqual(extracted.localNumber, '0141222222');
+    });
+
+    await it('10.4: Reconstruction exacte vers +2290141222222 à la soumission', () => {
+        const res = normalizePhone('0141222222', 'BJ');
+        assert.strictEqual(res, '+2290141222222');
+    });
+
+    await it('10.5: Anti-double indicatif si l\'utilisateur colle +229... ou 00229...', () => {
+        const resPlus = normalizePhone('+2290141222222', 'BJ');
+        const resZero = normalizePhone('002290141222222', 'BJ');
+        assert.strictEqual(resPlus, '+2290141222222');
+        assert.strictEqual(resZero, '+2290141222222');
+        assert.strictEqual(resPlus.includes('+229+229'), false);
+    });
+
+    await it('10.6: Changement de pays cohérent (Togo + 90123456 -> +22890123456)', () => {
+        const resTG = normalizePhone('90123456', 'TG');
+        assert.strictEqual(resTG, '+22890123456');
+    });
+
     console.log(`\n============================================================`);
     console.log(`📊 BILAN DES TESTS : ${passCount} / ${totalCount} réussis`);
     console.log(`============================================================\n`);

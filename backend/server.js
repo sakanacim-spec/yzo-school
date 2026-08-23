@@ -106,6 +106,8 @@ const developmentAllowedOrigins = [
     'http://127.0.0.1:3000'
 ];
 
+const vercelPreviewRegex = /^https:\/\/yzo-school(-[a-z0-9-]+)?-sakanacim-6028s-projects\.vercel\.app$/;
+
 const envAllowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
     : [];
@@ -116,12 +118,19 @@ const baseAllowedOrigins = process.env.NODE_ENV === 'production'
 
 const allowedOriginsSet = new Set([...baseAllowedOrigins, ...envAllowedOrigins]);
 
+function isOriginAllowed(origin) {
+    if (!origin) return true;
+    if (allowedOriginsSet.has(origin)) return true;
+    if (vercelPreviewRegex.test(origin)) return true;
+    return false;
+}
+
 const corsOptions = {
     origin: (origin, callback) => {
         // Autorise les requêtes sans Origin (applications mobiles Capacitor, requêtes internes, curl)
         if (!origin) return callback(null, true);
 
-        if (allowedOriginsSet.has(origin)) {
+        if (isOriginAllowed(origin)) {
             return callback(null, true);
         }
 

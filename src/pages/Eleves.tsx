@@ -5,7 +5,7 @@ import { Student } from '../types';
 import { generateRecuPDF } from '../utils/pdfGenerator';
 import { uploadStudentPhoto, deleteStudentPhoto } from '../services/photoService';
 import { COUNTRIES } from '../data/countries';
-import { normalizePhoneNumber } from '../utils/phoneUtils';
+import { normalizePhoneNumber, extractCountryAndLocalPhone, buildE164PhoneNumber } from '../utils/phoneUtils';
 import {
   Search, Plus, Trash2, Edit2, FileText,
   MessageCircle, ChevronUp, ChevronDown, ChevronRight, X, Check,
@@ -51,7 +51,12 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
   const [modalStep, setModalStep] = useState<1 | 2>(1);
 
   const schoolCountry = useStore((s) => s.schoolCountry) || 'BJ';
-  const [parentCountryCode, setParentCountryCode] = useState(schoolCountry);
+  const initialExtracted = useMemo(
+    () => extractCountryAndLocalPhone(student?.telephone || '', schoolCountry),
+    [student?.telephone, schoolCountry]
+  );
+
+  const [parentCountryCode, setParentCountryCode] = useState(initialExtracted.countryCode);
   const [phoneError, setPhoneError] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -59,14 +64,14 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
 
   const getPhonePlaceholder = (countryCode: string) => {
     switch (countryCode) {
-      case 'BJ': return '01 97 76 99 91';
-      case 'TG': return '90 12 34 56';
-      case 'SN': return '77 123 45 67';
-      case 'CI': return '07 08 09 10 11';
-      case 'FR': return '06 12 34 56 78';
-      case 'MA': return '06 12 34 56 78';
-      case 'US': return '(202) 555-0123';
-      default: return '01 97 76 99 91';
+      case 'BJ': return '0141222222';
+      case 'TG': return '90123456';
+      case 'SN': return '771234567';
+      case 'CI': return '0708091011';
+      case 'FR': return '0612345678';
+      case 'MA': return '0612345678';
+      case 'US': return '2025550123';
+      default: return '0141222222';
     }
   };
 
@@ -76,7 +81,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
       setPhoneError("Le numéro de téléphone du parent est obligatoire.");
       return false;
     }
-    const phoneCheck = normalizePhoneNumber(trimmed, countryCode);
+    const phoneCheck = buildE164PhoneNumber(trimmed, countryCode);
     if (!phoneCheck.valid) {
       setPhoneError("Numéro de téléphone invalide pour le pays sélectionné. Format attendu : local ou +/00.");
       return false;
@@ -94,7 +99,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
     prenom: student?.prenom ?? '',
     classe: initialClass,
     ecolage: initialEcolage,
-    telephone: student?.telephone ?? '',
+    telephone: initialExtracted.localNumber,
     sexe: (student?.sexe ?? 'M') as 'M' | 'F',
     estRedoublant: student?.redoublant ?? false,
     ecoleProvenance: student?.ecoleProvenance ?? '',
@@ -123,7 +128,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
       return;
     }
 
-    const phoneCheck = normalizePhoneNumber(form.telephone, parentCountryCode);
+    const phoneCheck = buildE164PhoneNumber(form.telephone, parentCountryCode);
     if (!phoneCheck.valid) {
       setPhoneError("Numéro de téléphone invalide pour le pays sélectionné.");
       setModalStep(1);
