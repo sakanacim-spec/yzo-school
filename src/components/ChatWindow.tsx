@@ -280,6 +280,13 @@ export const ChatWindow: React.FC = () => {
                             </button>
                         </div>
                     )}
+                    {conversations.length === 0 && user?.role !== 'parent' && (
+                        <div className="p-6 text-center text-slate-400">
+                            <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                            <p className="text-xs font-bold text-slate-500">Aucune conversation active</p>
+                            <p className="text-[11px] text-slate-400 mt-1">Les échanges initiés par les parents apparaîtront ici.</p>
+                        </div>
+                    )}
 
                     {conversations.map(conv => (
                         <button
@@ -380,7 +387,9 @@ export const ChatWindow: React.FC = () => {
                                                     {msg.created_at ? format(new Date(msg.created_at), 'HH:mm') : '--:--'}
                                                 </span>
                                                 {isMe && (
-                                                    msg.read_status ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />
+                                                    <span className="text-blue-200">
+                                                        {msg.read_status ? <CheckCheck className="w-3 h-3 text-white" /> : <Check className="w-3 h-3 text-blue-200" />}
+                                                    </span>
                                                 )}
                                             </div>
 
@@ -431,11 +440,19 @@ export const ChatWindow: React.FC = () => {
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center">
-                        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
                             <MessageCircle className="w-10 h-10" />
                         </div>
-                        <h4 className="font-bold text-slate-600 mb-1">{t(language as Language, 'chat.secureMessaging') || 'Votre messagerie sécurisée'}</h4>
-                        <p className="text-sm max-w-xs">{t(language as Language, 'chat.selectDiscussion') || 'Sélectionnez une discussion pour commencer à échanger avec l\'administration.'}</p>
+                        <h4 className="font-bold text-slate-600 mb-1">
+                            {user?.role === 'parent'
+                                ? (t(language as Language, 'chat.secureMessaging') || 'Votre messagerie sécurisée')
+                                : (t(language as Language, 'chat.adminMessaging') || 'Messagerie Établissement')}
+                        </h4>
+                        <p className="text-sm max-w-sm text-slate-500">
+                            {user?.role === 'parent'
+                                ? (t(language as Language, 'chat.selectDiscussion') || 'Sélectionnez une discussion pour commencer à échanger avec l\'administration.')
+                                : 'Aucune conversation disponible. Une conversation apparaîtra lorsqu’un parent sera lié à un élève ou qu’un échange sera créé.'}
+                        </p>
                     </div>
                 )}
             </div>

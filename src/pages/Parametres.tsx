@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, School, MessageSquare, Shield, Info,
-  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight, CheckCircle
+  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight, CheckCircle, ChevronUp, ChevronDown, Eye, EyeOff
 } from 'lucide-react';
 import { GestionPersonnel } from '../components/GestionPersonnel';
 import { BACKEND_URL } from '../config';
@@ -750,7 +750,15 @@ export const Parametres: React.FC = () => {
                             onClick={(e) => {
                                 e.preventDefault();
                                 const currentClasses = Array.isArray(localClasses) ? localClasses : [];
-                                const updated = [...currentClasses, { name: `${t(language as Language, 'settings.newClass') || 'Nouvelle Classe'} ${currentClasses.length + 1}`, cycle: 'Primaire' as any, ecolage: 50000 }];
+                                const newId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cls-${Date.now()}`;
+                                const updated = [...currentClasses, {
+                                    id: newId,
+                                    name: `${t(language as Language, 'settings.newClass') || 'Nouvelle Classe'} ${currentClasses.length + 1}`,
+                                    cycle: 'Primaire' as any,
+                                    ecolage: 50000,
+                                    order: currentClasses.length + 1,
+                                    active: true
+                                }];
                                 setLocalClasses(updated);
                             }}
                             className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-500 text-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:hover:bg-indigo-500 dark:text-indigo-400 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all"
@@ -763,71 +771,137 @@ export const Parametres: React.FC = () => {
                         {(!Array.isArray(localClasses) || localClasses.length === 0) ? (
                         <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                             <p className="text-sm font-bold text-slate-500">{t(language as Language, 'settings.noClassConfigured') || 'Aucune classe paramétrée'}</p>
+                            <p className="text-xs text-slate-400 mt-1">Créez vos classes personnalisées sans contrainte de nomenclature.</p>
                         </div>
                         ) : (
-                        localClasses.map((c, idx) => (
-                            <div key={idx} className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        localClasses.map((c, idx) => {
+                            const isActive = c.active !== false;
+                            return (
+                            <div key={c.id || idx} className={`flex flex-col lg:flex-row items-center gap-3 p-3.5 rounded-2xl border transition-all ${
+                                isActive
+                                    ? 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                                    : 'bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/50 dark:border-slate-800 opacity-60'
+                            }`}>
+                                <div className="flex items-center gap-1.5 shrink-0 self-start lg:self-center">
+                                    <button
+                                        type="button"
+                                        disabled={idx === 0}
+                                        onClick={() => {
+                                            if (idx === 0) return;
+                                            const updated = [...localClasses];
+                                            const temp = updated[idx - 1];
+                                            updated[idx - 1] = updated[idx];
+                                            updated[idx] = temp;
+                                            setLocalClasses(updated);
+                                        }}
+                                        className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
+                                        title="Monter"
+                                    >
+                                        <ChevronUp className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={idx === localClasses.length - 1}
+                                        onClick={() => {
+                                            if (idx === localClasses.length - 1) return;
+                                            const updated = [...localClasses];
+                                            const temp = updated[idx + 1];
+                                            updated[idx + 1] = updated[idx];
+                                            updated[idx] = temp;
+                                            setLocalClasses(updated);
+                                        }}
+                                        className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
+                                        title="Descendre"
+                                    >
+                                        <ChevronDown className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-[10px] font-black text-slate-400 w-5 text-center">{idx + 1}</span>
+                                </div>
+
                                 <input
                                     type="text"
                                     value={c.name}
                                     onChange={(e) => {
                                         const updated = [...localClasses];
-                                        updated[idx].name = e.target.value;
+                                        updated[idx] = { ...updated[idx], name: e.target.value };
                                         setLocalClasses(updated);
                                     }}
-                                    placeholder={t(language as Language, 'settings.classNamePlaceholder') || 'Nom de la classe (ex: CP1)'}
+                                    placeholder={t(language as Language, 'settings.classNamePlaceholder') || 'Nom de la classe (ex: CP1, Grade 10, 6e)'}
                                     className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full"
                                 />
+
                                 <input
                                     type="text"
                                     list="cycle-suggestions"
                                     value={c.cycle}
                                     onChange={(e) => {
                                         const updated = [...localClasses];
-                                        updated[idx].cycle = e.target.value as any;
+                                        updated[idx] = { ...updated[idx], cycle: e.target.value as any };
                                         setLocalClasses(updated);
                                     }}
-                                    placeholder={t(language as Language, 'settings.cyclePlaceholder') || 'Cycle (ex: Primaire, Université)'}
-                                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-auto"
+                                    placeholder={t(language as Language, 'settings.cyclePlaceholder') || 'Cycle (ex: Primaire, High School)'}
+                                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none w-full lg:w-48"
                                 />
                                 <datalist id="cycle-suggestions">
                                     <option value="Maternelle" />
                                     <option value="Primaire" />
                                     <option value="Collège" />
                                     <option value="Lycée" />
-                                    <option value="Licence" />
-                                    <option value="Master" />
+                                    <option value="Technique" />
+                                    <option value="Professionnel" />
+                                    <option value="Supérieur" />
                                     <option value="Université" />
-                                    <option value="Formation Professionnelle" />
+                                    <option value="Autre" />
                                 </datalist>
-                                <div className="flex items-center gap-2 w-full sm:w-auto">
-                                    <div className="relative flex-1">
+
+                                <div className="flex items-center gap-2 w-full lg:w-auto">
+                                    <div className="relative flex-1 lg:w-32">
                                         <input
                                             type="number"
                                             min="0"
                                             value={c.ecolage}
                                             onChange={(e) => {
                                                 const updated = [...localClasses];
-                                                updated[idx].ecolage = Number(e.target.value);
+                                                updated[idx] = { ...updated[idx], ecolage: Number(e.target.value) };
                                                 setLocalClasses(updated);
                                             }}
-                                            className="w-full sm:w-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-12 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-right"
+                                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-3 pr-10 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-right"
                                         />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{currency}</span>
+                                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">{currency}</span>
                                     </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const updated = [...localClasses];
+                                            updated[idx] = { ...updated[idx], active: !isActive };
+                                            setLocalClasses(updated);
+                                        }}
+                                        className={`p-2.5 rounded-xl transition-colors shrink-0 flex items-center gap-1 text-xs font-bold ${
+                                            isActive
+                                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 hover:bg-emerald-100'
+                                                : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-300'
+                                        }`}
+                                        title={isActive ? "Classe active (visible aux inscriptions)" : "Classe archivée/désactivée"}
+                                    >
+                                        {isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                    </button>
+
                                     <button
                                         type="button"
                                         onClick={() => {
                                             const updated = localClasses.filter((_, i) => i !== idx);
                                             setLocalClasses(updated);
                                         }}
-                                        className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors ml-auto sm:ml-1 shrink-0"
+                                        className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors shrink-0"
+                                        title="Supprimer la classe"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
-                        ))
+                            );
+                        })
                         )}
                     </div>
 

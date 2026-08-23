@@ -160,29 +160,39 @@ export const Dashboard: React.FC = () => {
   }, [students, classComp]);
 
   const stats = useMemo(() => {
-    const activeCycles = Array.from(new Set(classes.map(c => c.cycle)));
+    const activeCycles = Array.from(
+      new Set(
+        students
+          .map(s => s.cycle)
+          .filter(Boolean)
+      )
+    );
 
-    const cycleStat = (arr: typeof students) => ({
-      count: arr.length,
-      ecolage: arr.reduce((a, s) => a + s.ecolage, 0),
-      paye: arr.reduce((a, s) => a + s.dejaPaye, 0),
-      restant: arr.reduce((a, s) => a + s.restant, 0),
-      soldes: arr.filter((s) => s.status === 'Soldé').length,
-      taux: arr.length > 0
-        ? Math.round((arr.reduce((a, s) => a + s.dejaPaye, 0) / arr.reduce((a, s) => a + s.ecolage, 0)) * 100)
-        : 0,
-    });
+    const cycleStat = (arr: typeof students) => {
+      const count = arr.length;
+      const ecolage = arr.reduce((a, s) => a + (s.ecolage || 0), 0);
+      const paye = arr.reduce((a, s) => a + (s.dejaPaye || 0), 0);
+      const restant = arr.reduce((a, s) => a + (s.restant || 0), 0);
+      const soldes = arr.filter((s) => s.status === 'Soldé').length;
+      const taux = (count > 0 && ecolage > 0)
+        ? Math.min(100, Math.max(0, Math.round((paye / ecolage) * 100)))
+        : 0;
+
+      return { count, ecolage, paye, restant, soldes, taux };
+    };
 
     const cycleStats: Record<string, ReturnType<typeof cycleStat>> = {};
     activeCycles.forEach(cycle => {
       const cycleStudents = students.filter((s) => s.cycle === cycle);
-      cycleStats[cycle] = cycleStat(cycleStudents);
+      if (cycleStudents.length > 0) {
+        cycleStats[cycle] = cycleStat(cycleStudents);
+      }
     });
 
-    const totalEcolage = students.reduce((a, s) => a + s.ecolage, 0);
-    const totalPaye = students.reduce((a, s) => a + s.dejaPaye, 0);
-    const totalRestant = students.reduce((a, s) => a + s.restant, 0);
-    const taux = totalEcolage > 0 ? Math.round((totalPaye / totalEcolage) * 100) : 0;
+    const totalEcolage = students.reduce((a, s) => a + (s.ecolage || 0), 0);
+    const totalPaye = students.reduce((a, s) => a + (s.dejaPaye || 0), 0);
+    const totalRestant = students.reduce((a, s) => a + (s.restant || 0), 0);
+    const taux = totalEcolage > 0 ? Math.min(100, Math.max(0, Math.round((totalPaye / totalEcolage) * 100))) : 0;
     const soldes = students.filter((s) => s.status === 'Soldé').length;
     const nonSoldes = students.filter((s) => s.status !== 'Soldé').length;
 
@@ -191,7 +201,7 @@ export const Dashboard: React.FC = () => {
       cycleStats,
       totalEcolage, totalPaye, totalRestant, taux, soldes, nonSoldes,
     };
-  }, [students, classes]);
+  }, [students]);
 
   const classData = useMemo(() => {
     return classes.map((c) => {
@@ -405,10 +415,21 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* ── CYCLE ANALYSIS ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      {stats.activeCycles.length === 0 ? (
+        <div className="pro-card p-8 text-center bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800 mb-12">
+          <School className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <h4 className="font-bold text-slate-700 dark:text-slate-200 mb-1">
+            {t(language as Language, 'dashboard.noActiveCycles') || 'Aucun cycle avec effectif'}
+          </h4>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            {t(language as Language, 'dashboard.noActiveCyclesDesc') || 'Les cartes de cycles et leurs indicateurs financiers apparaîtront dès l\'inscription des premiers élèves.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-12">
           {stats.activeCycles.map((cycle) => {
             const cs = stats.cycleStats[cycle];
-            if (!cs) return null;
+            if (!cs || cs.count === 0) return null;
 
             let icon = <BookOpen className="w-6 h-6 text-indigo-600" />;
             let colors = { border: 'border-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-600', fill: 'bg-indigo-500' };
@@ -420,21 +441,21 @@ export const Dashboard: React.FC = () => {
             else { icon = <GraduationCap className="w-6 h-6 text-cyan-600" />; colors = { border: 'border-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-500/10', text: 'text-cyan-600', fill: 'bg-cyan-500' }; }
 
             return (
-              <div key={cycle} className={`pro-card p-8 border-t-4 border-t-transparent hover:border-t-${colors.fill.replace('bg-','')} transition-all duration-300 group`}>
-                <div className="flex items-center gap-5 mb-8">
-                  <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center shadow-md ${colors.bg} group-hover:scale-110 transition-transform duration-500 ease-out`}>
+              <div key={cycle} className="pro-card p-6 md:p-8 border-t-4 border-t-transparent hover:border-t-indigo-500 transition-all duration-300 group">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className={`w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-[20px] flex items-center justify-center shadow-md ${colors.bg} group-hover:scale-110 transition-transform duration-500 ease-out`}>
                     {icon}
                   </div>
-                  <div className="flex-1 overflow-hidden">
-                    <p className={`text-2xl font-black tracking-tighter text-slate-900 dark:text-white`}>{cycle}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xl md:text-2xl font-black tracking-tight text-slate-900 dark:text-white truncate" title={cycle}>{cycle}</p>
                     <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest truncate mt-0.5">{t(language as Language, 'dashboard.cycleStats') || 'Statistiques du cycle'}</p>
                   </div>
-                  <div className={`px-4 py-2 rounded-xl font-black text-xl bg-slate-50 dark:bg-slate-800 ${colors.text}`}>
+                  <div className={`px-3 py-1.5 md:px-4 md:py-2 rounded-xl font-black text-lg md:text-xl bg-slate-50 dark:bg-slate-800 shrink-0 ${colors.text}`}>
                     {maskValue(cs.count)}
                   </div>
                 </div>
 
-                <div className="space-y-4 mb-8">
+                <div className="space-y-3 mb-6">
                   <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{t(language as Language, 'dashboard.expected') || 'Attendu'}</span>
                     <span className="font-black text-slate-900 dark:text-white">{maskValue(formatMontant(cs.ecolage, currency))}</span>
@@ -450,9 +471,9 @@ export const Dashboard: React.FC = () => {
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-end mb-3">
+                  <div className="flex justify-between items-end mb-2">
                     <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{t(language as Language, 'dashboard.recoveryRate') || 'Taux de recouvrement'}</span>
-                    <span className={`text-xl font-black ${colors.text}`}>{maskValue(`${cs.taux}%`)}</span>
+                    <span className={`text-lg md:text-xl font-black ${colors.text}`}>{maskValue(`${cs.taux}%`)}</span>
                   </div>
                   <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner p-0.5">
                     <div
@@ -467,6 +488,7 @@ export const Dashboard: React.FC = () => {
             );
           })}
         </div>
+      )}
 
       {/* ── CHARTS SECTION ── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

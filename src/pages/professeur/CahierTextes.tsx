@@ -38,12 +38,31 @@ export const CahierTextes: React.FC = () => {
   
   const myAssignations = useMemo(() => {
     if (!user) return [];
+    const userId = String(user.id || '').trim().toLowerCase();
+    const userProfileId = String((user as any).profile_id || '').trim().toLowerCase();
     const userName = (user.nom || '').trim().toLowerCase();
     const userUsername = (user.username || '').trim().toLowerCase();
     
     return classeMatieres.filter((cm) => {
+        const profId = String(cm.professeurId || '').trim().toLowerCase();
         const profName = (cm.professeur || '').trim().toLowerCase();
-        return profName === userName || profName === userUsername;
+
+        // 1. Matching par ID stable (prioritaire)
+        if (profId && (profId === userId || (userProfileId && profId === userProfileId))) {
+            return true;
+        }
+
+        // 2. Matching par nom exact
+        if (profName && (profName === userName || profName === userUsername)) {
+            return true;
+        }
+
+        // 3. Matching tolérant / partiel pour données historiques
+        if (profName && userName && (userName.includes(profName) || profName.includes(userName))) {
+            return true;
+        }
+
+        return false;
     });
   }, [classeMatieres, user]);
 

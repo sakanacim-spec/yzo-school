@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { Student } from '../types';
 
@@ -33,14 +33,19 @@ const StatusBadge: React.FC<{ status: Student['status'] }> = ({ status }) => {
 };
 
 // ── Modale Ajout/Édition ─────────────────────────────────────
-interface ModalProps { student?: Student | null; onClose: () => void }
+interface ModalProps {
+  student?: Student | null;
+  onClose: () => void;
+  onSuccess?: (msg: string) => void;
+}
 
-const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
+const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => {
   const addStudent = useStore((s) => s.addStudent);
   const updateStudent = useStore((s) => s.updateStudent);
   const rollbackStudentLocal = useStore((s) => s.rollbackStudentLocal);
   const currency = useStore((s) => s.currency);
-  const classes = useStore((s) => s.classes);
+  const classes = useStore((s) => s.classes) || [];
+  const activeClasses = useMemo(() => classes.filter(c => c.active !== false), [classes]);
   const addPayment = useStore((s) => s.addPayment);
   const language = useStore((s) => s.language);
   const [modalStep, setModalStep] = useState<1 | 2>(1);
@@ -51,11 +56,15 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const initialClass = student?.classe ?? (activeClasses.length > 0 ? activeClasses[0].name : '');
+  const initialClassDef = activeClasses.find(c => c.name === initialClass);
+  const initialEcolage = student?.ecolage ?? (initialClassDef ? initialClassDef.ecolage : 0);
+
   const [form, setForm] = useState({
     nom: student?.nom ?? '',
     prenom: student?.prenom ?? '',
-    classe: student?.classe ?? (classes.length > 0 ? classes[0].name : ''),
-    ecolage: student?.ecolage ?? (classes.length > 0 ? classes[0].ecolage : 0),
+    classe: initialClass,
+    ecolage: initialEcolage,
     telephone: student?.telephone ?? '',
     sexe: (student?.sexe ?? 'M') as 'M' | 'F',
     estRedoublant: student?.redoublant ?? false,
@@ -83,6 +92,11 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
     }
     
     // Étape 2 : validation et synchronisation finale
+    if (!form.classe) {
+      setSubmitError("Veuillez sélectionner une classe active.");
+      return;
+    }
+
     let normalizedPhone = '';
     if (form.telephone.trim()) {
       const phoneCheck = normalizePhoneNumber(form.telephone, parentCountryCode);
@@ -94,6 +108,9 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
       normalizedPhone = phoneCheck.e164;
     }
 
+    const selectedClassDef = activeClasses.find(c => c.name === form.classe) || classes.find(c => c.name === form.classe);
+    const deducedCycle = selectedClassDef ? selectedClassDef.cycle : 'Primaire';
+
     const baseStudent = {
       nom: form.nom.trim(),
       prenom: form.prenom.trim(),
@@ -104,7 +121,8 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
       ecoleProvenance: form.ecoleProvenance || '',
       redoublant: form.estRedoublant,
       dejaPaye: student ? student.dejaPaye : 0,
-      recu: student ? student.recu : form.recuAssociatif
+      recu: student ? student.recu : form.recuAssociatif,
+      cycle: deducedCycle
     };
     
     setIsSubmitting(true);
@@ -142,6 +160,10 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
         return;
       }
 
+      const successMsg = student
+        ? (t(language as Language, 'students.studentUpdatedSuccess') || 'Élève modifié et synchronisé avec succès.')
+        : (t(language as Language, 'students.studentRegisteredSuccess') || 'Élève inscrit et synchronisé avec succès.');
+      onSuccess?.(successMsg);
       onClose();
     } catch (err: any) {
       if (!student && studentId) {
@@ -223,8 +245,19 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                         <Phone className="w-3 h-3" /> {t(language as Language, 'students.parentPhone') || "Téléphone Parent"}
                       </label>
                       <div className="flex gap-2">
-                        <CountrySelect value={parentCountryCode} onChange={setParentCountryCode} className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-3 text-xs font-bold text-slate-800" />
-                        <input type="text" className={`flex-1 bg-slate-50 border rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium ${phoneError ? 'border-rose-400' : 'border-slate-200'}`} placeholder="Ex: 01 97 00 00 00 / +229..." value={form.telephone} onChange={(e) => { setForm({ ...form, telephone: e.target.value }); setPhoneError(''); }} />
+                        <CountrySelect
+                          value={parentCountryCode}
+                          onChange={setParentCountryCode}
+                          short={true}
+                          className="w-32 shrink-0 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-3 text-xs font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all cursor-pointer"
+                        />
+                        <input
+                          type="tel"
+                          className={`min-w-0 flex-1 bg-slate-50 border rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium ${phoneError ? 'border-rose-400' : 'border-slate-200'}`}
+                          placeholder="Ex: 01 97 00 00 00 / +229..."
+                          value={form.telephone}
+                          onChange={(e) => { setForm({ ...form, telephone: e.target.value }); setPhoneError(''); }}
+                        />
                       </div>
                       {phoneError && (
                         <p className="text-[11px] font-bold text-rose-500 mt-1">{phoneError}</p>
@@ -234,27 +267,44 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose }) => {
                 </div>
 
                 <div className={`space-y-6 transition-all duration-500 ${modalStep === 2 ? 'opacity-100 translate-x-0 block' : 'opacity-0 translate-x-10 hidden'}`}>
+                  {activeClasses.length === 0 && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs font-bold flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                      <div>
+                        {t(language as Language, 'settings.noClassConfigured') || 'Aucune classe configurée dans l\'établissement.'}
+                        <div className="mt-1 font-medium opacity-90">Veuillez d'abord paramétrer les classes de votre établissement dans les Paramètres système.</div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
                         {t(language as Language, 'common.class') || "Classe"} *
                       </label>
                       <div className="relative">
-                        <input
-                          type="text"
-                          list="classes-list"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" 
-                          placeholder={t(language as Language, 'students.selectOrEnterClass') || 'Sélectionner ou saisir une classe'}
-                          value={form.classe} 
+                        <select
+                          required
+                          value={form.classe}
                           onChange={(e) => {
                             const newClasse = e.target.value;
-                            const classDef = classes.find(c => c.name === newClasse);
-                            setForm({ ...form, classe: newClasse, ecolage: classDef ? classDef.ecolage : form.ecolage });
+                            const classDef = activeClasses.find(c => c.name === newClasse);
+                            setForm({
+                              ...form,
+                              classe: newClasse,
+                              ecolage: classDef ? classDef.ecolage : form.ecolage
+                            });
                           }}
-                        />
-                        <datalist id="classes-list">
-                          {classes.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-                        </datalist>
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer appearance-none"
+                        >
+                          <option value="">{t(language as Language, 'students.selectClass') || 'Sélectionner une classe...'}</option>
+                          {activeClasses.map((c) => (
+                            <option key={c.id || c.name} value={c.name}>
+                              {c.name} ({c.cycle})
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                       </div>
                     </div>
 
@@ -483,11 +533,19 @@ export const Eleves: React.FC = () => {
 
   const [modal, setModal] = useState<{ open: boolean; student?: Student | null }>({ open: false });
   const [photoModal, setPhotoModal] = useState<{ open: boolean; student: Student | null }>({ open: false, student: null });
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const updateStudent = useStore((s) => s.updateStudent);
   const [sortKey, setSortKey] = useState<SortKey>('nom');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    if (successBanner) {
+      const timer = setTimeout(() => setSuccessBanner(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successBanner]);
 
   const filtered = useMemo(() => {
     let list = [...students];
@@ -538,7 +596,20 @@ export const Eleves: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-20 max-w-[1600px] mx-auto animate-slideUp">
-      
+      {successBanner && (
+        <div className="p-4 bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-emerald-500/10 animate-slideDown">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-500/30">
+              <Check className="w-5 h-5" />
+            </div>
+            <span className="text-sm font-black">{successBanner}</span>
+          </div>
+          <button onClick={() => setSuccessBanner(null)} className="p-1.5 hover:bg-emerald-500/20 rounded-lg transition-colors text-emerald-700 dark:text-emerald-300">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="relative pro-card p-8 overflow-hidden group bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl">
         <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] group-hover:scale-110 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
@@ -788,7 +859,13 @@ export const Eleves: React.FC = () => {
         )}
       </div>
 
-      {modal.open && <StudentModal student={modal.student} onClose={() => setModal({ open: false })} />}
+      {modal.open && (
+        <StudentModal
+          student={modal.student}
+          onClose={() => setModal({ open: false })}
+          onSuccess={(msg) => setSuccessBanner(msg)}
+        />
+      )}
       {photoModal.open && photoModal.student && (
         <PhotoModal 
           student={photoModal.student} 

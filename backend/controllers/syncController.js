@@ -318,18 +318,19 @@ async function syncFromFrontend(req, res) {
             }
         }
 
-        // --- 5. Sync App Settings ---
+        // --- 5. Sync App Settings (Clé-Valeur) ---
         if (appSettings) {
-            console.log('🎨 [Sync POST] Saving appSettings:', {
+            console.log('🎨 [Sync POST] Saving appSettings (Key-Value):', {
                 appName: appSettings.appName,
                 schoolName: appSettings.schoolName,
+                schoolYear: appSettings.schoolYear,
                 hasLogo: !!appSettings.schoolLogo,
-                logoLength: appSettings.schoolLogo?.length || 0,
                 hasStamp: !!appSettings.schoolStamp,
-                stampLength: appSettings.schoolStamp?.length || 0,
+                hasClasses: !!appSettings.classes,
+                hasTranches: !!appSettings.tranches
             });
             try {
-                // Mettre à jour la table schools (qui contient address, phone, slogan, ministry)
+                // Mettre à jour la table schools (address, phone, slogan, ministry, payout) sans journaliser les secrets
                 const { error: schoolUpdateErr } = await supabase.from('schools').update({
                     address: appSettings.schoolAddress !== undefined ? appSettings.schoolAddress : null,
                     phone: appSettings.schoolPhone !== undefined ? appSettings.schoolPhone : null,
@@ -342,39 +343,43 @@ async function syncFromFrontend(req, res) {
 
                 if (schoolUpdateErr) console.error('❌ [Sync POST] Erreur MAJ schools:', schoolUpdateErr.message);
 
-                const settingsPayload = {
-                    id: 'global_settings',
-                    app_name: appSettings.appName,
-                    school_name: appSettings.schoolName,
-                    school_year: appSettings.schoolYear,
-                    school_logo: appSettings.schoolLogo,
-                    school_stamp: appSettings.schoolStamp,
-                    message_remerciement: appSettings.messageRemerciement,
-                    message_rappel: appSettings.messageRappel,
-                    tranches: appSettings.tranches || [],
-                    classes: appSettings.classes || null,
-                    payment_gateway: appSettings.paymentGateway || 'none',
-                    payment_public_key: appSettings.paymentPublicKey || null,
-                    payment_secret_key: appSettings.paymentSecretKey || null,
-                    updated_at: new Date().toISOString()
+                const keyValues = [];
+                const nowStr = new Date().toISOString();
+
+                const addKeyVal = (key, val) => {
+                    if (val !== undefined && val !== null) {
+                        const strVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
+                        keyValues.push({ key, value: strVal, updated_at: nowStr });
+                    }
                 };
 
-                const { error: settingsErr } = await supabase.from(tbl('app_settings')).upsert(settingsPayload, { onConflict: 'id' });
-                
-                if (settingsErr) {
-                    if (settingsErr.code === 'PGRST204' || settingsErr.message?.includes('payment_gateway')) {
-                        console.warn('⚠️ [Sync POST] Colonnes de paiement manquantes. Fallback sans les clés de paiement. Veuillez exécuter migration_payment.sql !');
-                        delete settingsPayload.payment_gateway;
-                        delete settingsPayload.payment_public_key;
-                        delete settingsPayload.payment_secret_key;
-                        const { error: fallbackErr } = await supabase.from(tbl('app_settings')).upsert(settingsPayload, { onConflict: 'id' });
-                        if (fallbackErr) console.error('❌ [Sync POST] Erreur sauvegarde appSettings (Fallback):', fallbackErr.message);
-                        else console.log('✅ [Sync POST] appSettings (Fallback) sauvegardés avec succès !');
+                addKeyVal('app_name', appSettings.appName);
+                addKeyVal('school_name', appSettings.schoolName);
+                addKeyVal('school_year', appSettings.schoolYear);
+                addKeyVal('school_logo', appSettings.schoolLogo);
+                addKeyVal('school_stamp', appSettings.schoolStamp);
+                addKeyVal('message_remerciement', appSettings.messageRemerciement);
+                addKeyVal('message_rappel', appSettings.messageRappel);
+                addKeyVal('tranches', appSettings.tranches);
+                addKeyVal('classes', appSettings.classes);
+                addKeyVal('cycle_schedules', appSettings.cycleSchedules);
+                addKeyVal('payment_gateway', appSettings.paymentGateway);
+                addKeyVal('payment_public_key', appSettings.paymentPublicKey);
+                addKeyVal('payment_secret_key', appSettings.paymentSecretKey);
+                addKeyVal('bulletin_template', appSettings.bulletinTemplate);
+                addKeyVal('bulletin_show_photo', appSettings.bulletinShowPhoto);
+                addKeyVal('bulletin_show_rank', appSettings.bulletinShowRank);
+                addKeyVal('bulletin_show_class_average', appSettings.bulletinShowClassAverage);
+                addKeyVal('bulletin_show_appreciation', appSettings.bulletinShowAppreciation);
+                addKeyVal('eval_configs', appSettings.evalConfigs);
+
+                if (keyValues.length > 0) {
+                    const { error: settingsErr } = await supabase.from(tbl('app_settings')).upsert(keyValues, { onConflict: 'key' });
+                    if (settingsErr) {
+                        console.error('❌ [Sync POST] Erreur sauvegarde appSettings (Key-Value):', settingsErr.message);
                     } else {
-                        console.error('❌ [Sync POST] Erreur sauvegarde appSettings:', settingsErr.message);
+                        console.log(`✅ [Sync POST] ${keyValues.length} paramètres clés-valeurs sauvegardés.`);
                     }
-                } else {
-                    console.log('✅ [Sync POST] appSettings sauvegardés avec succès !');
                 }
             } catch (settingsErr) {
                 console.error('❌ [Sync POST] Exception appSettings:', settingsErr);
@@ -387,7 +392,8 @@ async function syncFromFrontend(req, res) {
                 const matieresData = matieres.map(m => ({
                     id: m.id,
                     nom: m.nom,
-                    categorie: m.categorie
+                    code: m.categorie || null,
+                    coefficient: 1
                 }));
                 const { error: matErr } = await supabase.from(tbl('matieres')).upsert(matieresData, { onConflict: 'id' });
                 if (matErr) {
@@ -405,8 +411,8 @@ async function syncFromFrontend(req, res) {
                 const cmData = classeMatieres.map(cm => ({
                     id: cm.id,
                     classe: cm.classe,
-                    matiere_id: cm.matiereId,
-                    professeur: cm.professeur || '',
+                    matiere: cm.matiereId,
+                    professeurid: cm.professeurId || cm.professeur || null,
                     coefficient: cm.coefficient || 1
                 }));
                 const { error: cmErr } = await supabase.from(tbl('classe_matieres')).upsert(cmData, { onConflict: 'id' });
@@ -588,23 +594,37 @@ async function syncToFrontend(req, res) {
             .select('id, nom, telephone, role')
             .in('role', ['admin', 'directeur', 'superviseur', 'surveillant', 'comptable', 'censeur', 'secretaire', 'professeur'])
             .order('nom');
-        const { data: appSettings, error: settingsError } = await supabase.from(tbl('app_settings')).select('*').single();
+
+        // Lecture des paramètres de configuration en clé-valeur
+        const { data: appSettingsRows, error: settingsError } = await supabase.from(tbl('app_settings')).select('*');
+        const settingsMap = new Map();
+        (appSettingsRows || []).forEach(r => {
+            if (r.key) settingsMap.set(r.key, r.value);
+        });
+
+        const safeJsonParse = (val, fallback = null) => {
+            if (!val) return fallback;
+            try {
+                return typeof val === 'string' ? JSON.parse(val) : val;
+            } catch {
+                return fallback;
+            }
+        };
         
-        // Fetch school identity from the schools table (source of truth for address, phone, slogan, ministry)
+        // Fetch school identity from the schools table (source of truth for address, phone, slogan, ministry, payout)
         const { data: schoolData } = await supabase
             .from('schools')
-            .select('name, country, address, phone, slogan, ministry, subscription_plan, paid_tranches_count')
+            .select('name, country, address, phone, slogan, ministry, payout_momo_number, payout_method, subscription_plan, paid_tranches_count')
             .eq('slug', schoolSlug)
             .single();
         
-        console.log('🎨 [Sync GET] appSettings from DB:', {
-            found: !!appSettings,
+        console.log('🎨 [Sync GET] appSettings from DB (Key-Value):', {
+            keysCount: settingsMap.size,
             error: settingsError?.message || null,
-            hasLogo: !!appSettings?.school_logo,
-            logoLength: appSettings?.school_logo?.length || 0,
-            hasStamp: !!appSettings?.school_stamp,
-            appName: appSettings?.app_name,
-            schoolName: appSettings?.school_name,
+            schoolYear: settingsMap.get('school_year'),
+            appName: settingsMap.get('app_name'),
+            schoolName: settingsMap.get('school_name') || schoolData?.name,
+            payoutMomoNumber: schoolData?.payout_momo_number
         });
 
         const studentMap = new Map();
@@ -659,29 +679,35 @@ async function syncToFrontend(req, res) {
             })),
             links: links || [],
             appSettings: {
-                appName: appSettings?.app_name || schoolData?.name || null,
-                schoolName: appSettings?.school_name || schoolData?.name || null,
-                schoolYear: appSettings?.school_year || null,
-                schoolLogo: appSettings?.school_logo || null,
-                schoolStamp: appSettings?.school_stamp || null,
-                messageRemerciement: appSettings?.message_remerciement || null,
-                messageRappel: appSettings?.message_rappel || null,
-                classes: appSettings?.classes || null,
-                tranches: appSettings?.tranches || [],
-                paymentGateway: appSettings?.payment_gateway || 'none',
-                paymentPublicKey: appSettings?.payment_public_key || null,
-                paymentSecretKey: appSettings?.payment_secret_key || null,
-                // Identity fields — primary source: app_settings, fallback: schools table
-                schoolAddress: appSettings?.school_address || schoolData?.address || null,
-                schoolPhone: appSettings?.school_phone || schoolData?.phone || null,
-                schoolSlogan: appSettings?.school_slogan || schoolData?.slogan || null,
-                schoolMinistry: appSettings?.school_ministry || schoolData?.ministry || null,
-                schoolCountry: appSettings?.school_country || schoolData?.country || null,
+                appName: settingsMap.get('app_name') || schoolData?.name || 'YZIOW',
+                schoolName: settingsMap.get('school_name') || schoolData?.name || null,
+                schoolYear: settingsMap.get('school_year') || null,
+                schoolLogo: settingsMap.get('school_logo') || null,
+                schoolStamp: settingsMap.get('school_stamp') || null,
+                messageRemerciement: settingsMap.get('message_remerciement') || null,
+                messageRappel: settingsMap.get('message_rappel') || null,
+                classes: safeJsonParse(settingsMap.get('classes'), null),
+                tranches: safeJsonParse(settingsMap.get('tranches'), []),
+                cycleSchedules: safeJsonParse(settingsMap.get('cycle_schedules'), null),
+                paymentGateway: settingsMap.get('payment_gateway') || 'none',
+                paymentPublicKey: settingsMap.get('payment_public_key') || null,
+                paymentSecretKey: settingsMap.get('payment_secret_key') || null,
+                bulletinTemplate: settingsMap.get('bulletin_template') || 'officiel',
+                bulletinShowPhoto: settingsMap.has('bulletin_show_photo') ? settingsMap.get('bulletin_show_photo') === 'true' : true,
+                bulletinShowRank: settingsMap.has('bulletin_show_rank') ? settingsMap.get('bulletin_show_rank') === 'true' : true,
+                bulletinShowClassAverage: settingsMap.has('bulletin_show_class_average') ? settingsMap.get('bulletin_show_class_average') === 'true' : true,
+                bulletinShowAppreciation: settingsMap.has('bulletin_show_appreciation') ? settingsMap.get('bulletin_show_appreciation') === 'true' : true,
+                evalConfigs: safeJsonParse(settingsMap.get('eval_configs'), null),
+                // Identity fields — primary source: app_settings / schools table
+                schoolAddress: schoolData?.address || null,
+                schoolPhone: schoolData?.phone || null,
+                schoolSlogan: schoolData?.slogan || null,
+                schoolMinistry: schoolData?.ministry || null,
+                schoolCountry: schoolData?.country || null,
                 payoutMomoNumber: schoolData?.payout_momo_number || null,
                 payoutMethod: schoolData?.payout_method || 'momo',
                 subscriptionPlan: schoolData?.subscription_plan || null,
-                paidTranchesCount: schoolData?.paid_tranches_count || 0,
-                settings: appSettings?.settings || null
+                paidTranchesCount: schoolData?.paid_tranches_count || 0
             },
             announcements: (announcements || []).map(a => ({
                 id: a.id,
@@ -720,15 +746,19 @@ async function syncToFrontend(req, res) {
             matieres: dbMatieres ? dbMatieres.map(m => ({
                 id: m.id,
                 nom: m.nom,
-                categorie: m.categorie
+                categorie: m.code || '1-MATIERES LITTERAIRES'
             })) : undefined,
-            classeMatieres: dbClasseMatieres ? dbClasseMatieres.map(cm => ({
-                id: cm.id,
-                classe: cm.classe,
-                matiereId: cm.matiere_id,
-                professeur: cm.professeur,
-                coefficient: cm.coefficient
-            })) : undefined,
+            classeMatieres: dbClasseMatieres ? dbClasseMatieres.map(cm => {
+                const staffMatch = (dbPersonnels || []).find(p => p.id === cm.professeurid);
+                return {
+                    id: cm.id,
+                    classe: cm.classe,
+                    matiereId: cm.matiere,
+                    professeurId: cm.professeurid || null,
+                    professeur: staffMatch ? staffMatch.nom : (cm.professeurid || ''),
+                    coefficient: cm.coefficient !== undefined ? Number(cm.coefficient) : 1
+                };
+            }) : undefined,
             notes: dbNotes ? dbNotes.map(n => ({
                 id: n.id,
                 eleveId: n.eleve_id,

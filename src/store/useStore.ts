@@ -865,6 +865,15 @@ export const useStore = create<AppState>()(
           }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
         });
       },
+      updatePresence: (id, updates) => {
+        const updated = get().presences.map(p => p.id === id ? { ...p, ...updates } : p);
+        set({ presences: updated });
+        import('../services/backendSync').then(({ syncToBackend }) => {
+          syncToBackend({
+            presences: updated
+          }).then((res) => { if (res?.success) set({ lastSyncTimestamp: Date.now() }); });
+        });
+      },
       savePresencesBatch: (newPresences) => {
         const currentPresences = get().presences;
         const newKeys = new Set(newPresences.map(p => `${p.eleveId}-${p.date}`));
@@ -1338,16 +1347,16 @@ export const useStore = create<AppState>()(
               stampLength: data.appSettings.schoolStamp?.length || 0,
             });
             set({
-              appName: 'YZIOW',
+              appName: data.appSettings.appName || 'YZIOW',
               schoolName: data.appSettings.schoolName || get().schoolName,
-              schoolYear: data.appSettings.schoolYear || get().schoolYear,
+              schoolYear: data.appSettings.schoolYear !== undefined ? data.appSettings.schoolYear : get().schoolYear,
               schoolLogo: data.appSettings.schoolLogo !== undefined ? data.appSettings.schoolLogo : get().schoolLogo,
               schoolStamp: data.appSettings.schoolStamp !== undefined ? data.appSettings.schoolStamp : get().schoolStamp,
               messageRemerciement: data.appSettings.messageRemerciement || get().messageRemerciement,
               messageRappel: data.appSettings.messageRappel || get().messageRappel,
               ...(data.appSettings.cycleSchedules ? { cycleSchedules: data.appSettings.cycleSchedules } : {}),
               ...(data.appSettings.tranches ? { tranches: data.appSettings.tranches } : {}),
-              ...(data.appSettings.classes ? { classes: data.appSettings.classes } : {}),
+              ...(Array.isArray(data.appSettings.classes) && data.appSettings.classes.length > 0 ? { classes: data.appSettings.classes } : {}),
               // Identity fields — use backend value if non-null, fallback to existing state
               schoolAddress: data.appSettings.schoolAddress || get().schoolAddress || null,
               schoolPhone: data.appSettings.schoolPhone || get().schoolPhone || null,
@@ -1356,10 +1365,16 @@ export const useStore = create<AppState>()(
               schoolCountry: data.appSettings.schoolCountry || get().schoolCountry || null,
               settings: {
                 ...get().settings,
-                payoutMomoNumber: data.appSettings.payoutMomoNumber || get().settings.payoutMomoNumber,
-                payoutMethod: data.appSettings.payoutMethod || get().settings.payoutMethod,
+                payoutMomoNumber: data.appSettings.payoutMomoNumber !== undefined ? data.appSettings.payoutMomoNumber : get().settings.payoutMomoNumber,
+                payoutMethod: data.appSettings.payoutMethod || get().settings.payoutMethod || 'momo',
                 paymentGateway: data.appSettings.paymentGateway || get().settings.paymentGateway,
                 paymentPublicKey: data.appSettings.paymentPublicKey || get().settings.paymentPublicKey,
+                bulletinTemplate: data.appSettings.bulletinTemplate || get().settings.bulletinTemplate,
+                bulletinShowPhoto: data.appSettings.bulletinShowPhoto !== undefined ? data.appSettings.bulletinShowPhoto : get().settings.bulletinShowPhoto,
+                bulletinShowRank: data.appSettings.bulletinShowRank !== undefined ? data.appSettings.bulletinShowRank : get().settings.bulletinShowRank,
+                bulletinShowClassAverage: data.appSettings.bulletinShowClassAverage !== undefined ? data.appSettings.bulletinShowClassAverage : get().settings.bulletinShowClassAverage,
+                bulletinShowAppreciation: data.appSettings.bulletinShowAppreciation !== undefined ? data.appSettings.bulletinShowAppreciation : get().settings.bulletinShowAppreciation,
+                evalConfigs: data.appSettings.evalConfigs || get().settings.evalConfigs
               }
             });
             console.log('✅ [Sync] Paramètres appliqués ! Logo:', !!get().schoolLogo, '| Sceau:', !!get().schoolStamp);
@@ -1549,15 +1564,15 @@ export const useStore = create<AppState>()(
       },
       deleteMatiere: async (id) => {
         set(s => ({
-          matieres: s.matieres.filter(x => x.id !== id),
-          lastSyncTimestamp: Date.now()
+          matieres: s.matieres.filter(x => x.id !== id)
         }));
         try {
           const { getAuthHeaders } = await import('../services/apiHelpers');
-          await fetch(`${API_BASE_URL}/sync/matiere/${id}`, {
+          const res = await fetch(`${API_BASE_URL}/sync/matiere/${id}`, {
             method: 'DELETE',
             headers: getAuthHeaders()
           });
+          if (res.ok) set({ lastSyncTimestamp: Date.now() });
         } catch (err) {
           console.error('Failed to delete matiere from cloud:', err);
         }
@@ -1579,15 +1594,15 @@ export const useStore = create<AppState>()(
       },
       deleteClasseMatiere: async (id) => {
         set(s => ({
-          classeMatieres: s.classeMatieres.filter(x => x.id !== id),
-          lastSyncTimestamp: Date.now()
+          classeMatieres: s.classeMatieres.filter(x => x.id !== id)
         }));
         try {
           const { getAuthHeaders } = await import('../services/apiHelpers');
-          await fetch(`${API_BASE_URL}/sync/classe-matiere/${id}`, {
+          const res = await fetch(`${API_BASE_URL}/sync/classe-matiere/${id}`, {
             method: 'DELETE',
             headers: getAuthHeaders()
           });
+          if (res.ok) set({ lastSyncTimestamp: Date.now() });
         } catch (err) {
           console.error('Failed to delete classeMatiere from cloud:', err);
         }

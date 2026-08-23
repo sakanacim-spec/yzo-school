@@ -92,9 +92,12 @@ export interface Payroll {
 }
 
 export interface ClassConfig {
+  id?: string;
   name: string;
   cycle: Cycle;
   ecolage: number;
+  order?: number;
+  active?: boolean;
 }
 
 export type StatusPaiement = 'solde' | 'tranche_validee' | 'tranche_partielle' | 'non_solde';
@@ -406,6 +409,7 @@ export interface ClasseMatiere {
   classe: string; // ex: '3ème A'
   matiereId: string;
   professeur: string;
+  professeurId?: string;
   coefficient: number;
 }
 

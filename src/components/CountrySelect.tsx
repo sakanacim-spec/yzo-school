@@ -33,7 +33,7 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
     >
       {sortedCountries.map((c) => (
         <option key={c.code} value={c.code} className="text-slate-900 bg-white">
-          {short ? `${c.code} ${c.dialCode}` : `${c.flag} ${language === 'en' ? c.name_en : c.name_fr} (${c.dialCode})`}
+          {short ? `${c.flag} ${c.dialCode}` : `${c.flag} ${language === 'en' ? c.name_en : c.name_fr} (${c.dialCode})`}
         </option>
       ))}
     </select>
