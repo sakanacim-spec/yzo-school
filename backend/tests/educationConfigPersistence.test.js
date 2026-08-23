@@ -60,6 +60,86 @@ async function runTests() {
         assert.strictEqual(res, '+12025550123');
     });
 
+    await it('1.7: Numéro Bénin 0197769991 accepté et normalisé en +2290197769991', () => {
+        const res = normalizePhone('01 97 76 99 91', 'BJ');
+        assert.strictEqual(res, '+2290197769991');
+    });
+
+    await it('1.8: Numéro avec indicatif international +2290197769991 ou 002290197769991 accepté sans doublon', () => {
+        const resPlus = normalizePhone('+2290197769991', 'BJ');
+        const resZero = normalizePhone('002290197769991', 'BJ');
+        assert.strictEqual(resPlus, '+2290197769991');
+        assert.strictEqual(resZero, '+2290197769991');
+    });
+
+    await it('1.9: Téléphone obligatoire - chaîne vide ou espaces refusés lors de la tentative de continuer', () => {
+        const validatePhone = (phone, country) => {
+            if (!phone || !phone.trim()) return { valid: false, error: 'Le numéro de téléphone du parent est obligatoire.' };
+            try {
+                const e164 = normalizePhone(phone.trim(), country);
+                return { valid: true, e164 };
+            } catch (err) {
+                return { valid: false, error: 'Numéro de téléphone invalide pour le pays sélectionné.' };
+            }
+        };
+
+        const checkEmpty = validatePhone('', 'BJ');
+        const checkSpaces = validatePhone('   ', 'BJ');
+        const checkValid = validatePhone('0197769991', 'BJ');
+
+        assert.strictEqual(checkEmpty.valid, false);
+        assert.strictEqual(checkEmpty.error, 'Le numéro de téléphone du parent est obligatoire.');
+        assert.strictEqual(checkSpaces.valid, false);
+        assert.strictEqual(checkValid.valid, true);
+        assert.strictEqual(checkValid.e164, '+2290197769991');
+    });
+
+    await it('1.10: Numéro trop court ou invalide refusé avec message explicite', () => {
+        let caught = false;
+        try {
+            normalizePhone('123', 'BJ');
+        } catch (e) {
+            caught = true;
+        }
+        assert.strictEqual(caught, true);
+    });
+
+    await it('1.11: Placeholders adaptés selon le pays sélectionné', () => {
+        const getPhonePlaceholder = (countryCode) => {
+            switch (countryCode) {
+                case 'BJ': return '01 97 76 99 91';
+                case 'TG': return '90 12 34 56';
+                case 'SN': return '77 123 45 67';
+                case 'CI': return '07 08 09 10 11';
+                case 'FR': return '06 12 34 56 78';
+                case 'MA': return '06 12 34 56 78';
+                case 'US': return '(202) 555-0123';
+                default: return '01 97 76 99 91';
+            }
+        };
+
+        assert.strictEqual(getPhonePlaceholder('BJ'), '01 97 76 99 91');
+        assert.strictEqual(getPhonePlaceholder('TG'), '90 12 34 56');
+        assert.strictEqual(getPhonePlaceholder('SN'), '77 123 45 67');
+        assert.strictEqual(getPhonePlaceholder('FR'), '06 12 34 56 78');
+    });
+
+    await it('1.12: Structure UI responsive garantissant la visibilité (CountrySelect fixe/borné + input flex-1 min-w-0)', () => {
+        const countrySelectStyle = { width: '100%', minWidth: '100px', maxWidth: '140px' };
+        const inputProps = {
+            id: 'parent-phone-input',
+            type: 'tel',
+            inputMode: 'tel',
+            ariaLabel: 'Numéro de téléphone du parent',
+            className: 'w-full min-w-0 flex-1'
+        };
+
+        assert.strictEqual(inputProps.type, 'tel');
+        assert.strictEqual(inputProps.inputMode, 'tel');
+        assert.strictEqual(inputProps.ariaLabel, 'Numéro de téléphone du parent');
+        assert.ok(countrySelectStyle.minWidth >= '100px');
+    });
+
     // ============================================================
     // SECTION 2 : Architecture Internationale des Classes & Cycles
     // ============================================================

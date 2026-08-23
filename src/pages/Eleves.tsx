@@ -53,8 +53,37 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
   const schoolCountry = useStore((s) => s.schoolCountry) || 'BJ';
   const [parentCountryCode, setParentCountryCode] = useState(schoolCountry);
   const [phoneError, setPhoneError] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getPhonePlaceholder = (countryCode: string) => {
+    switch (countryCode) {
+      case 'BJ': return '01 97 76 99 91';
+      case 'TG': return '90 12 34 56';
+      case 'SN': return '77 123 45 67';
+      case 'CI': return '07 08 09 10 11';
+      case 'FR': return '06 12 34 56 78';
+      case 'MA': return '06 12 34 56 78';
+      case 'US': return '(202) 555-0123';
+      default: return '01 97 76 99 91';
+    }
+  };
+
+  const validatePhone = (phone: string, countryCode: string): boolean => {
+    const trimmed = phone.trim();
+    if (!trimmed) {
+      setPhoneError("Le numéro de téléphone du parent est obligatoire.");
+      return false;
+    }
+    const phoneCheck = normalizePhoneNumber(trimmed, countryCode);
+    if (!phoneCheck.valid) {
+      setPhoneError("Numéro de téléphone invalide pour le pays sélectionné. Format attendu : local ou +/00.");
+      return false;
+    }
+    setPhoneError('');
+    return true;
+  };
 
   const initialClass = student?.classe ?? (activeClasses.length > 0 ? activeClasses[0].name : '');
   const initialClassDef = activeClasses.find(c => c.name === initialClass);
@@ -78,14 +107,11 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
     setPhoneError('');
     setSubmitError('');
 
-    // Étape 1 : validation téléphone avant passage à l'étape 2
+    // Étape 1 : validation téléphone obligatoire avant passage à l'étape 2
     if (modalStep === 1) {
-      if (form.telephone.trim()) {
-        const phoneCheck = normalizePhoneNumber(form.telephone, parentCountryCode);
-        if (!phoneCheck.valid) {
-          setPhoneError("Numéro de téléphone invalide pour le pays sélectionné. Format attendu : local ou +/00.");
-          return;
-        }
+      setPhoneTouched(true);
+      if (!validatePhone(form.telephone, parentCountryCode)) {
+        return;
       }
       setModalStep(2);
       return;
@@ -97,16 +123,13 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
       return;
     }
 
-    let normalizedPhone = '';
-    if (form.telephone.trim()) {
-      const phoneCheck = normalizePhoneNumber(form.telephone, parentCountryCode);
-      if (!phoneCheck.valid) {
-        setPhoneError("Numéro de téléphone invalide pour le pays sélectionné.");
-        setModalStep(1);
-        return;
-      }
-      normalizedPhone = phoneCheck.e164;
+    const phoneCheck = normalizePhoneNumber(form.telephone, parentCountryCode);
+    if (!phoneCheck.valid) {
+      setPhoneError("Numéro de téléphone invalide pour le pays sélectionné.");
+      setModalStep(1);
+      return;
     }
+    const normalizedPhone = phoneCheck.e164;
 
     const selectedClassDef = activeClasses.find(c => c.name === form.classe) || classes.find(c => c.name === form.classe);
     const deducedCycle = selectedClassDef ? selectedClassDef.cycle : 'Primaire';
@@ -241,26 +264,52 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Phone className="w-3 h-3" /> {t(language as Language, 'students.parentPhone') || "Téléphone Parent"}
+                      <label htmlFor="parent-phone-input" className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Phone className="w-3 h-3 text-amber-500" /> {t(language as Language, 'students.parentPhone') || "Téléphone Parent"} *
                       </label>
-                      <div className="flex gap-2">
-                        <CountrySelect
-                          value={parentCountryCode}
-                          onChange={setParentCountryCode}
-                          short={true}
-                          className="w-32 shrink-0 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-3 text-xs font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all cursor-pointer"
-                        />
-                        <input
-                          type="tel"
-                          className={`min-w-0 flex-1 bg-slate-50 border rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium ${phoneError ? 'border-rose-400' : 'border-slate-200'}`}
-                          placeholder="Ex: 01 97 00 00 00 / +229..."
-                          value={form.telephone}
-                          onChange={(e) => { setForm({ ...form, telephone: e.target.value }); setPhoneError(''); }}
-                        />
+                      <div className="flex flex-col sm:flex-row gap-2 w-full items-stretch sm:items-center">
+                        <div className="w-full sm:w-[108px] sm:shrink-0">
+                          <CountrySelect
+                            value={parentCountryCode}
+                            onChange={(newCode) => {
+                              setParentCountryCode(newCode);
+                              if (phoneTouched && form.telephone.trim()) {
+                                validatePhone(form.telephone, newCode);
+                              }
+                            }}
+                            short={true}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-2.5 py-3.5 text-xs font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all cursor-pointer"
+                            aria-label="Indicatif pays"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0 w-full relative">
+                          <input
+                            id="parent-phone-input"
+                            type="tel"
+                            inputMode="tel"
+                            required
+                            aria-label="Numéro de téléphone du parent"
+                            className={`w-full min-w-0 bg-slate-50 border rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium ${phoneError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-200'}`}
+                            placeholder={getPhonePlaceholder(parentCountryCode)}
+                            value={form.telephone}
+                            onChange={(e) => {
+                              setForm({ ...form, telephone: e.target.value });
+                              if (phoneError) setPhoneError('');
+                            }}
+                            onBlur={() => {
+                              setPhoneTouched(true);
+                              if (form.telephone.trim()) {
+                                validatePhone(form.telephone, parentCountryCode);
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
                       {phoneError && (
-                        <p className="text-[11px] font-bold text-rose-500 mt-1">{phoneError}</p>
+                        <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1.5 animate-shake">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{phoneError}</span>
+                        </p>
                       )}
                     </div>
                   </div>

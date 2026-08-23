@@ -27,13 +27,13 @@ export const CountrySelect: React.FC<CountrySelectProps> = ({
       value={value || 'BJ'}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
-      className={className || "bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm px-3 py-2.5"}
-      style={short ? { width: '110px' } : undefined}
-      aria-label={ariaLabel}
+      className={className || "w-full bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm px-2.5 py-2.5"}
+      style={short ? { width: '100%', minWidth: '95px', maxWidth: '115px' } : undefined}
+      aria-label={ariaLabel || 'Sélectionner le pays'}
     >
       {sortedCountries.map((c) => (
         <option key={c.code} value={c.code} className="text-slate-900 bg-white">
-          {short ? `${c.flag} ${c.dialCode}` : `${c.flag} ${language === 'en' ? c.name_en : c.name_fr} (${c.dialCode})`}
+          {short ? `${c.flag} ${c.code} (${c.dialCode})` : `${c.flag} ${language === 'en' ? c.name_en : c.name_fr} (${c.dialCode})`}
         </option>
       ))}
     </select>
