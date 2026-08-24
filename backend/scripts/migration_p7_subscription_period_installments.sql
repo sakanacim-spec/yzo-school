@@ -105,12 +105,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_completed_tranche_period
       AND status = 'completed';
 
 -- 6. Mise à jour de la fonction RPC process_fedapay_webhook_event (Période-aware & Exclusion Mutuelle)
+-- Signature et noms de paramètres strictement identiques à la définition existante (p_remote_amount, p_remote_currency, p_remote_status)
 CREATE OR REPLACE FUNCTION public.process_fedapay_webhook_event(
     p_intent_id UUID,
     p_provider_transaction_id TEXT,
-    p_amount_paid NUMERIC,
-    p_currency TEXT,
-    p_event_type TEXT
+    p_remote_amount NUMERIC,
+    p_remote_currency TEXT,
+    p_remote_status TEXT
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -135,7 +136,7 @@ DECLARE
     v_existing_tranches_completed INTEGER;
 BEGIN
     -- 1. Validation de l'événement FedaPay
-    IF p_event_type IS DISTINCT FROM 'transaction.approved' THEN
+    IF p_remote_status IS DISTINCT FROM 'approved' AND p_remote_status IS DISTINCT FROM 'transaction.approved' THEN
         RETURN jsonb_build_object(
             'success', false,
             'status', 'ignored',
@@ -190,7 +191,7 @@ BEGIN
     END IF;
 
     -- 5. Contrôle de réconciliation du montant et de la devise
-    IF v_intent.expected_amount IS DISTINCT FROM p_amount_paid OR v_intent.currency IS DISTINCT FROM p_currency THEN
+    IF v_intent.expected_amount IS DISTINCT FROM p_remote_amount OR v_intent.expected_currency IS DISTINCT FROM p_remote_currency THEN
         UPDATE public.payment_intents
         SET status = 'reconciliation_required',
             reconciliation_reason = 'AMOUNT_OR_CURRENCY_MISMATCH',
