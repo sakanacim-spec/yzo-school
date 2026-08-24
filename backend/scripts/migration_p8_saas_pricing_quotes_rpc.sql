@@ -349,9 +349,38 @@ CREATE INDEX IF NOT EXISTS idx_saas_quotes_lifecycle
 -- 8. GOUVERNANCE STRICTE DES payment_intents (VERSIONNEMENT ET NOT VALID)
 -- ----------------------------------------------------------------------------
 ALTER TABLE public.payment_intents
-    ADD COLUMN IF NOT EXISTS pricing_schema_version SMALLINT;
+    ADD COLUMN IF NOT EXISTS pricing_schema_version INTEGER;
 
--- Backfill immédiat des intentions historiques en version 1
+-- Remplacement transactionnel des contraintes P7 pour autoriser pricing_schema_version = 1 à avoir des valeurs historiques NULL
+ALTER TABLE public.payment_intents
+    DROP CONSTRAINT IF EXISTS chk_saas_billing_period_required;
+
+ALTER TABLE public.payment_intents
+    ADD CONSTRAINT chk_saas_billing_period_required
+    CHECK (
+        payment_type <> 'saas_subscription'
+        OR COALESCE(pricing_schema_version, 1) = 1
+        OR (
+            billing_period IS NOT NULL
+            AND length(trim(billing_period)) > 0
+        )
+    ) NOT VALID;
+
+ALTER TABLE public.payment_intents
+    DROP CONSTRAINT IF EXISTS chk_saas_payable_amount_required;
+
+ALTER TABLE public.payment_intents
+    ADD CONSTRAINT chk_saas_payable_amount_required
+    CHECK (
+        payment_type <> 'saas_subscription'
+        OR COALESCE(pricing_schema_version, 1) = 1
+        OR (
+            payable_amount IS NOT NULL
+            AND payable_amount > 0
+        )
+    ) NOT VALID;
+
+-- Backfill des intentions historiques en version 1
 UPDATE public.payment_intents
 SET pricing_schema_version = 1
 WHERE pricing_schema_version IS NULL;
@@ -360,6 +389,45 @@ WHERE pricing_schema_version IS NULL;
 ALTER TABLE public.payment_intents
     ALTER COLUMN pricing_schema_version SET DEFAULT 2,
     ALTER COLUMN pricing_schema_version SET NOT NULL;
+
+-- Contrainte de domaine sur la version
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_pricing_schema_version_valid') THEN
+        ALTER TABLE public.payment_intents
+            ADD CONSTRAINT chk_pricing_schema_version_valid
+            CHECK (pricing_schema_version IN (1, 2));
+    END IF;
+END $$;
+
+-- Trigger d'immutabilité et de verrouillage des versions sur payment_intents
+CREATE OR REPLACE FUNCTION public.prevent_pricing_schema_version_modification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        -- Toute nouvelle insertion doit obligatoirement utiliser la version 2
+        IF NEW.pricing_schema_version IS DISTINCT FROM 2 THEN
+            RAISE EXCEPTION 'PRICING_SCHEMA_VERSION_LEGACY_ONLY: Les nouvelles intentions doivent obligatoirement utiliser pricing_schema_version = 2';
+        END IF;
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- Immutabilité stricte : aucune mutation de pricing_schema_version autorisée (ni 1->2, ni 2->1)
+        IF OLD.pricing_schema_version IS NOT NULL AND NEW.pricing_schema_version IS DISTINCT FROM OLD.pricing_schema_version THEN
+            RAISE EXCEPTION 'PRICING_SCHEMA_VERSION_IMMUTABLE: La version du schéma tarifaire (pricing_schema_version) est strictement immuable';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_prevent_pricing_schema_version_modification ON public.payment_intents;
+CREATE TRIGGER trg_prevent_pricing_schema_version_modification
+    BEFORE INSERT OR UPDATE ON public.payment_intents
+    FOR EACH ROW
+    EXECUTE FUNCTION public.prevent_pricing_schema_version_modification();
 
 -- Nouvelles colonnes de traçabilité
 ALTER TABLE public.payment_intents

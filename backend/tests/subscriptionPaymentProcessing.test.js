@@ -1284,7 +1284,7 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
     it('38: P8 - Migration SQL : Séquence stricte backfill version 1 et default version 2', () => {
         const sqlContent = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
         assert.ok(sqlContent.includes('ALTER TABLE public.payment_intents'), 'DDL payment_intents présent');
-        assert.ok(sqlContent.includes('pricing_schema_version SMALLINT'), 'Colonne pricing_schema_version créée');
+        assert.ok(sqlContent.includes('pricing_schema_version INTEGER') || sqlContent.includes('pricing_schema_version SMALLINT'), 'Colonne pricing_schema_version créée');
         assert.ok(sqlContent.includes('SET pricing_schema_version = 1'), 'Backfill des intentions historiques en version 1');
         assert.ok(sqlContent.includes('SET DEFAULT 2'), 'DEFAULT 2 imposé pour les nouvelles intentions');
         assert.ok(sqlContent.includes('SET NOT NULL'), 'NOT NULL imposé');
@@ -2137,5 +2137,56 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
     it('77: Navigateur incompatible : aucun crash et statut unsupported géré', () => {
         const paramsCode = fs.readFileSync(path.join(__dirname, '../../src/pages/Parametres.tsx'), 'utf-8');
         assert.ok(paramsCode.includes('Notifications non prises en charge'), 'Gestion du statut unsupported');
+    });
+
+    it('78: Option B - chk_saas_billing_period_required autorise pricing_schema_version = 1 sans billing_period', () => {
+        const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlCode.includes('COALESCE(pricing_schema_version, 1) = 1'), 'Conditionnement de la contrainte billing_period sur version 1');
+    });
+
+    it('79: Option B - chk_saas_payable_amount_required autorise pricing_schema_version = 1 sans payable_amount', () => {
+        const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlCode.includes('COALESCE(pricing_schema_version, 1) = 1'), 'Conditionnement de la contrainte payable_amount sur version 1');
+    });
+
+    it('80: Option B - Aucune période ou montant financier inventé dans le script de migration', () => {
+        const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(!sqlCode.includes("SET billing_period = '"), 'Aucun backfill inventé de billing_period');
+        assert.ok(!sqlCode.includes("SET payable_amount = "), 'Aucun backfill inventé de payable_amount');
+    });
+
+    it('81: Option B - DEFAULT 2 et NOT NULL imposés sur pricing_schema_version', () => {
+        const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlCode.includes('ALTER COLUMN pricing_schema_version SET DEFAULT 2'), 'DEFAULT 2 présent');
+        assert.ok(sqlCode.includes('ALTER COLUMN pricing_schema_version SET NOT NULL'), 'NOT NULL présent');
+    });
+
+    it('82: Option B - Contrainte chk_pricing_schema_version_valid restreinte à (1, 2)', () => {
+        const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlCode.includes('pricing_schema_version IN (1, 2)'), 'Contrainte de domaine version (1, 2)');
+    });
+
+    it('83: Option B - Trigger d immutabilité strict empêchant toute mutation de pricing_schema_version', () => {
+        const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlCode.includes('prevent_pricing_schema_version_modification'), 'Fonction trigger d immutabilité présente');
+        assert.ok(sqlCode.includes('PRICING_SCHEMA_VERSION_IMMUTABLE'), 'Exception explicite en cas de tentative de mutation');
+    });
+
+    it('84: Option B - Le backend force obligatoirement pricing_schema_version = 2 lors de la création d intention', () => {
+        const controllerCode = fs.readFileSync(path.join(__dirname, '../controllers/paymentController.js'), 'utf-8');
+        assert.ok(controllerCode.includes('pricing_schema_version: 2'), 'pricing_schema_version fixé à 2 côté serveur');
+    });
+
+    it('85: Option B - Aucun paramètre pricing_schema_version n est accepté depuis req.body', () => {
+        const controllerCode = fs.readFileSync(path.join(__dirname, '../controllers/paymentController.js'), 'utf-8');
+        assert.ok(!controllerCode.includes('req.body.pricing_schema_version'), 'Rejet de toute valeur client pour la version');
+    });
+
+    it('86: Option B - Une nouvelle intention ne peut jamais être insérée en schema version 1', () => {
+        const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlCode.includes("TG_OP = 'INSERT'"), 'Vérification TG_OP INSERT présente');
+        assert.ok(sqlCode.includes('NEW.pricing_schema_version IS DISTINCT FROM 2'), 'Condition de rejet sur INSERT si non 2');
+        assert.ok(sqlCode.includes('PRICING_SCHEMA_VERSION_LEGACY_ONLY'), 'Exception explicite PRICING_SCHEMA_VERSION_LEGACY_ONLY');
+        assert.ok(sqlCode.includes('BEFORE INSERT OR UPDATE ON public.payment_intents'), 'Trigger monté sur BEFORE INSERT OR UPDATE');
     });
 });
