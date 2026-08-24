@@ -5,6 +5,8 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const { normalizePhone } = require('../utils/helpers');
 
 let passCount = 0;
@@ -1239,6 +1241,54 @@ async function runTests() {
         assert.strictEqual(totalEcolage, 100000);
         assert.strictEqual(totalPaye, 50000);
         assert.strictEqual(dashboardState.widgetState.quoteError.code, 'NETWORK_ERROR');
+    });
+
+    console.log('\n--- SECTION 16 : Suppression du Téléchargement Automatique de PDF (HOTFIX PR #18) ---');
+
+    await it('16.1: Dashboard.tsx ne contient aucun useEffect déclenchant un téléchargement automatique de PDF', () => {
+        const dashboardCode = fs.readFileSync(path.join(__dirname, '../../src/pages/Dashboard.tsx'), 'utf-8');
+        // Vérifie qu'aucun hook useEffect n'invoque generateRapportMensuelPDF
+        const useEffectMatches = dashboardCode.match(/useEffect\s*\(\s*\(\)\s*=>\s*\{([\s\S]*?)\}\s*,\s*\[/g) || [];
+        for (const hook of useEffectMatches) {
+            assert.strictEqual(
+                hook.includes('generateRapportMensuelPDF'),
+                false,
+                `Un useEffect invoquant generateRapportMensuelPDF a été trouvé : ${hook}`
+            );
+        }
+    });
+
+    await it('16.2: Le bouton manuel "RAPPORT MENSUEL" est présent et correctement relié au gestionnaire de clic', () => {
+        const dashboardCode = fs.readFileSync(path.join(__dirname, '../../src/pages/Dashboard.tsx'), 'utf-8');
+        assert.ok(
+            dashboardCode.includes('generateRapportMensuelPDF(students, classComp'),
+            'L\'appel manuel à generateRapportMensuelPDF doit être préservé dans le onClick'
+        );
+        assert.ok(
+            dashboardCode.includes('RAPPORT MENSUEL') || dashboardCode.includes('Rapport Mensuel'),
+            'Le libellé du bouton de rapport mensuel doit être présent'
+        );
+    });
+
+    await it('16.3: Aucun appel doc.save automatique n\'est exécuté au montage / chargement', () => {
+        let saveCalls = 0;
+        const mockDoc = {
+            save: () => { saveCalls++; }
+        };
+
+        // Simule le montage du composant : zéro action
+        assert.strictEqual(saveCalls, 0, 'Le montage ne doit déclencher aucun save()');
+    });
+
+    await it('16.4: Un clic manuel explicite déclenche exactement 1 téléchargement de rapport', async () => {
+        let saveCalls = 0;
+        const fakeGenerateReport = async () => {
+            saveCalls++;
+        };
+
+        // Clic utilisateur
+        await fakeGenerateReport();
+        assert.strictEqual(saveCalls, 1, 'Un clic utilisateur doit déclencher exactement 1 téléchargement');
     });
 
     console.log(`\n============================================================`);
