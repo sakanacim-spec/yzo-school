@@ -7,7 +7,6 @@ import { Login } from './components/Login';
 import { LandingPage } from './components/LandingPage';
 import { Layout } from './components/Layout';
 import { AnnouncementPopup } from './components/AnnouncementPopup';
-import { webPushService } from './services/webPushService';
 import { About } from './pages/public/About';
 import { Contact } from './pages/public/Contact';
 import { Careers } from './pages/public/Careers';
@@ -165,13 +164,6 @@ export function App() {
   React.useEffect(() => {
     useStore.getState().fetchPublicSettings();
   }, []);
-
-  // ── Initialisation Web Push (Uniquement pour les Parents ou Web) ──
-  React.useEffect(() => {
-    if (isAuthenticated) {
-      webPushService.init();
-    }
-  }, [isAuthenticated]);
 
   const language = useStore((s) => s.language);
   React.useEffect(() => {

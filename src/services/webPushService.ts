@@ -30,9 +30,11 @@ export const webPushService = {
       const registration = await navigator.serviceWorker.register('/sw.js');
       console.log('✅ [SW] Enregistré.');
 
-
-      // 3. Demande de permission
-      const permission = await Notification.requestPermission();
+      // 2. Vérification / Demande de permission si non accordée
+      let permission = typeof Notification !== 'undefined' ? Notification.permission : 'denied';
+      if (permission !== 'granted' && typeof Notification !== 'undefined') {
+        permission = await Notification.requestPermission();
+      }
       if (permission !== 'granted') {
         console.warn('[Push] Permission refusée par l\'utilisateur.');
         return;

@@ -43,6 +43,26 @@ function makeMockRes() {
 
 const quotesBySlug = new Map();
 
+const DEFAULT_MOCK_SETTINGS = [
+    { key: 'school_year', value: '2026-2027' },
+    { key: 'classes', value: JSON.stringify([
+        { name: 'CI', cycle: 'Primaire', billingCategory: 'maternelle_primaire' },
+        { name: 'CP1', cycle: 'Primaire', billingCategory: 'maternelle_primaire' },
+        { name: 'CP2', cycle: 'Primaire', billingCategory: 'maternelle_primaire' },
+        { name: 'CE1', cycle: 'Primaire', billingCategory: 'maternelle_primaire' },
+        { name: 'CE2', cycle: 'Primaire', billingCategory: 'maternelle_primaire' },
+        { name: 'CM1', cycle: 'Primaire', billingCategory: 'maternelle_primaire' },
+        { name: 'CM2', cycle: 'Primaire', billingCategory: 'maternelle_primaire' },
+        { name: '6EME', cycle: 'Collège', billingCategory: 'college_secondaire' },
+        { name: '5EME', cycle: 'Collège', billingCategory: 'college_secondaire' },
+        { name: '4EME', cycle: 'Collège', billingCategory: 'college_secondaire' },
+        { name: '3EME', cycle: 'Collège', billingCategory: 'college_secondaire' },
+        { name: '2nde S', cycle: 'Lycée', billingCategory: 'college_secondaire' },
+        { name: 'Tle D', cycle: 'Lycée', billingCategory: 'college_secondaire' },
+        { name: 'Master 1', cycle: 'Université & Supérieur', billingCategory: 'superieur_formation' }
+    ]) }
+];
+
 function createMockSupabaseQuery(options = {}) {
     let lastSeenSlug = 'ecole_test';
 
@@ -95,10 +115,18 @@ function createMockSupabaseQuery(options = {}) {
                 })
             };
         },
-        select: () => ({
-            ...chain,
-            then: (resolve) => resolve({ data: [computeDefault()], error: null })
-        }),
+        select: (cols) => {
+            let defaultData = [computeDefault()];
+            if (options.tableName && options.tableName.startsWith('students_')) {
+                defaultData = [{ id: 'st_def_1', classe: '6EME' }];
+            } else if (options.tableName && options.tableName.startsWith('app_settings_')) {
+                defaultData = DEFAULT_MOCK_SETTINGS;
+            }
+            return {
+                ...chain,
+                then: (resolve) => resolve({ data: defaultData, error: null })
+            };
+        },
         eq: (field, val) => {
             if (field === 'school_slug' && typeof val === 'string') {
                 lastSeenSlug = val;
@@ -108,15 +136,18 @@ function createMockSupabaseQuery(options = {}) {
         gt: () => chain,
         lte: () => Promise.resolve({ error: null }),
         single: () => Promise.resolve(options.singleResult || { data: computeDefault() }),
-        then: (resolve) => resolve({ data: [computeDefault()], error: null })
+        then: (resolve) => {
+            let defaultData = [computeDefault()];
+            if (options.tableName && options.tableName.startsWith('students_')) {
+                defaultData = [{ id: 'st_def_1', classe: '6EME' }];
+            } else if (options.tableName && options.tableName.startsWith('app_settings_')) {
+                defaultData = DEFAULT_MOCK_SETTINGS;
+            }
+            return resolve({ data: defaultData, error: null });
+        }
     };
     return chain;
 }
-
-const DEFAULT_MOCK_SETTINGS = [
-    { key: 'school_year', value: '2026-2027' },
-    { key: 'classes', value: JSON.stringify([]) }
-];
 
 describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (37 CONTRÔLES)', () => {
     let originalEnvSecret;
@@ -755,7 +786,7 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         supabase.from = (table) => {
             if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_new_period', paid_tranches_count: 3 } }) }) }) };
             if (table === 'students_ecole_new_period') return { select: () => Promise.resolve({ data: [{ classe: '6EME' }] }) };
-            if (table === 'app_settings_ecole_new_period') return { select: () => Promise.resolve({ data: [{ key: 'school_year', value: '2027-2028' }] }) };
+            if (table === 'app_settings_ecole_new_period') return { select: () => Promise.resolve({ data: [{ key: 'school_year', value: '2027-2028' }, { key: 'classes', value: DEFAULT_MOCK_SETTINGS[1].value }] }) };
             if (table === 'payment_intents') {
                 return {
                     ...createMockSupabaseQuery(),
@@ -801,7 +832,7 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         supabase.from = (table) => {
             if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_immutable', paid_tranches_count: 0 } }) }) }) };
             if (table === 'students_ecole_immutable') return { select: () => Promise.resolve({ data: [{ classe: 'CP1' }] }) };
-            if (table === 'app_settings_ecole_immutable') return { select: () => Promise.resolve({ data: [{ key: 'school_year', value: '2026-2027' }] }) };
+            if (table === 'app_settings_ecole_immutable') return { select: () => Promise.resolve({ data: [{ key: 'school_year', value: '2026-2027' }, { key: 'classes', value: DEFAULT_MOCK_SETTINGS[1].value }] }) };
             if (table === 'payment_intents') {
                 return {
                     ...createMockSupabaseQuery(),
@@ -979,7 +1010,7 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         supabase.from = (table) => {
             if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_multi_period', paid_tranches_count: 0 } }) }) }) };
             if (table === 'students_ecole_multi_period') return { select: () => Promise.resolve({ data: [{ classe: 'CP1' }] }) };
-            if (table === 'app_settings_ecole_multi_period') return { select: () => Promise.resolve({ data: [{ key: 'school_year', value: '2027-2028' }] }) };
+            if (table === 'app_settings_ecole_multi_period') return { select: () => Promise.resolve({ data: [{ key: 'school_year', value: '2027-2028' }, { key: 'classes', value: DEFAULT_MOCK_SETTINGS[1].value }] }) };
             if (table === 'payment_intents') {
                 return createMockSupabaseQuery({ insertResult: { data: { id: 'intent_p2' } } });
             }
@@ -1882,5 +1913,229 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         assert.strictEqual(breakdown.maternelle_primaire, 4, 'Les 4 élèves sont en maternelle_primaire');
         assert.strictEqual(breakdown.college_secondaire, 0);
         assert.strictEqual(breakdown.superieur_formation, 0);
+    });
+
+    // ── NOUVEAUX TESTS HOTFIX (MISSION D : 58 à 70) ──────────────
+    it('58: Table students sans colonne class_id -> devis calculé avec succès', async () => {
+        let requestedColumns = null;
+        supabase.from = (table) => {
+            if (table === 'students_ecole_no_class_id') {
+                return {
+                    select: (cols) => {
+                        requestedColumns = cols;
+                        return Promise.resolve({
+                            data: [
+                                { id: 'st1', classe: 'CE2' },
+                                { id: 'st2', classe: 'CM1' }
+                            ]
+                        });
+                    }
+                };
+            }
+            if (table === 'app_settings_ecole_no_class_id') {
+                return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const quote = await computeSchoolSubscriptionQuote('ecole_no_class_id');
+        assert.strictEqual(quote.totalStudents, 2);
+        assert.strictEqual(quote.breakdown.maternelle_primaire, 2);
+        assert.strictEqual(requestedColumns, 'id, classe', 'Doit demander exactement id, classe');
+    });
+
+    it('59: Aucune requête ne sélectionne la colonne class_id dans les tables élèves', () => {
+        const paymentCtrlCode = fs.readFileSync(path.join(__dirname, '../controllers/paymentController.js'), 'utf-8');
+        assert.ok(!paymentCtrlCode.includes("select('id, classe, class_id')"), 'class_id ne doit plus être sélectionné');
+        assert.ok(paymentCtrlCode.includes("select('id, classe')"), 'id, classe doit être sélectionné');
+    });
+
+    it('60: Classe exacte configurée + billingCategory -> classification réussie', async () => {
+        supabase.from = (table) => {
+            if (table === 'students_ecole_exact') {
+                return {
+                    select: () => Promise.resolve({
+                        data: [{ id: 'st1', classe: '6EME' }, { id: 'st2', classe: '4EME' }]
+                    })
+                };
+            }
+            if (table === 'app_settings_ecole_exact') {
+                return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const quote = await computeSchoolSubscriptionQuote('ecole_exact');
+        assert.strictEqual(quote.totalStudents, 2);
+        assert.strictEqual(quote.breakdown.college_secondaire, 2);
+    });
+
+    it('61: Classe inconnue non configurée -> HTTP 422 fail-closed avec unclassified_count', async () => {
+        supabase.from = (table) => {
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_unknown_cls' } }) }) }) };
+            if (table === 'students_ecole_unknown_cls') {
+                return {
+                    select: () => Promise.resolve({
+                        data: [{ id: 'st1', classe: 'Classe Inexistante' }]
+                    })
+                };
+            }
+            if (table === 'app_settings_ecole_unknown_cls') {
+                return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const req = { params: { slug: 'ecole_unknown_cls' }, user: { role: 'directeur', schoolSlug: 'ecole_unknown_cls' } };
+        const res = makeMockRes();
+        await getSubscriptionQuote(req, res);
+
+        assert.strictEqual(res.statusCode, 422);
+        assert.strictEqual(res.body.code, 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE');
+        assert.strictEqual(res.body.unclassified_count, 1);
+    });
+
+    it('62: Classe configurée mais billingCategory absente -> HTTP 422 fail-closed', async () => {
+        supabase.from = (table) => {
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_missing_cat' } }) }) }) };
+            if (table === 'students_ecole_missing_cat') {
+                return {
+                    select: () => Promise.resolve({
+                        data: [{ id: 'st1', classe: 'CP_SANS_CAT' }]
+                    })
+                };
+            }
+            if (table === 'app_settings_ecole_missing_cat') {
+                return {
+                    select: () => Promise.resolve({
+                        data: [
+                            { key: 'school_year', value: '2026-2027' },
+                            { key: 'classes', value: JSON.stringify([{ name: 'CP_SANS_CAT', cycle: 'Primaire' }]) } // billingCategory absente
+                        ]
+                    })
+                };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const req = { params: { slug: 'ecole_missing_cat' }, user: { role: 'directeur', schoolSlug: 'ecole_missing_cat' } };
+        const res = makeMockRes();
+        await getSubscriptionQuote(req, res);
+
+        assert.strictEqual(res.statusCode, 422);
+        assert.strictEqual(res.body.code, 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE');
+        assert.strictEqual(res.body.unclassified_count, 1);
+    });
+
+    it('63: Aucun nom d élève exposé dans la réponse d erreur de classification', async () => {
+        supabase.from = (table) => {
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_leak_check' } }) }) }) };
+            if (table === 'students_ecole_leak_check') {
+                return {
+                    select: () => Promise.resolve({
+                        data: [{ id: 'secret_uuid_1', nom: 'DUPONT_SECRET', prenom: 'JEAN_SECRET', classe: 'ClasseInconnue' }]
+                    })
+                };
+            }
+            if (table === 'app_settings_ecole_leak_check') {
+                return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const req = { params: { slug: 'ecole_leak_check' }, user: { role: 'directeur', schoolSlug: 'ecole_leak_check' } };
+        const res = makeMockRes();
+        await getSubscriptionQuote(req, res);
+
+        assert.strictEqual(res.statusCode, 422);
+        const respStr = JSON.stringify(res.body);
+        assert.ok(!respStr.includes('DUPONT_SECRET'));
+        assert.ok(!respStr.includes('JEAN_SECRET'));
+        assert.ok(!respStr.includes('secret_uuid_1'));
+    });
+
+    it('64: Quote Loading : widget frontend masque cartes et boutons de paiement', () => {
+        const widgetCode = fs.readFileSync(path.join(__dirname, '../../src/components/SchoolSubscriptionWidget.tsx'), 'utf-8');
+        assert.ok(widgetCode.includes('isLoadingQuote'), 'Présence de l état isLoadingQuote');
+        assert.ok(widgetCode.includes('Calcul du devis officiel en cours'), 'Message de chargement présent');
+    });
+
+    it('65: Quote Error : aucune carte à zéro affichée', () => {
+        const widgetCode = fs.readFileSync(path.join(__dirname, '../../src/components/SchoolSubscriptionWidget.tsx'), 'utf-8');
+        assert.ok(widgetCode.includes('!isLoadingQuote && (quoteError || !serverQuote)'), 'Conditionnement strict en cas d erreur');
+    });
+
+    it('66: Quote Error : bouton Réessayer présent et relié à fetchQuote', () => {
+        const widgetCode = fs.readFileSync(path.join(__dirname, '../../src/components/SchoolSubscriptionWidget.tsx'), 'utf-8');
+        assert.ok(widgetCode.includes('onClick={fetchQuote}'), 'Bouton Réessayer relance fetchQuote');
+        assert.ok(widgetCode.includes('Réessayer'), 'Libellé Réessayer présent');
+    });
+
+    it('67: Quote Valide : seules les catégories count > 0 sont rendues', () => {
+        const widgetCode = fs.readFileSync(path.join(__dirname, '../../src/components/SchoolSubscriptionWidget.tsx'), 'utf-8');
+        assert.ok(widgetCode.includes('effectiveBreakdown.maternelle_primaire > 0 &&'), 'Filtrage count > 0 maternelle_primaire');
+        assert.ok(widgetCode.includes('effectiveBreakdown.college_secondaire > 0 &&'), 'Filtrage count > 0 college_secondaire');
+        assert.ok(widgetCode.includes('effectiveBreakdown.superieur_formation > 0 &&'), 'Filtrage count > 0 superieur_formation');
+    });
+
+    it('68: Quote_id absent ou quoteError -> tentative de paiement bloquée fail-closed', () => {
+        const widgetCode = fs.readFileSync(path.join(__dirname, '../../src/components/SchoolSubscriptionWidget.tsx'), 'utf-8');
+        assert.ok(widgetCode.includes('if (isProcessing || isLoadingQuote || !serverQuote || !serverQuote.quote_id || quoteError) return;'), 'Guard de paiement fail-closed');
+    });
+
+    it('69: App.tsx ne contient aucun appel automatique à webPushService.init() après connexion', () => {
+        const appCode = fs.readFileSync(path.join(__dirname, '../../src/App.tsx'), 'utf-8');
+        assert.ok(!appCode.includes('webPushService.init()'), 'Aucun appel inconditionnel à webPushService.init() dans App.tsx');
+    });
+
+    it('70: Demande de permission push uniquement dans les Paramètres sur clic explicite', () => {
+        const paramsCode = fs.readFileSync(path.join(__dirname, '../../src/pages/Parametres.tsx'), 'utf-8');
+        assert.ok(paramsCode.includes('handleEnablePushNotifications'), 'Handler explicite dans Parametres.tsx');
+        assert.ok(paramsCode.includes('Notification.requestPermission()'), 'Demande de permission dans le handler explicite');
+        assert.ok(paramsCode.includes('Activer les notifications'), 'Bouton explicite présent');
+    });
+
+    it('71: Connexion directeur : 0 appel automatique à Notification.requestPermission', () => {
+        const loginCode = fs.readFileSync(path.join(__dirname, '../../src/components/Login.tsx'), 'utf-8');
+        const appCode = fs.readFileSync(path.join(__dirname, '../../src/App.tsx'), 'utf-8');
+        const storeCode = fs.readFileSync(path.join(__dirname, '../../src/store/useStore.ts'), 'utf-8');
+        assert.ok(!loginCode.includes('Notification.requestPermission'), 'Login.tsx ne doit pas demander la permission');
+        assert.ok(!appCode.includes('Notification.requestPermission'), 'App.tsx ne doit pas demander la permission');
+        assert.ok(!storeCode.includes('Notification.requestPermission'), 'useStore.ts ne doit pas demander la permission');
+    });
+
+    it('72: Rechargement authentifié : 0 appel automatique à Notification.requestPermission', () => {
+        const appCode = fs.readFileSync(path.join(__dirname, '../../src/App.tsx'), 'utf-8');
+        const layoutCode = fs.readFileSync(path.join(__dirname, '../../src/components/Layout.tsx'), 'utf-8');
+        assert.ok(!appCode.includes('webPushService.init'), 'App.tsx ne déclenche pas le service push');
+        assert.ok(!layoutCode.includes('Notification.requestPermission'), 'Layout.tsx ne demande pas de permission');
+    });
+
+    it('73: Ouverture du Dashboard : 0 appel automatique à Notification.requestPermission', () => {
+        const dashCode = fs.readFileSync(path.join(__dirname, '../../src/pages/Dashboard.tsx'), 'utf-8');
+        const parentDashCode = fs.readFileSync(path.join(__dirname, '../../src/pages/parent/ParentDashboard.tsx'), 'utf-8');
+        assert.ok(!dashCode.includes('Notification.requestPermission'), 'Dashboard.tsx ne demande pas de permission');
+        assert.ok(!parentDashCode.includes('Notification.requestPermission'), 'ParentDashboard.tsx ne demande pas de permission');
+    });
+
+    it('74: Clic « Activer les notifications » : exactement 1 appel à Notification.requestPermission()', () => {
+        const paramsCode = fs.readFileSync(path.join(__dirname, '../../src/pages/Parametres.tsx'), 'utf-8');
+        const occurrences = (paramsCode.match(/Notification\.requestPermission\(\)/g) || []).length;
+        assert.strictEqual(occurrences, 1, 'Exactement 1 appel à Notification.requestPermission() dans Parametres.tsx');
+    });
+
+    it('75: Double demande supprimée : si permission === granted, webPushService.init() ne rappelle pas requestPermission', () => {
+        const webPushCode = fs.readFileSync(path.join(__dirname, '../../src/services/webPushService.ts'), 'utf-8');
+        assert.ok(webPushCode.includes("permission !== 'granted'"), 'Vérification préalable de permission dans webPushService');
+    });
+
+    it('76: Permission denied : aucune souscription push et message explicite', () => {
+        const paramsCode = fs.readFileSync(path.join(__dirname, '../../src/pages/Parametres.tsx'), 'utf-8');
+        assert.ok(paramsCode.includes('Notifications refusées dans le navigateur'), 'Message explicite si denied');
+    });
+
+    it('77: Navigateur incompatible : aucun crash et statut unsupported géré', () => {
+        const paramsCode = fs.readFileSync(path.join(__dirname, '../../src/pages/Parametres.tsx'), 'utf-8');
+        assert.ok(paramsCode.includes('Notifications non prises en charge'), 'Gestion du statut unsupported');
     });
 });

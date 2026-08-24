@@ -751,7 +751,7 @@ async function computeSchoolSubscriptionQuote(schoolSlug, options = {}) {
     // 2. Récupération des effectifs élèves
     const { data: studentsData, error: stuErr } = await supabase
         .from(`students_${schoolSlug}`)
-        .select('id, classe, class_id');
+        .select('id, classe');
 
     if (stuErr) {
         const err = new Error(`STUDENTS_QUERY_FAILED: ${stuErr.message}`);
@@ -768,20 +768,14 @@ async function computeSchoolSubscriptionQuote(schoolSlug, options = {}) {
         throw err;
     }
 
-    // 3. Indexation des classes configurées
-    const classById = new Map();
+    // 3. Indexation des classes configurées par nom normalisé
     const classByName = new Map();
 
     if (Array.isArray(configuredClasses)) {
         for (const cls of configuredClasses) {
-            if (cls && typeof cls === 'object') {
-                if (cls.id) {
-                    classById.set(String(cls.id).toLowerCase().trim(), cls);
-                }
-                if (cls.name) {
-                    const norm = normalizeClassName(cls.name);
-                    if (norm) classByName.set(norm, cls);
-                }
+            if (cls && typeof cls === 'object' && cls.name) {
+                const norm = normalizeClassName(cls.name);
+                if (norm) classByName.set(norm, cls);
             }
         }
     }
@@ -794,31 +788,21 @@ async function computeSchoolSubscriptionQuote(schoolSlug, options = {}) {
     };
 
     for (const student of studentList) {
-        let matchedClass = null;
-        if (student.class_id && classById.has(String(student.class_id).toLowerCase().trim())) {
-            matchedClass = classById.get(String(student.class_id).toLowerCase().trim());
-        } else if (student.classe) {
-            const norm = normalizeClassName(student.classe);
-            if (classByName.has(norm)) {
-                matchedClass = classByName.get(norm);
-            }
-        }
-
-        if (!matchedClass && student.classe) {
-            const norm = normalizeClassName(student.classe);
-            const defMatched = DEFAULT_CLASS_CONFIGS.find(c => normalizeClassName(c.name) === norm);
-            if (defMatched) {
-                matchedClass = defMatched;
-            }
-        }
-
-        if (!matchedClass) {
+        if (!student.classe) {
             unclassifiedCount++;
             continue;
         }
 
-        const billingCat = normalizeCycleToBillingCategory(matchedClass.cycle, matchedClass.billingCategory);
-        if (!billingCat || !breakdown.hasOwnProperty(billingCat)) {
+        const norm = normalizeClassName(student.classe);
+        const matchedClass = classByName.get(norm);
+
+        if (!matchedClass || !matchedClass.billingCategory) {
+            unclassifiedCount++;
+            continue;
+        }
+
+        const billingCat = String(matchedClass.billingCategory).toLowerCase().trim();
+        if (!breakdown.hasOwnProperty(billingCat)) {
             unclassifiedCount++;
             continue;
         }

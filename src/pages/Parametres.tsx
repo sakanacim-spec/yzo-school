@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, School, MessageSquare, Shield, Info,
-  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight, CheckCircle, ChevronUp, ChevronDown, Eye, EyeOff, Edit3, BookOpen, Search
+  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight, CheckCircle, ChevronUp, ChevronDown, Eye, EyeOff, Edit3, BookOpen, Search, Bell
 } from 'lucide-react';
 import { GestionPersonnel } from '../components/GestionPersonnel';
 import { BACKEND_URL } from '../config';
@@ -58,6 +58,40 @@ export const Parametres: React.FC = () => {
   const [localPayoutMethod, setLocalPayoutMethod] = useState<'momo' | 'rib'>(payoutMethod || 'momo');
 
   const [saved, setSaved] = useState(false);
+
+  // ── État Notifications Push (Action explicite uniquement) ──
+  const [pushStatus, setPushStatus] = useState<string>('default');
+  const [isActivatingPush, setIsActivatingPush] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+        setPushStatus('unsupported');
+      } else {
+        setPushStatus(Notification.permission);
+      }
+    }
+  }, []);
+
+  const handleEnablePushNotifications = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+      setPushStatus('unsupported');
+      return;
+    }
+    setIsActivatingPush(true);
+    try {
+      const perm = await Notification.requestPermission();
+      setPushStatus(perm);
+      if (perm === 'granted') {
+        const { webPushService } = await import('../services/webPushService');
+        await webPushService.init();
+      }
+    } catch (err) {
+      console.error('Erreur activation notifications:', err);
+    } finally {
+      setIsActivatingPush(false);
+    }
+  };
 
   // ── Config évaluations ────────────────────────────────
   const storedEvalConfigs = useStore((s) => s.settings?.evalConfigs);
@@ -1567,6 +1601,45 @@ export const Parametres: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* ── NOTIFICATIONS PUSH ─────────────────────────── */}
+            <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800">
+              <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3 mb-2">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
+                  <Bell className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                Notifications push
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+                Recevez des alertes instantanées pour les annonces, messages et événements importants de votre établissement.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <div>
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest block">
+                    État des notifications
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-bold">
+                    {pushStatus === 'granted' && '✅ Notifications activées'}
+                    {pushStatus === 'denied' && '❌ Notifications refusées dans le navigateur'}
+                    {pushStatus === 'unsupported' && '⚠️ Notifications non prises en charge sur cet appareil'}
+                    {pushStatus === 'default' && 'Notifications non configurées'}
+                  </span>
+                </div>
+
+                {pushStatus !== 'unsupported' && pushStatus !== 'granted' && (
+                  <button
+                    type="button"
+                    onClick={handleEnablePushNotifications}
+                    disabled={isActivatingPush}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2"
+                  >
+                    <Bell className="w-4 h-4" />
+                    {isActivatingPush ? 'Activation en cours…' : 'Activer les notifications'}
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* ── À PROPOS ────────────────────────────── */}
             <div className="flex items-center justify-center gap-2 text-slate-400 dark:text-slate-600">
