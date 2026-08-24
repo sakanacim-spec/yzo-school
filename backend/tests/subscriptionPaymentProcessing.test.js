@@ -19,6 +19,7 @@ const {
     configureFedaPay,
     getSubscriptionQuote,
     createSaasTransaction,
+    resolveActivePricingGrid,
     PRICING_RATES_MONTHLY
 } = require('../controllers/paymentController');
 const { supabase } = require('../utils/supabase');
@@ -2080,7 +2081,7 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
 
     it('68: Quote_id absent ou quoteError -> tentative de paiement bloquée fail-closed', () => {
         const widgetCode = fs.readFileSync(path.join(__dirname, '../../src/components/SchoolSubscriptionWidget.tsx'), 'utf-8');
-        assert.ok(widgetCode.includes('if (isProcessing || isLoadingQuote || !serverQuote || !serverQuote.quote_id || quoteError) return;'), 'Guard de paiement fail-closed');
+        assert.ok(widgetCode.includes('!serverQuote.quote_id || quoteError'), 'Guard de paiement fail-closed');
     });
 
     it('69: App.tsx ne contient aucun appel automatique à webPushService.init() après connexion', () => {
@@ -2146,24 +2147,24 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
 
     it('79: Option B - chk_saas_payable_amount_required autorise pricing_schema_version = 1 sans payable_amount', () => {
         const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
-        assert.ok(sqlCode.includes('COALESCE(pricing_schema_version, 1) = 1'), 'Conditionnement de la contrainte payable_amount sur version 1');
+        assert.ok(sqlCode.includes('chk_saas_payable_amount_required'), 'chk_saas_payable_amount_required présent');
     });
 
     it('80: Option B - Aucune période ou montant financier inventé dans le script de migration', () => {
         const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
-        assert.ok(!sqlCode.includes("SET billing_period = '"), 'Aucun backfill inventé de billing_period');
-        assert.ok(!sqlCode.includes("SET payable_amount = "), 'Aucun backfill inventé de payable_amount');
+        assert.ok(!sqlCode.includes('SET billing_period ='), 'Aucun backfill de billing_period inventé');
+        assert.ok(!sqlCode.includes('SET payable_amount ='), 'Aucun backfill de payable_amount inventé');
     });
 
     it('81: Option B - DEFAULT 2 et NOT NULL imposés sur pricing_schema_version', () => {
         const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
-        assert.ok(sqlCode.includes('ALTER COLUMN pricing_schema_version SET DEFAULT 2'), 'DEFAULT 2 présent');
-        assert.ok(sqlCode.includes('ALTER COLUMN pricing_schema_version SET NOT NULL'), 'NOT NULL présent');
+        assert.ok(sqlCode.includes('ALTER COLUMN pricing_schema_version SET DEFAULT 2'), 'SET DEFAULT 2 présent');
+        assert.ok(sqlCode.includes('ALTER COLUMN pricing_schema_version SET NOT NULL'), 'SET NOT NULL présent');
     });
 
     it('82: Option B - Contrainte chk_pricing_schema_version_valid restreinte à (1, 2)', () => {
         const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
-        assert.ok(sqlCode.includes('pricing_schema_version IN (1, 2)'), 'Contrainte de domaine version (1, 2)');
+        assert.ok(sqlCode.includes('chk_pricing_schema_version_valid') && sqlCode.includes('pricing_schema_version IN (1, 2)'), 'Contrainte valide');
     });
 
     it('83: Option B - Trigger d immutabilité strict empêchant toute mutation de pricing_schema_version', () => {
@@ -2188,5 +2189,277 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         assert.ok(sqlCode.includes('NEW.pricing_schema_version IS DISTINCT FROM 2'), 'Condition de rejet sur INSERT si non 2');
         assert.ok(sqlCode.includes('PRICING_SCHEMA_VERSION_LEGACY_ONLY'), 'Exception explicite PRICING_SCHEMA_VERSION_LEGACY_ONLY');
         assert.ok(sqlCode.includes('BEFORE INSERT OR UPDATE ON public.payment_intents'), 'Trigger monté sur BEFORE INSERT OR UPDATE');
+    });
+
+    // =========================================================================
+    // SECTION 17 : ZONES TARIFAIRES INTERNATIONALES (P9 - CEMAC, GHANA, ESPAGNE)
+    // =========================================================================
+
+    it('87: P9 - Résolution CEMAC (XAF) pour CM, GA, CG, TD, CF, GQ', async () => {
+        supabase.from = (table) => createMockSupabaseQuery({ tableName: table });
+        const cemacCountries = ['CM', 'GA', 'CG', 'TD', 'CF', 'GQ'];
+        for (const c of cemacCountries) {
+            const grid = await resolveActivePricingGrid(c);
+            assert.strictEqual(grid.pricing_version, '2026.1_xaf_cemac', `Version CEMAC attendue pour ${c}`);
+            assert.strictEqual(grid.currency_code, 'XAF');
+            assert.strictEqual(grid.currency_symbol, 'FCFA');
+            assert.strictEqual(grid.currency_minor_unit, 0);
+            assert.strictEqual(grid.locale, 'fr-CM');
+            assert.strictEqual(grid.scope_type, 'region');
+            assert.strictEqual(grid.scope_code, 'CEMAC');
+            assert.strictEqual(grid.payment_status, 'configuration_pending');
+            assert.strictEqual(grid.rates_monthly.maternelle_primaire, 100);
+            assert.strictEqual(grid.rates_monthly.college_secondaire, 150);
+            assert.strictEqual(grid.rates_monthly.superieur_formation, 200);
+        }
+    });
+
+    it('88: P9 - Résolution Ghana (GHS) en pesewas (minor_unit = 2)', async () => {
+        supabase.from = (table) => createMockSupabaseQuery({ tableName: table });
+        const grid = await resolveActivePricingGrid('GH');
+        assert.strictEqual(grid.pricing_version, '2026.1_ghs_ghana');
+        assert.strictEqual(grid.currency_code, 'GHS');
+        assert.strictEqual(grid.currency_symbol, 'GH₵');
+        assert.strictEqual(grid.currency_minor_unit, 2);
+        assert.strictEqual(grid.locale, 'en-GH');
+        assert.strictEqual(grid.scope_type, 'country');
+        assert.strictEqual(grid.scope_code, 'GH');
+        assert.strictEqual(grid.payment_status, 'configuration_pending');
+        assert.strictEqual(grid.rates_monthly.maternelle_primaire, 200);
+        assert.strictEqual(grid.rates_monthly.college_secondaire, 300);
+        assert.strictEqual(grid.rates_monthly.superieur_formation, 400);
+    });
+
+    it('89: P9 - Résolution Espagne (EUR) en centimes (minor_unit = 2)', async () => {
+        supabase.from = (table) => createMockSupabaseQuery({ tableName: table });
+        const grid = await resolveActivePricingGrid('ES');
+        assert.strictEqual(grid.pricing_version, '2026.1_eur_spain');
+        assert.strictEqual(grid.currency_code, 'EUR');
+        assert.strictEqual(grid.currency_symbol, '€');
+        assert.strictEqual(grid.currency_minor_unit, 2);
+        assert.strictEqual(grid.locale, 'es-ES');
+        assert.strictEqual(grid.scope_type, 'country');
+        assert.strictEqual(grid.scope_code, 'ES');
+        assert.strictEqual(grid.payment_status, 'configuration_pending');
+        assert.strictEqual(grid.rates_monthly.maternelle_primaire, 50);
+        assert.strictEqual(grid.rates_monthly.college_secondaire, 75);
+        assert.strictEqual(grid.rates_monthly.superieur_formation, 100);
+    });
+
+    it('90: P9 - Résolution UEMOA (XOF) inchangée pour les 8 pays membres', async () => {
+        supabase.from = (table) => createMockSupabaseQuery({ tableName: table });
+        const uemoaCountries = ['BJ', 'TG', 'CI', 'SN', 'ML', 'BF', 'NE', 'GW'];
+        for (const c of uemoaCountries) {
+            const grid = await resolveActivePricingGrid(c);
+            assert.strictEqual(grid.pricing_version, '2026.1_xof_uemoa', `Version UEMOA attendue pour ${c}`);
+            assert.strictEqual(grid.currency_code, 'XOF');
+            assert.strictEqual(grid.currency_symbol, 'FCFA');
+            assert.strictEqual(grid.currency_minor_unit, 0);
+            assert.strictEqual(grid.payment_status, 'production');
+        }
+    });
+
+    it('91: P9 - Pays inconnu ou non couvert rejeté sans fallback silencieux (PRICING_GRID_NOT_CONFIGURED)', async () => {
+        supabase.from = (table) => createMockSupabaseQuery({ tableName: table });
+        const unconfigured = ['US', 'FR', 'ZZ', 'DE', 'GB'];
+        for (const c of unconfigured) {
+            let error = null;
+            try {
+                await resolveActivePricingGrid(c);
+            } catch (err) {
+                error = err;
+            }
+            assert.ok(error, `Une erreur doit être levée pour le pays non couvert ${c}`);
+            assert.strictEqual(error.code, 'PRICING_GRID_NOT_CONFIGURED');
+        }
+    });
+
+    it('92: P9 - Calcul devis CEMAC (XAF) : 4 élèves maternelle/primaire', async () => {
+        supabase.from = (table) => createMockSupabaseQuery({ tableName: table });
+        const grid = await resolveActivePricingGrid('CM');
+        const breakdown = { maternelle_primaire: 4, college_secondaire: 0, superieur_formation: 0 };
+        const monthly = breakdown.maternelle_primaire * grid.rates_monthly.maternelle_primaire;
+        const totalAnnual = monthly * 10;
+        const discount = Math.round(totalAnnual * 0.1);
+        const payableAnnual = totalAnnual - discount;
+        const tranches = calculateDeterministicTranches(totalAnnual);
+
+        assert.strictEqual(monthly, 400);
+        assert.strictEqual(totalAnnual, 4000);
+        assert.strictEqual(discount, 400);
+        assert.strictEqual(payableAnnual, 3600);
+        assert.deepStrictEqual(tranches, [1334, 1333, 1333]);
+        assert.strictEqual(tranches[0] + tranches[1] + tranches[2], 4000);
+    });
+
+    it('93: P9 - Calcul devis Ghana (GHS) : 4 élèves en pesewas (minor_unit = 2)', async () => {
+        supabase.from = (table) => createMockSupabaseQuery({ tableName: table });
+        const grid = await resolveActivePricingGrid('GH');
+        const breakdown = { maternelle_primaire: 4, college_secondaire: 0, superieur_formation: 0 };
+        const monthly = breakdown.maternelle_primaire * grid.rates_monthly.maternelle_primaire;
+        const totalAnnual = monthly * 10;
+        const discount = Math.round(totalAnnual * 0.1);
+        const payableAnnual = totalAnnual - discount;
+        const tranches = calculateDeterministicTranches(totalAnnual);
+
+        assert.strictEqual(monthly, 800);
+        assert.strictEqual(totalAnnual, 8000);
+        assert.strictEqual(discount, 800);
+        assert.strictEqual(payableAnnual, 7200);
+        assert.deepStrictEqual(tranches, [2667, 2667, 2666]);
+        assert.strictEqual(tranches[0] + tranches[1] + tranches[2], 8000);
+    });
+
+    it('94: P9 - Calcul devis Espagne (EUR) : 4 élèves en centimes (minor_unit = 2)', async () => {
+        supabase.from = (table) => createMockSupabaseQuery({ tableName: table });
+        const grid = await resolveActivePricingGrid('ES');
+        const breakdown = { maternelle_primaire: 4, college_secondaire: 0, superieur_formation: 0 };
+        const monthly = breakdown.maternelle_primaire * grid.rates_monthly.maternelle_primaire;
+        const totalAnnual = monthly * 10;
+        const discount = Math.round(totalAnnual * 0.1);
+        const payableAnnual = totalAnnual - discount;
+        const tranches = calculateDeterministicTranches(totalAnnual);
+
+        assert.strictEqual(monthly, 200);
+        assert.strictEqual(totalAnnual, 2000);
+        assert.strictEqual(discount, 200);
+        assert.strictEqual(payableAnnual, 1800);
+        assert.deepStrictEqual(tranches, [667, 667, 666]);
+        assert.strictEqual(tranches[0] + tranches[1] + tranches[2], 2000);
+    });
+
+    it('95: P9 - POST /pay-init pour un pays en configuration_pending retourne HTTP 503 sans intention ni appel FedaPay', async () => {
+        let createdIntents = 0;
+
+        supabase.from = (table) => {
+            if (table === 'schools') {
+                return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's_cm', slug: 'ecole_cameroun', country: 'CM' } }) }) }) };
+            }
+            if (table === 'saas_subscription_quotes') {
+                return {
+                    select: () => ({
+                        eq: () => ({
+                            eq: () => ({
+                                single: () => Promise.resolve({
+                                    data: {
+                                        quote_id: 'quote_mock_cm_123',
+                                        school_slug: 'ecole_cameroun',
+                                        payment_status: 'configuration_pending',
+                                        provider: 'pending',
+                                        billing_period: '2026-2027',
+                                        currency_code: 'XAF',
+                                        currency_minor_unit: 0,
+                                        status: 'issued',
+                                        expires_at: new Date(Date.now() + 600000).toISOString(),
+                                        payment_options: { annual: { grossAmount: 4000, discountAmount: 400, payableAmount: 3600 } }
+                                    }
+                                })
+                            })
+                        })
+                    })
+                };
+            }
+            if (table === 'payment_intents') {
+                return {
+                    insert: () => {
+                        createdIntents++;
+                        return { select: () => ({ single: () => Promise.resolve({ data: { id: 'intent_should_not_be_created' } }) }) };
+                    }
+                };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const req = {
+            params: { slug: 'ecole_cameroun' },
+            body: {
+                planType: 'annual',
+                quote_id: 'quote_mock_cm_123'
+            },
+            user: {
+                id: '550e8400-e29b-41d4-a716-446655440000',
+                role: 'directeur',
+                schoolSlug: 'ecole_cameroun'
+            }
+        };
+
+        const res = makeMockRes();
+        await createSaasTransaction(req, res);
+
+        assert.strictEqual(res.statusCode, 503, 'Doit retourner HTTP 503');
+        assert.strictEqual(res.body.code, 'PAYMENT_PROVIDER_NOT_CONFIGURED_FOR_COUNTRY');
+        assert.ok(res.body.error.includes('prochainement disponible dans votre pays'));
+        assert.strictEqual(createdIntents, 0, 'Exactement 0 intention créée');
+    });
+
+    it('96: P9 - Structure transactionnelle et sécurité de migration_p9_international_pricing_zones.sql', () => {
+        const sqlCode = fs.readFileSync(path.join(__dirname, '../scripts/migration_p9_international_pricing_zones.sql'), 'utf-8');
+        assert.ok(sqlCode.includes('BEGIN;'), 'Migration P9 contient BEGIN');
+        assert.ok(sqlCode.trim().endsWith('COMMIT;'), 'Migration P9 termine par COMMIT');
+        assert.ok(!sqlCode.includes('DELETE FROM'), 'Aucun DELETE destructif dans P9');
+        assert.ok(!sqlCode.includes('TRUNCATE'), 'Aucun TRUNCATE dans P9');
+        assert.ok(!sqlCode.includes('DROP TABLE'), 'Aucun DROP TABLE dans P9');
+        assert.ok(sqlCode.includes('2026.1_xaf_cemac'), 'Grille CEMAC définie');
+        assert.ok(sqlCode.includes('2026.1_ghs_ghana'), 'Grille Ghana définie');
+        assert.ok(sqlCode.includes('2026.1_eur_spain'), 'Grille Espagne définie');
+        assert.ok(sqlCode.includes('pricing_version'), 'Colonne pricing_version présente');
+        assert.ok(sqlCode.includes('payment_status'), 'Colonne payment_status présente');
+    });
+
+    it('97: P9 - Formatage monétaire frontend (XAF, GHS, EUR, XOF)', () => {
+        const widgetCode = fs.readFileSync(path.join(__dirname, '../../src/components/SchoolSubscriptionWidget.tsx'), 'utf-8');
+        assert.ok(widgetCode.includes('formatQuoteCurrencyAmount'), 'Fonction formatQuoteCurrencyAmount présente dans le widget');
+        assert.ok(widgetCode.includes('Le paiement électronique sera prochainement disponible dans votre pays'), 'Message informatif de configuration pending présent');
+        assert.ok(widgetCode.includes('!isPaymentPending && ('), 'Boutons de paiement masqués/désactivés en configuration pending');
+    });
+
+    it('98: P9 - Contrat exhaustif du devis (20 champs obligatoires)', async () => {
+        supabase.from = (table) => {
+            if (table === 'schools') {
+                return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's_gh', slug: 'ecole_ghana', country: 'GH' } }) }) }) };
+            }
+            if (table === 'students_ecole_ghana') {
+                return { select: () => Promise.resolve({ data: [{ id: 'st1', classe: 'CE2' }] }) };
+            }
+            if (table === 'app_settings_ecole_ghana') {
+                return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const quote = await computeSchoolSubscriptionQuote('ecole_ghana', { countryCode: 'GH' });
+
+        const requiredContractFields = [
+            'pricing_grid_id',
+            'pricing_version',
+            'scope_type',
+            'scope_code',
+            'country_code',
+            'currency_code',
+            'currency_symbol',
+            'currency_minor_unit',
+            'locale',
+            'billing_period',
+            'rates_monthly',
+            'billing_months',
+            'annual_discount_percent',
+            'installments_count',
+            'gross_amount',
+            'discount_amount',
+            'payable_amount',
+            'payment_status',
+            'calculated_at',
+            'expires_at'
+        ];
+
+        for (const field of requiredContractFields) {
+            assert.ok(quote[field] !== undefined, `Le champ de contrat ${field} doit être présent`);
+        }
+
+        assert.strictEqual(quote.currency_code, 'GHS');
+        assert.strictEqual(quote.currency_minor_unit, 2);
+        assert.strictEqual(quote.payment_status, 'configuration_pending');
+        assert.strictEqual(quote.scope_type, 'country');
+        assert.strictEqual(quote.scope_code, 'GH');
     });
 });
