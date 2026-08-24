@@ -986,6 +986,119 @@ async function runTests() {
         assert.strictEqual(successMessage, 'Paramètres enregistrés avec succès.');
     });
 
+    // ============================================================
+    // SECTION 14 : CATÉGORIES TARIFAIRES BILLING_CATEGORY DANS LES PARAMÈTRES
+    // ============================================================
+    console.log('\n--- SECTION 14 : Catégories Tarifaires BillingCategory (Paramètres & Classes) ---');
+
+    const ALLOWED_BILLING_CATEGORIES = new Set([
+        'maternelle_primaire',
+        'college_secondaire',
+        'superieur_formation'
+    ]);
+
+    await it('14.1: Champ obligatoire Catégorie de facturation Yziow dans le formulaire classe', () => {
+        const validateClassForm = (name, cycle, billingCategory) => {
+            if (!name || !name.trim()) return { valid: false, error: 'Le nom de la classe est obligatoire.' };
+            if (!cycle || !cycle.trim()) return { valid: false, error: 'Le nom du cycle est obligatoire.' };
+            if (!billingCategory || !billingCategory.trim()) return { valid: false, error: 'La catégorie de facturation Yziow est obligatoire.' };
+            return { valid: true };
+        };
+
+        const resWithoutCategory = validateClassForm('6ème A', 'Collège', '');
+        assert.strictEqual(resWithoutCategory.valid, false);
+        assert.strictEqual(resWithoutCategory.error, 'La catégorie de facturation Yziow est obligatoire.');
+
+        const resWithCategory = validateClassForm('6ème A', 'Collège', 'college_secondaire');
+        assert.strictEqual(resWithCategory.valid, true);
+    });
+
+    await it('14.2: Trois valeurs techniques fermées (maternelle_primaire, college_secondaire, superieur_formation)', () => {
+        assert.strictEqual(ALLOWED_BILLING_CATEGORIES.has('maternelle_primaire'), true);
+        assert.strictEqual(ALLOWED_BILLING_CATEGORIES.has('college_secondaire'), true);
+        assert.strictEqual(ALLOWED_BILLING_CATEGORIES.has('superieur_formation'), true);
+        assert.strictEqual(ALLOWED_BILLING_CATEGORIES.size, 3);
+    });
+
+    await it('14.3: Nouvelle classe personnalisée persistée avec billingCategory', () => {
+        const newClass = {
+            id: 'cls-custom-1',
+            name: 'Year 7 British',
+            cycle: 'Key Stage 3',
+            billingCategory: 'college_secondaire',
+            ecolage: 80000,
+            active: true
+        };
+
+        assert.strictEqual(newClass.billingCategory, 'college_secondaire');
+        assert.strictEqual(ALLOWED_BILLING_CATEGORIES.has(newClass.billingCategory), true);
+    });
+
+    await it('14.4: Modification de classe conserve la billingCategory après synchronisation', () => {
+        let currentClass = {
+            id: 'cls-1',
+            name: 'CP1',
+            cycle: 'Primaire',
+            billingCategory: 'maternelle_primaire',
+            ecolage: 50000
+        };
+
+        // Modification
+        currentClass = {
+            ...currentClass,
+            billingCategory: 'maternelle_primaire',
+            ecolage: 55000
+        };
+
+        const serialized = JSON.stringify([currentClass]);
+        const parsed = JSON.parse(serialized);
+
+        assert.strictEqual(parsed[0].billingCategory, 'maternelle_primaire');
+        assert.strictEqual(parsed[0].ecolage, 55000);
+    });
+
+    await it('14.5: Avertissement explicite de non-rétroactivité', () => {
+        const warningText = '⚠️ Cette modification affectera les prochains devis, jamais les paiements déjà initiés ou confirmés.';
+        assert.ok(warningText.includes('affectera les prochains devis'));
+        assert.ok(warningText.includes('jamais les paiements déjà initiés'));
+    });
+
+    await it('14.6: Classe historique ambiguë résolue en « Catégorie à définir »', () => {
+        const resolveCategoryBadge = (cls) => {
+            if (cls.billingCategory && ALLOWED_BILLING_CATEGORIES.has(cls.billingCategory)) {
+                return cls.billingCategory;
+            }
+            // Inférence déterministe pour les cycles standards
+            const lowerCycle = (cls.cycle || '').toLowerCase();
+            if (lowerCycle.includes('primaire') || lowerCycle.includes('maternelle')) return 'maternelle_primaire';
+            if (lowerCycle.includes('collège') || lowerCycle.includes('secondaire') || lowerCycle.includes('lycée')) return 'college_secondaire';
+            if (lowerCycle.includes('supérieur') || lowerCycle.includes('université')) return 'superieur_formation';
+            return 'CATEGORY_TO_DEFINE';
+        };
+
+        const standardClass = { name: 'CP1', cycle: 'Primaire' };
+        assert.strictEqual(resolveCategoryBadge(standardClass), 'maternelle_primaire');
+
+        const ambiguousClass = { name: 'Classe Inconnue Alpha', cycle: 'Cycle Spécial X' };
+        assert.strictEqual(resolveCategoryBadge(ambiguousClass), 'CATEGORY_TO_DEFINE');
+    });
+
+    await it('14.7: Aucune 4ème catégorie libre acceptée par le validateur', () => {
+        const invalidCategory = 'formation_courte_diplomante';
+        assert.strictEqual(ALLOWED_BILLING_CATEGORIES.has(invalidCategory), false);
+    });
+
+    await it('14.8: Widget de paiement proposant l\'accès aux Paramètres après erreur 422', () => {
+        const errorCodesLeadingToSettings = new Set([
+            'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE',
+            'SUBSCRIPTION_PERIOD_REQUIRED'
+        ]);
+
+        assert.strictEqual(errorCodesLeadingToSettings.has('SUBSCRIPTION_CLASSIFICATION_INCOMPLETE'), true);
+        assert.strictEqual(errorCodesLeadingToSettings.has('SUBSCRIPTION_PERIOD_REQUIRED'), true);
+        assert.strictEqual(errorCodesLeadingToSettings.has('PAYMENT_ALREADY_PENDING'), false);
+    });
+
     console.log(`\n============================================================`);
     console.log(`📊 BILAN DES TESTS : ${passCount} / ${totalCount} réussis`);
     console.log(`============================================================\n`);

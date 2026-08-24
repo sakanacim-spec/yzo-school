@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const {
     createTransaction,
     createSaasTransaction,
+    getSubscriptionQuote,
     createDonationTransaction,
     fedapayWebhook
 } = require('../controllers/paymentController');
@@ -27,6 +28,7 @@ router.post('/public/campaigns/:schoolSlug/:campaignId/donate', donationRateLimi
 // Routes protégées par authentification
 router.use(authenticateToken);
 router.post('/create-transaction', createTransaction);
+router.get('/saas/schools/:slug/quote', getSubscriptionQuote);
 router.post('/saas/schools/:slug/pay-init', createSaasTransaction);
 
 module.exports = router;

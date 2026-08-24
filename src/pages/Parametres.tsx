@@ -250,6 +250,7 @@ export const Parametres: React.FC = () => {
   const [classNameInput, setClassNameInput] = useState('');
   const [classCycleInput, setClassCycleInput] = useState('');
   const [classCustomCycle, setClassCustomCycle] = useState('');
+  const [classBillingCategoryInput, setClassBillingCategoryInput] = useState<string>('maternelle_primaire');
   const [classEcolageInput, setClassEcolageInput] = useState(50000);
   const [classActiveInput, setClassActiveInput] = useState(true);
   const [classFormError, setClassFormError] = useState<string | null>(null);
@@ -266,6 +267,7 @@ export const Parametres: React.FC = () => {
     setClassNameInput('');
     setClassCycleInput(defaultCycle || (activeCycles[0] || 'Primaire'));
     setClassCustomCycle('');
+    setClassBillingCategoryInput('maternelle_primaire');
     setClassEcolageInput(50000);
     setClassActiveInput(true);
     setClassFormError(null);
@@ -277,6 +279,16 @@ export const Parametres: React.FC = () => {
     setClassNameInput(cls.name);
     setClassCycleInput(cls.cycle);
     setClassCustomCycle('');
+    const inferredCategory = cls.billingCategory || (
+      cls.cycle?.toLowerCase().includes('maternelle') || cls.cycle?.toLowerCase().includes('primaire') || cls.cycle?.toLowerCase().includes('kindergarten') || cls.cycle?.toLowerCase().includes('primary')
+        ? 'maternelle_primaire'
+        : cls.cycle?.toLowerCase().includes('collège') || cls.cycle?.toLowerCase().includes('secondaire') || cls.cycle?.toLowerCase().includes('lycée') || cls.cycle?.toLowerCase().includes('middle') || cls.cycle?.toLowerCase().includes('high')
+        ? 'college_secondaire'
+        : cls.cycle?.toLowerCase().includes('supérieur') || cls.cycle?.toLowerCase().includes('université') || cls.cycle?.toLowerCase().includes('formation')
+        ? 'superieur_formation'
+        : ''
+    );
+    setClassBillingCategoryInput(inferredCategory);
     setClassEcolageInput(cls.ecolage || 0);
     setClassActiveInput(cls.active !== false);
     setClassFormError(null);
@@ -297,11 +309,16 @@ export const Parametres: React.FC = () => {
       setClassFormError('Le nom du cycle est obligatoire.');
       return;
     }
+    if (!classBillingCategoryInput) {
+      setClassFormError('La catégorie de facturation Yziow est obligatoire.');
+      return;
+    }
 
     if (editingClass) {
       const res = updateClassStore(editingClass.id || editingClass.name, {
         name: finalName,
         cycle: finalCycle,
+        billingCategory: classBillingCategoryInput as any,
         ecolage: Number(classEcolageInput) || 0,
         active: classActiveInput
       });
@@ -314,6 +331,7 @@ export const Parametres: React.FC = () => {
       const res = addClassStore({
         name: finalName,
         cycle: finalCycle,
+        billingCategory: classBillingCategoryInput as any,
         ecolage: Number(classEcolageInput) || 0,
         active: classActiveInput
       });
@@ -818,9 +836,27 @@ export const Parametres: React.FC = () => {
                                       </span>
                                     </div>
 
-                                    <div className="flex items-center justify-between text-xs mb-3 text-slate-600 dark:text-slate-400">
+                                    <div className="flex items-center justify-between text-xs mb-1.5 text-slate-600 dark:text-slate-400">
                                       <span className="font-bold">Écolage :</span>
                                       <span className="font-black text-slate-900 dark:text-white">{cls.ecolage?.toLocaleString() || 0} {currency}</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-xs mb-3 text-slate-600 dark:text-slate-400">
+                                       <span className="font-bold text-[10px] uppercase tracking-wider">Tarif Yziow :</span>
+                                       <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                         cls.billingCategory === 'maternelle_primaire'
+                                           ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                                           : cls.billingCategory === 'college_secondaire'
+                                           ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
+                                           : cls.billingCategory === 'superieur_formation'
+                                           ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                           : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                                       }`}>
+                                         {cls.billingCategory === 'maternelle_primaire' ? 'Primaire (100 F/m)' :
+                                          cls.billingCategory === 'college_secondaire' ? 'Secondaire (150 F/m)' :
+                                          cls.billingCategory === 'superieur_formation' ? 'Supérieur (200 F/m)' :
+                                          '⚠️ Catégorie à définir'}
+                                       </span>
                                     </div>
 
                                     <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -946,6 +982,25 @@ export const Parametres: React.FC = () => {
                           className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
                       )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                        Catégorie de facturation Yziow <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={classBillingCategoryInput}
+                        onChange={(e) => setClassBillingCategoryInput(e.target.value)}
+                        required
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none mb-1.5"
+                      >
+                        <option value="maternelle_primaire">Maternelle / Primaire — 100 FCFA par élève / mois</option>
+                        <option value="college_secondaire">Collège / Secondaire — 150 FCFA par élève / mois</option>
+                        <option value="superieur_formation">Supérieur / Formation — 200 FCFA par étudiant / mois</option>
+                      </select>
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-tight">
+                        ⚠️ Cette modification affectera les prochains devis, jamais les paiements déjà initiés ou confirmés.
+                      </p>
                     </div>
 
                     <div>
