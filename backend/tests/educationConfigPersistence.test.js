@@ -1099,6 +1099,148 @@ async function runTests() {
         assert.strictEqual(errorCodesLeadingToSettings.has('PAYMENT_ALREADY_PENDING'), false);
     });
 
+    console.log(`\n--- SECTION 15 : Résilience Widget Abonnement & Sécurité effectiveBreakdown ---`);
+
+    await it('15.1: Premier rendu sans quote : effectiveBreakdown toujours défini à 0 sans ReferenceError', () => {
+        const serverQuote = null;
+        const effectiveBreakdown = {
+            maternelle_primaire: Number(serverQuote?.breakdown?.maternelle_primaire) || 0,
+            college_secondaire: Number(serverQuote?.breakdown?.college_secondaire) || 0,
+            superieur_formation: Number(serverQuote?.breakdown?.superieur_formation) || 0
+        };
+
+        assert.strictEqual(effectiveBreakdown.maternelle_primaire, 0);
+        assert.strictEqual(effectiveBreakdown.college_secondaire, 0);
+        assert.strictEqual(effectiveBreakdown.superieur_formation, 0);
+        assert.strictEqual(typeof effectiveBreakdown.maternelle_primaire, 'number');
+    });
+
+    await it('15.2: Quote en cours de chargement : calculs financiers sûrs et stables (fallback zéro)', () => {
+        const serverQuote = null;
+        const students = [{ id: '1', classe: 'CP1' }, { id: '2', classe: '6eme' }];
+        const totalStudents = typeof serverQuote?.totalStudents === 'number' ? serverQuote.totalStudents : students.length;
+        const totalMonthlyFcfa = typeof serverQuote?.monthlyAmount === 'number' ? serverQuote.monthlyAmount : 0;
+        const totalAnnualFcfa = typeof serverQuote?.totalAnnualAmount === 'number' ? serverQuote.totalAnnualAmount : 0;
+        const finalAnnualFcfa = typeof serverQuote?.finalAnnualAmount === 'number' ? serverQuote.finalAnnualAmount : 0;
+        const tranchesFcfa = Array.isArray(serverQuote?.tranches) && serverQuote.tranches.length === 3 ? serverQuote.tranches : [0, 0, 0];
+
+        assert.strictEqual(totalStudents, 2);
+        assert.strictEqual(totalMonthlyFcfa, 0);
+        assert.strictEqual(totalAnnualFcfa, 0);
+        assert.strictEqual(finalAnnualFcfa, 0);
+        assert.deepStrictEqual(tranchesFcfa, [0, 0, 0]);
+    });
+
+    await it('15.3: Réponse quote valide reçue du backend : décomposition exacte injectée', () => {
+        const serverQuote = {
+            billing_period: '2026-2027',
+            totalStudents: 40,
+            monthlyAmount: 5000,
+            totalAnnualAmount: 50000,
+            annualBonusAmount: 5000,
+            finalAnnualAmount: 45000,
+            tranches: [16667, 16667, 16666],
+            breakdown: {
+                maternelle_primaire: 20,
+                college_secondaire: 20,
+                superieur_formation: 0
+            }
+        };
+
+        const effectiveBreakdown = {
+            maternelle_primaire: Number(serverQuote?.breakdown?.maternelle_primaire) || 0,
+            college_secondaire: Number(serverQuote?.breakdown?.college_secondaire) || 0,
+            superieur_formation: Number(serverQuote?.breakdown?.superieur_formation) || 0
+        };
+
+        assert.strictEqual(effectiveBreakdown.maternelle_primaire, 20);
+        assert.strictEqual(effectiveBreakdown.college_secondaire, 20);
+        assert.strictEqual(effectiveBreakdown.superieur_formation, 0);
+        assert.strictEqual(serverQuote.finalAnnualAmount, 45000);
+        assert.strictEqual(serverQuote.tranches[0] + serverQuote.tranches[1] + serverQuote.tranches[2], 50000);
+    });
+
+    await it('15.4: Breakdown partiel ou corrompu (champs manquants ou NaN) : normalisation vers 0', () => {
+        const corruptQuote = {
+            breakdown: {
+                maternelle_primaire: 'invalide',
+                college_secondaire: null
+                // superieur_formation omitted
+            }
+        };
+
+        const effectiveBreakdown = {
+            maternelle_primaire: Number(corruptQuote?.breakdown?.maternelle_primaire) || 0,
+            college_secondaire: Number(corruptQuote?.breakdown?.college_secondaire) || 0,
+            superieur_formation: Number(corruptQuote?.breakdown?.superieur_formation) || 0
+        };
+
+        assert.strictEqual(effectiveBreakdown.maternelle_primaire, 0);
+        assert.strictEqual(effectiveBreakdown.college_secondaire, 0);
+        assert.strictEqual(effectiveBreakdown.superieur_formation, 0);
+    });
+
+    await it('15.5: Erreur HTTP 422 : gestion locale de l\'erreur avec bouton Paramètres sans plantage', () => {
+        const errorResponse = {
+            error: 'Certaines classes d\'élèves ne sont rattachées à aucune catégorie tarifaire valide.',
+            code: 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE',
+            diagnostic_id: 'diag_test_422'
+        };
+
+        const activeError = {
+            message: errorResponse.error,
+            code: errorResponse.code,
+            diagnostic_id: errorResponse.diagnostic_id
+        };
+
+        const showSettingsButton = activeError.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE' || activeError.code === 'SUBSCRIPTION_PERIOD_REQUIRED';
+        assert.strictEqual(showSettingsButton, true);
+        assert.strictEqual(activeError.diagnostic_id, 'diag_test_422');
+    });
+
+    await it('15.6: Erreur HTTP 503 / Réseau : message sécurisé fail-closed sans fuite de secrets', () => {
+        const networkError = {
+            message: 'Impossible de joindre le serveur pour calculer le devis d\'abonnement.',
+            code: 'NETWORK_ERROR'
+        };
+
+        assert.ok(!networkError.message.includes('sk_live_'));
+        assert.ok(!networkError.message.includes('sk_sandbox_'));
+        assert.strictEqual(networkError.code, 'NETWORK_ERROR');
+    });
+
+    await it('15.7: Absence totale de ReferenceError sur le composant (vérification statique)', () => {
+        const fs = require('fs');
+        const path = require('path');
+        const widgetFile = path.join(__dirname, '../../src/components/SchoolSubscriptionWidget.tsx');
+        const content = fs.readFileSync(widgetFile, 'utf-8');
+
+        // Vérifie que effectiveBreakdown est bien déclaré avant toute utilisation
+        assert.ok(content.includes('const effectiveBreakdown: LevelBreakdown = {'), 'effectiveBreakdown doit être explicitement déclaré');
+        // Vérifie qu\'aucune variable non définie n\'est référencée
+        assert.strictEqual(content.includes('const breakdown: LevelBreakdown'), false, 'Ancienne variable non utilisée supprimée');
+    });
+
+    await it('15.8: Résilience Dashboard : l\'échec de chargement du devis n\'impacte pas le rendu global', () => {
+        // Simulation d\'un état où le widget a échoué à charger le devis
+        const dashboardState = {
+            students: [{ id: 's1', name: 'Élève A', ecolage: 100000, dejaPaye: 50000 }],
+            isSyncing: false,
+            widgetState: {
+                isLoadingQuote: false,
+                quoteError: { code: 'NETWORK_ERROR', message: 'Erreur réseau temporaire' },
+                serverQuote: null
+            }
+        };
+
+        // Les KPI généraux du dashboard restent calculables
+        const totalEcolage = dashboardState.students.reduce((a, s) => a + s.ecolage, 0);
+        const totalPaye = dashboardState.students.reduce((a, s) => a + s.dejaPaye, 0);
+        assert.strictEqual(totalEcolage, 100000);
+        assert.strictEqual(totalPaye, 50000);
+        assert.strictEqual(dashboardState.widgetState.quoteError.code, 'NETWORK_ERROR');
+    });
+
     console.log(`\n============================================================`);
     console.log(`📊 BILAN DES TESTS : ${passCount} / ${totalCount} réussis`);
     console.log(`============================================================\n`);

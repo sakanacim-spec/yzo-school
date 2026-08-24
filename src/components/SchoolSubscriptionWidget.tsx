@@ -58,6 +58,8 @@ export const SchoolSubscriptionWidget: React.FC = () => {
   const [lastPayment, setLastPayment] = useState<any>(null);
   const [errorInfo, setErrorInfo] = useState<PaymentErrorInfo | null>(null);
   const [serverQuote, setServerQuote] = useState<SubscriptionQuote | null>(null);
+  const [isLoadingQuote, setIsLoadingQuote] = useState<boolean>(true);
+  const [quoteError, setQuoteError] = useState<PaymentErrorInfo | null>(null);
   const [copiedDiag, setCopiedDiag] = useState(false);
 
   // Mettre à jour si les settings arrivent après le montage
@@ -74,7 +76,12 @@ export const SchoolSubscriptionWidget: React.FC = () => {
 
   // Charger le devis autoritaire backend
   React.useEffect(() => {
-    if (!schoolSlug) return;
+    if (!schoolSlug) {
+      setIsLoadingQuote(false);
+      return;
+    }
+    setIsLoadingQuote(true);
+    setQuoteError(null);
     const token = localStorage.getItem('parent_token');
     fetch(`${API_BASE_URL}/payment/saas/schools/${schoolSlug}/quote`, {
       headers: {
@@ -82,15 +89,25 @@ export const SchoolSubscriptionWidget: React.FC = () => {
       }
     })
       .then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          if (data.quote) {
-            setServerQuote(data.quote);
-          }
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.quote) {
+          setServerQuote(data.quote);
+        } else {
+          setQuoteError({
+            message: data.error || 'Impossible de calculer le devis d\'abonnement officiel.',
+            code: data.code || 'QUOTE_LOAD_FAILED',
+            diagnostic_id: data.diagnostic_id
+          });
         }
       })
       .catch(() => {
-        // En cas d'indisponibilité temporaire, repli visuel
+        setQuoteError({
+          message: 'Impossible de joindre le serveur pour calculer le devis d\'abonnement.',
+          code: 'NETWORK_ERROR'
+        });
+      })
+      .finally(() => {
+        setIsLoadingQuote(false);
       });
   }, [schoolSlug]);
 
@@ -102,27 +119,23 @@ export const SchoolSubscriptionWidget: React.FC = () => {
   const countryCode = (user as any).country || 'TG';
   const currencyInfo = getCountryCurrencyInfo(countryCode);
 
-  // Ventilation dynamique des élèves selon leurs classes/niveaux
-  const breakdown: LevelBreakdown = serverQuote?.breakdown || {
-    maternelle_primaire: 0,
-    college_secondaire: 0,
-    superieur_formation: 0
+  // Source unique et toujours définie pour la ventilation des élèves
+  const effectiveBreakdown: LevelBreakdown = {
+    maternelle_primaire: Number(serverQuote?.breakdown?.maternelle_primaire) || 0,
+    college_secondaire: Number(serverQuote?.breakdown?.college_secondaire) || 0,
+    superieur_formation: Number(serverQuote?.breakdown?.superieur_formation) || 0
   };
 
-  const totalStudents = serverQuote ? serverQuote.totalStudents : students.length;
-  const totalMonthlyFcfa = serverQuote ? serverQuote.monthlyAmount : (breakdown.maternelle_primaire * 100 + breakdown.college_secondaire * 150 + breakdown.superieur_formation * 200);
-  const totalAnnualFcfa = serverQuote ? serverQuote.totalAnnualAmount : (totalMonthlyFcfa * 10);
-  const annualBonusFcfa = serverQuote ? serverQuote.annualBonusAmount : Math.round(totalAnnualFcfa * 0.10);
-  const finalAnnualFcfa = serverQuote ? serverQuote.finalAnnualAmount : (totalAnnualFcfa - annualBonusFcfa);
-  const tranchesFcfa = serverQuote?.tranches || [
-    Math.floor(totalAnnualFcfa / 3) + (totalAnnualFcfa % 3 >= 1 ? 1 : 0),
-    Math.floor(totalAnnualFcfa / 3) + (totalAnnualFcfa % 3 >= 2 ? 1 : 0),
-    Math.floor(totalAnnualFcfa / 3)
-  ];
+  const totalStudents = typeof serverQuote?.totalStudents === 'number' ? serverQuote.totalStudents : students.length;
+  const totalMonthlyFcfa = typeof serverQuote?.monthlyAmount === 'number' ? serverQuote.monthlyAmount : 0;
+  const totalAnnualFcfa = typeof serverQuote?.totalAnnualAmount === 'number' ? serverQuote.totalAnnualAmount : 0;
+  const annualBonusFcfa = typeof serverQuote?.annualBonusAmount === 'number' ? serverQuote.annualBonusAmount : 0;
+  const finalAnnualFcfa = typeof serverQuote?.finalAnnualAmount === 'number' ? serverQuote.finalAnnualAmount : 0;
+  const tranchesFcfa = Array.isArray(serverQuote?.tranches) && serverQuote.tranches.length === 3 ? serverQuote.tranches : [0, 0, 0];
 
-  const monthlyPrimaire = breakdown.maternelle_primaire * 100;
-  const monthlySecondaire = breakdown.college_secondaire * 150;
-  const monthlySuperieur = breakdown.superieur_formation * 200;
+  const monthlyPrimaire = effectiveBreakdown.maternelle_primaire * 100;
+  const monthlySecondaire = effectiveBreakdown.college_secondaire * 150;
+  const monthlySuperieur = effectiveBreakdown.superieur_formation * 200;
 
   const handleSimulatePayment = async (type: 'annual' | 'tranche', trancheNum?: number) => {
     if (isProcessing) return;
@@ -316,30 +329,36 @@ export const SchoolSubscriptionWidget: React.FC = () => {
         </div>
       </div>
 
-      {/* Bannière d'Erreur Explicite */}
-      {errorInfo && (
-        <div className="my-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-rose-300 relative z-10">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-white">{errorInfo.message}</p>
-              {errorInfo.diagnostic_id && (
-                <p className="text-[10px] text-rose-400 font-mono mt-0.5">ID Diagnostic : {errorInfo.diagnostic_id}</p>
+      {/* Bannière d'Erreur ou Avertissement Devis */}
+      {(errorInfo || quoteError) && (
+        (() => {
+          const activeErr = errorInfo || quoteError;
+          if (!activeErr) return null;
+          return (
+            <div className="my-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-rose-300 relative z-10">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-white">{activeErr.message}</p>
+                  {activeErr.diagnostic_id && (
+                    <p className="text-[10px] text-rose-400 font-mono mt-0.5">ID Diagnostic : {activeErr.diagnostic_id}</p>
+                  )}
+                </div>
+              </div>
+              {(activeErr.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE' || activeErr.code === 'SUBSCRIPTION_PERIOD_REQUIRED') && (
+                <button
+                  onClick={() => {
+                    const paramsTab = document.querySelector('[data-tab="parametres"]') as HTMLElement;
+                    if (paramsTab) paramsTab.click();
+                  }}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shrink-0 shadow-md transition-all"
+                >
+                  Ouvrir les Paramètres
+                </button>
               )}
             </div>
-          </div>
-          {(errorInfo.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE' || errorInfo.code === 'SUBSCRIPTION_PERIOD_REQUIRED') && (
-            <button
-              onClick={() => {
-                const paramsTab = document.querySelector('[data-tab="parametres"]') as HTMLElement;
-                if (paramsTab) paramsTab.click();
-              }}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shrink-0 shadow-md transition-all"
-            >
-              Ouvrir les Paramètres
-            </button>
-          )}
-        </div>
+          );
+        })()
       )}
 
       {/* Ventilation des Tarifs par Cycle */}
