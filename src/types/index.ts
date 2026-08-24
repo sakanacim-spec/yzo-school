@@ -91,10 +91,13 @@ export interface Payroll {
   referencePaiement?: string;
 }
 
+export type BillingCategory = 'maternelle_primaire' | 'college_secondaire' | 'superieur_formation';
+
 export interface ClassConfig {
   id?: string;
   name: string;
   cycle: Cycle;
+  billingCategory?: BillingCategory;
   ecolage: number;
   order?: number;
   active?: boolean;

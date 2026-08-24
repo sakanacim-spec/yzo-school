@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, School, MessageSquare, Shield, Info,
-  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight, CheckCircle, ChevronUp, ChevronDown, Eye, EyeOff, Edit3, BookOpen, Search
+  Upload, X, Image, Clock, Plus, Calendar, Trash2, Database, AlertCircle, Layers, Globe, GraduationCap, ToggleLeft, ToggleRight, CheckCircle, ChevronUp, ChevronDown, Eye, EyeOff, Edit3, BookOpen, Search, Bell
 } from 'lucide-react';
 import { GestionPersonnel } from '../components/GestionPersonnel';
 import { BACKEND_URL } from '../config';
@@ -58,6 +58,40 @@ export const Parametres: React.FC = () => {
   const [localPayoutMethod, setLocalPayoutMethod] = useState<'momo' | 'rib'>(payoutMethod || 'momo');
 
   const [saved, setSaved] = useState(false);
+
+  // ── État Notifications Push (Action explicite uniquement) ──
+  const [pushStatus, setPushStatus] = useState<string>('default');
+  const [isActivatingPush, setIsActivatingPush] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+        setPushStatus('unsupported');
+      } else {
+        setPushStatus(Notification.permission);
+      }
+    }
+  }, []);
+
+  const handleEnablePushNotifications = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+      setPushStatus('unsupported');
+      return;
+    }
+    setIsActivatingPush(true);
+    try {
+      const perm = await Notification.requestPermission();
+      setPushStatus(perm);
+      if (perm === 'granted') {
+        const { webPushService } = await import('../services/webPushService');
+        await webPushService.init();
+      }
+    } catch (err) {
+      console.error('Erreur activation notifications:', err);
+    } finally {
+      setIsActivatingPush(false);
+    }
+  };
 
   // ── Config évaluations ────────────────────────────────
   const storedEvalConfigs = useStore((s) => s.settings?.evalConfigs);
@@ -250,6 +284,7 @@ export const Parametres: React.FC = () => {
   const [classNameInput, setClassNameInput] = useState('');
   const [classCycleInput, setClassCycleInput] = useState('');
   const [classCustomCycle, setClassCustomCycle] = useState('');
+  const [classBillingCategoryInput, setClassBillingCategoryInput] = useState<string>('maternelle_primaire');
   const [classEcolageInput, setClassEcolageInput] = useState(50000);
   const [classActiveInput, setClassActiveInput] = useState(true);
   const [classFormError, setClassFormError] = useState<string | null>(null);
@@ -266,6 +301,7 @@ export const Parametres: React.FC = () => {
     setClassNameInput('');
     setClassCycleInput(defaultCycle || (activeCycles[0] || 'Primaire'));
     setClassCustomCycle('');
+    setClassBillingCategoryInput('maternelle_primaire');
     setClassEcolageInput(50000);
     setClassActiveInput(true);
     setClassFormError(null);
@@ -277,6 +313,16 @@ export const Parametres: React.FC = () => {
     setClassNameInput(cls.name);
     setClassCycleInput(cls.cycle);
     setClassCustomCycle('');
+    const inferredCategory = cls.billingCategory || (
+      cls.cycle?.toLowerCase().includes('maternelle') || cls.cycle?.toLowerCase().includes('primaire') || cls.cycle?.toLowerCase().includes('kindergarten') || cls.cycle?.toLowerCase().includes('primary')
+        ? 'maternelle_primaire'
+        : cls.cycle?.toLowerCase().includes('collège') || cls.cycle?.toLowerCase().includes('secondaire') || cls.cycle?.toLowerCase().includes('lycée') || cls.cycle?.toLowerCase().includes('middle') || cls.cycle?.toLowerCase().includes('high')
+        ? 'college_secondaire'
+        : cls.cycle?.toLowerCase().includes('supérieur') || cls.cycle?.toLowerCase().includes('université') || cls.cycle?.toLowerCase().includes('formation')
+        ? 'superieur_formation'
+        : ''
+    );
+    setClassBillingCategoryInput(inferredCategory);
     setClassEcolageInput(cls.ecolage || 0);
     setClassActiveInput(cls.active !== false);
     setClassFormError(null);
@@ -297,11 +343,16 @@ export const Parametres: React.FC = () => {
       setClassFormError('Le nom du cycle est obligatoire.');
       return;
     }
+    if (!classBillingCategoryInput) {
+      setClassFormError('La catégorie de facturation Yziow est obligatoire.');
+      return;
+    }
 
     if (editingClass) {
       const res = updateClassStore(editingClass.id || editingClass.name, {
         name: finalName,
         cycle: finalCycle,
+        billingCategory: classBillingCategoryInput as any,
         ecolage: Number(classEcolageInput) || 0,
         active: classActiveInput
       });
@@ -314,6 +365,7 @@ export const Parametres: React.FC = () => {
       const res = addClassStore({
         name: finalName,
         cycle: finalCycle,
+        billingCategory: classBillingCategoryInput as any,
         ecolage: Number(classEcolageInput) || 0,
         active: classActiveInput
       });
@@ -818,9 +870,27 @@ export const Parametres: React.FC = () => {
                                       </span>
                                     </div>
 
-                                    <div className="flex items-center justify-between text-xs mb-3 text-slate-600 dark:text-slate-400">
+                                    <div className="flex items-center justify-between text-xs mb-1.5 text-slate-600 dark:text-slate-400">
                                       <span className="font-bold">Écolage :</span>
                                       <span className="font-black text-slate-900 dark:text-white">{cls.ecolage?.toLocaleString() || 0} {currency}</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-xs mb-3 text-slate-600 dark:text-slate-400">
+                                       <span className="font-bold text-[10px] uppercase tracking-wider">Tarif Yziow :</span>
+                                       <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                         cls.billingCategory === 'maternelle_primaire'
+                                           ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                                           : cls.billingCategory === 'college_secondaire'
+                                           ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
+                                           : cls.billingCategory === 'superieur_formation'
+                                           ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                           : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                                       }`}>
+                                         {cls.billingCategory === 'maternelle_primaire' ? 'Primaire (100 F/m)' :
+                                          cls.billingCategory === 'college_secondaire' ? 'Secondaire (150 F/m)' :
+                                          cls.billingCategory === 'superieur_formation' ? 'Supérieur (200 F/m)' :
+                                          '⚠️ Catégorie à définir'}
+                                       </span>
                                     </div>
 
                                     <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -946,6 +1016,25 @@ export const Parametres: React.FC = () => {
                           className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
                       )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                        Catégorie de facturation Yziow <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={classBillingCategoryInput}
+                        onChange={(e) => setClassBillingCategoryInput(e.target.value)}
+                        required
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none mb-1.5"
+                      >
+                        <option value="maternelle_primaire">Maternelle / Primaire — 100 FCFA par élève / mois</option>
+                        <option value="college_secondaire">Collège / Secondaire — 150 FCFA par élève / mois</option>
+                        <option value="superieur_formation">Supérieur / Formation — 200 FCFA par étudiant / mois</option>
+                      </select>
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold leading-tight">
+                        ⚠️ Cette modification affectera les prochains devis, jamais les paiements déjà initiés ou confirmés.
+                      </p>
                     </div>
 
                     <div>
@@ -1512,6 +1601,45 @@ export const Parametres: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* ── NOTIFICATIONS PUSH ─────────────────────────── */}
+            <div className="pro-card p-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800">
+              <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-3 mb-2">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
+                  <Bell className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                Notifications push
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+                Recevez des alertes instantanées pour les annonces, messages et événements importants de votre établissement.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <div>
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest block">
+                    État des notifications
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-bold">
+                    {pushStatus === 'granted' && '✅ Notifications activées'}
+                    {pushStatus === 'denied' && '❌ Notifications refusées dans le navigateur'}
+                    {pushStatus === 'unsupported' && '⚠️ Notifications non prises en charge sur cet appareil'}
+                    {pushStatus === 'default' && 'Notifications non configurées'}
+                  </span>
+                </div>
+
+                {pushStatus !== 'unsupported' && pushStatus !== 'granted' && (
+                  <button
+                    type="button"
+                    onClick={handleEnablePushNotifications}
+                    disabled={isActivatingPush}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2"
+                  >
+                    <Bell className="w-4 h-4" />
+                    {isActivatingPush ? 'Activation en cours…' : 'Activer les notifications'}
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* ── À PROPOS ────────────────────────────── */}
             <div className="flex items-center justify-center gap-2 text-slate-400 dark:text-slate-600">

@@ -139,25 +139,7 @@ export const Dashboard: React.FC = () => {
   const santeFinanciere = useMemo(() => computeSanteFinanciere(students), [students]);
   const cycleComparison = useMemo(() => computeCycleComparison(students), [students]);
 
-  useEffect(() => {
-    if (students.length === 0 || classComp.length === 0) return;
-    
-    const now = new Date();
-    const day = now.getDate();
-    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-    const lastReportMonth = useStore.getState().lastReportMonth;
-    
-    if (day >= 5 && lastReportMonth !== currentMonthKey) {
-      setTimeout(() => {
-        generateRapportMensuelPDF(students, classComp, { 
-          name: useStore.getState().schoolName || useStore.getState().appName, 
-          logo: useStore.getState().schoolLogo,
-          stamp: useStore.getState().schoolStamp
-        });
-        useStore.getState().setLastReportMonth(currentMonthKey);
-      }, 2000);
-    }
-  }, [students, classComp]);
+
 
   const stats = useMemo(() => {
     const activeCycles = Array.from(

@@ -336,7 +336,6 @@ export const ParentDashboard: React.FC = () => {
     const [errorMsg, setErrorMsg] = useState('');
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [showSupportModal, setShowSupportModal] = useState(false);
-    const [notifStatus, setNotifStatus] = useState<NotificationPermission>('Notification' in window ? Notification.permission : 'denied');
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [activeCampaigns, setActiveCampaigns] = useState<DonationCampaign[]>([]);
     const [showAnnouncementList, setShowAnnouncementList] = useState(false);
@@ -346,21 +345,6 @@ export const ParentDashboard: React.FC = () => {
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const currency = useStore.getState().currency;
     const paymentEnabled = !!(settings?.paymentGateway && settings.paymentGateway !== 'none');
-
-    useEffect(() => {
-        if ('Notification' in window) setNotifStatus(Notification.permission);
-    }, []);
-
-    const handleEnableNotifications = async () => {
-        try {
-            const perm = await Notification.requestPermission();
-            setNotifStatus(perm);
-            if (perm === 'granted') {
-                const { webPushService } = await import('../../services/webPushService');
-                await webPushService.init();
-            }
-        } catch (err) { console.error(err); }
-    };
 
     const fetchData = useCallback(async () => {
         if (children.length > 0) return;

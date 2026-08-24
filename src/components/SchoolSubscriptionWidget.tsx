@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Building2, Users, CreditCard, Sparkles, CheckCircle2, ShieldCheck, 
-  Download, ArrowRight, Wallet, Percent, ChevronRight, Award, FileText
+  Download, ArrowRight, Wallet, Percent, ChevronRight, Award, FileText,
+  AlertCircle, Copy, Check
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { getCountryCurrencyInfo, formatSubscriptionCurrencyAmount } from '../data/countries';
@@ -18,6 +19,31 @@ interface LevelBreakdown {
   superieur_formation: number;
 }
 
+interface SubscriptionQuote {
+  quote_id?: string;
+  calculated_at?: string;
+  expires_at?: string;
+  totalStudents: number;
+  breakdown: LevelBreakdown;
+  monthlyAmount: number;
+  totalAnnualAmount: number;
+  annualBonusAmount: number;
+  finalAnnualAmount: number;
+  tranches: number[];
+  currency: string;
+}
+
+interface PaymentErrorInfo {
+  message: string;
+  code?: string;
+  diagnostic_id?: string;
+}
+
+const ALLOWED_FEDAPAY_HOSTS = new Set([
+  'sandbox-checkout.fedapay.com',
+  'checkout.fedapay.com'
+]);
+
 export const SchoolSubscriptionWidget: React.FC = () => {
   const { user, students, classes, schoolName, settings } = useStore();
   const lockedPlan = settings?.subscriptionPlan;
@@ -30,6 +56,11 @@ export const SchoolSubscriptionWidget: React.FC = () => {
   );
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [lastPayment, setLastPayment] = useState<any>(null);
+  const [errorInfo, setErrorInfo] = useState<PaymentErrorInfo | null>(null);
+  const [serverQuote, setServerQuote] = useState<SubscriptionQuote | null>(null);
+  const [isLoadingQuote, setIsLoadingQuote] = useState<boolean>(true);
+  const [quoteError, setQuoteError] = useState<PaymentErrorInfo | null>(null);
+  const [copiedDiag, setCopiedDiag] = useState(false);
 
   // Mettre à jour si les settings arrivent après le montage
   React.useEffect(() => {
@@ -41,6 +72,53 @@ export const SchoolSubscriptionWidget: React.FC = () => {
     }
   }, [lockedPlan, dbPaidTranchesCount]);
 
+  const schoolSlug = (user as any)?.schoolSlug || (user as any)?.school_slug || user?.schoolName;
+
+  // Charger le devis autoritaire backend
+  const fetchQuote = React.useCallback(() => {
+    if (!schoolSlug) {
+      setIsLoadingQuote(false);
+      return;
+    }
+    setIsLoadingQuote(true);
+    setQuoteError(null);
+    setServerQuote(null);
+    const token = localStorage.getItem('parent_token');
+    fetch(`${API_BASE_URL}/payment/saas/schools/${schoolSlug}/quote`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.quote) {
+          setServerQuote(data.quote);
+          setQuoteError(null);
+        } else {
+          setServerQuote(null);
+          setQuoteError({
+            message: data.error || 'Impossible de calculer le devis d\'abonnement officiel.',
+            code: data.code || 'QUOTE_LOAD_FAILED',
+            diagnostic_id: data.diagnostic_id
+          });
+        }
+      })
+      .catch(() => {
+        setServerQuote(null);
+        setQuoteError({
+          message: 'Impossible de joindre le serveur pour calculer le devis d\'abonnement.',
+          code: 'NETWORK_ERROR'
+        });
+      })
+      .finally(() => {
+        setIsLoadingQuote(false);
+      });
+  }, [schoolSlug]);
+
+  React.useEffect(() => {
+    fetchQuote();
+  }, [fetchQuote]);
+
   // Seul le directeur / admin d'école ou superadmin peut voir cette section
   if (!user || (user.role !== 'directeur' && user.role !== 'admin' && user.role !== 'superadmin')) {
     return null;
@@ -49,85 +127,115 @@ export const SchoolSubscriptionWidget: React.FC = () => {
   const countryCode = (user as any).country || 'TG';
   const currencyInfo = getCountryCurrencyInfo(countryCode);
 
-  // Ventilation dynamique des élèves selon leurs classes/niveaux
-  const breakdown: LevelBreakdown = {
-    maternelle_primaire: 0,
-    college_secondaire: 0,
-    superieur_formation: 0
+  const effectiveBreakdown: LevelBreakdown = {
+    maternelle_primaire: Number(serverQuote?.breakdown?.maternelle_primaire) || 0,
+    college_secondaire: Number(serverQuote?.breakdown?.college_secondaire) || 0,
+    superieur_formation: Number(serverQuote?.breakdown?.superieur_formation) || 0
   };
 
-  students.forEach((st) => {
-    const className = (st.classe || '').toLowerCase();
-    if (className.includes('maternelle') || className.includes('ci') || className.includes('cp') || className.includes('ce1') || className.includes('ce2') || className.includes('cm1') || className.includes('cm2') || className.includes('primaire') || className.includes('sil')) {
-      breakdown.maternelle_primaire += 1;
-    } else if (className.includes('licence') || className.includes('master') || className.includes('doctorat') || className.includes('univ') || className.includes('fac') || className.includes('bts') || className.includes('centre') || className.includes('institut')) {
-      breakdown.superieur_formation += 1;
-    } else {
-      // Par défaut (6è, 5è, 4è, 3è, 2nde, 1ère, Tle, Collège, Lycée)
-      breakdown.college_secondaire += 1;
-    }
-  });
+  const totalStudents = typeof serverQuote?.totalStudents === 'number' ? serverQuote.totalStudents : 0;
+  const totalAnnualFcfa = typeof serverQuote?.totalAnnualAmount === 'number' ? serverQuote.totalAnnualAmount : 0;
+  const annualBonusFcfa = typeof serverQuote?.annualBonusAmount === 'number' ? serverQuote.annualBonusAmount : 0;
+  const finalAnnualFcfa = typeof serverQuote?.finalAnnualAmount === 'number' ? serverQuote.finalAnnualAmount : 0;
+  const tranchesFcfa = Array.isArray(serverQuote?.tranches) && serverQuote.tranches.length === 3 ? serverQuote.tranches : [0, 0, 0];
 
-  // Total élèves (si pas encore d'élèves saisis, simulation avec 50 élèves par défaut)
-  const isSimulation = students.length === 0;
-  const totalStudents = isSimulation ? 50 : students.length;
-  
-  const effectiveBreakdown = !isSimulation ? breakdown : {
-    maternelle_primaire: Math.round(totalStudents * 0.4),
-    college_secondaire: Math.round(totalStudents * 0.4),
-    superieur_formation: Math.round(totalStudents * 0.2)
-  };
-
-  // Calcul des coûts mensuels (10 mois par an)
   const monthlyPrimaire = effectiveBreakdown.maternelle_primaire * 100;
   const monthlySecondaire = effectiveBreakdown.college_secondaire * 150;
   const monthlySuperieur = effectiveBreakdown.superieur_formation * 200;
 
-  const totalMonthlyFcfa = monthlyPrimaire + monthlySecondaire + monthlySuperieur;
-  const totalAnnualFcfa = totalMonthlyFcfa * 10; // 10 mois d'année scolaire
-
-  // Bonus 10% si paiement comptant annuel
-  const annualBonusFcfa = Math.round(totalAnnualFcfa * 0.10);
-  const finalAnnualFcfa = totalAnnualFcfa - annualBonusFcfa;
-
-  // Montant d'une tranche trimestrielle (3 tranches par an)
-  const trancheAmountFcfa = Math.round(totalAnnualFcfa / 3);
-
   const handleSimulatePayment = async (type: 'annual' | 'tranche', trancheNum?: number) => {
+    if (isProcessing || isLoadingQuote || !serverQuote || !serverQuote.quote_id || quoteError) return;
+    if (type === 'annual' && (!finalAnnualFcfa || finalAnnualFcfa <= 0)) return;
+    if (type === 'tranche' && (typeof trancheNum !== 'number' || !tranchesFcfa[trancheNum - 1] || tranchesFcfa[trancheNum - 1] <= 0)) return;
+
     setIsProcessing(true);
+    setErrorInfo(null);
     
     try {
-      const amountFcfa = type === 'annual' ? finalAnnualFcfa : trancheAmountFcfa;
-      
       const token = localStorage.getItem('parent_token');
-      const schoolSlug = (user as any).schoolSlug || (user as any).school_slug || user.schoolName;
+      const targetSlug = (user as any).schoolSlug || (user as any).school_slug || user.schoolName;
 
-      // 1. Initialiser le paiement avec FedaPay via la route de paiement sécurisée
-      const res = await fetch(`${API_BASE_URL}/payment/saas/schools/${schoolSlug}/pay-init`, {
+      // 1. Initialiser le paiement avec FedaPay via la route de paiement sécurisée (montant serveur autoritaire)
+      const res = await fetch(`${API_BASE_URL}/payment/saas/schools/${targetSlug}/pay-init`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          planType: type
+          quote_id: serverQuote?.quote_id,
+          planType: type,
+          ...(typeof trancheNum === 'number' ? { trancheNumber: trancheNum } : {})
         })
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Erreur lors de l\'initialisation du paiement');
+        let msg = data.error || 'Erreur lors de l\'initialisation du paiement.';
+        if (data.code === 'QUOTE_STALE') {
+          msg = 'Les effectifs ou classes ont été modifiés. Le devis a été actualisé, veuillez réessayer.';
+          fetchQuote();
+        } else if (data.code === 'PAYMENT_PROVIDER_NOT_CONFIGURED') {
+          msg = 'La passerelle de paiement en ligne est en cours de maintenance ou non configurée.';
+        } else if (data.code === 'PAYMENT_PROVIDER_UNAVAILABLE') {
+          msg = 'Le service FedaPay est momentanément indisponible. Veuillez réessayer dans quelques instants.';
+        } else if (data.code === 'SUBSCRIPTION_PERIOD_REQUIRED') {
+          msg = 'L\'année scolaire de votre établissement doit être renseignée dans les Paramètres avant d\'effectuer un règlement.';
+        } else if (data.code === 'SUBSCRIPTION_AMOUNT_INVALID') {
+          msg = 'Montant d\'abonnement nul. Veuillez d\'abord enregistrer les élèves de votre établissement.';
+        } else if (data.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE') {
+          msg = 'Certaines classes d\'élèves ne sont rattachées à aucune catégorie tarifaire valide dans les paramètres de l\'établissement.';
+        } else if (data.code === 'PAYMENT_ALREADY_PENDING') {
+          msg = 'Une session de paiement est déjà en cours pour votre établissement.';
+        } else if (data.code === 'ANNUAL_ALREADY_PAID') {
+          msg = data.error || 'L\'abonnement annuel pour cette période est déjà réglé.';
+        } else if (data.code === 'TRANCHE_ALREADY_STARTED') {
+          msg = data.error || 'Impossible de souscrire un plan annuel après le démarrage d\'un paiement par tranches.';
+        } else if (data.code === 'PERIOD_ALREADY_SETTLED') {
+          msg = data.error || 'L\'abonnement pour cette période a déjà été intégralement réglé.';
+        } else if (data.code === 'TRANCHE_ALREADY_PAID') {
+          msg = 'Cette tranche a déjà été réglée.';
+        } else if (data.code === 'INVALID_TRANCHE_ORDER') {
+          msg = data.error || 'Veuillez régler les tranches dans l\'ordre séquentiel.';
+        } else if (data.code === 'RECONCILIATION_REQUIRED') {
+          msg = 'Paiement initié mais en attente de synchronisation. Veuillez contacter le support si le problème persiste.';
+        }
+
+        setErrorInfo({
+          message: msg,
+          code: data.code,
+          diagnostic_id: data.diagnostic_id
+        });
+        setIsProcessing(false);
+        return;
       }
 
-      // 2. Rediriger l'utilisateur vers la page de paiement FedaPay
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error('URL de paiement non reçue.');
+      // 2. Vérification et redirection stricte HTTPS vers FedaPay (exact Set lookup + credentials check)
+      if (data.url && typeof data.url === 'string') {
+        try {
+          const parsed = new URL(data.url);
+          const isHttps = parsed.protocol === 'https:';
+          const isAllowedHost = ALLOWED_FEDAPAY_HOSTS.has(parsed.hostname);
+          const hasNoCredentials = parsed.username === '' && parsed.password === '';
+          if (isHttps && isAllowedHost && hasNoCredentials) {
+            window.location.href = data.url;
+            return;
+          }
+        } catch (_urlErr) {}
       }
+
+      setErrorInfo({
+        message: 'L\'URL de paiement fournie par le serveur est invalide ou non sécurisée.',
+        code: 'PAYMENT_INITIALIZATION_FAILED',
+        diagnostic_id: data.diagnostic_id
+      });
+      setIsProcessing(false);
     } catch (err: any) {
-      alert("Une erreur est survenue : " + err.message);
+      setErrorInfo({
+        message: err.message || 'Impossible de joindre le serveur de paiement.',
+        code: 'NETWORK_ERROR'
+      });
       setIsProcessing(false);
     }
   };
@@ -227,99 +335,199 @@ export const SchoolSubscriptionWidget: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl">
-          <Building2 className="w-5 h-5 text-indigo-400" />
-          <div className="text-xs">
-            <p className="text-slate-400 font-medium">Effectif total sous licence</p>
-            <p className="font-extrabold text-white text-sm">{totalStudents} Élèves enregistrés</p>
+        {serverQuote && (
+          <div className="flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl">
+            <Building2 className="w-5 h-5 text-indigo-400" />
+            <div className="text-xs">
+              <p className="text-slate-400 font-medium">Effectif total sous licence</p>
+              <p className="font-extrabold text-white text-sm">{totalStudents} Élèves enregistrés</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Ventilation des Tarifs par Cycle */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-6 relative z-10">
-        <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md hover:border-blue-500/50 transition-all">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">Maternelle & Primaire</span>
-            <span className="px-2.5 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-black">100 FCFA/mois</span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="text-2xl font-black text-white">{effectiveBreakdown.maternelle_primaire} <span className="text-xs text-slate-400 font-normal">élèves</span></p>
-              <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
-            </div>
-            <p className="font-extrabold text-blue-400 text-sm">{formatSubscriptionCurrencyAmount(monthlyPrimaire, countryCode)}/mois</p>
-          </div>
+      {/* ── 1. État de Chargement du Devis ── */}
+      {isLoadingQuote && (
+        <div className="my-8 p-8 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col items-center justify-center gap-3 relative z-10">
+          <div className="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-bold text-slate-300">Calcul du devis officiel en cours…</p>
         </div>
+      )}
 
-        <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md hover:border-purple-500/50 transition-all">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Collège & Secondaire</span>
-            <span className="px-2.5 py-1 bg-purple-500/20 text-purple-300 rounded-lg text-xs font-black">150 FCFA/mois</span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="text-2xl font-black text-white">{effectiveBreakdown.college_secondaire} <span className="text-xs text-slate-400 font-normal">élèves</span></p>
-              <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
+      {/* ── 2. État d'Erreur du Devis (Aucune carte à zéro) ── */}
+      {!isLoadingQuote && (quoteError || !serverQuote) && (
+        <div className="my-6 p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 relative z-10 space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-6 h-6 text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-base font-bold text-white">{quoteError?.message || 'Impossible de calculer le devis tarifaire.'}</p>
+              {quoteError?.diagnostic_id && (
+                <p className="text-xs text-rose-400 font-mono">ID Diagnostic : {quoteError.diagnostic_id}</p>
+              )}
             </div>
-            <p className="font-extrabold text-purple-400 text-sm">{formatSubscriptionCurrencyAmount(monthlySecondaire, countryCode)}/mois</p>
           </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md hover:border-emerald-500/50 transition-all">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Université & Supérieur</span>
-            <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-lg text-xs font-black">200 FCFA/mois</span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="text-2xl font-black text-white">{effectiveBreakdown.superieur_formation} <span className="text-xs text-slate-400 font-normal">étudiants</span></p>
-              <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
-            </div>
-            <p className="font-extrabold text-emerald-400 text-sm">{formatSubscriptionCurrencyAmount(monthlySuperieur, countryCode)}/mois</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Selecteur de Mode de Règlement (Comptant vs Tranches) */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 relative z-10 space-y-6">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div>
-            <h4 className="font-extrabold text-lg text-white">Choisissez votre mode de règlement</h4>
-            <p className="text-xs text-slate-400">Réglez comptant avec remise ou étalez le paiement par tranches</p>
-          </div>
-          
-          <div className="flex items-center gap-2 p-1.5 bg-black/30 rounded-xl border border-white/10">
-            {!lockedPlan ? (
-              <>
-                <button
-                  onClick={() => setPaymentMode('annual')}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                    paymentMode === 'annual'
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Comptant Annuel (-10%)
-                </button>
-                <button
-                  onClick={() => setPaymentMode('tranche')}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                    paymentMode === 'tranche'
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Par Tranches (3x)
-                </button>
-              </>
-            ) : (
-              <span className="px-4 py-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                Mode de paiement verrouillé : {lockedPlan === 'annual' ? 'Comptant Annuel' : 'Par Tranches'}
-              </span>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={fetchQuote}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2"
+            >
+              Réessayer
+            </button>
+            {(quoteError?.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE' || quoteError?.code === 'SUBSCRIPTION_PERIOD_REQUIRED') && (
+              <button
+                type="button"
+                onClick={() => {
+                  const paramsTab = document.querySelector('[data-tab="parametres"]') as HTMLElement;
+                  if (paramsTab) paramsTab.click();
+                }}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-md transition-all"
+              >
+                Ouvrir les Paramètres
+              </button>
             )}
           </div>
         </div>
+      )}
+
+      {/* ── 3. Devis Réussi : Affichage Dynamique (uniquement count > 0) et Paiement ── */}
+      {!isLoadingQuote && serverQuote && !quoteError && (
+        <>
+          {/* Ventilation des Tarifs par Cycle (Seulement les catégories avec count > 0) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-6 relative z-10">
+            {effectiveBreakdown.maternelle_primaire > 0 && (
+              <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md hover:border-blue-500/50 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">Maternelle & Primaire</span>
+                  <span className="px-2.5 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-black">100 FCFA/mois</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <p className="text-2xl font-black text-white">{effectiveBreakdown.maternelle_primaire} <span className="text-xs text-slate-400 font-normal">élèves</span></p>
+                    <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
+                  </div>
+                  <p className="font-extrabold text-blue-400 text-sm">{formatSubscriptionCurrencyAmount(monthlyPrimaire, countryCode)}/mois</p>
+                </div>
+              </div>
+            )}
+
+            {effectiveBreakdown.college_secondaire > 0 && (
+              <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md hover:border-purple-500/50 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Collège & Secondaire</span>
+                  <span className="px-2.5 py-1 bg-purple-500/20 text-purple-300 rounded-lg text-xs font-black">150 FCFA/mois</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <p className="text-2xl font-black text-white">{effectiveBreakdown.college_secondaire} <span className="text-xs text-slate-400 font-normal">élèves</span></p>
+                    <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
+                  </div>
+                  <p className="font-extrabold text-purple-400 text-sm">{formatSubscriptionCurrencyAmount(monthlySecondaire, countryCode)}/mois</p>
+                </div>
+              </div>
+            )}
+
+            {effectiveBreakdown.superieur_formation > 0 && (
+              <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md hover:border-emerald-500/50 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Université & Supérieur</span>
+                  <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-lg text-xs font-black">200 FCFA/mois</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <p className="text-2xl font-black text-white">{effectiveBreakdown.superieur_formation} <span className="text-xs text-slate-400 font-normal">étudiants</span></p>
+                    <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
+                  </div>
+                  <p className="font-extrabold text-emerald-400 text-sm">{formatSubscriptionCurrencyAmount(monthlySuperieur, countryCode)}/mois</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Selecteur de Mode de Règlement (Comptant vs Tranches) */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 relative z-10 space-y-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <div>
+                <h4 className="font-extrabold text-lg text-white">Choisissez votre mode de règlement</h4>
+                <p className="text-xs text-slate-400">Réglez comptant avec remise ou étalez le paiement par tranches</p>
+              </div>
+
+              <div className="flex items-center gap-2 p-1.5 bg-black/30 rounded-xl border border-white/10">
+                {!lockedPlan ? (
+                  <>
+                    <button
+                      onClick={() => setPaymentMode('annual')}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                        paymentMode === 'annual'
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Comptant Annuel (-10%)
+                    </button>
+                    <button
+                      onClick={() => setPaymentMode('tranche')}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                        paymentMode === 'tranche'
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Par Tranches (3x)
+                    </button>
+                  </>
+                ) : (
+                  <span className="px-4 py-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                    Mode de paiement verrouillé : {lockedPlan === 'annual' ? 'Comptant Annuel' : 'Par Tranches'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Bannière d'erreur paiement */}
+            {errorInfo && (
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs space-y-2 animate-fadeIn">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2 font-bold text-rose-300">
+                    <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                    <span>{errorInfo.message}</span>
+                  </div>
+                  {errorInfo.code && (
+                    <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono text-[10px] uppercase shrink-0 border border-rose-500/30">
+                      {errorInfo.code}
+                    </span>
+                  )}
+                </div>
+                {errorInfo.diagnostic_id && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-rose-500/20 text-[11px] text-slate-300">
+                    <span>Réf. diagnostic support : <strong className="font-mono text-white select-all">{errorInfo.diagnostic_id}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (errorInfo.diagnostic_id) {
+                          navigator.clipboard.writeText(errorInfo.diagnostic_id);
+                          setCopiedDiag(true);
+                          setTimeout(() => setCopiedDiag(false), 2500);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold text-white transition-colors self-start sm:self-auto"
+                    >
+                      {copiedDiag ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          ID Copié !
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          Copier Réf. Diagnostic
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
         {/* Option A : Paiement Annuel avec Bonus */}
         {paymentMode === 'annual' ? (
@@ -342,7 +550,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
               className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 shrink-0"
             >
               {isProcessing ? (
-                'Génération du reçu...'
+                'Initialisation sécurisée du paiement...'
               ) : paidTranches.length === 3 ? (
                 <>
                   <CheckCircle2 className="w-5 h-5 text-white" />
@@ -359,10 +567,11 @@ export const SchoolSubscriptionWidget: React.FC = () => {
         ) : (
           /* Option B : Paiement par Tranches */
           <div className="space-y-4">
-            <p className="text-xs text-slate-300 font-medium">3 Tranches d'un montant de <span className="font-bold text-blue-300">{formatSubscriptionCurrencyAmount(trancheAmountFcfa, countryCode)}</span> chacune :</p>
+            <p className="text-xs text-slate-300 font-medium">3 Tranches réparties sur l'année :</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[1, 2, 3].map((tNum) => {
                 const isPaid = paidTranches.includes(tNum);
+                const currentTrancheAmount = tranchesFcfa[tNum - 1] || 0;
                 return (
                   <div
                     key={tNum}
@@ -377,7 +586,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
                         <span className="text-xs font-bold uppercase">Tranche N°{tNum}</span>
                         {isPaid && <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-md text-[10px] font-black">RÉGLÉ ✅</span>}
                       </div>
-                      <p className="text-lg font-black">{formatSubscriptionCurrencyAmount(trancheAmountFcfa, countryCode)}</p>
+                      <p className="text-lg font-black">{formatSubscriptionCurrencyAmount(currentTrancheAmount, countryCode)}</p>
                     </div>
 
                     <button
@@ -394,6 +603,8 @@ export const SchoolSubscriptionWidget: React.FC = () => {
                           <Download className="w-4 h-4" />
                           Télécharger Reçu
                         </>
+                      ) : isProcessing ? (
+                        'Initialisation...'
                       ) : (
                         <>
                           <CreditCard className="w-4 h-4" />
@@ -408,6 +619,8 @@ export const SchoolSubscriptionWidget: React.FC = () => {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Modal Reçu de Confirmation */}
       {showReceiptModal && lastPayment && (
