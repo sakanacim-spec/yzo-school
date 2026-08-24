@@ -31,6 +31,38 @@ interface SubscriptionQuote {
   finalAnnualAmount: number;
   tranches: number[];
   currency: string;
+  currency_code?: string;
+  currency_symbol?: string;
+  currency_minor_unit?: number;
+  locale?: string;
+  payment_status?: string;
+  ratesMonthly?: Record<string, number>;
+}
+
+export function formatQuoteCurrencyAmount(
+  rawAmount: number,
+  quote?: { currency?: string; currency_code?: string; currency_symbol?: string; currency_minor_unit?: number; locale?: string } | null,
+  countryCode?: string
+): string {
+  if (!quote) return formatSubscriptionCurrencyAmount(rawAmount, countryCode);
+  const minorUnit = typeof quote.currency_minor_unit === 'number' ? quote.currency_minor_unit : 0;
+  const symbol = quote.currency_symbol || 'FCFA';
+  const currency = quote.currency_code || quote.currency || 'XOF';
+  const locale = quote.locale || 'fr-FR';
+
+  const realAmount = minorUnit > 0 ? rawAmount / Math.pow(10, minorUnit) : rawAmount;
+
+  if (minorUnit === 0) {
+    return `${Math.round(realAmount).toLocaleString(locale)} ${symbol}`;
+  }
+
+  if (currency === 'EUR' || symbol === '€') {
+    return `${realAmount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
+  }
+  if (currency === 'GHS' || symbol === 'GH₵') {
+    return `${symbol}${realAmount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  return `${symbol} ${realAmount.toLocaleString(locale, { minimumFractionDigits: minorUnit, maximumFractionDigits: minorUnit })}`;
 }
 
 interface PaymentErrorInfo {
@@ -139,12 +171,18 @@ export const SchoolSubscriptionWidget: React.FC = () => {
   const finalAnnualFcfa = typeof serverQuote?.finalAnnualAmount === 'number' ? serverQuote.finalAnnualAmount : 0;
   const tranchesFcfa = Array.isArray(serverQuote?.tranches) && serverQuote.tranches.length === 3 ? serverQuote.tranches : [0, 0, 0];
 
-  const monthlyPrimaire = effectiveBreakdown.maternelle_primaire * 100;
-  const monthlySecondaire = effectiveBreakdown.college_secondaire * 150;
-  const monthlySuperieur = effectiveBreakdown.superieur_formation * 200;
+  const ratePrimaire = serverQuote?.ratesMonthly?.maternelle_primaire ?? 100;
+  const rateSecondaire = serverQuote?.ratesMonthly?.college_secondaire ?? 150;
+  const rateSuperieur = serverQuote?.ratesMonthly?.superieur_formation ?? 200;
+
+  const monthlyPrimaire = effectiveBreakdown.maternelle_primaire * ratePrimaire;
+  const monthlySecondaire = effectiveBreakdown.college_secondaire * rateSecondaire;
+  const monthlySuperieur = effectiveBreakdown.superieur_formation * rateSuperieur;
+
+  const isPaymentPending = serverQuote?.payment_status === 'configuration_pending';
 
   const handleSimulatePayment = async (type: 'annual' | 'tranche', trancheNum?: number) => {
-    if (isProcessing || isLoadingQuote || !serverQuote || !serverQuote.quote_id || quoteError) return;
+    if (isProcessing || isLoadingQuote || !serverQuote || !serverQuote.quote_id || quoteError || isPaymentPending) return;
     if (type === 'annual' && (!finalAnnualFcfa || finalAnnualFcfa <= 0)) return;
     if (type === 'tranche' && (typeof trancheNum !== 'number' || !tranchesFcfa[trancheNum - 1] || tranchesFcfa[trancheNum - 1] <= 0)) return;
 
@@ -176,6 +214,8 @@ export const SchoolSubscriptionWidget: React.FC = () => {
         if (data.code === 'QUOTE_STALE') {
           msg = 'Les effectifs ou classes ont été modifiés. Le devis a été actualisé, veuillez réessayer.';
           fetchQuote();
+        } else if (data.code === 'PAYMENT_PROVIDER_NOT_CONFIGURED_FOR_COUNTRY') {
+          msg = data.error || 'Le paiement électronique sera prochainement disponible dans votre pays.';
         } else if (data.code === 'PAYMENT_PROVIDER_NOT_CONFIGURED') {
           msg = 'La passerelle de paiement en ligne est en cours de maintenance ou non configurée.';
         } else if (data.code === 'PAYMENT_PROVIDER_UNAVAILABLE') {
@@ -327,7 +367,9 @@ export const SchoolSubscriptionWidget: React.FC = () => {
               <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-black tracking-wider uppercase border border-blue-500/30">
                 Tarification Établissement Privé
               </span>
-              <span className="text-xs text-slate-400 font-medium">Devise : {currencyInfo.currency} ({currencyInfo.symbol})</span>
+              <span className="text-xs text-slate-400 font-medium">
+                Devise : {serverQuote?.currency_code || serverQuote?.currency || currencyInfo.currency} ({serverQuote?.currency_symbol || currencyInfo.symbol})
+              </span>
             </div>
             <h3 className="text-xl sm:text-2xl font-black tracking-tight mt-1 text-white">
               Abonnement & Licence Établissement Yziow
@@ -399,14 +441,16 @@ export const SchoolSubscriptionWidget: React.FC = () => {
               <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md hover:border-blue-500/50 transition-all">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">Maternelle & Primaire</span>
-                  <span className="px-2.5 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-black">100 FCFA/mois</span>
+                  <span className="px-2.5 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-black">
+                    {formatQuoteCurrencyAmount(ratePrimaire, serverQuote, countryCode)}/mois
+                  </span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div>
                     <p className="text-2xl font-black text-white">{effectiveBreakdown.maternelle_primaire} <span className="text-xs text-slate-400 font-normal">élèves</span></p>
                     <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
                   </div>
-                  <p className="font-extrabold text-blue-400 text-sm">{formatSubscriptionCurrencyAmount(monthlyPrimaire, countryCode)}/mois</p>
+                  <p className="font-extrabold text-blue-400 text-sm">{formatQuoteCurrencyAmount(monthlyPrimaire, serverQuote, countryCode)}/mois</p>
                 </div>
               </div>
             )}
@@ -415,14 +459,16 @@ export const SchoolSubscriptionWidget: React.FC = () => {
               <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md hover:border-purple-500/50 transition-all">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Collège & Secondaire</span>
-                  <span className="px-2.5 py-1 bg-purple-500/20 text-purple-300 rounded-lg text-xs font-black">150 FCFA/mois</span>
+                  <span className="px-2.5 py-1 bg-purple-500/20 text-purple-300 rounded-lg text-xs font-black">
+                    {formatQuoteCurrencyAmount(rateSecondaire, serverQuote, countryCode)}/mois
+                  </span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div>
                     <p className="text-2xl font-black text-white">{effectiveBreakdown.college_secondaire} <span className="text-xs text-slate-400 font-normal">élèves</span></p>
                     <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
                   </div>
-                  <p className="font-extrabold text-purple-400 text-sm">{formatSubscriptionCurrencyAmount(monthlySecondaire, countryCode)}/mois</p>
+                  <p className="font-extrabold text-purple-400 text-sm">{formatQuoteCurrencyAmount(monthlySecondaire, serverQuote, countryCode)}/mois</p>
                 </div>
               </div>
             )}
@@ -431,14 +477,16 @@ export const SchoolSubscriptionWidget: React.FC = () => {
               <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md hover:border-emerald-500/50 transition-all">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Université & Supérieur</span>
-                  <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-lg text-xs font-black">200 FCFA/mois</span>
+                  <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-lg text-xs font-black">
+                    {formatQuoteCurrencyAmount(rateSuperieur, serverQuote, countryCode)}/mois
+                  </span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div>
                     <p className="text-2xl font-black text-white">{effectiveBreakdown.superieur_formation} <span className="text-xs text-slate-400 font-normal">étudiants</span></p>
                     <p className="text-xs text-slate-400 mt-1">Sous-total mensuel</p>
                   </div>
-                  <p className="font-extrabold text-emerald-400 text-sm">{formatSubscriptionCurrencyAmount(monthlySuperieur, countryCode)}/mois</p>
+                  <p className="font-extrabold text-emerald-400 text-sm">{formatQuoteCurrencyAmount(monthlySuperieur, serverQuote, countryCode)}/mois</p>
                 </div>
               </div>
             )}
@@ -483,6 +531,16 @@ export const SchoolSubscriptionWidget: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* Information lorsque le paiement électronique est en cours de configuration */}
+            {isPaymentPending && (
+              <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+                <p className="text-sm font-medium leading-relaxed">
+                  Le paiement électronique sera prochainement disponible dans votre pays. Contactez YZIOW pour connaître les modalités bancaires disponibles.
+                </p>
+              </div>
+            )}
 
             {/* Bannière d'erreur paiement */}
             {errorInfo && (
@@ -538,31 +596,33 @@ export const SchoolSubscriptionWidget: React.FC = () => {
                   <Sparkles className="w-3 h-3 text-amber-300" />
                   Bonus Remise -10% Appliqué
                 </span>
-                <span className="text-xs text-slate-400 line-through">{formatSubscriptionCurrencyAmount(totalAnnualFcfa, countryCode)}</span>
+                <span className="text-xs text-slate-400 line-through">{formatQuoteCurrencyAmount(totalAnnualFcfa, serverQuote, countryCode)}</span>
               </div>
-              <h5 className="text-3xl font-black text-white">{formatSubscriptionCurrencyAmount(finalAnnualFcfa, countryCode)} <span className="text-xs text-slate-300 font-normal">/ an (10 mois)</span></h5>
-              <p className="text-xs text-blue-200 opacity-90">Économie immédiate de {formatSubscriptionCurrencyAmount(annualBonusFcfa, countryCode)} pour règlement comptant.</p>
+              <h5 className="text-3xl font-black text-white">{formatQuoteCurrencyAmount(finalAnnualFcfa, serverQuote, countryCode)} <span className="text-xs text-slate-300 font-normal">/ an (10 mois)</span></h5>
+              <p className="text-xs text-blue-200 opacity-90">Économie immédiate de {formatQuoteCurrencyAmount(annualBonusFcfa, serverQuote, countryCode)} pour règlement comptant.</p>
             </div>
 
-            <button
-              onClick={() => handleSimulatePayment('annual')}
-              disabled={isProcessing || paidTranches.length === 3}
-              className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 shrink-0"
-            >
-              {isProcessing ? (
-                'Initialisation sécurisée du paiement...'
-              ) : paidTranches.length === 3 ? (
-                <>
-                  <CheckCircle2 className="w-5 h-5 text-white" />
-                  Abonnement Réglé (Comptant)
-                </>
-              ) : (
-                <>
-                  <CreditCard className="w-5 h-5" />
-                  Régler l'Abonnement (Comptant)
-                </>
-              )}
-            </button>
+            {!isPaymentPending && (
+              <button
+                onClick={() => handleSimulatePayment('annual')}
+                disabled={isProcessing || paidTranches.length === 3}
+                className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 shrink-0"
+              >
+                {isProcessing ? (
+                  'Initialisation sécurisée du paiement...'
+                ) : paidTranches.length === 3 ? (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-white" />
+                    Abonnement Réglé (Comptant)
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-5 h-5" />
+                    Régler l'Abonnement (Comptant)
+                  </>
+                )}
+              </button>
+            )}
           </div>
         ) : (
           /* Option B : Paiement par Tranches */
@@ -586,32 +646,34 @@ export const SchoolSubscriptionWidget: React.FC = () => {
                         <span className="text-xs font-bold uppercase">Tranche N°{tNum}</span>
                         {isPaid && <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-md text-[10px] font-black">RÉGLÉ ✅</span>}
                       </div>
-                      <p className="text-lg font-black">{formatSubscriptionCurrencyAmount(currentTrancheAmount, countryCode)}</p>
+                      <p className="text-lg font-black">{formatQuoteCurrencyAmount(currentTrancheAmount, serverQuote, countryCode)}</p>
                     </div>
 
-                    <button
-                      onClick={() => handleSimulatePayment('tranche', tNum)}
-                      disabled={isPaid || isProcessing}
-                      className={`mt-4 py-2.5 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                        isPaid
-                          ? 'bg-emerald-600/30 text-emerald-300 cursor-default'
-                          : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md'
-                      }`}
-                    >
-                      {isPaid ? (
-                        <>
-                          <Download className="w-4 h-4" />
-                          Télécharger Reçu
-                        </>
-                      ) : isProcessing ? (
-                        'Initialisation...'
-                      ) : (
-                        <>
-                          <CreditCard className="w-4 h-4" />
-                          Régler Tranche {tNum}
-                        </>
-                      )}
-                    </button>
+                    {!isPaymentPending && (
+                      <button
+                        onClick={() => handleSimulatePayment('tranche', tNum)}
+                        disabled={isPaid || isProcessing}
+                        className={`mt-4 py-2.5 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                          isPaid
+                            ? 'bg-emerald-600/30 text-emerald-300 cursor-default'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md'
+                        }`}
+                      >
+                        {isPaid ? (
+                          <>
+                            <Download className="w-4 h-4" />
+                            Télécharger Reçu
+                          </>
+                        ) : isProcessing ? (
+                          'Initialisation...'
+                        ) : (
+                          <>
+                            <CreditCard className="w-4 h-4" />
+                            Régler Tranche {tNum}
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 );
               })}

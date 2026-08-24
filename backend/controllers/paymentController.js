@@ -649,41 +649,9 @@ function computeClassificationHash(schoolSlug, schoolYear, breakdown, totalStude
     return crypto.createHash('sha256').update(payload).digest('hex');
 }
 
-/**
- * Résout la grille tarifaire active pour un pays donné ou renvoie la grille canonique UEMOA/XOF
- */
-async function resolveActivePricingGrid(countryCode = 'BJ') {
-    const normCountry = (countryCode || 'BJ').toUpperCase().trim();
-    try {
-        const { data: grids, error } = await supabase
-            .from('saas_pricing_grids')
-            .select(`
-                id, pricing_version, scope_type, scope_code,
-                currency_code, currency_symbol, currency_minor_unit, locale,
-                rates_monthly, billing_months, annual_discount_percent,
-                installments_count, provider, enabled, effective_from, effective_to,
-                saas_pricing_grid_countries!inner ( country_code )
-            `)
-            .eq('enabled', true)
-            .eq('saas_pricing_grid_countries.country_code', normCountry)
-            .lte('effective_from', new Date().toISOString());
-
-        if (!error && Array.isArray(grids) && grids.length > 0) {
-            // Trier : priorité scope 'country' > 'region', puis date effective la plus récente
-            const activeGrids = grids.filter(g => !g.effective_to || new Date(g.effective_to) > new Date());
-            if (activeGrids.length > 0) {
-                activeGrids.sort((a, b) => {
-                    if (a.scope_type === 'country' && b.scope_type !== 'country') return -1;
-                    if (b.scope_type === 'country' && a.scope_type !== 'country') return 1;
-                    return new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime();
-                });
-                return activeGrids[0];
-            }
-        }
-    } catch (_dbErr) {}
-
-    // Définition canonique UEMOA / XOF 2026.1 (immuable)
-    return {
+// Définitions canoniques en mémoire pour fallback / isolation test
+const CANONICAL_GRIDS = {
+    UEMOA: {
         id: null,
         pricing_version: '2026.1_xof_uemoa',
         scope_type: 'region',
@@ -696,8 +664,131 @@ async function resolveActivePricingGrid(countryCode = 'BJ') {
         billing_months: ANNUAL_MONTHS_COUNT,
         annual_discount_percent: ANNUAL_DISCOUNT_PERCENT,
         installments_count: 3,
-        provider: 'fedapay'
-    };
+        provider: 'fedapay',
+        pricing_status: 'active',
+        payment_status: 'production',
+        countries: ['BJ', 'TG', 'CI', 'SN', 'ML', 'BF', 'NE', 'GW']
+    },
+    CEMAC: {
+        id: null,
+        pricing_version: '2026.1_xaf_cemac',
+        scope_type: 'region',
+        scope_code: 'CEMAC',
+        currency_code: 'XAF',
+        currency_symbol: 'FCFA',
+        currency_minor_unit: 0,
+        locale: 'fr-CM',
+        rates_monthly: { maternelle_primaire: 100, college_secondaire: 150, superieur_formation: 200 },
+        billing_months: 10,
+        annual_discount_percent: 10,
+        installments_count: 3,
+        provider: 'pending',
+        pricing_status: 'active',
+        payment_status: 'configuration_pending',
+        countries: ['CM', 'GA', 'CG', 'TD', 'CF', 'GQ']
+    },
+    GH: {
+        id: null,
+        pricing_version: '2026.1_ghs_ghana',
+        scope_type: 'country',
+        scope_code: 'GH',
+        currency_code: 'GHS',
+        currency_symbol: 'GH₵',
+        currency_minor_unit: 2,
+        locale: 'en-GH',
+        rates_monthly: { maternelle_primaire: 200, college_secondaire: 300, superieur_formation: 400 },
+        billing_months: 10,
+        annual_discount_percent: 10,
+        installments_count: 3,
+        provider: 'pending',
+        pricing_status: 'active',
+        payment_status: 'configuration_pending',
+        countries: ['GH']
+    },
+    ES: {
+        id: null,
+        pricing_version: '2026.1_eur_spain',
+        scope_type: 'country',
+        scope_code: 'ES',
+        currency_code: 'EUR',
+        currency_symbol: '€',
+        currency_minor_unit: 2,
+        locale: 'es-ES',
+        rates_monthly: { maternelle_primaire: 50, college_secondaire: 75, superieur_formation: 100 },
+        billing_months: 10,
+        annual_discount_percent: 10,
+        installments_count: 3,
+        provider: 'pending',
+        pricing_status: 'active',
+        payment_status: 'configuration_pending',
+        countries: ['ES']
+    }
+};
+
+/**
+ * Résout la grille tarifaire active pour un pays donné
+ * Ordre obligatoire :
+ * 1. Lire le pays ISO de l'établissement.
+ * 2. Rechercher une grille pays active.
+ * 3. Sinon rechercher une grille régionale active contenant ce pays.
+ * 4. Sinon retourner PRICING_GRID_NOT_CONFIGURED.
+ */
+async function resolveActivePricingGrid(countryCode = 'BJ') {
+    if (!countryCode || typeof countryCode !== 'string' || !countryCode.trim()) {
+        const err = new Error("Le pays de l'établissement n'est pas renseigné.");
+        err.code = 'PRICING_GRID_NOT_CONFIGURED';
+        throw err;
+    }
+    const normCountry = countryCode.toUpperCase().trim();
+
+    try {
+        const { data: grids, error } = await supabase
+            .from('saas_pricing_grids')
+            .select(`
+                id, pricing_version, scope_type, scope_code,
+                currency_code, currency_symbol, currency_minor_unit, locale,
+                rates_monthly, billing_months, annual_discount_percent,
+                installments_count, provider, pricing_status, payment_status, enabled, effective_from, effective_to,
+                saas_pricing_grid_countries!inner ( country_code )
+            `)
+            .eq('enabled', true)
+            .eq('saas_pricing_grid_countries.country_code', normCountry)
+            .lte('effective_from', new Date().toISOString());
+
+        if (!error && Array.isArray(grids) && grids.length > 0) {
+            const activeGrids = grids.filter(g => (!g.pricing_status || g.pricing_status === 'active') && (!g.effective_to || new Date(g.effective_to) > new Date()));
+            if (activeGrids.length > 0) {
+                // Priorité stricte : 1. scope_type 'country' > 'region', 2. effective_from le plus récent
+                activeGrids.sort((a, b) => {
+                    if (a.scope_type === 'country' && b.scope_type !== 'country') return -1;
+                    if (b.scope_type === 'country' && a.scope_type !== 'country') return 1;
+                    return new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime();
+                });
+                return activeGrids[0];
+            }
+        }
+    } catch (_dbErr) {}
+
+    // Résolution canonique de secours (tests unitaires / DB offline)
+    // 1. Rechercher d'abord une grille 'country'
+    for (const key of Object.keys(CANONICAL_GRIDS)) {
+        const g = CANONICAL_GRIDS[key];
+        if (g.scope_type === 'country' && g.countries.includes(normCountry) && g.pricing_status === 'active') {
+            return g;
+        }
+    }
+    // 2. Rechercher ensuite une grille 'region'
+    for (const key of Object.keys(CANONICAL_GRIDS)) {
+        const g = CANONICAL_GRIDS[key];
+        if (g.scope_type === 'region' && g.countries.includes(normCountry) && g.pricing_status === 'active') {
+            return g;
+        }
+    }
+
+    // 3. Aucun fallback silencieux -> erreur stricte PRICING_GRID_NOT_CONFIGURED
+    const err = new Error(`Aucune grille tarifaire active n'est configurée pour le pays ${normCountry}.`);
+    err.code = 'PRICING_GRID_NOT_CONFIGURED';
+    throw err;
 }
 
 /**
@@ -864,16 +955,26 @@ async function computeSchoolSubscriptionQuote(schoolSlug, options = {}) {
         pricing_version: grid.pricing_version,
         pricing_scope_type: grid.scope_type,
         pricing_scope_code: grid.scope_code,
+        scope_type: grid.scope_type,
+        scope_code: grid.scope_code,
         country_code: countryCode,
         currency_code: grid.currency_code,
         currency_symbol: grid.currency_symbol,
-        currency_minor_unit: grid.currency_minor_unit,
+        currency_minor_unit: typeof grid.currency_minor_unit === 'number' ? grid.currency_minor_unit : 0,
         locale: grid.locale,
+        payment_status: grid.payment_status || 'production',
         totalStudents,
         total_students: totalStudents,
         breakdown,
         categories_breakdown: breakdown,
         ratesMonthly: rates,
+        rates_monthly: rates,
+        billing_months: billingMonths,
+        annual_discount_percent: discountPercent,
+        installments_count: 3,
+        gross_amount: totalAnnual,
+        discount_amount: annualDiscount,
+        payable_amount: payableAnnual,
         monthlyAmount: totalMonthly,
         totalAnnualAmount: totalAnnual,
         annualBonusAmount: annualDiscount,
@@ -908,6 +1009,7 @@ async function computeAndPersistSubscriptionQuote(schoolSlug, userId) {
                 country_code: quote.country_code,
                 currency_code: quote.currency_code,
                 currency_minor_unit: quote.currency_minor_unit,
+                payment_status: quote.payment_status || 'production',
                 total_students: quote.total_students,
                 categories_breakdown: quote.categories_breakdown,
                 payment_options: quote.payment_options,
@@ -971,7 +1073,7 @@ async function createSubscriptionQuote(req, res) {
             diagnostic_id: diagnosticId
         });
     } catch (err) {
-        if (err.code === 'SUBSCRIPTION_PERIOD_REQUIRED' || err.code === 'SUBSCRIPTION_AMOUNT_INVALID' || err.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE') {
+        if (err.code === 'SUBSCRIPTION_PERIOD_REQUIRED' || err.code === 'SUBSCRIPTION_AMOUNT_INVALID' || err.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE' || err.code === 'PRICING_GRID_NOT_CONFIGURED') {
             return res.status(422).json({
                 error: err.message,
                 code: err.code,
@@ -1127,7 +1229,7 @@ async function getSubscriptionQuote(req, res) {
             diagnostic_id: diagnosticId
         });
     } catch (err) {
-        if (err.code === 'SUBSCRIPTION_PERIOD_REQUIRED' || err.code === 'SUBSCRIPTION_AMOUNT_INVALID' || err.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE') {
+        if (err.code === 'SUBSCRIPTION_PERIOD_REQUIRED' || err.code === 'SUBSCRIPTION_AMOUNT_INVALID' || err.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE' || err.code === 'PRICING_GRID_NOT_CONFIGURED') {
             return res.status(422).json({
                 error: err.message,
                 code: err.code,
@@ -1247,7 +1349,7 @@ async function createSaasTransaction(req, res) {
             try {
                 quote = await computeAndPersistSubscriptionQuote(slug, userId);
             } catch (qErr) {
-                if (qErr.code === 'SUBSCRIPTION_PERIOD_REQUIRED' || qErr.code === 'SUBSCRIPTION_AMOUNT_INVALID' || qErr.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE') {
+                if (qErr.code === 'SUBSCRIPTION_PERIOD_REQUIRED' || qErr.code === 'SUBSCRIPTION_AMOUNT_INVALID' || qErr.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE' || qErr.code === 'PRICING_GRID_NOT_CONFIGURED') {
                     return res.status(422).json({
                         error: qErr.message,
                         code: qErr.code,
@@ -1257,6 +1359,15 @@ async function createSaasTransaction(req, res) {
                 }
                 throw qErr;
             }
+        }
+
+        // Blocage de paiement si la passerelle de paiement n'est pas encore configurée pour ce pays / cette zone
+        if (quote.payment_status === 'configuration_pending' || quote.provider === 'pending') {
+            return res.status(503).json({
+                error: "Le paiement électronique sera prochainement disponible dans votre pays. Contactez YZIOW pour connaître les modalités bancaires disponibles.",
+                code: 'PAYMENT_PROVIDER_NOT_CONFIGURED_FOR_COUNTRY',
+                diagnostic_id: diagnosticId
+            });
         }
 
         const billingPeriod = quote.billing_period || quote.billingPeriod;
