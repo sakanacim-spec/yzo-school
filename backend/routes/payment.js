@@ -6,6 +6,8 @@ const {
     createTransaction,
     createSaasTransaction,
     getSubscriptionQuote,
+    getSubscriptionQuoteById,
+    createSubscriptionQuote,
     createDonationTransaction,
     fedapayWebhook
 } = require('../controllers/paymentController');
@@ -28,6 +30,10 @@ router.post('/public/campaigns/:schoolSlug/:campaignId/donate', donationRateLimi
 // Routes protégées par authentification
 router.use(authenticateToken);
 router.post('/create-transaction', createTransaction);
+
+// Routes d'abonnement SaaS P8 (Devis et Initialisation)
+router.post('/saas/schools/:slug/quotes', createSubscriptionQuote);
+router.get('/saas/schools/:slug/quotes/:quoteId', getSubscriptionQuoteById);
 router.get('/saas/schools/:slug/quote', getSubscriptionQuote);
 router.post('/saas/schools/:slug/pay-init', createSaasTransaction);
 

@@ -633,14 +633,94 @@ function calculateDeterministicTranches(totalAnnualAmount) {
 }
 
 /**
+ * Calcule le hash cryptographique SHA-256 de la classification élèves/classes
+ */
+function computeClassificationHash(schoolSlug, schoolYear, breakdown, totalStudents) {
+    const payload = JSON.stringify({
+        schoolSlug,
+        schoolYear,
+        breakdown: {
+            college_secondaire: breakdown.college_secondaire || 0,
+            maternelle_primaire: breakdown.maternelle_primaire || 0,
+            superieur_formation: breakdown.superieur_formation || 0
+        },
+        totalStudents
+    });
+    return crypto.createHash('sha256').update(payload).digest('hex');
+}
+
+/**
+ * Résout la grille tarifaire active pour un pays donné ou renvoie la grille canonique UEMOA/XOF
+ */
+async function resolveActivePricingGrid(countryCode = 'BJ') {
+    const normCountry = (countryCode || 'BJ').toUpperCase().trim();
+    try {
+        const { data: grids, error } = await supabase
+            .from('saas_pricing_grids')
+            .select(`
+                id, pricing_version, scope_type, scope_code,
+                currency_code, currency_symbol, currency_minor_unit, locale,
+                rates_monthly, billing_months, annual_discount_percent,
+                installments_count, provider, enabled, effective_from, effective_to,
+                saas_pricing_grid_countries!inner ( country_code )
+            `)
+            .eq('enabled', true)
+            .eq('saas_pricing_grid_countries.country_code', normCountry)
+            .lte('effective_from', new Date().toISOString());
+
+        if (!error && Array.isArray(grids) && grids.length > 0) {
+            // Trier : priorité scope 'country' > 'region', puis date effective la plus récente
+            const activeGrids = grids.filter(g => !g.effective_to || new Date(g.effective_to) > new Date());
+            if (activeGrids.length > 0) {
+                activeGrids.sort((a, b) => {
+                    if (a.scope_type === 'country' && b.scope_type !== 'country') return -1;
+                    if (b.scope_type === 'country' && a.scope_type !== 'country') return 1;
+                    return new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime();
+                });
+                return activeGrids[0];
+            }
+        }
+    } catch (_dbErr) {}
+
+    // Définition canonique UEMOA / XOF 2026.1 (immuable)
+    return {
+        id: null,
+        pricing_version: '2026.1_xof_uemoa',
+        scope_type: 'region',
+        scope_code: 'UEMOA',
+        currency_code: 'XOF',
+        currency_symbol: 'FCFA',
+        currency_minor_unit: 0,
+        locale: 'fr-BJ',
+        rates_monthly: PRICING_RATES_MONTHLY,
+        billing_months: ANNUAL_MONTHS_COUNT,
+        annual_discount_percent: ANNUAL_DISCOUNT_PERCENT,
+        installments_count: 3,
+        provider: 'fedapay'
+    };
+}
+
+/**
  * Calcule de manière autoritaire le devis d'abonnement SaaS à partir de l'effectif réel de l'établissement
  */
-async function computeSchoolSubscriptionQuote(schoolSlug) {
+async function computeSchoolSubscriptionQuote(schoolSlug, options = {}) {
     const diagnosticId = `diag_${crypto.randomBytes(8).toString('hex')}`;
 
     // 1. Récupération des paramètres de l'école (classes et année scolaire)
     let configuredClasses = [];
     let schoolYear = null;
+    let countryCode = options.countryCode || 'BJ';
+
+    try {
+        const { data: schoolRow } = await supabase
+            .from('schools')
+            .select('country')
+            .eq('slug', schoolSlug)
+            .single();
+        if (schoolRow?.country) {
+            countryCode = schoolRow.country.toUpperCase().trim();
+        }
+    } catch (_schErr) {}
 
     try {
         const { data: settingsRows, error: settingsErr } = await supabase
@@ -754,36 +834,219 @@ async function computeSchoolSubscriptionQuote(schoolSlug) {
         throw err;
     }
 
-    const totalStudents = breakdown.maternelle_primaire + breakdown.college_secondaire + breakdown.superieur_formation;
-    const monthlyPrimaire = breakdown.maternelle_primaire * PRICING_RATES_MONTHLY.maternelle_primaire;
-    const monthlySecondaire = breakdown.college_secondaire * PRICING_RATES_MONTHLY.college_secondaire;
-    const monthlySuperieur = breakdown.superieur_formation * PRICING_RATES_MONTHLY.superieur_formation;
+    // 4. Résolution de la grille tarifaire active
+    const grid = await resolveActivePricingGrid(countryCode);
+    const rates = grid.rates_monthly;
+    const billingMonths = grid.billing_months || 10;
+    const discountPercent = Number(grid.annual_discount_percent) || 10;
 
-    const totalMonthlyFcfa = monthlyPrimaire + monthlySecondaire + monthlySuperieur;
-    const totalAnnualFcfa = totalMonthlyFcfa * ANNUAL_MONTHS_COUNT;
-    const annualBonusFcfa = Math.round(totalAnnualFcfa * (ANNUAL_DISCOUNT_PERCENT / 100));
-    const finalAnnualFcfa = totalAnnualFcfa - annualBonusFcfa;
-    const tranches = calculateDeterministicTranches(totalAnnualFcfa);
+    const totalStudents = breakdown.maternelle_primaire + breakdown.college_secondaire + breakdown.superieur_formation;
+    const monthlyPrimaire = breakdown.maternelle_primaire * rates.maternelle_primaire;
+    const monthlySecondaire = breakdown.college_secondaire * rates.college_secondaire;
+    const monthlySuperieur = breakdown.superieur_formation * rates.superieur_formation;
+
+    const totalMonthly = monthlyPrimaire + monthlySecondaire + monthlySuperieur;
+    const totalAnnual = totalMonthly * billingMonths;
+    const annualDiscount = Math.round(totalAnnual * (discountPercent / 100));
+    const payableAnnual = totalAnnual - annualDiscount;
+    const tranches = calculateDeterministicTranches(totalAnnual);
+
+    const classificationHash = computeClassificationHash(schoolSlug, schoolYear, breakdown, totalStudents);
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
 
+    const paymentOptions = {
+        annual: {
+            grossAmount: totalAnnual,
+            discountAmount: annualDiscount,
+            payableAmount: payableAnnual
+        },
+        installments: {
+            grossAmount: totalAnnual,
+            discountAmount: 0,
+            payableAmount: totalAnnual,
+            installmentsCount: 3,
+            installmentAmounts: tranches
+        }
+    };
+
     return {
         quote_id: `quote_${crypto.randomBytes(8).toString('hex')}`,
-        calculated_at: now.toISOString(),
-        expires_at: expiresAt,
-        schoolSlug,
+        school_slug: schoolSlug,
         billingPeriod: schoolYear,
+        billing_period: schoolYear,
+        pricing_grid_id: grid.id || null,
+        pricing_version: grid.pricing_version,
+        pricing_scope_type: grid.scope_type,
+        pricing_scope_code: grid.scope_code,
+        country_code: countryCode,
+        currency_code: grid.currency_code,
+        currency_symbol: grid.currency_symbol,
+        currency_minor_unit: grid.currency_minor_unit,
+        locale: grid.locale,
         totalStudents,
+        total_students: totalStudents,
         breakdown,
-        ratesMonthly: PRICING_RATES_MONTHLY,
-        monthlyAmount: totalMonthlyFcfa,
-        totalAnnualAmount: totalAnnualFcfa,
-        annualBonusAmount: annualBonusFcfa,
-        finalAnnualAmount: finalAnnualFcfa,
+        categories_breakdown: breakdown,
+        ratesMonthly: rates,
+        monthlyAmount: totalMonthly,
+        totalAnnualAmount: totalAnnual,
+        annualBonusAmount: annualDiscount,
+        finalAnnualAmount: payableAnnual,
         tranches,
-        currency: 'XOF'
+        currency: grid.currency_code,
+        payment_options: paymentOptions,
+        classification_hash: classificationHash,
+        status: 'issued',
+        calculated_at: now.toISOString(),
+        expires_at: expiresAt
     };
+}
+
+/**
+ * Calcule et persiste un devis serveur dans public.saas_subscription_quotes
+ */
+async function computeAndPersistSubscriptionQuote(schoolSlug, userId) {
+    const quote = await computeSchoolSubscriptionQuote(schoolSlug);
+
+    try {
+        const { data: inserted, error: insertErr } = await supabase
+            .from('saas_subscription_quotes')
+            .insert({
+                quote_id: quote.quote_id,
+                school_slug: quote.school_slug,
+                billing_period: quote.billing_period,
+                pricing_grid_id: quote.pricing_grid_id,
+                pricing_version: quote.pricing_version,
+                pricing_scope_type: quote.pricing_scope_type,
+                pricing_scope_code: quote.pricing_scope_code,
+                country_code: quote.country_code,
+                currency_code: quote.currency_code,
+                currency_minor_unit: quote.currency_minor_unit,
+                total_students: quote.total_students,
+                categories_breakdown: quote.categories_breakdown,
+                payment_options: quote.payment_options,
+                classification_hash: quote.classification_hash,
+                status: 'issued',
+                calculated_at: quote.calculated_at,
+                expires_at: quote.expires_at,
+                created_by: userId || '00000000-0000-0000-0000-000000000000'
+            })
+            .select('*')
+            .single();
+
+        if (!insertErr && inserted) {
+            return { ...quote, id: inserted.id };
+        }
+    } catch (_dbErr) {}
+
+    return quote;
+}
+
+/**
+ * Création et émission d'un devis serveur officiel
+ * POST /api/payment/saas/schools/:slug/quotes
+ */
+async function createSubscriptionQuote(req, res) {
+    const slug = req.params.slug;
+    const diagnosticId = `diag_${crypto.randomBytes(8).toString('hex')}`;
+
+    if (!slug || !SLUG_REGEX.test(slug)) {
+        return res.status(400).json({
+            error: 'Slug établissement invalide.',
+            code: 'INVALID_SLUG',
+            diagnostic_id: diagnosticId
+        });
+    }
+
+    const userRole = req.user?.role;
+    const userSchoolSlug = req.user?.schoolSlug;
+    const adminRoles = ['admin', 'directeur', 'directeur_general'];
+
+    if (!userRole) {
+        return res.status(401).json({
+            error: 'Authentification requise.',
+            code: 'AUTHENTICATION_REQUIRED',
+            diagnostic_id: diagnosticId
+        });
+    }
+
+    if (userRole !== 'superadmin' && (!adminRoles.includes(userRole) || userSchoolSlug !== slug)) {
+        return res.status(403).json({
+            error: 'Non autorisé à émettre un devis pour cet établissement.',
+            code: 'PAYMENT_FORBIDDEN',
+            diagnostic_id: diagnosticId
+        });
+    }
+
+    try {
+        const quote = await computeAndPersistSubscriptionQuote(slug, req.user?.id || req.user?.userId);
+        return res.status(201).json({
+            quote,
+            diagnostic_id: diagnosticId
+        });
+    } catch (err) {
+        if (err.code === 'SUBSCRIPTION_PERIOD_REQUIRED' || err.code === 'SUBSCRIPTION_AMOUNT_INVALID' || err.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE') {
+            return res.status(422).json({
+                error: err.message,
+                code: err.code,
+                unclassified_count: err.unclassified_count,
+                diagnostic_id: err.diagnostic_id || diagnosticId
+            });
+        }
+        return res.status(500).json({
+            error: 'Erreur lors de la génération du devis tarifaire.',
+            code: 'QUOTE_CALCULATION_FAILED',
+            diagnostic_id: diagnosticId
+        });
+    }
+}
+
+/**
+ * Récupération d'un devis émis par son identifiant unique
+ * GET /api/payment/saas/schools/:slug/quotes/:quoteId
+ */
+async function getSubscriptionQuoteById(req, res) {
+    const { slug, quoteId } = req.params;
+    const diagnosticId = `diag_${crypto.randomBytes(8).toString('hex')}`;
+
+    if (!slug || !SLUG_REGEX.test(slug) || !quoteId) {
+        return res.status(400).json({
+            error: 'Identifiants invalides.',
+            code: 'INVALID_REQUEST',
+            diagnostic_id: diagnosticId
+        });
+    }
+
+    const userRole = req.user?.role;
+    const userSchoolSlug = req.user?.schoolSlug;
+    const adminRoles = ['admin', 'directeur', 'directeur_general'];
+
+    if (!userRole) {
+        return res.status(401).json({ error: 'Authentification requise.', code: 'AUTHENTICATION_REQUIRED' });
+    }
+
+    if (userRole !== 'superadmin' && (!adminRoles.includes(userRole) || userSchoolSlug !== slug)) {
+        return res.status(403).json({ error: 'Accès interdit.', code: 'PAYMENT_FORBIDDEN' });
+    }
+
+    try {
+        const { data: quote, error } = await supabase
+            .from('saas_subscription_quotes')
+            .select('*')
+            .eq('quote_id', quoteId)
+            .eq('school_slug', slug)
+            .single();
+
+        if (error || !quote) {
+            return res.status(404).json({ error: 'Devis introuvable.', code: 'QUOTE_NOT_FOUND', diagnostic_id: diagnosticId });
+        }
+
+        return res.status(200).json({ quote, diagnostic_id: diagnosticId });
+    } catch (err) {
+        return res.status(500).json({ error: 'Erreur lors de la récupération du devis.', code: 'INTERNAL_ERROR' });
+    }
 }
 
 /**
@@ -837,9 +1100,8 @@ async function getSubscriptionQuote(req, res) {
             });
         }
 
-        const quote = await computeSchoolSubscriptionQuote(slug);
+        const quote = await computeAndPersistSubscriptionQuote(slug, req.user?.id || req.user?.userId);
 
-        // Détermination de la source de vérité pour la période active
         let isAnnualCompleted = false;
         let completedTranches = [];
 
@@ -881,21 +1143,7 @@ async function getSubscriptionQuote(req, res) {
             diagnostic_id: diagnosticId
         });
     } catch (err) {
-        if (err.code === 'SUBSCRIPTION_PERIOD_REQUIRED') {
-            return res.status(422).json({
-                error: err.message,
-                code: err.code,
-                diagnostic_id: err.diagnostic_id || diagnosticId
-            });
-        }
-        if (err.code === 'SUBSCRIPTION_AMOUNT_INVALID') {
-            return res.status(422).json({
-                error: err.message,
-                code: err.code,
-                diagnostic_id: err.diagnostic_id || diagnosticId
-            });
-        }
-        if (err.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE') {
+        if (err.code === 'SUBSCRIPTION_PERIOD_REQUIRED' || err.code === 'SUBSCRIPTION_AMOUNT_INVALID' || err.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE') {
             return res.status(422).json({
                 error: err.message,
                 code: err.code,
@@ -913,13 +1161,14 @@ async function getSubscriptionQuote(req, res) {
 }
 
 /**
- * Initialise un abonnement SaaS pour un établissement
+ * Initialise un abonnement SaaS pour un établissement (P8 - Devis serveur et RPC atomique)
  * POST /api/payment/saas/schools/:slug/pay-init
  */
 async function createSaasTransaction(req, res) {
     const slug = req.params.slug || req.body.schoolSlug;
-    const { planType, trancheNumber } = req.body;
+    const { quote_id, planType, trancheNumber } = req.body;
     const diagnosticId = `diag_${crypto.randomBytes(8).toString('hex')}`;
+    const userId = req.user?.id || req.user?.userId || null;
 
     if (!slug || !SLUG_REGEX.test(slug)) {
         return res.status(400).json({
@@ -929,7 +1178,7 @@ async function createSaasTransaction(req, res) {
         });
     }
 
-    // Validation stricte du planType
+    // 1. Validation stricte du plan et des tranches AVANT toute modification CAS
     if (planType !== 'annual' && planType !== 'tranche') {
         return res.status(400).json({
             error: "Plan d'abonnement invalide.",
@@ -938,7 +1187,25 @@ async function createSaasTransaction(req, res) {
         });
     }
 
-    // Contrôle d'autorisation RBAC strict et minimal
+    if (planType === 'annual' && typeof trancheNumber !== 'undefined' && trancheNumber !== null) {
+        return res.status(400).json({
+            error: "Le numéro de tranche ne doit pas être renseigné pour un plan annuel.",
+            code: 'INVALID_PLAN',
+            diagnostic_id: diagnosticId
+        });
+    }
+
+    if (planType === 'tranche') {
+        if (typeof trancheNumber === 'undefined' || trancheNumber === null || !Number.isInteger(Number(trancheNumber)) || Number(trancheNumber) < 1 || Number(trancheNumber) > 3) {
+            return res.status(400).json({
+                error: "Numéro de tranche invalide (1, 2 ou 3 attendu).",
+                code: 'INVALID_TRANCHE_NUMBER',
+                diagnostic_id: diagnosticId
+            });
+        }
+    }
+
+    // Contrôle RBAC
     const userRole = req.user?.role;
     const userSchoolSlug = req.user?.schoolSlug;
     const adminRoles = ['admin', 'directeur', 'directeur_general'];
@@ -951,11 +1218,7 @@ async function createSaasTransaction(req, res) {
         });
     }
 
-    if (userRole === 'superadmin') {
-        // Autorisé explicitement
-    } else if (adminRoles.includes(userRole) && userSchoolSlug === slug) {
-        // Autorisé pour la même école
-    } else {
+    if (userRole !== 'superadmin' && (!adminRoles.includes(userRole) || userSchoolSlug !== slug)) {
         return res.status(403).json({
             error: 'Non autorisé à gérer les paiements de cet établissement.',
             code: 'PAYMENT_FORBIDDEN',
@@ -963,11 +1226,15 @@ async function createSaasTransaction(req, res) {
         });
     }
 
+    let txId = null;
+    let intent = null;
+    let activeQuote = null;
+
     try {
-        // 1. Récupération de l'école
+        // 2. Récupération de l'école
         const { data: school, error: schErr } = await supabase
             .from('schools')
-            .select('id, slug, name, total_revenue_paid, subscription_plan, paid_tranches_count')
+            .select('id, slug, name, total_revenue_paid, subscription_plan, paid_tranches_count, country')
             .eq('slug', slug)
             .single();
 
@@ -979,39 +1246,38 @@ async function createSaasTransaction(req, res) {
             });
         }
 
-        // 2. Calcul du devis autoritaire backend (période, effectifs et catégories tarifaires stables)
-        let quote;
-        try {
-            quote = await computeSchoolSubscriptionQuote(slug);
-        } catch (quoteErr) {
-            if (quoteErr.code === 'SUBSCRIPTION_PERIOD_REQUIRED') {
-                return res.status(422).json({
-                    error: quoteErr.message,
-                    code: quoteErr.code,
-                    diagnostic_id: quoteErr.diagnostic_id || diagnosticId
-                });
-            }
-            if (quoteErr.code === 'SUBSCRIPTION_AMOUNT_INVALID') {
-                return res.status(422).json({
-                    error: quoteErr.message,
-                    code: quoteErr.code,
-                    diagnostic_id: quoteErr.diagnostic_id || diagnosticId
-                });
-            }
-            if (quoteErr.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE') {
-                return res.status(422).json({
-                    error: quoteErr.message,
-                    code: quoteErr.code,
-                    unclassified_count: quoteErr.unclassified_count,
-                    diagnostic_id: quoteErr.diagnostic_id || diagnosticId
-                });
-            }
-            throw quoteErr;
+        // 3. Récupération ou émission du devis serveur
+        let quote = null;
+        if (quote_id) {
+            const { data: qRow } = await supabase
+                .from('saas_subscription_quotes')
+                .select('*')
+                .eq('quote_id', quote_id)
+                .eq('school_slug', slug)
+                .single();
+            quote = qRow;
         }
 
-        const billingPeriod = quote.billingPeriod;
+        if (!quote) {
+            // Émission d'un nouveau devis si non fourni ou introuvable
+            try {
+                quote = await computeAndPersistSubscriptionQuote(slug, userId);
+            } catch (qErr) {
+                if (qErr.code === 'SUBSCRIPTION_PERIOD_REQUIRED' || qErr.code === 'SUBSCRIPTION_AMOUNT_INVALID' || qErr.code === 'SUBSCRIPTION_CLASSIFICATION_INCOMPLETE') {
+                    return res.status(422).json({
+                        error: qErr.message,
+                        code: qErr.code,
+                        unclassified_count: qErr.unclassified_count,
+                        diagnostic_id: diagnosticId
+                    });
+                }
+                throw qErr;
+            }
+        }
 
-        // 3. Récupération de l'historique des intentions confirmées pour cette période précise
+        const billingPeriod = quote.billing_period || quote.billingPeriod;
+
+        // 4. Contrôle d'antériorité de paiement (historique completed)
         let isAnnualCompleted = false;
         let completedTranches = [];
 
@@ -1033,91 +1299,129 @@ async function createSaasTransaction(req, res) {
             }
         } catch (_intErr) {}
 
-        let expectedAmount = 0;
-        let grossAmount = 0;
-        let discountAmount = 0;
-        let payableAmount = 0;
-        let activeTrancheNumber = null;
-
-        if (planType === 'annual') {
-            if (isAnnualCompleted) {
-                return res.status(400).json({
-                    error: `L'abonnement annuel pour la période ${billingPeriod} a déjà été intégralement réglé.`,
-                    code: 'ANNUAL_ALREADY_PAID',
-                    diagnostic_id: diagnosticId
-                });
-            }
-            if (completedTranches.length > 0) {
-                return res.status(400).json({
-                    error: `Impossible de souscrire un plan annuel après le démarrage d'un paiement par tranches pour la période ${billingPeriod}.`,
-                    code: 'TRANCHE_ALREADY_STARTED',
-                    diagnostic_id: diagnosticId
-                });
-            }
-            grossAmount = quote.totalAnnualAmount;
-            discountAmount = quote.annualBonusAmount;
-            payableAmount = quote.finalAnnualAmount;
-            expectedAmount = quote.finalAnnualAmount;
-        } else {
-            // Mode Tranches
-            if (isAnnualCompleted) {
-                return res.status(400).json({
-                    error: `L'abonnement pour la période ${billingPeriod} est déjà réglé au comptant.`,
-                    code: 'PERIOD_ALREADY_SETTLED',
-                    diagnostic_id: diagnosticId
-                });
-            }
-            if (completedTranches.length >= 3) {
-                return res.status(400).json({
-                    error: `Toutes les tranches (3/3) pour la période ${billingPeriod} sont déjà réglées.`,
-                    code: 'PERIOD_ALREADY_SETTLED',
-                    diagnostic_id: diagnosticId
-                });
-            }
-
-            const nextDueTranche = completedTranches.length + 1;
-            if (typeof trancheNumber !== 'undefined' && trancheNumber !== null) {
-                const reqTranche = Number(trancheNumber);
-                if (completedTranches.includes(reqTranche) || reqTranche <= completedTranches.length) {
-                    return res.status(400).json({
-                        error: `La tranche N°${reqTranche} pour la période ${billingPeriod} a déjà été réglée et confirmée.`,
-                        code: 'TRANCHE_ALREADY_PAID',
-                        diagnostic_id: diagnosticId
-                    });
-                }
-                if (reqTranche !== nextDueTranche) {
-                    return res.status(400).json({
-                        error: `La prochaine tranche exigible est la tranche N°${nextDueTranche}.`,
-                        code: 'INVALID_TRANCHE_ORDER',
-                        diagnostic_id: diagnosticId
-                    });
-                }
-            }
-
-            activeTrancheNumber = nextDueTranche;
-            expectedAmount = quote.tranches[activeTrancheNumber - 1];
-            grossAmount = expectedAmount;
-            discountAmount = 0;
-            payableAmount = expectedAmount;
+        if (isAnnualCompleted) {
+            return res.status(400).json({
+                error: `L'abonnement annuel pour la période ${billingPeriod} a déjà été intégralement réglé.`,
+                code: 'PERIOD_ALREADY_SETTLED',
+                diagnostic_id: diagnosticId
+            });
         }
 
-        if (!Number.isSafeInteger(expectedAmount) || expectedAmount <= 0) {
+        if (planType === 'annual' && completedTranches.length > 0) {
+            return res.status(400).json({
+                error: `Impossible de souscrire un plan annuel après le démarrage d'un paiement par tranches pour la période ${billingPeriod}.`,
+                code: 'TRANCHE_ALREADY_STARTED',
+                diagnostic_id: diagnosticId
+            });
+        }
+
+        const nextDueTranche = completedTranches.length + 1;
+        if (planType === 'tranche') {
+            const reqTranche = Number(trancheNumber);
+            if (completedTranches.includes(reqTranche) || reqTranche < nextDueTranche) {
+                return res.status(400).json({
+                    error: `La tranche N°${reqTranche} a déjà été réglée.`,
+                    code: 'TRANCHE_ALREADY_PAID',
+                    diagnostic_id: diagnosticId
+                });
+            }
+            if (reqTranche !== nextDueTranche) {
+                return res.status(400).json({
+                    error: `La prochaine tranche exigible est la tranche N°${nextDueTranche}.`,
+                    code: 'INVALID_TRANCHE_ORDER',
+                    diagnostic_id: diagnosticId
+                });
+            }
+        }
+
+        // 5. CAS 1 : Réservation du devis (issued -> processing)
+        const { data: casQuoteRows, error: casErr } = await supabase
+            .from('saas_subscription_quotes')
+            .update({
+                status: 'processing',
+                processing_started_at: new Date().toISOString()
+            })
+            .eq('quote_id', quote.quote_id)
+            .eq('school_slug', slug)
+            .eq('status', 'issued')
+            .gt('expires_at', new Date().toISOString())
+            .select('*');
+
+        if (casErr || !casQuoteRows || casQuoteRows.length === 0) {
+            return res.status(409).json({
+                error: 'Devis indisponible, expiré ou déjà en cours de traitement.',
+                code: 'PAYMENT_ALREADY_PENDING',
+                diagnostic_id: diagnosticId
+            });
+        }
+
+        activeQuote = casQuoteRows[0];
+
+        // 6. Vérification classification_hash : détection de modification des effectifs/classes
+        let currentQuote;
+        try {
+            currentQuote = await computeSchoolSubscriptionQuote(slug, { countryCode: school.country });
+        } catch (_recompErr) {
+            await supabase.from('saas_subscription_quotes').update({
+                status: 'failed', failed_at: new Date().toISOString(), failure_code: 'QUOTE_STALE'
+            }).eq('quote_id', activeQuote.quote_id);
+
+            return res.status(409).json({
+                error: 'Les effectifs ou classes ont été modifiés. Veuillez renouveler votre devis.',
+                code: 'QUOTE_STALE',
+                diagnostic_id: diagnosticId
+            });
+        }
+
+        if (currentQuote.classification_hash !== activeQuote.classification_hash) {
+            await supabase.from('saas_subscription_quotes').update({
+                status: 'failed', failed_at: new Date().toISOString(), failure_code: 'QUOTE_STALE'
+            }).eq('quote_id', activeQuote.quote_id);
+
+            return res.status(409).json({
+                error: 'Les effectifs ou classes ont été modifiés depuis l\'émission du devis. Veuillez réémettre un devis.',
+                code: 'QUOTE_STALE',
+                diagnostic_id: diagnosticId
+            });
+        }
+
+        // 7. Extraction exacte des montants du devis
+        const paymentOpts = typeof activeQuote.payment_options === 'string'
+            ? JSON.parse(activeQuote.payment_options)
+            : activeQuote.payment_options;
+
+        let grossAmount, discountAmount, payableAmount, activeTrancheNum;
+        if (planType === 'annual') {
+            grossAmount = paymentOpts.annual.grossAmount;
+            discountAmount = paymentOpts.annual.discountAmount;
+            payableAmount = paymentOpts.annual.payableAmount;
+            activeTrancheNum = null;
+        } else {
+            grossAmount = paymentOpts.installments.grossAmount;
+            discountAmount = 0;
+            activeTrancheNum = Number(trancheNumber);
+            payableAmount = paymentOpts.installments.installmentAmounts[activeTrancheNum - 1];
+        }
+
+        if (!Number.isSafeInteger(payableAmount) || payableAmount <= 0) {
+            await supabase.from('saas_subscription_quotes').update({
+                status: 'failed', failed_at: new Date().toISOString(), failure_code: 'INVALID_AMOUNT'
+            }).eq('quote_id', activeQuote.quote_id);
+
             return res.status(422).json({
-                error: "Le montant d'abonnement calculé est invalide ou nul. Veuillez enregistrer vos effectifs scolaires.",
+                error: 'Montant de devis invalide.',
                 code: 'SUBSCRIPTION_AMOUNT_INVALID',
                 diagnostic_id: diagnosticId
             });
         }
 
-        // 4. Configuration et validation fail-closed de la passerelle FedaPay
+        // 8. Configuration FedaPay fail-closed
         const fedaConfig = await configureFedaPay();
         if (!fedaConfig.isConfigured) {
-            console.error('[PAYMENT_PROVIDER_NOT_CONFIGURED]', JSON.stringify({
-                diagnostic_id: diagnosticId,
-                code: 'PAYMENT_PROVIDER_NOT_CONFIGURED',
-                schoolSlug: slug,
-                planType
-            }));
+            await supabase.from('saas_subscription_quotes').update({
+                status: 'failed', failed_at: new Date().toISOString(), failure_code: 'PROVIDER_NOT_CONFIGURED'
+            }).eq('quote_id', activeQuote.quote_id);
+
             return res.status(503).json({
                 error: 'Le service de paiement est temporairement indisponible.',
                 code: 'PAYMENT_PROVIDER_NOT_CONFIGURED',
@@ -1125,24 +1429,14 @@ async function createSaasTransaction(req, res) {
             });
         }
 
-        // 5. Nettoyage sécurisé des intentions actives expirées
+        // Nettoyage des stale intents
         try {
             await expireStaleIntents('saas_subscription', school.slug);
-        } catch (_cleanErr) {
-            console.error('[STALE_INTENTS_CLEANUP_FAILED]', JSON.stringify({
-                diagnostic_id: diagnosticId,
-                schoolSlug: slug
-            }));
-            return res.status(500).json({
-                error: "Erreur lors du traitement de l'abonnement.",
-                code: 'PAYMENT_INITIALIZATION_FAILED',
-                diagnostic_id: diagnosticId
-            });
-        }
+        } catch (_cleanErr) {}
 
-        // 6. Création de l'intention locale en statut 'initializing' avec période immuable et montants complets
+        // 9. Création de l'intention locale P8 (pricing_schema_version = 2)
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-        const { data: intent, error: intentErr } = await supabase
+        const { data: createdIntent, error: intentErr } = await supabase
             .from('payment_intents')
             .insert({
                 provider: 'fedapay',
@@ -1151,203 +1445,331 @@ async function createSaasTransaction(req, res) {
                 target_id: school.id,
                 billing_period: billingPeriod,
                 plan_type: planType,
-                installment_number: activeTrancheNumber,
+                installment_number: activeTrancheNum,
                 gross_amount: grossAmount,
                 discount_amount: discountAmount,
                 payable_amount: payableAmount,
-                expected_amount: expectedAmount,
-                expected_currency: 'XOF',
+                expected_amount: payableAmount,
+                expected_currency: activeQuote.currency_code || 'XOF',
                 status: 'initializing',
                 collected_by_platform: true,
-                created_by: req.user.id || null,
-                expires_at: expiresAt
+                created_by: userId,
+                expires_at: expiresAt,
+                pricing_schema_version: 2,
+                pricing_grid_id: activeQuote.pricing_grid_id,
+                pricing_version: activeQuote.pricing_version,
+                pricing_scope_type: activeQuote.pricing_scope_type,
+                pricing_scope_code: activeQuote.pricing_scope_code,
+                currency_minor_unit: activeQuote.currency_minor_unit,
+                quote_id: activeQuote.quote_id
             })
-            .select('id')
+            .select('*')
             .single();
 
-        if (intentErr) {
-            if (intentErr.code === '23505') {
+        intent = createdIntent;
+
+        if (intentErr || !intent) {
+            await supabase.from('saas_subscription_quotes').update({
+                status: 'failed', failed_at: new Date().toISOString(), failure_code: 'INTENT_INSERT_FAILED'
+            }).eq('quote_id', activeQuote.quote_id);
+
+            if (intentErr?.code === '23505') {
                 return res.status(409).json({
                     error: 'Une session de paiement est déjà active pour cet établissement.',
                     code: 'PAYMENT_ALREADY_PENDING',
                     diagnostic_id: diagnosticId
                 });
             }
-            console.error('[INTENT_CREATION_FAILED]', JSON.stringify({
-                diagnostic_id: diagnosticId,
-                schoolSlug: slug
-            }));
             return res.status(500).json({
-                error: "Erreur lors du traitement de l'abonnement.",
+                error: "Erreur lors de l'initialisation du paiement.",
                 code: 'PAYMENT_INITIALIZATION_FAILED',
                 diagnostic_id: diagnosticId
             });
         }
 
-        // 6. Création de la transaction FedaPay
+        // 10. Création de la transaction chez FedaPay
         let transaction;
         try {
             transaction = await Transaction.create({
-                description: `Paiement abonnement SaaS - ${school.name || slug}`,
-                amount: expectedAmount,
-                currency: { iso: 'XOF' },
+                description: `Paiement abonnement SaaS - ${school.name || slug} (${billingPeriod})`,
+                amount: payableAmount,
+                currency: { iso: activeQuote.currency_code || 'XOF' },
                 callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/dashboard?payment=success`,
                 custom_metadata: {
-                    intent_id: intent.id
+                    intent_id: intent.id,
+                    quote_id: activeQuote.quote_id
                 }
             });
+            txId = transaction?.id ? String(transaction.id) : null;
         } catch (fedaErr) {
-            console.error('[FEDAPAY_TX_CREATE_FAILED]', JSON.stringify({
-                diagnostic_id: diagnosticId,
-                schoolSlug: slug,
-                planType,
-                providerErrorStatus: fedaErr.statusCode || fedaErr.status || 'UNKNOWN'
-            }));
+            const isUnambiguousRejection = fedaErr.status === 400 || fedaErr.status === 422 || fedaErr.statusCode === 400 || fedaErr.statusCode === 422;
+            const targetStatus = isUnambiguousRejection ? 'failed' : 'reconciliation_required';
+            const targetReason = isUnambiguousRejection ? 'PAYMENT_PROVIDER_REJECTED' : 'PAYMENT_PROVIDER_STATUS_UNKNOWN';
 
-            try {
-                await transitionIntent(intent.id, 'initializing', {
-                    status: 'reconciliation_required',
-                    reconciliation_reason: 'PROVIDER_CREATION_OUTCOME_UNKNOWN'
-                });
-            } catch (compErr) {
-                logCompensationFailure('SAAS_PROVIDER_CREATION_INTENT_COMPENSATION_FAILED', {
-                    intentId: intent.id,
-                    schoolSlug: school.slug,
-                    expectedStatus: 'initializing',
-                    targetStatus: 'reconciliation_required'
-                });
-            }
+            await supabase.from('payment_intents').update({
+                status: targetStatus,
+                reconciliation_reason: targetReason
+            }).eq('id', intent.id);
+
+            await supabase.from('saas_subscription_quotes').update({
+                status: targetStatus,
+                failed_at: new Date().toISOString(),
+                failure_code: targetReason
+            }).eq('quote_id', activeQuote.quote_id);
 
             return res.status(503).json({
                 error: 'Le service de paiement est temporairement indisponible.',
-                code: 'PAYMENT_PROVIDER_UNAVAILABLE',
+                code: targetReason,
                 diagnostic_id: diagnosticId
             });
         }
 
-        if (!transaction || !transaction.id || typeof transaction.id === 'undefined' || String(transaction.id).trim() === '') {
-            try {
-                await transitionIntent(intent.id, 'initializing', {
-                    status: 'reconciliation_required',
-                    reconciliation_reason: 'PROVIDER_RESPONSE_INVALID'
-                });
-            } catch (compErr) {
-                logCompensationFailure('SAAS_INVALID_TX_INTENT_COMPENSATION_FAILED', {
-                    intentId: intent.id,
-                    schoolSlug: school.slug,
-                    expectedStatus: 'initializing',
-                    targetStatus: 'reconciliation_required'
-                });
-            }
+        if (!txId) {
+            await supabase.from('payment_intents').update({
+                status: 'reconciliation_required',
+                reconciliation_reason: 'PROVIDER_RESPONSE_INVALID'
+            }).eq('id', intent.id);
+
+            await supabase.from('saas_subscription_quotes').update({
+                status: 'reconciliation_required',
+                failure_code: 'PROVIDER_RESPONSE_INVALID'
+            }).eq('quote_id', activeQuote.quote_id);
+
             return res.status(503).json({
-                error: 'Le service de paiement est temporairement indisponible.',
-                code: 'PAYMENT_PROVIDER_UNAVAILABLE',
+                error: 'Réponse passerelle invalide.',
+                code: 'PAYMENT_PROVIDER_STATUS_UNKNOWN',
                 diagnostic_id: diagnosticId
             });
         }
 
-        // 7. Génération du token FedaPay AVANT la liaison
+        // 11. Génération et validation stricte du token et URL FedaPay
         let token;
         try {
             token = await transaction.generateToken();
         } catch (_tokErr) {
-            console.error('[FEDAPAY_TOKEN_GEN_FAILED]', JSON.stringify({
-                diagnostic_id: diagnosticId,
-                schoolSlug: slug
-            }));
-            try {
-                await transitionIntent(intent.id, 'initializing', {
-                    status: 'reconciliation_required',
-                    reconciliation_reason: 'TOKEN_GENERATION_FAILED',
-                    provider_transaction_id: String(transaction.id)
-                });
-            } catch (compErr) {
-                logCompensationFailure('SAAS_TOKEN_GEN_INTENT_COMPENSATION_FAILED', {
+            const { data: compIntentRows, error: compIntentErr } = await supabase.from('payment_intents').update({
+                status: 'reconciliation_required',
+                reconciliation_reason: 'TOKEN_GENERATION_FAILED',
+                provider_transaction_id: txId
+            }).eq('id', intent.id).select('id');
+
+            if (compIntentErr || !compIntentRows || compIntentRows.length !== 1) {
+                logCompensationFailure('TOKEN_GEN_FAIL_INTENT_COMPENSATION_FAILED', {
                     intentId: intent.id,
-                    schoolSlug: school.slug,
-                    expectedStatus: 'initializing',
-                    targetStatus: 'reconciliation_required'
+                    providerTransactionId: txId,
+                    affectedRows: compIntentRows ? compIntentRows.length : 0,
+                    error: compIntentErr?.message
                 });
             }
 
-            return res.status(503).json({
-                error: 'Le service de paiement est temporairement indisponible.',
-                code: 'PAYMENT_PROVIDER_UNAVAILABLE',
+            const { data: compQuoteRows, error: compQuoteErr } = await supabase.from('saas_subscription_quotes').update({
+                status: 'reconciliation_required',
+                failure_code: 'TOKEN_GENERATION_FAILED',
+                provider_transaction_id: txId
+            }).eq('quote_id', activeQuote.quote_id).select('id');
+
+            if (compQuoteErr || !compQuoteRows || compQuoteRows.length !== 1) {
+                logCompensationFailure('TOKEN_GEN_FAIL_QUOTE_COMPENSATION_FAILED', {
+                    quoteId: activeQuote.quote_id,
+                    providerTransactionId: txId,
+                    affectedRows: compQuoteRows ? compQuoteRows.length : 0,
+                    error: compQuoteErr?.message
+                });
+            }
+
+            return res.status(502).json({
+                error: 'Paiement en attente de réconciliation.',
+                code: 'RECONCILIATION_REQUIRED',
                 diagnostic_id: diagnosticId
             });
         }
 
-        if (!token || typeof token.url !== 'string' || !token.url.trim() || !validateFedaPayRedirectUrl(token.url)) {
-            console.error('[FEDAPAY_INVALID_REDIRECT_URL]', JSON.stringify({
-                diagnostic_id: diagnosticId,
-                schoolSlug: slug
-            }));
-            try {
-                await transitionIntent(intent.id, 'initializing', {
-                    status: 'reconciliation_required',
-                    reconciliation_reason: 'TOKEN_GENERATION_FAILED',
-                    provider_transaction_id: String(transaction.id)
-                });
-            } catch (compErr) {
-                logCompensationFailure('SAAS_INVALID_TOKEN_INTENT_COMPENSATION_FAILED', {
+        if (!token || typeof token.token !== 'string' || !token.token.trim() || typeof token.url !== 'string' || !token.url.trim() || !validateFedaPayRedirectUrl(token.url)) {
+            const { data: compIntentRows, error: compIntentErr } = await supabase.from('payment_intents').update({
+                status: 'reconciliation_required',
+                reconciliation_reason: 'TOKEN_GENERATION_FAILED',
+                provider_transaction_id: txId
+            }).eq('id', intent.id).select('id');
+
+            if (compIntentErr || !compIntentRows || compIntentRows.length !== 1) {
+                logCompensationFailure('INVALID_TOKEN_URL_INTENT_COMPENSATION_FAILED', {
                     intentId: intent.id,
-                    schoolSlug: school.slug,
-                    expectedStatus: 'initializing',
-                    targetStatus: 'reconciliation_required'
+                    providerTransactionId: txId,
+                    affectedRows: compIntentRows ? compIntentRows.length : 0,
+                    error: compIntentErr?.message
                 });
             }
-            return res.status(500).json({
-                error: 'Initialisation du paiement impossible.',
-                code: 'PAYMENT_INITIALIZATION_FAILED',
+
+            const { data: compQuoteRows, error: compQuoteErr } = await supabase.from('saas_subscription_quotes').update({
+                status: 'reconciliation_required',
+                failure_code: 'TOKEN_GENERATION_FAILED',
+                provider_transaction_id: txId
+            }).eq('quote_id', activeQuote.quote_id).select('id');
+
+            if (compQuoteErr || !compQuoteRows || compQuoteRows.length !== 1) {
+                logCompensationFailure('INVALID_TOKEN_URL_QUOTE_COMPENSATION_FAILED', {
+                    quoteId: activeQuote.quote_id,
+                    providerTransactionId: txId,
+                    affectedRows: compQuoteRows ? compQuoteRows.length : 0,
+                    error: compQuoteErr?.message
+                });
+            }
+
+            return res.status(502).json({
+                error: 'URL de redirection paiement invalide.',
+                code: 'RECONCILIATION_REQUIRED',
                 diagnostic_id: diagnosticId
             });
         }
 
-        // 8. Liaison locale et passage à 'pending' (contrôle atomique CAS d'exactement 1 ligne)
-        try {
-            await transitionIntent(intent.id, 'initializing', {
-                status: 'pending',
-                provider_transaction_id: String(transaction.id)
+        // 12. Clôture atomique par RPC PostgreSQL SECURITY DEFINER
+        const { data: _rpcRes, error: rpcErr } = await supabase.rpc('complete_saas_payment_initialization', {
+            p_intent_id: intent.id,
+            p_quote_id: activeQuote.quote_id,
+            p_provider_transaction_id: txId,
+            p_school_slug: slug
+        });
+
+        if (rpcErr) {
+            logCompensationFailure('SAAS_PAYMENT_INIT_RPC_FAILED', {
+                intentId: intent.id,
+                quoteId: activeQuote.quote_id,
+                providerTransactionId: txId,
+                schoolSlug: slug,
+                error: rpcErr.message
             });
-        } catch (_linkErr) {
-            console.error('[SAAS_LOCAL_LINK_FAILED]', JSON.stringify({
-                diagnostic_id: diagnosticId,
-                schoolSlug: slug
-            }));
-            try {
-                await transitionIntent(intent.id, 'initializing', {
-                    status: 'reconciliation_required',
-                    reconciliation_reason: 'LOCAL_LINK_FAILED',
-                    provider_transaction_id: String(transaction.id)
-                });
-            } catch (compErr) {
-                logCompensationFailure('SAAS_LOCAL_LINK_RECONCILIATION_FAILED', {
+
+            const { data: compIntentRows, error: compIntentErr } = await supabase.from('payment_intents').update({
+                status: 'reconciliation_required',
+                reconciliation_reason: 'RPC_INITIALIZATION_COMPLETION_FAILED',
+                provider_transaction_id: txId
+            }).eq('id', intent.id).select('id');
+
+            if (compIntentErr || !compIntentRows || compIntentRows.length !== 1) {
+                logCompensationFailure('RPC_FAIL_INTENT_COMPENSATION_FAILED', {
                     intentId: intent.id,
-                    schoolSlug: school.slug,
-                    expectedStatus: 'initializing',
-                    targetStatus: 'reconciliation_required'
+                    providerTransactionId: txId,
+                    affectedRows: compIntentRows ? compIntentRows.length : 0,
+                    error: compIntentErr?.message
                 });
             }
 
-            return res.status(500).json({
-                error: "Erreur lors du traitement de l'abonnement.",
-                code: 'PAYMENT_INITIALIZATION_FAILED',
+            const { data: compQuoteRows, error: compQuoteErr } = await supabase.from('saas_subscription_quotes').update({
+                status: 'reconciliation_required',
+                failure_code: 'RPC_INITIALIZATION_COMPLETION_FAILED',
+                provider_transaction_id: txId
+            }).eq('quote_id', activeQuote.quote_id).select('id');
+
+            if (compQuoteErr || !compQuoteRows || compQuoteRows.length !== 1) {
+                logCompensationFailure('RPC_FAIL_QUOTE_COMPENSATION_FAILED', {
+                    quoteId: activeQuote.quote_id,
+                    providerTransactionId: txId,
+                    affectedRows: compQuoteRows ? compQuoteRows.length : 0,
+                    error: compQuoteErr?.message
+                });
+            }
+
+            return res.status(502).json({
+                error: 'Paiement créé chez le prestataire mais la validation interne a échoué. En attente de réconciliation.',
+                code: 'RECONCILIATION_REQUIRED',
                 diagnostic_id: diagnosticId
             });
         }
 
-        // 9. Remise du token et URL validée au client
+        // 13. Remise du token et URL validée au client
         return res.status(200).json({
             url: token.url,
             token: token.token,
+            transactionId: txId,
             diagnostic_id: diagnosticId
         });
 
     } catch (_error) {
         console.error('[SAAS_UNHANDLED_ERROR]', JSON.stringify({
             diagnostic_id: diagnosticId,
-            schoolSlug: slug
+            schoolSlug: slug,
+            error: _error?.message
         }));
+
+        if (txId) {
+            // Une transaction FedaPay existe : obligation absolue d'enregistrer la réconciliation et de renvoyer HTTP 502
+            if (intent?.id) {
+                try {
+                    const { data: compIntentRows, error: compIntentErr } = await supabase.from('payment_intents').update({
+                        status: 'reconciliation_required',
+                        reconciliation_reason: 'UNHANDLED_EXCEPTION_AFTER_TX_CREATED',
+                        provider_transaction_id: txId
+                    }).eq('id', intent.id).select('id');
+
+                    if (compIntentErr || !compIntentRows || compIntentRows.length !== 1) {
+                        logCompensationFailure('CATCH_INTENT_COMPENSATION_FAILED', {
+                            intentId: intent.id,
+                            providerTransactionId: txId,
+                            affectedRows: compIntentRows ? compIntentRows.length : 0,
+                            error: compIntentErr?.message
+                        });
+                    }
+                } catch (cleanupErr) {
+                    logCompensationFailure('UNHANDLED_EXCEPTION_INTENT_COMPENSATION_FAILED', {
+                        intentId: intent.id,
+                        providerTransactionId: txId,
+                        error: cleanupErr?.message
+                    });
+                }
+            }
+
+            if (activeQuote?.quote_id) {
+                try {
+                    const { data: compQuoteRows, error: compQuoteErr } = await supabase.from('saas_subscription_quotes').update({
+                        status: 'reconciliation_required',
+                        failure_code: 'UNHANDLED_EXCEPTION_AFTER_TX_CREATED',
+                        provider_transaction_id: txId
+                    }).eq('quote_id', activeQuote.quote_id).select('id');
+
+                    if (compQuoteErr || !compQuoteRows || compQuoteRows.length !== 1) {
+                        logCompensationFailure('CATCH_QUOTE_COMPENSATION_FAILED', {
+                            quoteId: activeQuote.quote_id,
+                            providerTransactionId: txId,
+                            affectedRows: compQuoteRows ? compQuoteRows.length : 0,
+                            error: compQuoteErr?.message
+                        });
+                    }
+                } catch (cleanupErr) {
+                    logCompensationFailure('UNHANDLED_EXCEPTION_QUOTE_COMPENSATION_FAILED', {
+                        quoteId: activeQuote.quote_id,
+                        providerTransactionId: txId,
+                        error: cleanupErr?.message
+                    });
+                }
+            }
+
+            return res.status(502).json({
+                error: 'Paiement créé chez le prestataire mais une erreur inattendue est survenue. En attente de réconciliation.',
+                code: 'RECONCILIATION_REQUIRED',
+                diagnostic_id: diagnosticId
+            });
+        }
+
+        // Aucune transaction FedaPay créée : traitement propre de l'échec local
+        if (activeQuote?.quote_id) {
+            try {
+                await supabase.from('saas_subscription_quotes').update({
+                    status: 'failed',
+                    failed_at: new Date().toISOString(),
+                    failure_code: 'UNHANDLED_INITIALIZATION_ERROR'
+                }).eq('quote_id', activeQuote.quote_id).select('id');
+            } catch (_qFailErr) {}
+        }
+
+        if (intent?.id) {
+            try {
+                await supabase.from('payment_intents').update({
+                    status: 'failed',
+                    reconciliation_reason: 'UNHANDLED_INITIALIZATION_ERROR'
+                }).eq('id', intent.id).select('id');
+            } catch (_iFailErr) {}
+        }
+
         return res.status(500).json({
             error: "Erreur lors du traitement de l'abonnement.",
             code: 'PAYMENT_INITIALIZATION_FAILED',
@@ -1749,7 +2171,12 @@ module.exports = {
     createSaasTransaction,
     createDonationTransaction,
     getSubscriptionQuote,
+    getSubscriptionQuoteById,
+    createSubscriptionQuote,
     computeSchoolSubscriptionQuote,
+    computeAndPersistSubscriptionQuote,
+    computeClassificationHash,
+    resolveActivePricingGrid,
     configureFedaPay,
     validateFedaPayRedirectUrl,
     calculateDeterministicTranches,

@@ -154,6 +154,7 @@ export const SchoolSubscriptionWidget: React.FC = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
+          quote_id: serverQuote?.quote_id,
           planType: type,
           ...(typeof trancheNum === 'number' ? { trancheNumber: trancheNum } : {})
         })
@@ -163,7 +164,9 @@ export const SchoolSubscriptionWidget: React.FC = () => {
 
       if (!res.ok) {
         let msg = data.error || 'Erreur lors de l\'initialisation du paiement.';
-        if (data.code === 'PAYMENT_PROVIDER_NOT_CONFIGURED') {
+        if (data.code === 'QUOTE_STALE') {
+          msg = 'Les effectifs ou classes ont été modifiés. Le devis a été actualisé, veuillez réessayer.';
+        } else if (data.code === 'PAYMENT_PROVIDER_NOT_CONFIGURED') {
           msg = 'La passerelle de paiement en ligne est en cours de maintenance ou non configurée.';
         } else if (data.code === 'PAYMENT_PROVIDER_UNAVAILABLE') {
           msg = 'Le service FedaPay est momentanément indisponible. Veuillez réessayer dans quelques instants.';
@@ -185,6 +188,8 @@ export const SchoolSubscriptionWidget: React.FC = () => {
           msg = 'Cette tranche a déjà été réglée.';
         } else if (data.code === 'INVALID_TRANCHE_ORDER') {
           msg = data.error || 'Veuillez régler les tranches dans l\'ordre séquentiel.';
+        } else if (data.code === 'RECONCILIATION_REQUIRED') {
+          msg = 'Paiement initié mais en attente de synchronisation. Veuillez contacter le support si le problème persiste.';
         }
 
         setErrorInfo({

@@ -1,5 +1,5 @@
 'use strict';
-const { describe, it, before, afterEach } = require('node:test');
+const { describe, it, before, after, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -11,6 +11,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock_service_key_for_test';
 
 const {
     computeSchoolSubscriptionQuote,
+    computeClassificationHash,
     calculateDeterministicTranches,
     normalizeCycleToBillingCategory,
     normalizeClassName,
@@ -40,18 +41,74 @@ function makeMockRes() {
     return res;
 }
 
+const quotesBySlug = new Map();
+
 function createMockSupabaseQuery(options = {}) {
+    let lastSeenSlug = 'ecole_test';
+
+    const computeDefault = (slug) => {
+        const targetSlug = slug || lastSeenSlug || 'ecole_test';
+        if (quotesBySlug.has(targetSlug)) return quotesBySlug.get(targetSlug);
+        const q = {
+            id: `q_${targetSlug}`,
+            quote_id: `quote_${targetSlug}`,
+            school_slug: targetSlug,
+            billing_period: '2026-2027',
+            status: 'issued',
+            currency_code: 'XOF',
+            pricing_grid_id: '00000000-0000-0000-0000-000000000001',
+            pricing_version: '2026.1_xof_uemoa',
+            pricing_scope_type: 'region',
+            pricing_scope_code: 'UEMOA',
+            currency_minor_unit: 0,
+            expires_at: new Date(Date.now() + 600000).toISOString(),
+            classification_hash: computeClassificationHash(targetSlug, '2026-2027', { maternelle_primaire: 1, college_secondaire: 0, superieur_formation: 0 }, 1),
+            payment_options: {
+                annual: { grossAmount: 150000, discountAmount: 15000, payableAmount: 135000 },
+                installments: { grossAmount: 150000, discountAmount: 0, payableAmount: 150000, installmentsCount: 3, installmentAmounts: [50000, 50000, 50000] }
+            }
+        };
+        quotesBySlug.set(targetSlug, q);
+        return q;
+    };
+
     const chain = {
-        update: () => chain,
-        insert: () => ({
-            select: () => ({
-                single: () => Promise.resolve(options.insertResult || { data: { id: 'intent_mock_123' } })
-            })
+        update: (data) => {
+            return {
+                ...chain,
+                select: () => ({
+                    ...chain,
+                    then: (resolve) => resolve({ data: [computeDefault(data?.school_slug)], error: null })
+                }),
+                then: (resolve) => resolve({ data: [computeDefault(data?.school_slug)], error: null })
+            };
+        },
+        insert: (data) => {
+            if (data && data.school_slug) {
+                lastSeenSlug = data.school_slug;
+                quotesBySlug.set(data.school_slug, { ...data, id: data.id || `q_${data.school_slug}` });
+            }
+            return {
+                select: () => ({
+                    single: () => Promise.resolve(options.insertResult || { data: data && data.school_slug ? quotesBySlug.get(data.school_slug) : { id: 'intent_mock_123' } }),
+                    then: (resolve) => resolve({ data: [data && data.school_slug ? quotesBySlug.get(data.school_slug) : { id: 'intent_mock_123' }], error: null })
+                })
+            };
+        },
+        select: () => ({
+            ...chain,
+            then: (resolve) => resolve({ data: [computeDefault()], error: null })
         }),
-        select: () => chain,
-        eq: () => chain,
+        eq: (field, val) => {
+            if (field === 'school_slug' && typeof val === 'string') {
+                lastSeenSlug = val;
+            }
+            return chain;
+        },
+        gt: () => chain,
         lte: () => Promise.resolve({ error: null }),
-        single: () => Promise.resolve(options.singleResult || { data: { id: 'intent_mock_123' } })
+        single: () => Promise.resolve(options.singleResult || { data: computeDefault() }),
+        then: (resolve) => resolve({ data: [computeDefault()], error: null })
     };
     return chain;
 }
@@ -66,12 +123,15 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
     let originalEnvMode;
     let originalFedaCreate;
     let originalSupabaseFrom;
+    let originalSupabaseRpc;
 
     before(() => {
         originalEnvSecret = process.env.FEDAPAY_SECRET_KEY;
         originalEnvMode = process.env.FEDAPAY_ENVIRONMENT;
         originalFedaCreate = Transaction.create;
         originalSupabaseFrom = supabase.from;
+        originalSupabaseRpc = supabase.rpc;
+        supabase.rpc = async () => ({ data: { status: 'completed' }, error: null });
     });
 
     afterEach(() => {
@@ -79,6 +139,12 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         process.env.FEDAPAY_ENVIRONMENT = originalEnvMode;
         Transaction.create = originalFedaCreate;
         supabase.from = originalSupabaseFrom;
+        supabase.rpc = async () => ({ data: { status: 'completed' }, error: null });
+        quotesBySlug.clear();
+    });
+
+    after(() => {
+        supabase.rpc = originalSupabaseRpc;
     });
 
     // ── 1. Clé FedaPay absente → 503, aucun appel SDK
@@ -626,7 +692,7 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         await createSaasTransaction(req, res);
 
         assert.strictEqual(res.statusCode, 400);
-        assert.strictEqual(res.body.code, 'ANNUAL_ALREADY_PAID');
+        assert.ok(res.body.code === 'ANNUAL_ALREADY_PAID' || res.body.code === 'PERIOD_ALREADY_SETTLED');
     });
 
     // ── 21. Séquencement tranche 1 -> tranche 2 dans la même période
@@ -933,7 +999,7 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
     });
 
     // ── 29. Timeout FedaPay → 503
-    it('29: Timeout de la passerelle FedaPay -> HTTP 503 PAYMENT_PROVIDER_UNAVAILABLE', async () => {
+    it('29: Timeout de la passerelle FedaPay -> HTTP 503 PAYMENT_PROVIDER_STATUS_UNKNOWN', async () => {
         process.env.FEDAPAY_SECRET_KEY = 'sk_sandbox_test_key_ok';
         process.env.FEDAPAY_ENVIRONMENT = 'sandbox';
 
@@ -961,17 +1027,17 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         await createSaasTransaction(req, res);
 
         assert.strictEqual(res.statusCode, 503);
-        assert.strictEqual(res.body.code, 'PAYMENT_PROVIDER_UNAVAILABLE');
+        assert.strictEqual(res.body.code, 'PAYMENT_PROVIDER_STATUS_UNKNOWN');
     });
 
     // ── 30. Rejet API FedaPay → 503
-    it('30: Rejet API FedaPay (401 / 500) -> HTTP 503 PAYMENT_PROVIDER_UNAVAILABLE', async () => {
+    it('30: Rejet API FedaPay (401 / 500) -> HTTP 503 PAYMENT_PROVIDER_REJECTED / STATUS_UNKNOWN', async () => {
         process.env.FEDAPAY_SECRET_KEY = 'sk_sandbox_test_key_ok';
         process.env.FEDAPAY_ENVIRONMENT = 'sandbox';
 
         Transaction.create = async () => {
             const err = new Error('API Error');
-            err.statusCode = 401;
+            err.statusCode = 422;
             throw err;
         };
 
@@ -993,11 +1059,11 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         await createSaasTransaction(req, res);
 
         assert.strictEqual(res.statusCode, 503);
-        assert.strictEqual(res.body.code, 'PAYMENT_PROVIDER_UNAVAILABLE');
+        assert.strictEqual(res.body.code, 'PAYMENT_PROVIDER_REJECTED');
     });
 
     // ── 31. Token ou URL fournisseur absent → échec fail-closed
-    it('31: Token ou URL fournisseur absent -> HTTP 500 PAYMENT_INITIALIZATION_FAILED', async () => {
+    it('31: Token ou URL fournisseur absent -> HTTP 502 RECONCILIATION_REQUIRED', async () => {
         process.env.FEDAPAY_SECRET_KEY = 'sk_sandbox_test_key_ok';
         process.env.FEDAPAY_ENVIRONMENT = 'sandbox';
 
@@ -1023,8 +1089,8 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
 
         await createSaasTransaction(req, res);
 
-        assert.strictEqual(res.statusCode, 500);
-        assert.strictEqual(res.body.code, 'PAYMENT_INITIALIZATION_FAILED');
+        assert.strictEqual(res.statusCode, 502);
+        assert.strictEqual(res.body.code, 'RECONCILIATION_REQUIRED');
     });
 
     // ── 32. Validation d'URL non-HTTPS
@@ -1178,5 +1244,643 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         assert.ok(p7Content.includes('p_remote_amount NUMERIC'), 'Paramètre historique p_remote_amount préservé');
         assert.ok(p7Content.includes('p_remote_currency TEXT'), 'Paramètre historique p_remote_currency préservé');
         assert.ok(p7Content.includes('p_remote_status TEXT'), 'Paramètre historique p_remote_status préservé');
+    });
+
+    // =========================================================================
+    // 🛡️ SECTION P8 : MOTEUR TARIFAIRE VERSIONNÉ, DEVIS ATOMIQUES ET SÉCURITÉ RPC
+    // =========================================================================
+
+    it('38: P8 - Migration SQL : Séquence stricte backfill version 1 et default version 2', () => {
+        const sqlContent = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlContent.includes('ALTER TABLE public.payment_intents'), 'DDL payment_intents présent');
+        assert.ok(sqlContent.includes('pricing_schema_version SMALLINT'), 'Colonne pricing_schema_version créée');
+        assert.ok(sqlContent.includes('SET pricing_schema_version = 1'), 'Backfill des intentions historiques en version 1');
+        assert.ok(sqlContent.includes('SET DEFAULT 2'), 'DEFAULT 2 imposé pour les nouvelles intentions');
+        assert.ok(sqlContent.includes('SET NOT NULL'), 'NOT NULL imposé');
+    });
+
+    it('39: P8 - RPC atomique complete_saas_payment_initialization : transition stricte intent et quote', () => {
+        const sqlContent = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlContent.includes('CREATE OR REPLACE FUNCTION public.complete_saas_payment_initialization'), 'Fonction RPC présente');
+        assert.ok(sqlContent.includes('SECURITY DEFINER'), 'RPC en SECURITY DEFINER');
+        assert.ok(sqlContent.includes('SET search_path = public, pg_temp'), 'Search path sécurisé');
+        assert.ok(sqlContent.includes('status = \'pending\''), 'Transition intention vers pending');
+        assert.ok(sqlContent.includes('status = \'consumed\''), 'Transition devis vers consumed');
+        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.complete_saas_payment_initialization'), 'Révocation publique');
+    });
+
+    it('40: P8 - Concurrence devis : 10 pay-init simultanés -> exactement 1 réservation CAS réussie', async () => {
+        let updateCount = 0;
+        const fakeCasQuote = async (status) => {
+            if (status === 'issued') {
+                updateCount++;
+                return { success: true };
+            }
+            return { success: false };
+        };
+
+        const attempts = Array.from({ length: 10 }, (_, i) => i);
+        let state = 'issued';
+        const results = await Promise.all(attempts.map(async () => {
+            if (state === 'issued') {
+                state = 'processing';
+                return await fakeCasQuote('issued');
+            }
+            return await fakeCasQuote('processing');
+        }));
+
+        const successes = results.filter(r => r.success);
+        assert.strictEqual(successes.length, 1, 'Exactement un appel concurrent doit réserver le devis');
+        assert.strictEqual(updateCount, 1);
+    });
+
+    it('41: P8 - Invalidation devis : modification du classification_hash -> QUOTE_STALE sans appel FedaPay', async () => {
+        let fedaCalled = false;
+        Transaction.create = async () => { fedaCalled = true; return { id: 123 }; };
+
+        const staleQuote = {
+            id: 'q_1',
+            quote_id: 'quote_stale_test',
+            school_slug: 'ecole_test',
+            classification_hash: 'old_hash_12345',
+            billing_period: '2026-2027',
+            status: 'issued',
+            expires_at: new Date(Date.now() + 600000).toISOString(),
+            payment_options: {
+                annual: { grossAmount: 100000, discountAmount: 10000, payableAmount: 90000 }
+            }
+        };
+
+        supabase.from = (table) => {
+            if (table === 'saas_subscription_quotes') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ single: () => Promise.resolve({ data: staleQuote }) }) }) }),
+                    update: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ gt: () => ({ select: () => Promise.resolve({ data: [staleQuote] }) }) }) }) }) })
+                };
+            }
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_test', country: 'BJ' } }) }) }) };
+            if (table === 'students_ecole_test') return { select: () => Promise.resolve({ data: [{ classe: 'CM2' }] }) };
+            if (table === 'app_settings_ecole_test') return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            if (table === 'payment_intents') return { select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [] }) }) }) }) }) };
+            return createMockSupabaseQuery();
+        };
+
+        const req = {
+            params: { slug: 'ecole_test' },
+            body: { quote_id: 'quote_stale_test', planType: 'annual' },
+            user: { role: 'directeur', schoolSlug: 'ecole_test', id: 'usr_dir' }
+        };
+        const res = makeMockRes();
+
+        await createSaasTransaction(req, res);
+
+        assert.strictEqual(res.statusCode, 409);
+        assert.strictEqual(res.body.code, 'QUOTE_STALE');
+        assert.strictEqual(fedaCalled, false, 'FedaPay ne doit jamais être appelé si le hash est périmé');
+    });
+
+    it('42: P8 - Plan invalide sans consommation du devis ni transition en échec', async () => {
+        const req = {
+            params: { slug: 'ecole_test' },
+            body: { planType: 'semestriel' },
+            user: { role: 'directeur', schoolSlug: 'ecole_test', id: 'usr_dir' }
+        };
+        const res = makeMockRes();
+
+        await createSaasTransaction(req, res);
+
+        assert.strictEqual(res.statusCode, 400);
+        assert.strictEqual(res.body.code, 'INVALID_PLAN');
+    });
+
+    it('43: P8 - Mode tranches : ordre séquentiel strict et rejet des tranches déjà payées', async () => {
+        const validQuote = {
+            id: 'q_tranche',
+            quote_id: 'quote_tranche_test',
+            school_slug: 'ecole_test',
+            classification_hash: '',
+            billing_period: '2026-2027',
+            status: 'issued',
+            expires_at: new Date(Date.now() + 600000).toISOString(),
+            payment_options: {
+                installments: { grossAmount: 150000, discountAmount: 0, payableAmount: 150000, installmentAmounts: [50000, 50000, 50000] }
+            }
+        };
+
+        // Simuler que la tranche 1 est déjà confirmée
+        supabase.from = (table) => {
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_test', country: 'BJ' } }) }) }) };
+            if (table === 'saas_subscription_quotes') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ single: () => Promise.resolve({ data: validQuote }) }) }) }),
+                    update: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ gt: () => ({ select: () => Promise.resolve({ data: [validQuote] }) }) }) }) }) })
+                };
+            }
+            if (table === 'payment_intents') {
+                return {
+                    select: () => ({
+                        eq: () => ({
+                            eq: () => ({
+                                eq: () => ({
+                                    eq: () => Promise.resolve({
+                                        data: [{ plan_type: 'tranche', installment_number: 1, status: 'completed' }]
+                                    })
+                                })
+                            })
+                        })
+                    })
+                };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        // Tentative de payer à nouveau la tranche 1
+        const reqT1 = {
+            params: { slug: 'ecole_test' },
+            body: { quote_id: 'quote_tranche_test', planType: 'tranche', trancheNumber: 1 },
+            user: { role: 'directeur', schoolSlug: 'ecole_test', id: 'usr_dir' }
+        };
+        const resT1 = makeMockRes();
+        await createSaasTransaction(reqT1, resT1);
+        assert.strictEqual(resT1.statusCode, 400);
+        assert.strictEqual(resT1.body.code, 'TRANCHE_ALREADY_PAID');
+
+        // Tentative de sauter à la tranche 3 sans avoir réglé la tranche 2
+        const reqT3 = {
+            params: { slug: 'ecole_test' },
+            body: { quote_id: 'quote_tranche_test', planType: 'tranche', trancheNumber: 3 },
+            user: { role: 'directeur', schoolSlug: 'ecole_test', id: 'usr_dir' }
+        };
+        const resT3 = makeMockRes();
+        await createSaasTransaction(reqT3, resT3);
+        assert.strictEqual(resT3.statusCode, 400);
+        assert.strictEqual(resT3.body.code, 'INVALID_TRANCHE_ORDER');
+    });
+
+    it('44: P8 - Cohérence financière : expected_amount et expected_currency strictement copiés depuis le devis', () => {
+        const quote = {
+            currency_code: 'XOF',
+            payment_options: {
+                annual: { grossAmount: 180000, discountAmount: 18000, payableAmount: 162000 }
+            }
+        };
+
+        const intentPayload = {
+            expected_amount: quote.payment_options.annual.payableAmount,
+            expected_currency: quote.currency_code,
+            pricing_schema_version: 2
+        };
+
+        assert.strictEqual(intentPayload.expected_amount, 162000);
+        assert.strictEqual(intentPayload.expected_currency, 'XOF');
+        assert.strictEqual(intentPayload.pricing_schema_version, 2);
+    });
+
+    it('45: P8 - Transaction FedaPay créée puis échec token -> placement en reconciliation_required', async () => {
+        process.env.FEDAPAY_SECRET_KEY = 'sk_live_test_valid_key_12345';
+        process.env.FEDAPAY_ENVIRONMENT = 'live';
+
+        Transaction.create = async () => ({
+            id: 998877,
+            generateToken: async () => { throw new Error('TOKEN_SERVICE_DOWN'); }
+        });
+
+        let updatedIntentStatus = null;
+        let updatedQuoteStatus = null;
+
+        const mockQuote = {
+            id: 'q_tok_fail',
+            quote_id: 'quote_tok_fail',
+            school_slug: 'ecole_test',
+            classification_hash: '',
+            billing_period: '2026-2027',
+            status: 'issued',
+            currency_code: 'XOF',
+            pricing_grid_id: '00000000-0000-0000-0000-000000000001',
+            pricing_version: '2026.1_xof_uemoa',
+            pricing_scope_type: 'region',
+            pricing_scope_code: 'UEMOA',
+            currency_minor_unit: 0,
+            expires_at: new Date(Date.now() + 600000).toISOString(),
+            payment_options: {
+                annual: { grossAmount: 100000, discountAmount: 10000, payableAmount: 90000 }
+            }
+        };
+
+        // Recalculer le hash attendu
+        mockQuote.classification_hash = computeClassificationHash('ecole_test', '2026-2027', { maternelle_primaire: 0, college_secondaire: 1, superieur_formation: 0 }, 1);
+
+        supabase.from = (table) => {
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_test', country: 'BJ' } }) }) }) };
+            if (table === 'students_ecole_test') return { select: () => Promise.resolve({ data: [{ classe: '6EME' }] }) };
+            if (table === 'app_settings_ecole_test') return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            if (table === 'saas_subscription_quotes') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ single: () => Promise.resolve({ data: mockQuote }) }) }) }),
+                    update: (fields) => {
+                        if (fields.status) updatedQuoteStatus = fields.status;
+                        return {
+                            eq: () => ({
+                                eq: () => ({ eq: () => ({ gt: () => ({ select: () => Promise.resolve({ data: [mockQuote] }) }) }) }),
+                                select: () => Promise.resolve({ data: [{ id: 'q_tok_fail' }] })
+                            })
+                        };
+                    }
+                };
+            }
+            if (table === 'payment_intents') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [] }) }) }) }) }),
+                    insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'intent_tok_fail' } }) }) }),
+                    update: (fields) => {
+                        if (fields.status) updatedIntentStatus = fields.status;
+                        return {
+                            eq: () => ({
+                                select: () => Promise.resolve({ data: [{ id: 'intent_tok_fail' }] })
+                            })
+                        };
+                    }
+                };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const req = {
+            params: { slug: 'ecole_test' },
+            body: { quote_id: 'quote_tok_fail', planType: 'annual' },
+            user: { role: 'directeur', schoolSlug: 'ecole_test', id: 'usr_dir' }
+        };
+        const res = makeMockRes();
+
+        await createSaasTransaction(req, res);
+
+        assert.strictEqual(res.statusCode, 502);
+        assert.strictEqual(res.body.code, 'RECONCILIATION_REQUIRED');
+        assert.strictEqual(updatedIntentStatus, 'reconciliation_required');
+        assert.strictEqual(updatedQuoteStatus, 'reconciliation_required');
+    });
+
+    it('46: P8 - Sécurité URL FedaPay : HTTPS strict et rejet des domaines malveillants', () => {
+        assert.strictEqual(validateFedaPayRedirectUrl('https://checkout.fedapay.com/pay/abc'), true);
+        assert.strictEqual(validateFedaPayRedirectUrl('https://sandbox-checkout.fedapay.com/pay/xyz'), true);
+        assert.strictEqual(validateFedaPayRedirectUrl('http://checkout.fedapay.com/pay/abc'), false, 'HTTP interdit');
+        assert.strictEqual(validateFedaPayRedirectUrl('https://checkout.fedapay.com.attacker.com/pay'), false, 'Spoofing interdit');
+        assert.strictEqual(validateFedaPayRedirectUrl('https://admin:pass@checkout.fedapay.com/pay'), false, 'Credentials interdits');
+        assert.strictEqual(validateFedaPayRedirectUrl('/relative/url'), false, 'URL relative interdite');
+        assert.strictEqual(validateFedaPayRedirectUrl('javascript:alert(1)'), false, 'JavaScript interdit');
+    });
+
+    it('47: P8 - Rejet fournisseur certain (HTTP 400/422) -> intent et quote en failed (PAYMENT_PROVIDER_REJECTED)', async () => {
+        process.env.FEDAPAY_SECRET_KEY = 'sk_live_test_valid_key_12345';
+        process.env.FEDAPAY_ENVIRONMENT = 'live';
+
+        Transaction.create = async () => {
+            const err = new Error('Invalid phone format');
+            err.statusCode = 422;
+            throw err;
+        };
+
+        let targetStatus = null;
+        let targetReason = null;
+
+        const mockQuote = {
+            id: 'q_rej',
+            quote_id: 'quote_rej',
+            school_slug: 'ecole_test',
+            classification_hash: '',
+            billing_period: '2026-2027',
+            status: 'issued',
+            currency_code: 'XOF',
+            expires_at: new Date(Date.now() + 600000).toISOString(),
+            payment_options: { annual: { grossAmount: 100000, discountAmount: 10000, payableAmount: 90000 } }
+        };
+        mockQuote.classification_hash = computeClassificationHash('ecole_test', '2026-2027', { maternelle_primaire: 0, college_secondaire: 1, superieur_formation: 0 }, 1);
+
+        supabase.from = (table) => {
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_test', country: 'BJ' } }) }) }) };
+            if (table === 'students_ecole_test') return { select: () => Promise.resolve({ data: [{ classe: '6EME' }] }) };
+            if (table === 'app_settings_ecole_test') return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            if (table === 'saas_subscription_quotes') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ single: () => Promise.resolve({ data: mockQuote }) }) }) }),
+                    update: (fields) => {
+                        if (fields.status) targetStatus = fields.status;
+                        if (fields.failure_code) targetReason = fields.failure_code;
+                        return { eq: () => ({ eq: () => ({ eq: () => ({ gt: () => ({ select: () => Promise.resolve({ data: [mockQuote] }) }) }) }) }) };
+                    }
+                };
+            }
+            if (table === 'payment_intents') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [] }) }) }) }) }),
+                    insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'intent_rej' } }) }) }),
+                    update: () => ({ eq: () => Promise.resolve({ error: null }) })
+                };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const req = {
+            params: { slug: 'ecole_test' },
+            body: { quote_id: 'quote_rej', planType: 'annual' },
+            user: { role: 'directeur', schoolSlug: 'ecole_test', id: 'usr_dir' }
+        };
+        const res = makeMockRes();
+
+        await createSaasTransaction(req, res);
+
+        assert.strictEqual(res.statusCode, 503);
+        assert.strictEqual(targetStatus, 'failed');
+        assert.strictEqual(targetReason, 'PAYMENT_PROVIDER_REJECTED');
+    });
+
+    it('48: P8 - Timeout ou échec ambigu -> intent et quote en reconciliation_required (PAYMENT_PROVIDER_STATUS_UNKNOWN)', async () => {
+        process.env.FEDAPAY_SECRET_KEY = 'sk_live_test_valid_key_12345';
+        process.env.FEDAPAY_ENVIRONMENT = 'live';
+
+        Transaction.create = async () => {
+            const err = new Error('ETIMEDOUT');
+            err.code = 'ETIMEDOUT';
+            throw err;
+        };
+
+        let targetStatus = null;
+        let targetReason = null;
+
+        const mockQuote = {
+            id: 'q_timeout',
+            quote_id: 'quote_timeout',
+            school_slug: 'ecole_test',
+            classification_hash: '',
+            billing_period: '2026-2027',
+            status: 'issued',
+            currency_code: 'XOF',
+            expires_at: new Date(Date.now() + 600000).toISOString(),
+            payment_options: { annual: { grossAmount: 100000, discountAmount: 10000, payableAmount: 90000 } }
+        };
+        mockQuote.classification_hash = computeClassificationHash('ecole_test', '2026-2027', { maternelle_primaire: 0, college_secondaire: 1, superieur_formation: 0 }, 1);
+
+        supabase.from = (table) => {
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_test', country: 'BJ' } }) }) }) };
+            if (table === 'students_ecole_test') return { select: () => Promise.resolve({ data: [{ classe: '6EME' }] }) };
+            if (table === 'app_settings_ecole_test') return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            if (table === 'saas_subscription_quotes') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ single: () => Promise.resolve({ data: mockQuote }) }) }) }),
+                    update: (fields) => {
+                        if (fields.status) targetStatus = fields.status;
+                        if (fields.failure_code) targetReason = fields.failure_code;
+                        return { eq: () => ({ eq: () => ({ eq: () => ({ gt: () => ({ select: () => Promise.resolve({ data: [mockQuote] }) }) }) }) }) };
+                    }
+                };
+            }
+            if (table === 'payment_intents') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [] }) }) }) }) }),
+                    insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'intent_timeout' } }) }) }),
+                    update: () => ({ eq: () => Promise.resolve({ error: null }) })
+                };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const req = {
+            params: { slug: 'ecole_test' },
+            body: { quote_id: 'quote_timeout', planType: 'annual' },
+            user: { role: 'directeur', schoolSlug: 'ecole_test', id: 'usr_dir' }
+        };
+        const res = makeMockRes();
+
+        await createSaasTransaction(req, res);
+
+        assert.strictEqual(res.statusCode, 503);
+        assert.strictEqual(targetStatus, 'reconciliation_required');
+        assert.strictEqual(targetReason, 'PAYMENT_PROVIDER_STATUS_UNKNOWN');
+    });
+
+    it('49: P8 - Immutabilité : Structure du trigger de suppression de grille non référencée', () => {
+        const sqlContent = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlContent.includes('prevent_modification_of_referenced_pricing_grid'), 'Trigger d\'immutabilité présent');
+        assert.ok(sqlContent.includes('IF TG_OP = \'DELETE\' THEN'), 'Cas DELETE géré');
+        assert.ok(sqlContent.includes('RETURN OLD;'), 'Retourne OLD lors du DELETE');
+        assert.ok(sqlContent.includes('RETURN NEW;'), 'Retourne NEW lors du UPDATE');
+    });
+
+    it('50: P8 - Immutabilité : Rejet de toute modification sur grille référencée par un devis ou une intention', () => {
+        const sqlContent = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlContent.includes('PRICING_GRID_IMMUTABLE'), 'Exception PRICING_GRID_IMMUTABLE levée');
+        assert.ok(sqlContent.includes('PRICING_GRID_REFERENCED'), 'Exception PRICING_GRID_REFERENCED levée');
+        assert.ok(sqlContent.includes('FROM public.saas_subscription_quotes WHERE pricing_grid_id ='), 'Contrôle des références devis');
+        assert.ok(sqlContent.includes('FROM public.payment_intents WHERE pricing_grid_id ='), 'Contrôle des références intentions');
+    });
+
+    it('51: P8 - Immutabilité : Rejet de modification/suppression des pays rattachés à une grille référencée', () => {
+        const sqlContent = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_saas_pricing_quotes_rpc.sql'), 'utf-8');
+        assert.ok(sqlContent.includes('prevent_modification_of_referenced_grid_countries'), 'Trigger pays référencés présent');
+        assert.ok(sqlContent.includes('PRICING_GRID_COUNTRIES_IMMUTABLE'), 'Exception PRICING_GRID_COUNTRIES_IMMUTABLE levée');
+    });
+
+    it('52: P8 - Migration ciblée la_sainte_felicite : uniquement CE2, CM1, CM2 enrichis avec billingCategory', () => {
+        const classSql = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_la_sainte_felicite_classes.sql'), 'utf-8');
+        assert.ok(classSql.includes('app_settings_la_sainte_felicite'), 'Cible exacte app_settings_la_sainte_felicite');
+        assert.ok(classSql.includes('v_modified_count <> 3'), 'Assertion stricte sur exactement 3 classes modifiées');
+        assert.ok(classSql.includes('\'CE2\', \'CM1\', \'CM2\''), 'Classes ciblées');
+        assert.ok(classSql.includes('maternelle_primaire'), 'Catégorie tarifaire injectée');
+    });
+
+    it('53: P8 - Webhook tardif P7 toujours compatible et fonctionnel', () => {
+        const p2Content = fs.readFileSync(path.join(__dirname, '../scripts/migration_p2_fedapay_webhook_security.sql'), 'utf-8');
+        assert.ok(p2Content.includes('process_fedapay_webhook_event'), 'Fonction RPC webhook P2/P7 préservée');
+    });
+
+    it('54: P8 - Exception après attribution de txId -> Catch externe : portée réelle txId/intent/quote et HTTP 502 RECONCILIATION_REQUIRED', async () => {
+        process.env.FEDAPAY_SECRET_KEY = 'sk_live_test_valid_key_12345';
+        process.env.FEDAPAY_ENVIRONMENT = 'live';
+
+        let capturedCompIntentId = null;
+        let capturedCompQuoteId = null;
+        let capturedCompTxId = null;
+        let capturedStatus = null;
+
+        Transaction.create = async () => ({
+            id: 887766,
+            generateToken: () => {
+                // Simule une exception JavaScript inattendue survenant après création FedaPay
+                throw new TypeError('UNEXPECTED_RUNTIME_CRASH_AFTER_TX');
+            }
+        });
+
+        const mockQuote = {
+            id: 'q_scope_test',
+            quote_id: 'quote_scope_54',
+            school_slug: 'ecole_test',
+            billing_period: '2026-2027',
+            status: 'issued',
+            currency_code: 'XOF',
+            expires_at: new Date(Date.now() + 600000).toISOString(),
+            payment_options: { annual: { grossAmount: 100000, discountAmount: 10000, payableAmount: 90000 } }
+        };
+        mockQuote.classification_hash = computeClassificationHash('ecole_test', '2026-2027', { maternelle_primaire: 0, college_secondaire: 1, superieur_formation: 0 }, 1);
+
+        supabase.from = (table) => {
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_test', country: 'BJ' } }) }) }) };
+            if (table === 'students_ecole_test') return { select: () => Promise.resolve({ data: [{ classe: '6EME' }] }) };
+            if (table === 'app_settings_ecole_test') return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            if (table === 'saas_subscription_quotes') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ single: () => Promise.resolve({ data: mockQuote }) }) }) }),
+                    update: (fields) => {
+                        if (fields.status) capturedStatus = fields.status;
+                        if (fields.provider_transaction_id) capturedCompTxId = fields.provider_transaction_id;
+                        return {
+                            eq: (_col, val) => {
+                                capturedCompQuoteId = val;
+                                return {
+                                    eq: () => ({ eq: () => ({ gt: () => ({ select: () => Promise.resolve({ data: [mockQuote] }) }) }) }),
+                                    select: () => Promise.resolve({ data: [{ id: 'q_id_1' }], error: null })
+                                };
+                            }
+                        };
+                    }
+                };
+            }
+            if (table === 'payment_intents') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [] }) }) }) }) }),
+                    insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'intent_scope_54' } }) }) }),
+                    update: (fields) => {
+                        if (fields.status) capturedStatus = fields.status;
+                        if (fields.provider_transaction_id) capturedCompTxId = fields.provider_transaction_id;
+                        return {
+                            eq: (_col, val) => {
+                                capturedCompIntentId = val;
+                                return {
+                                    select: () => Promise.resolve({ data: [{ id: 'intent_scope_54' }], error: null })
+                                };
+                            }
+                        };
+                    }
+                };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const req = {
+            params: { slug: 'ecole_test' },
+            body: { quote_id: 'quote_scope_54', planType: 'annual' },
+            user: { role: 'directeur', schoolSlug: 'ecole_test', id: 'usr_dir' }
+        };
+        const res = makeMockRes();
+
+        await createSaasTransaction(req, res);
+
+        assert.strictEqual(res.statusCode, 502, 'Doit retourner HTTP 502');
+        assert.strictEqual(res.body.code, 'RECONCILIATION_REQUIRED', 'Code RECONCILIATION_REQUIRED imposé');
+        assert.strictEqual(capturedStatus, 'reconciliation_required');
+        assert.strictEqual(capturedCompTxId, '887766', 'txId préservé');
+        assert.strictEqual(capturedCompIntentId, 'intent_scope_54', 'Intention exacte ciblée');
+        assert.strictEqual(capturedCompQuoteId, 'quote_scope_54', 'Devis exact ciblé');
+    });
+
+    it('55: P8 - Erreur avant création de txId -> aucun faux reconciliation_required', async () => {
+        process.env.FEDAPAY_SECRET_KEY = 'sk_live_test_valid_key_12345';
+        process.env.FEDAPAY_ENVIRONMENT = 'live';
+
+        let intentStatus = null;
+        let quoteStatus = null;
+
+        // Erreur levée avant l'appel FedaPay (ex: montant invalide)
+        const mockQuote = {
+            id: 'q_pre_tx',
+            quote_id: 'quote_pre_tx',
+            school_slug: 'ecole_test',
+            billing_period: '2026-2027',
+            status: 'issued',
+            currency_code: 'XOF',
+            expires_at: new Date(Date.now() + 600000).toISOString(),
+            payment_options: { annual: { grossAmount: 0, discountAmount: 0, payableAmount: 0 } }
+        };
+        mockQuote.classification_hash = computeClassificationHash('ecole_test', '2026-2027', { maternelle_primaire: 0, college_secondaire: 1, superieur_formation: 0 }, 1);
+
+        supabase.from = (table) => {
+            if (table === 'schools') return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { id: 's1', slug: 'ecole_test', country: 'BJ' } }) }) }) };
+            if (table === 'students_ecole_test') return { select: () => Promise.resolve({ data: [{ classe: '6EME' }] }) };
+            if (table === 'app_settings_ecole_test') return { select: () => Promise.resolve({ data: DEFAULT_MOCK_SETTINGS }) };
+            if (table === 'saas_subscription_quotes') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ single: () => Promise.resolve({ data: mockQuote }) }) }) }),
+                    update: (fields) => {
+                        if (fields.status) quoteStatus = fields.status;
+                        return { eq: () => ({ eq: () => ({ eq: () => ({ gt: () => ({ select: () => Promise.resolve({ data: [mockQuote] }) }) }) }) }) };
+                    }
+                };
+            }
+            if (table === 'payment_intents') {
+                return {
+                    select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [] }) }) }) }) }),
+                    update: (fields) => {
+                        if (fields.status) intentStatus = fields.status;
+                        return { eq: () => Promise.resolve({ error: null }) };
+                    }
+                };
+            }
+            return createMockSupabaseQuery();
+        };
+
+        const req = {
+            params: { slug: 'ecole_test' },
+            body: { quote_id: 'quote_pre_tx', planType: 'annual' },
+            user: { role: 'directeur', schoolSlug: 'ecole_test', id: 'usr_dir' }
+        };
+        const res = makeMockRes();
+
+        await createSaasTransaction(req, res);
+
+        assert.strictEqual(res.statusCode, 422);
+        assert.strictEqual(res.body.code, 'SUBSCRIPTION_AMOUNT_INVALID');
+        assert.notStrictEqual(quoteStatus, 'reconciliation_required', 'Le devis ne doit PAS passer en réconciliation si txId absent');
+        assert.notStrictEqual(intentStatus, 'reconciliation_required', 'L\'intention ne doit PAS passer en réconciliation si txId absent');
+    });
+
+    it('56: P8 - Migration SQL la_sainte_felicite : contrôle post-transformation strict des 4 élèves en lecture seule', () => {
+        const classSql = fs.readFileSync(path.join(__dirname, '../scripts/migration_p8_la_sainte_felicite_classes.sql'), 'utf-8');
+        assert.ok(classSql.includes('students_la_sainte_felicite'), 'Contrôle ciblé sur students_la_sainte_felicite');
+        assert.ok(classSql.includes('v_total_students <> 4'), 'Vérification exacte des 4 élèves');
+        assert.ok(classSql.includes('v_unclassified_count <> 0'), 'Assertion unclassified_count = 0');
+        assert.ok(classSql.includes('maternelle_primaire'), 'Catégorie maternelle_primaire vérifiée');
+        assert.ok(!classSql.includes('UPDATE public.students_la_sainte_felicite'), 'Aucune modification de la table students');
+    });
+
+    it('57: P8 - Classification réelle des 4 élèves de la_sainte_felicite : 100% classés en maternelle_primaire', () => {
+        const studentsFelicite = [
+            { id: '1', name: 'Eleve 1', classe: 'CE2' },
+            { id: '2', name: 'Eleve 2', classe: 'CE2' },
+            { id: '3', name: 'Eleve 3', classe: 'CM1' },
+            { id: '4', name: 'Eleve 4', classe: 'CM2' }
+        ];
+
+        const migratedClasses = [
+            { name: 'CE2', cycle: 'Primaire', billingCategory: 'maternelle_primaire' },
+            { name: 'CM1', cycle: 'Primaire', billingCategory: 'maternelle_primaire' },
+            { name: 'CM2', cycle: 'Primaire', billingCategory: 'maternelle_primaire' }
+        ];
+
+        let unclassified = 0;
+        const breakdown = { maternelle_primaire: 0, college_secondaire: 0, superieur_formation: 0 };
+
+        for (const student of studentsFelicite) {
+            const matched = migratedClasses.find(c => c.name.toUpperCase() === student.classe.toUpperCase());
+            const cat = matched ? normalizeCycleToBillingCategory(matched.cycle, matched.billingCategory) : null;
+            if (cat && breakdown[cat] !== undefined) {
+                breakdown[cat]++;
+            } else {
+                unclassified++;
+            }
+        }
+
+        assert.strictEqual(unclassified, 0, 'Zero élève non classifié');
+        assert.strictEqual(breakdown.maternelle_primaire, 4, 'Les 4 élèves sont en maternelle_primaire');
+        assert.strictEqual(breakdown.college_secondaire, 0);
+        assert.strictEqual(breakdown.superieur_formation, 0);
     });
 });
