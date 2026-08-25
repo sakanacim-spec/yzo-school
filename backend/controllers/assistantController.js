@@ -16,6 +16,14 @@ const {
     buildPedagogicalPrompt
 } = require('../utils/assistantPrompts');
 
+const {
+    getAssistantPricingContext,
+    extractGuestCountry,
+    detectPricingIntent,
+    detectGlobalPricingRequest,
+    buildCountryPricingResponse
+} = require('../services/assistantPricingContextService');
+
 let aiClient = null;
 
 const getClient = () => {
@@ -71,7 +79,45 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        // 3. Appel Groq sécurisé
+        // 3. Traitement déterministe des demandes tarifaires (0 appel IA)
+        if (detectGlobalPricingRequest(messages)) {
+            return res.json({
+                reply: "Les tarifs YZIOW sont adaptés au pays de chaque établissement. Je peux uniquement vous communiquer la grille applicable au pays de votre établissement."
+            });
+        }
+
+        if (detectPricingIntent(messages)) {
+            const guestCountry = extractGuestCountry(messages, req.body?.countryCode || req.body?.country);
+            if (!guestCountry) {
+                return res.json({
+                    reply: "Pour vous communiquer les tarifs exacts d'YZIOW, veuillez préciser le pays de votre établissement."
+                });
+            }
+
+            try {
+                const pricingContext = await getAssistantPricingContext({
+                    requestedCountryCode: guestCountry
+                });
+                const reply = buildCountryPricingResponse(pricingContext);
+                return res.json({ reply });
+            } catch (pricingErr) {
+                if (pricingErr.code === 'COUNTRY_REQUIRED') {
+                    return res.json({
+                        reply: "Pour vous communiquer les tarifs exacts d'YZIOW, veuillez préciser le pays de votre établissement."
+                    });
+                }
+                if (pricingErr.code === 'PRICING_NOT_CONFIGURED') {
+                    return res.json({
+                        reply: "Aucune grille tarifaire n'est actuellement configurée pour ce pays. Veuillez contacter notre équipe commerciale."
+                    });
+                }
+                return res.json({
+                    reply: "Une indisponibilité temporaire empêche la consultation de la grille tarifaire. Veuillez réessayer ultérieurement."
+                });
+            }
+        }
+
+        // 4. Appel Groq sécurisé pour les requêtes non-tarifaires
         let groq;
         try {
             groq = getClient();
@@ -149,7 +195,34 @@ const chatWithPrivateAssistant = async (req, res) => {
             });
         }
 
-        // 3. Appel Groq sécurisé
+        // 3. Traitement déterministe des demandes tarifaires (0 appel IA)
+        if (detectGlobalPricingRequest(messages)) {
+            return res.json({
+                reply: "Les tarifs YZIOW sont adaptés au pays de chaque établissement. Je peux uniquement vous communiquer la grille applicable au pays de votre établissement."
+            });
+        }
+
+        if (detectPricingIntent(messages)) {
+            try {
+                // Utilise exclusivement le pays officiel de l'école (req.user.schoolSlug)
+                const pricingContext = await getAssistantPricingContext({
+                    authenticatedUser: req.user
+                });
+                const reply = buildCountryPricingResponse(pricingContext);
+                return res.json({ reply });
+            } catch (pricingErr) {
+                if (pricingErr.code === 'PRICING_NOT_CONFIGURED') {
+                    return res.json({
+                        reply: "Aucune grille tarifaire n'est actuellement configurée pour votre établissement. Veuillez contacter notre équipe commerciale."
+                    });
+                }
+                return res.json({
+                    reply: "Une indisponibilité temporaire empêche la consultation de la grille tarifaire. Veuillez réessayer ultérieurement."
+                });
+            }
+        }
+
+        // 4. Appel Groq sécurisé pour les requêtes non-tarifaires
         let groq;
         try {
             groq = getClient();
