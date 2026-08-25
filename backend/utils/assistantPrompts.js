@@ -43,23 +43,8 @@ Yziow est un logiciel Cloud (SaaS) complet pour la gestion des écoles maternell
 - Paiement des frais de scolarité en ligne (Yziow Pay)
 - Réception de notifications et participation aux campagnes de dons de l'école
 
---- TARIFS PAR ZONE GÉOGRAPHIQUE ---
-🌍 ZONE AFRIQUE FCFA (Bénin, Togo, Côte d'Ivoire, Burkina Faso, Sénégal, Mali, Niger, Cameroun, Gabon, Congo, Tchad, Centrafrique, Guinée-Bissau) :
-- Maternelle & Primaire : 100 FCFA / élève / mois
-- Collège & Secondaire : 150 FCFA / élève / mois
-- Université & Supérieur : 200 FCFA / élève / mois
-- Remise de 10% si paiement annuel comptant. Paiement trimestriel possible.
-
-🌍 AFRIQUE HORS ZONE FCFA (Guinée Conakry, Nigeria, Ghana, RDC Congo, Maghreb, Afrique de l'Est...) :
-- Maternelle & Primaire : environ 0.50 USD / élève / mois
-- Collège & Secondaire : environ 0.75 USD / élève / mois
-- Université & Supérieur : environ 1.00 USD / élève / mois
-
-🌎 OCCIDENT (France, Belgique, USA, Canada, Suisse, Europe, Australie) :
-- Maternelle & Primaire : 1.00 USD ou € / élève / mois
-- Collège & Secondaire : 1.50 USD ou € / élève / mois
-- Université & Supérieur : 2.00 USD ou € / élève / mois
-
+--- TARIFS ET ABONNEMENT ---
+YZIOW propose une tarification par élève adaptée au pays de chaque établissement.
 ✅ L'inscription est 100% gratuite avec 14 jours d'essai sans carte bancaire.
 `;
 
