@@ -3,6 +3,7 @@ import {
     prepareAssistantHistory,
     formatRetryAfterMessage,
     getAssistantErrorMessage,
+    resolveAssistantErrorMessage,
     loadStoredAssistantHistory,
     saveStoredAssistantHistory,
     ASSISTANT_STORAGE_KEY
@@ -184,6 +185,40 @@ console.log('--- Démarrage de la suite de tests frontend Assistant Yziow ---');
         }
     }
     console.log('✅ Test 12: Aucune information technique ni code interne divulgué');
+}
+
+// 13. resolveAssistantErrorMessage : Matrice complète par statut et imperméabilité aux fuites serveur
+{
+    // A. 429 avec message contrôlé du backend
+    const msg429Controlled = resolveAssistantErrorMessage(429, 'Vous avez atteint votre limite de questions. Veuillez réessayer dans 15 minute(s).', 900);
+    assert.strictEqual(msg429Controlled, 'Vous avez atteint votre limite de questions. Veuillez réessayer dans 15 minute(s).');
+
+    // B. 429 sans data.error mais avec Retry-After
+    const msg429RetryAfter = resolveAssistantErrorMessage(429, null, '1800');
+    assert.strictEqual(msg429RetryAfter, 'Vous avez atteint votre limite de questions. Veuillez réessayer dans 30 minute(s).');
+
+    // C. 429 avec message suspect/technique (ex: SQL ou code) -> rejeté et formaté avec Retry-After
+    const msg429SqlInjection = resolveAssistantErrorMessage(429, 'SELECT * FROM assistant_usage_quotas WHERE error = true', '60');
+    assert.strictEqual(msg429SqlInjection, 'Vous avez atteint votre limite de questions. Veuillez réessayer dans 1 minute(s).');
+
+    // D. 400 -> Toujours message 400 normalisé, jamais le data.error technique du serveur
+    const msg400 = resolveAssistantErrorMessage(400, 'Invalid JSON input at column 45 in syntax parser', null);
+    assert.strictEqual(msg400, 'Votre message ou l’historique de la conversation n’est pas valide. Veuillez recommencer.');
+
+    // E. 401/403 -> Message d\'authentification normalisé
+    const msg401 = resolveAssistantErrorMessage(401, 'JWT token verification failed: signature invalid', null);
+    assert.strictEqual(msg401, 'Votre session n’est plus valide. Veuillez vous reconnecter.');
+
+    // F. 500 avec message SQL / stack trace -> Toujours message 500 générique local, ZÉRO détail serveur
+    const msg500Sql = resolveAssistantErrorMessage(500, 'ERROR: relation "schools" does not exist at postgresql.c:45', null);
+    assert.strictEqual(msg500Sql, 'Une erreur est survenue. Veuillez réessayer plus tard.');
+    assert.ok(!msg500Sql.includes('relation') && !msg500Sql.includes('schools') && !msg500Sql.includes('postgresql'));
+
+    // G. Statut inattendu (ex: 502 Bad Gateway) -> Message générique sécurisé
+    const msg502 = resolveAssistantErrorMessage(502, 'Vercel Serverless Function Execution Timeout', null);
+    assert.strictEqual(msg502, 'Une erreur est survenue. Veuillez réessayer plus tard.');
+
+    console.log('✅ Test 13: resolveAssistantErrorMessage valide la matrice par statut et bloque 100% des erreurs sensibles');
 }
 
 console.log('--- Tous les tests frontend Assistant Yziow ont réussi avec succès ! ---');

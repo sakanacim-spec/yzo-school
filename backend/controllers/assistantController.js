@@ -1,11 +1,6 @@
 'use strict';
 const Groq = require('groq-sdk');
-const {
-    getClientIp,
-    validateChatMessages,
-    validatePedagogicalInput,
-    enforceQuota
-} = require('../utils/aiQuotaService');
+const aiQuotaService = require('../utils/aiQuotaService');
 const {
     normalizeLanguage,
     getLocalizedErrorMessage
@@ -74,31 +69,14 @@ const chatWithAssistant = async (req, res) => {
 
     try {
         // 1. Validation fail-closed des entrées utilisateur
-        const validation = validateChatMessages(messages);
+        const validation = aiQuotaService.validateChatMessages(messages);
         if (!validation.isValid) {
             return res.status(400).json({
                 error: getLocalizedErrorMessage(400, null, safeLang)
             });
         }
 
-        // 2. Contrôle et consommation atomique du quota (5/h, 10/j par IP)
-        const clientIp = getClientIp(req);
-        const quotaResult = await enforceQuota({
-            scope: 'public_ip',
-            subjectIdentifier: clientIp,
-            hourLimit: 5,
-            dayLimit: 10
-        });
-
-        if (!quotaResult.allowed) {
-            res.set('Retry-After', String(quotaResult.retryAfter));
-            return res.status(quotaResult.status).json({
-                error: getLocalizedErrorMessage(quotaResult.status, quotaResult.retryAfter, safeLang),
-                retryAfter: quotaResult.retryAfter
-            });
-        }
-
-        // 3. Traitement déterministe des demandes globales de tous les tarifs (0 appel IA)
+        // 2. Traitement déterministe des demandes globales de tous les tarifs (0 appel IA, 0 quota)
         if (detectGlobalPricingRequest(messages)) {
             return res.json({
                 reply: "Les tarifs YZIOW sont adaptés au pays de chaque établissement. Je peux uniquement vous communiquer la grille applicable au pays de votre établissement.",
@@ -106,7 +84,7 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        // 4. Découverte des fonctionnalités & Présentation commerciale (0 appel IA)
+        // 3. Découverte des fonctionnalités & Présentation commerciale (0 appel IA, 0 quota)
         const assistantAction = typeof req.body?.assistant_action === 'string' ? req.body.assistant_action.trim() : '';
         if (assistantAction === 'discover_features_and_pricing' || isFeatureDiscoveryIntent(messages)) {
             const presentation = getProductPresentation({ language: safeLang });
@@ -116,7 +94,7 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        // 5. Traitement déterministe des demandes tarifaires et résolutions de pays (0 appel IA)
+        // 4. Traitement déterministe des demandes tarifaires et résolutions de pays (0 appel IA, 0 quota)
         const countryResult = extractGuestCountry(messages, req.body?.countryCode || req.body?.country, conversation_state);
 
         if (countryResult.status === 'MULTIPLE_COUNTRIES_IN_INPUT') {
@@ -146,12 +124,29 @@ const chatWithAssistant = async (req, res) => {
             }
         }
 
-        // If we are awaiting a country or pricing intent is detected, prompt for country
+        // If we are awaiting a country or pricing intent is detected, prompt for country (0 appel IA, 0 quota)
         if (awaiting === 'pricing_country' || detectPricingIntent(messages, conversation_state)) {
             // Avoid resetting awaiting if already set and user repeats a generic pricing question
             return res.json({
                 reply: "Veuillez préciser le pays de votre établissement pour obtenir les tarifs.",
                 conversation_state: { awaiting: 'pricing_country' }
+            });
+        }
+
+        // 5. Contrôle et consommation atomique du quota (5/h, 10/j par IP) UNIQUEMENT pour les requêtes Groq / LLM
+        const clientIp = aiQuotaService.getClientIp(req);
+        const quotaResult = await aiQuotaService.enforceQuota({
+            scope: 'public_ip',
+            subjectIdentifier: clientIp,
+            hourLimit: 5,
+            dayLimit: 10
+        });
+
+        if (!quotaResult.allowed) {
+            res.set('Retry-After', String(quotaResult.retryAfter));
+            return res.status(quotaResult.status).json({
+                error: getLocalizedErrorMessage(quotaResult.status, quotaResult.retryAfter, safeLang),
+                retryAfter: quotaResult.retryAfter
             });
         }
 
@@ -210,7 +205,7 @@ const chatWithPrivateAssistant = async (req, res) => {
         }
 
         // 1. Validation fail-closed des entrées utilisateur
-        const validation = validateChatMessages(messages);
+        const validation = aiQuotaService.validateChatMessages(messages);
         if (!validation.isValid) {
             return res.status(400).json({
                 error: getLocalizedErrorMessage(400, null, safeLang)
@@ -218,7 +213,7 @@ const chatWithPrivateAssistant = async (req, res) => {
         }
 
         // 2. Contrôle et consommation atomique du quota (30/j par compte)
-        const quotaResult = await enforceQuota({
+        const quotaResult = await aiQuotaService.enforceQuota({
             scope: 'authenticated_user',
             subjectIdentifier: String(userId).trim(),
             hourLimit: null,
@@ -314,7 +309,7 @@ const generatePedagogicalFeedback = async (req, res) => {
         }
 
         // 1. Validation fail-closed des entrées utilisateur
-        const validation = validatePedagogicalInput(req.body);
+        const validation = aiQuotaService.validatePedagogicalInput(req.body);
         if (!validation.isValid) {
             return res.status(400).json({
                 error: getLocalizedErrorMessage(400, null, safeLang)
@@ -322,7 +317,7 @@ const generatePedagogicalFeedback = async (req, res) => {
         }
 
         // 2. Contrôle et consommation atomique du quota (60/j par compte)
-        const quotaResult = await enforceQuota({
+        const quotaResult = await aiQuotaService.enforceQuota({
             scope: 'pedagogical_user',
             subjectIdentifier: String(userId).trim(),
             hourLimit: null,

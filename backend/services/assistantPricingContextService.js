@@ -1,6 +1,6 @@
 'use strict';
 
-const { supabase: defaultSupabase } = require('../utils/supabase');
+const supabaseModule = require('../utils/supabase');
 
 const COUNTRY_SYNONYMS = {
     GH: ['GH', 'GHANA'],
@@ -327,15 +327,16 @@ function buildCountryPricingResponse(pricingContext) {
 async function getAssistantPricingContext({
     authenticatedUser,
     requestedCountryCode,
-    supabaseClient = defaultSupabase
+    supabaseClient = null
 } = {}) {
+    const effectiveSupabase = supabaseClient || supabaseModule.supabase;
     let countryCode = null;
 
     // 1. Pour un utilisateur authentifié, priorité absolue et autoritaire à schools.country
     if (authenticatedUser && typeof authenticatedUser === 'object' && authenticatedUser.schoolSlug) {
         const slug = String(authenticatedUser.schoolSlug).trim();
         try {
-            const { data: school, error: schErr } = await supabaseClient
+            const { data: school, error: schErr } = await effectiveSupabase
                 .from('schools')
                 .select('country')
                 .eq('slug', slug)
@@ -376,7 +377,7 @@ async function getAssistantPricingContext({
 
     // 3. Résolution des grilles associées
     try {
-        const { data: associations, error: assocErr } = await supabaseClient
+        const { data: associations, error: assocErr } = await effectiveSupabase
             .from('saas_pricing_grid_countries')
             .select('pricing_grid_id, country_code')
             .eq('country_code', countryCode);
@@ -403,7 +404,7 @@ async function getAssistantPricingContext({
             throw err;
         }
 
-        const { data: grids, error: gridErr } = await supabaseClient
+        const { data: grids, error: gridErr } = await effectiveSupabase
             .from('saas_pricing_grids')
             .select(`
                 id, pricing_version, scope_type, scope_code,
