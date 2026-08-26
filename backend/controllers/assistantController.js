@@ -21,12 +21,24 @@ const {
     extractGuestCountry,
     detectPricingIntent,
     detectGlobalPricingRequest,
-    buildCountryPricingResponse
+    formatMultipleCountriesClarification,
+    buildCountryPricingResponse,
+    COUNTRY_CONFIG,
+    COUNTRY_DISPLAY_NAMES
 } = require('../services/assistantPricingContextService');
+
+const {
+    getProductPresentation,
+    isFeatureDiscoveryIntent
+} = require('../utils/assistantProductCatalog');
 
 let aiClient = null;
 
 const getClient = () => {
+    // Allow test injection of a mocked AI client via exported property.
+    if (module && module.exports && module.exports.aiClient) {
+        return module.exports.aiClient;
+    }
     if (!aiClient) {
         if (!process.env.GROQ_API_KEY) {
             throw new Error('GROQ_API_KEY is missing');
@@ -52,6 +64,13 @@ const formatHistory = (messages) => {
 const chatWithAssistant = async (req, res) => {
     const { messages, language } = req.body || {};
     const safeLang = normalizeLanguage(language);
+
+    // Sanitize conversation state strictly from req.body (never infer from historical message text)
+    const rawState = req.body?.conversation_state;
+    const awaiting = (rawState && typeof rawState === 'object' && rawState.awaiting === 'pricing_country')
+        ? 'pricing_country'
+        : null;
+    const conversation_state = awaiting ? { awaiting } : null;
 
     try {
         // 1. Validation fail-closed des entrées utilisateur
@@ -79,45 +98,64 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        // 3. Traitement déterministe des demandes tarifaires (0 appel IA)
+        // 3. Traitement déterministe des demandes globales de tous les tarifs (0 appel IA)
         if (detectGlobalPricingRequest(messages)) {
             return res.json({
-                reply: "Les tarifs YZIOW sont adaptés au pays de chaque établissement. Je peux uniquement vous communiquer la grille applicable au pays de votre établissement."
+                reply: "Les tarifs YZIOW sont adaptés au pays de chaque établissement. Je peux uniquement vous communiquer la grille applicable au pays de votre établissement.",
+                conversation_state: null
             });
         }
 
-        if (detectPricingIntent(messages)) {
-            const guestCountry = extractGuestCountry(messages, req.body?.countryCode || req.body?.country);
-            if (!guestCountry) {
-                return res.json({
-                    reply: "Pour vous communiquer les tarifs exacts d'YZIOW, veuillez préciser le pays de votre établissement."
-                });
-            }
+        // 4. Découverte des fonctionnalités & Présentation commerciale (0 appel IA)
+        const assistantAction = typeof req.body?.assistant_action === 'string' ? req.body.assistant_action.trim() : '';
+        if (assistantAction === 'discover_features_and_pricing' || isFeatureDiscoveryIntent(messages)) {
+            const presentation = getProductPresentation({ language: safeLang });
+            return res.json({
+                reply: presentation,
+                conversation_state: { awaiting: 'pricing_country' }
+            });
+        }
 
+        // 5. Traitement déterministe des demandes tarifaires et résolutions de pays (0 appel IA)
+        const countryResult = extractGuestCountry(messages, req.body?.countryCode || req.body?.country, conversation_state);
+
+        if (countryResult.status === 'MULTIPLE_COUNTRIES_IN_INPUT') {
+            return res.json({
+                reply: formatMultipleCountriesClarification(countryResult.countries),
+                conversation_state: { awaiting: 'pricing_country' }
+            });
+        }
+
+        if (countryResult.status === 'RESOLVED' && countryResult.countryCode) {
             try {
                 const pricingContext = await getAssistantPricingContext({
-                    requestedCountryCode: guestCountry
+                    requestedCountryCode: countryResult.countryCode
                 });
-                const reply = buildCountryPricingResponse(pricingContext);
-                return res.json({ reply });
-            } catch (pricingErr) {
-                if (pricingErr.code === 'COUNTRY_REQUIRED') {
-                    return res.json({
-                        reply: "Pour vous communiquer les tarifs exacts d'YZIOW, veuillez préciser le pays de votre établissement."
-                    });
-                }
-                if (pricingErr.code === 'PRICING_NOT_CONFIGURED') {
-                    return res.json({
-                        reply: "Aucune grille tarifaire n'est actuellement configurée pour ce pays. Veuillez contacter notre équipe commerciale."
-                    });
-                }
                 return res.json({
-                    reply: "Une indisponibilité temporaire empêche la consultation de la grille tarifaire. Veuillez réessayer ultérieurement."
+                    reply: buildCountryPricingResponse(pricingContext),
+                    conversation_state: null
+                });
+            } catch (pricingErr) {
+                const countryArticle = COUNTRY_CONFIG[countryResult.countryCode]?.article || COUNTRY_DISPLAY_NAMES[countryResult.countryCode] || countryResult.countryCode;
+                return res.json({
+                    reply: pricingErr.code === 'PRICING_NOT_CONFIGURED'
+                        ? `La grille tarifaire YZIOW n’est pas encore disponible pour ${countryArticle}. Notre équipe commerciale peut vous renseigner sur les prochaines disponibilités.`
+                        : "Une indisponibilité temporaire empêche la consultation de la grille tarifaire. Veuillez réessayer ultérieurement.",
+                    conversation_state: null
                 });
             }
         }
 
-        // 4. Appel Groq sécurisé pour les requêtes non-tarifaires
+        // If we are awaiting a country or pricing intent is detected, prompt for country
+        if (awaiting === 'pricing_country' || detectPricingIntent(messages, conversation_state)) {
+            // Avoid resetting awaiting if already set and user repeats a generic pricing question
+            return res.json({
+                reply: "Veuillez préciser le pays de votre établissement pour obtenir les tarifs.",
+                conversation_state: { awaiting: 'pricing_country' }
+            });
+        }
+
+        // 6. Appel Groq sécurisé pour les requêtes non-tarifaires
         let groq;
         try {
             groq = getClient();
@@ -198,28 +236,29 @@ const chatWithPrivateAssistant = async (req, res) => {
         // 3. Traitement déterministe des demandes tarifaires (0 appel IA)
         if (detectGlobalPricingRequest(messages)) {
             return res.json({
-                reply: "Les tarifs YZIOW sont adaptés au pays de chaque établissement. Je peux uniquement vous communiquer la grille applicable au pays de votre établissement."
+                reply: "Les tarifs YZIOW sont adaptés au pays de chaque établissement. Je peux uniquement vous communiquer la grille applicable au pays de votre établissement.",
+                conversation_state: null
             });
         }
 
-        if (detectPricingIntent(messages)) {
-            try {
-                // Utilise exclusivement le pays officiel de l'école (req.user.schoolSlug)
-                const pricingContext = await getAssistantPricingContext({
-                    authenticatedUser: req.user
-                });
-                const reply = buildCountryPricingResponse(pricingContext);
-                return res.json({ reply });
-            } catch (pricingErr) {
-                if (pricingErr.code === 'PRICING_NOT_CONFIGURED') {
-                    return res.json({
-                        reply: "Aucune grille tarifaire n'est actuellement configurée pour votre établissement. Veuillez contacter notre équipe commerciale."
-                    });
-                }
+        try {
+            // Utilise exclusivement le pays officiel de l'école (req.user.schoolSlug)
+            const pricingContext = await getAssistantPricingContext({
+                authenticatedUser: req.user
+            });
+            const reply = buildCountryPricingResponse(pricingContext);
+            return res.json({
+                reply,
+                conversation_state: null
+            });
+        } catch (pricingErr) {
+            if (pricingErr.code === 'PRICING_NOT_CONFIGURED') {
                 return res.json({
-                    reply: "Une indisponibilité temporaire empêche la consultation de la grille tarifaire. Veuillez réessayer ultérieurement."
+                    reply: "La grille tarifaire YZIOW n’est pas encore disponible pour votre pays. Notre équipe commerciale peut vous renseigner sur les prochaines disponibilités.",
+                    conversation_state: null
                 });
             }
+            // Continue to AI assistant if not a pricing error
         }
 
         // 4. Appel Groq sécurisé pour les requêtes non-tarifaires
@@ -332,3 +371,5 @@ module.exports = {
     chatWithPrivateAssistant,
     generatePedagogicalFeedback
 };
+// Export aiClient for test injection (allows mocking in unit tests)
+module.exports.aiClient = null;

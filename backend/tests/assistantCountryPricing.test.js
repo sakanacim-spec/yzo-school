@@ -27,14 +27,18 @@ const MOCK_SCHOOLS = {
     'ecole-ghana': { id: 'sch_gh', slug: 'ecole-ghana', country: 'GH' },
     'ecole-cameroun': { id: 'sch_cm', slug: 'ecole-cameroun', country: 'CM' },
     'ecole-espagne': { id: 'sch_es', slug: 'ecole-espagne', country: 'ES' },
-    'ecole-benin': { id: 'sch_bj', slug: 'ecole-benin', country: 'BJ' }
+    'ecole-benin': { id: 'sch_bj', slug: 'ecole-benin', country: 'BJ' },
+    'ecole-niger': { id: 'sch_ne', slug: 'ecole-niger', country: 'NE' },
+    'ecole-nigeria': { id: 'sch_ng', slug: 'ecole-nigeria', country: 'NG' }
 };
 
 const MOCK_ASSOCIATIONS = {
     GH: [{ pricing_grid_id: 'grid_gh', country_code: 'GH' }],
     CM: [{ pricing_grid_id: 'grid_cemac', country_code: 'CM' }],
     ES: [{ pricing_grid_id: 'grid_es', country_code: 'ES' }],
-    BJ: [{ pricing_grid_id: 'grid_uemoa', country_code: 'BJ' }]
+    BJ: [{ pricing_grid_id: 'grid_uemoa', country_code: 'BJ' }],
+    NE: [{ pricing_grid_id: 'grid_uemoa', country_code: 'NE' }],
+    NG: [{ pricing_grid_id: 'grid_ng', country_code: 'NG' }]
 };
 
 const MOCK_GRIDS = {
@@ -100,6 +104,22 @@ const MOCK_GRIDS = {
         installments_count: 3,
         pricing_status: 'active',
         payment_status: 'production',
+        enabled: true
+    },
+    grid_ng: {
+        id: 'grid_ng',
+        pricing_version: '2026.1_ngn_nigeria',
+        scope_type: 'country',
+        scope_code: 'NG',
+        currency_code: 'NGN',
+        currency_symbol: '₦',
+        currency_minor_unit: 2,
+        rates_monthly: { maternelle_primaire: 30000, college_secondaire: 45000, superieur_formation: 60000 },
+        billing_months: 10,
+        annual_discount_percent: 10,
+        installments_count: 3,
+        pricing_status: 'active',
+        payment_status: 'configuration_pending',
         enabled: true
     }
 };
@@ -245,7 +265,7 @@ test('4. Bénin authentifié → résout exclusivement la grille UEMOA (XOF)', a
     assert.equal(ctx.rates_monthly.maternelle_primaire, 100);
 });
 
-test('5. Payload hermétique → la réponse finale ne contient que la grille ciblée', async () => {
+test('5. Payload hermétique → la réponse finale ne contient que la grille ciblée sans codes ISO entre crochets', async () => {
     const supabase = createMockSupabase();
     const ctx = await getAssistantPricingContext({
         authenticatedUser: { id: 'u1', schoolSlug: 'ecole-ghana' },
@@ -253,12 +273,17 @@ test('5. Payload hermétique → la réponse finale ne contient que la grille ci
     });
     const reply = buildCountryPricingResponse(ctx);
 
-    assert.match(reply, /GH/);
-    assert.match(reply, /GHS/);
+    assert.match(reply, /Ghana/);
+    assert.match(reply, /cedis ghanéens \(GHS\)/);
+    assert.match(reply, /2,00 GH₵/);
+    // Strict prohibition of brackets and redundant currency format
+    assert.doesNotMatch(reply, /\[GH\]/);
+    assert.doesNotMatch(reply, /GHS \/ GH₵/);
     assert.doesNotMatch(reply, /FCFA/);
     assert.doesNotMatch(reply, /EUR/);
     assert.doesNotMatch(reply, /XOF/);
     assert.doesNotMatch(reply, /XAF/);
+    assert.doesNotMatch(reply, /NGN/);
 });
 
 test('6. Priorité autoritaire : Authentifié Ghana demandant ES → ES ignoré, Ghana résolu', async () => {
@@ -367,7 +392,7 @@ test('12. Grille avec payment_status === "configuration_pending" → tarifs reto
 
     assert.equal(ctx.payment_status, 'configuration_pending');
     const reply = buildCountryPricingResponse(ctx);
-    assert.match(reply, /paiement électronique n’est pas encore activé/);
+    assert.match(reply, /Le module de paiement en ligne pour votre pays est en cours de configuration finale/);
 });
 
 test('13. Demande globale de tous les tarifs → détection immédiate pour refus', () => {
@@ -379,17 +404,20 @@ test('13. Demande globale de tous les tarifs → détection immédiate pour refu
 });
 
 test('14. Formatage sans conversion monétaire respectant currency_minor_unit', () => {
-    // GHS 200 minor_unit 2 -> GH₵2,00
-    assert.equal(formatAmount(200, 2, 'GH₵', 'GHS'), 'GH₵2,00');
+    // GHS 200 minor_unit 2 -> 2,00 GH₵
+    assert.equal(formatAmount(200, 2, 'GH₵', 'GHS'), '2,00 GH₵');
 
     // EUR 50 minor_unit 2 -> 0,50 €
     assert.equal(formatAmount(50, 2, '€', 'EUR'), '0,50 €');
+    assert.equal(formatAmount(100, 2, '€', 'EUR'), '1,00 €');
 
     // XOF 100 minor_unit 0 -> 100 FCFA
     assert.equal(formatAmount(100, 0, 'FCFA', 'XOF'), '100 FCFA');
 
-    // XAF 100 minor_unit 0 -> 100 FCFA
-    assert.equal(formatAmount(100, 0, 'FCFA', 'XAF'), '100 FCFA');
+    // NGN 30000 minor_unit 2 -> ₦300
+    assert.equal(formatAmount(30000, 2, '₦', 'NGN'), '₦300');
+    assert.equal(formatAmount(45000, 2, '₦', 'NGN'), '₦450');
+    assert.equal(formatAmount(60000, 2, '₦', 'NGN'), '₦600');
 
     // Formatage des trois cycles sans [object Object]
     const formatted = formatMonthlyRates(
@@ -398,9 +426,9 @@ test('14. Formatage sans conversion monétaire respectant currency_minor_unit', 
         'GH₵',
         'GHS'
     );
-    assert.equal(formatted.maternelle_primaire, 'GH₵2,00');
-    assert.equal(formatted.college_secondaire, 'GH₵3,00');
-    assert.equal(formatted.superieur_formation, 'GH₵4,00');
+    assert.equal(formatted.maternelle_primaire, '2,00 GH₵');
+    assert.equal(formatted.college_secondaire, '3,00 GH₵');
+    assert.equal(formatted.superieur_formation, '4,00 GH₵');
     assert.doesNotMatch(JSON.stringify(formatted), /\[object Object\]/);
 });
 
@@ -442,6 +470,8 @@ test('18. Extraction du pays invité par nom ou synonyme (FR, EN, ES, accents)',
     assert.equal(extractGuestCountry([{ role: 'user', content: 'École au Bénin' }]), 'BJ');
     assert.equal(extractGuestCountry([{ role: 'user', content: 'Prix pour la France' }]), 'FR');
     assert.equal(extractGuestCountry([{ role: 'user', content: 'Côte d\'Ivoire' }]), 'CI');
+    assert.equal(extractGuestCountry([{ role: 'user', content: 'Tarifs pour le Niger' }]), 'NE');
+    assert.equal(extractGuestCountry([{ role: 'user', content: 'Tarifs pour le Nigeria' }]), 'NG');
     assert.equal(extractGuestCountry([{ role: 'user', content: 'Bonjour comment ça va ?' }]), null);
 });
 
@@ -471,9 +501,11 @@ test('19. Contrôleur Public : Réponse tarifaire déterministe avec 0 appel Gro
         await chatWithAssistant(req, res);
 
         assert.ok(jsonOutput && jsonOutput.reply);
-        assert.match(jsonOutput.reply, /BJ/);
-        assert.match(jsonOutput.reply, /FCFA/);
+        assert.match(jsonOutput.reply, /au Bénin, en francs CFA \(XOF\)/);
+        assert.match(jsonOutput.reply, /100 FCFA/);
         assert.match(jsonOutput.reply, /Maternelle & Primaire/);
+        assert.doesNotMatch(jsonOutput.reply, /\[BJ\]/);
+        assert.doesNotMatch(jsonOutput.reply, /XOF \/ FCFA/);
     } finally {
         realSupabase.rpc = origRpc;
         realSupabase.from = origFrom;
@@ -540,8 +572,130 @@ test('21. Contrôleur Privé : Réponse tarifaire autoritaire sur schools.countr
         await chatWithPrivateAssistant(req, res);
 
         assert.ok(jsonOutput && jsonOutput.reply);
-        assert.match(jsonOutput.reply, /GH/);
-        assert.match(jsonOutput.reply, /GHS/);
+        assert.match(jsonOutput.reply, /au Ghana, en cedis ghanéens \(GHS\)/);
+        assert.match(jsonOutput.reply, /2,00 GH₵/);
+        assert.doesNotMatch(jsonOutput.reply, /\[GH\]/);
+    } finally {
+        realSupabase.rpc = origRpc;
+        realSupabase.from = origFrom;
+    }
+});
+
+test('22. Nigeria (NG) : grille P9 résolue en NGN (₦300 / ₦450 / ₦600)', async () => {
+    const origRpc = realSupabase.rpc;
+    const origFrom = realSupabase.from;
+    const mockDb = createMockSupabase();
+
+    realSupabase.rpc = () => Promise.resolve({ data: { allowed: true, remaining: 10 }, error: null });
+    realSupabase.from = (...args) => mockDb.from(...args);
+
+    try {
+        let jsonOutput = null;
+        const req = {
+            body: {
+                messages: [{ role: 'user', content: 'Tarifs pour le Nigeria' }]
+            },
+            ip: '127.0.0.1',
+            headers: {}
+        };
+        const res = {
+            status(s) { this._status = s; return this; },
+            set() { return this; },
+            json(payload) { jsonOutput = payload; return this; }
+        };
+
+        await chatWithAssistant(req, res);
+
+        assert.ok(jsonOutput && jsonOutput.reply);
+        assert.match(jsonOutput.reply, /Voici les tarifs YZIOW applicables au Nigeria, en nairas nigérians \(NGN\) :/);
+        assert.match(jsonOutput.reply, /• Maternelle & Primaire : ₦300 \/ élève \/ mois/);
+        assert.match(jsonOutput.reply, /• Collège & Secondaire : ₦450 \/ élève \/ mois/);
+        assert.match(jsonOutput.reply, /• Supérieur & Formation : ₦600 \/ élève \/ mois/);
+        assert.doesNotMatch(jsonOutput.reply, /\[NG\]/);
+        assert.doesNotMatch(jsonOutput.reply, /NGN \/ ₦/);
+        assert.doesNotMatch(jsonOutput.reply, /USD/);
+        assert.doesNotMatch(jsonOutput.reply, /FCFA/);
+    } finally {
+        realSupabase.rpc = origRpc;
+        realSupabase.from = origFrom;
+    }
+});
+
+test('23. Niger (NE) : grille UEMOA résolue en XOF (100 / 150 / 200 FCFA)', async () => {
+    const origRpc = realSupabase.rpc;
+    const origFrom = realSupabase.from;
+    const mockDb = createMockSupabase();
+
+    realSupabase.rpc = () => Promise.resolve({ data: { allowed: true, remaining: 10 }, error: null });
+    realSupabase.from = (...args) => mockDb.from(...args);
+
+    try {
+        let jsonOutput = null;
+        const req = {
+            body: {
+                messages: [{ role: 'user', content: 'Quels sont les tarifs au Niger ?' }]
+            },
+            ip: '127.0.0.1',
+            headers: {}
+        };
+        const res = {
+            status(s) { this._status = s; return this; },
+            set() { return this; },
+            json(payload) { jsonOutput = payload; return this; }
+        };
+
+        await chatWithAssistant(req, res);
+
+        assert.ok(jsonOutput && jsonOutput.reply);
+        assert.match(jsonOutput.reply, /Voici les tarifs YZIOW applicables au Niger, en francs CFA \(XOF\) :/);
+        assert.match(jsonOutput.reply, /• Maternelle & Primaire : 100 FCFA \/ élève \/ mois/);
+        assert.match(jsonOutput.reply, /• Collège & Secondaire : 150 FCFA \/ élève \/ mois/);
+        assert.match(jsonOutput.reply, /• Supérieur & Formation : 200 FCFA \/ élève \/ mois/);
+        assert.doesNotMatch(jsonOutput.reply, /\[NE\]/);
+        assert.doesNotMatch(jsonOutput.reply, /XOF \/ FCFA/);
+        assert.doesNotMatch(jsonOutput.reply, /NGN/);
+    } finally {
+        realSupabase.rpc = origRpc;
+        realSupabase.from = origFrom;
+    }
+});
+
+test('24. Distinction stricte Niger (NE / XOF) vs Nigeria (NG / NGN)', () => {
+    assert.equal(extractGuestCountry([{ role: 'user', content: 'Notre école est au Niger' }]), 'NE');
+    assert.equal(extractGuestCountry([{ role: 'user', content: 'Our school is in Nigeria' }]), 'NG');
+});
+
+test('25. Absence de grille vs Panne technique : deux messages distincts', async () => {
+    const origRpc = realSupabase.rpc;
+    const origFrom = realSupabase.from;
+    const mockDb = createMockSupabase();
+
+    realSupabase.rpc = () => Promise.resolve({ data: { allowed: true, remaining: 10 }, error: null });
+    realSupabase.from = (...args) => mockDb.from(...args);
+
+    try {
+        // A. Pays reconnu mais non configuré (ex: Canada CA)
+        let outUnconfigured = null;
+        const resA = {
+            status(s) { this._status = s; return this; },
+            set() { return this; },
+            json(p) { outUnconfigured = p; return this; }
+        };
+        await chatWithAssistant({ body: { messages: [{ role: 'user', content: 'Tarifs pour le Canada' }] } }, resA);
+        assert.match(outUnconfigured.reply, /La grille tarifaire YZIOW n’est pas encore disponible pour le Canada/);
+        assert.doesNotMatch(outUnconfigured.reply, /\[CA\]/);
+
+        // B. Panne technique Supabase
+        const mockErrorDb = createMockSupabase({ simulateDbError: true });
+        realSupabase.from = (...args) => mockErrorDb.from(...args);
+        let outError = null;
+        const resB = {
+            status(s) { this._status = s; return this; },
+            set() { return this; },
+            json(p) { outError = p; return this; }
+        };
+        await chatWithAssistant({ body: { messages: [{ role: 'user', content: 'Tarifs pour le Ghana' }] } }, resB);
+        assert.match(outError.reply, /Une indisponibilité temporaire empêche la consultation de la grille tarifaire/);
     } finally {
         realSupabase.rpc = origRpc;
         realSupabase.from = origFrom;

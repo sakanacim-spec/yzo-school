@@ -35,54 +35,137 @@ const COUNTRY_SYNONYMS = {
     BI: ['BI', 'BURUNDI']
 };
 
+const COUNTRY_CONFIG = {
+    GH: { name: 'Ghana', prep: 'au Ghana', article: 'le Ghana', currencyLabel: 'cedis ghanéens (GHS)' },
+    BJ: { name: 'Bénin', prep: 'au Bénin', article: 'le Bénin', currencyLabel: 'francs CFA (XOF)' },
+    CM: { name: 'Cameroun', prep: 'au Cameroun', article: 'le Cameroun', currencyLabel: 'francs CFA (XAF)' },
+    ES: { name: 'Espagne', prep: 'en Espagne', article: "l'Espagne", currencyLabel: 'euros (EUR)' },
+    CI: { name: "Côte d'Ivoire", prep: "en Côte d'Ivoire", article: "la Côte d'Ivoire", currencyLabel: 'francs CFA (XOF)' },
+    SN: { name: 'Sénégal', prep: 'au Sénégal', article: 'le Sénégal', currencyLabel: 'francs CFA (XOF)' },
+    TG: { name: 'Togo', prep: 'au Togo', article: 'le Togo', currencyLabel: 'francs CFA (XOF)' },
+    BF: { name: 'Burkina Faso', prep: 'au Burkina Faso', article: 'le Burkina Faso', currencyLabel: 'francs CFA (XOF)' },
+    ML: { name: 'Mali', prep: 'au Mali', article: 'le Mali', currencyLabel: 'francs CFA (XOF)' },
+    NE: { name: 'Niger', prep: 'au Niger', article: 'le Niger', currencyLabel: 'francs CFA (XOF)' },
+    GA: { name: 'Gabon', prep: 'au Gabon', article: 'le Gabon', currencyLabel: 'francs CFA (XAF)' },
+    CG: { name: 'Congo', prep: 'au Congo', article: 'le Congo', currencyLabel: 'francs CFA (XAF)' },
+    CD: { name: 'RD Congo', prep: 'en RD Congo', article: 'la RD Congo', currencyLabel: 'francs CFA (XAF)' },
+    TD: { name: 'Tchad', prep: 'au Tchad', article: 'le Tchad', currencyLabel: 'francs CFA (XAF)' },
+    CF: { name: 'Centrafrique', prep: 'en Centrafrique', article: 'la Centrafrique', currencyLabel: 'francs CFA (XAF)' },
+    GN: { name: 'Guinée', prep: 'en Guinée', article: 'la Guinée', currencyLabel: 'francs guinéens (GNF)' },
+    GQ: { name: 'Guinée équatoriale', prep: 'en Guinée équatoriale', article: 'la Guinée équatoriale', currencyLabel: 'francs CFA (XAF)' },
+    GW: { name: 'Guinée-Bissau', prep: 'en Guinée-Bissau', article: 'la Guinée-Bissau', currencyLabel: 'francs CFA (XOF)' },
+    NG: { name: 'Nigeria', prep: 'au Nigeria', article: 'le Nigeria', currencyLabel: 'nairas nigérians (NGN)' },
+    FR: { name: 'France', prep: 'en France', article: 'la France', currencyLabel: 'euros (EUR)' },
+    BE: { name: 'Belgique', prep: 'en Belgique', article: 'la Belgique', currencyLabel: 'euros (EUR)' },
+    CA: { name: 'Canada', prep: 'au Canada', article: 'le Canada', currencyLabel: 'dollars canadiens (CAD)' },
+    US: { name: 'États-Unis', prep: 'aux États-Unis', article: 'les États-Unis', currencyLabel: 'dollars américains (USD)' },
+    CH: { name: 'Suisse', prep: 'en Suisse', article: 'la Suisse', currencyLabel: 'francs suisses (CHF)' },
+    MA: { name: 'Maroc', prep: 'au Maroc', article: 'le Maroc', currencyLabel: 'dirhams marocains (MAD)' },
+    DZ: { name: 'Algérie', prep: 'en Algérie', article: "l'Algérie", currencyLabel: 'dinars algériens (DZD)' },
+    TN: { name: 'Tunisie', prep: 'en Tunisie', article: 'la Tunisie', currencyLabel: 'dinars tunisiens (TND)' },
+    MG: { name: 'Madagascar', prep: 'à Madagascar', article: 'Madagascar', currencyLabel: 'ariarys (MGA)' },
+    RW: { name: 'Rwanda', prep: 'au Rwanda', article: 'le Rwanda', currencyLabel: 'francs rwandais (RWF)' },
+    BI: { name: 'Burundi', prep: 'au Burundi', article: 'le Burundi', currencyLabel: 'francs burundais (BIF)' }
+};
+
+const COUNTRY_DISPLAY_NAMES = Object.fromEntries(
+    Object.entries(COUNTRY_CONFIG).map(([k, v]) => [k, v.name])
+);
+
+const CURRENCY_LABELS = {
+    GHS: 'cedis ghanéens (GHS)',
+    EUR: 'euros (EUR)',
+    XOF: 'francs CFA (XOF)',
+    XAF: 'francs CFA (XAF)',
+    NGN: 'nairas nigérians (NGN)',
+    USD: 'dollars américains (USD)'
+};
+
 /**
- * Normalise et extrait un code pays ISO-2 depuis les messages ou un paramètre explicite.
+ * Trouve tous les codes pays distincts mentionnés dans un texte donné.
  */
-function extractGuestCountry(messages, explicitCountry) {
+function findCountriesInText(text) {
+    if (!text || typeof text !== 'string') return [];
+    const textUpper = text.toUpperCase();
+    const foundCodes = [];
+
+    for (const [code, synonyms] of Object.entries(COUNTRY_SYNONYMS)) {
+        for (const syn of synonyms) {
+            const escaped = syn.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(`(^|[^A-ZÀ-ÖØ-öø-ÿ])${escaped}([^A-ZÀ-ÖØ-öø-ÿ]|$)`, 'i');
+            if (regex.test(textUpper)) {
+                if (!foundCodes.includes(code)) {
+                    foundCodes.push(code);
+                }
+                break;
+            }
+        }
+    }
+    return foundCodes;
+}
+
+/**
+ * Normalise et extrait un code pays ISO-2 depuis les messages avec priorité stricte au dernier message.
+ * Détecte les conflits / comparaisons multi-pays dans un même message.
+ */
+function extractGuestCountry(messages, explicitCountry, conversationState) {
     if (typeof explicitCountry === 'string' && explicitCountry.trim()) {
         const normExp = explicitCountry.trim().toUpperCase();
         if (/^[A-Z]{2}$/.test(normExp)) {
-            return normExp;
+            return { status: 'RESOLVED', countryCode: normExp };
         }
         for (const [code, synonyms] of Object.entries(COUNTRY_SYNONYMS)) {
             if (synonyms.includes(normExp)) {
-                return code;
+                return { status: 'RESOLVED', countryCode: code };
             }
         }
     }
 
     if (!Array.isArray(messages) || messages.length === 0) {
-        return null;
+        return arguments.length === 1 ? null : { status: 'NOT_FOUND', countryCode: null };
     }
 
-    const textToScan = messages
-        .filter(m => m && (m.role === 'user' || m.sender === 'user'))
-        .map(m => (typeof m.text === 'string' ? m.text : (typeof m.content === 'string' ? m.content : '')))
-        .join(' ')
-        .toUpperCase();
+    const lastUserMsg = [...messages]
+        .reverse()
+        .find(m => m && (m.role === 'user' || m.sender === 'user'));
 
-    if (!textToScan) {
-        return null;
+    if (!lastUserMsg) {
+        return arguments.length === 1 ? null : { status: 'NOT_FOUND', countryCode: null };
     }
 
-    // Détection par mot entier ou symbole
-    for (const [code, synonyms] of Object.entries(COUNTRY_SYNONYMS)) {
-        for (const syn of synonyms) {
-            const escaped = syn.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp(`(^|[^A-ZÀ-ÖØ-öø-ÿ])${escaped}([^A-ZÀ-ÖØ-öø-ÿ]|$)`, 'i');
-            if (regex.test(textToScan)) {
-                return code;
-            }
-        }
+    const lastText = (typeof lastUserMsg.text === 'string' ? lastUserMsg.text : (typeof lastUserMsg.content === 'string' ? lastUserMsg.content : ''));
+    const detectedInLast = findCountriesInText(lastText);
+
+    if (detectedInLast.length > 1) {
+        return arguments.length === 1 ? null : {
+            status: 'MULTIPLE_COUNTRIES_IN_INPUT',
+            countries: detectedInLast,
+            countryCode: null
+        };
     }
 
-    return null;
+    if (detectedInLast.length === 1) {
+        return arguments.length === 1 ? detectedInLast[0] : {
+            status: 'RESOLVED',
+            countryCode: detectedInLast[0]
+        };
+    }
+
+    // Aucun pays dans le dernier message : ne pas aller chercher un vieux pays dans l'historique
+    return arguments.length === 1 ? null : {
+        status: 'NOT_FOUND',
+        countryCode: null
+    };
 }
 
 /**
- * Détecte si l'utilisateur pose une question relative à la tarification.
+ * Détecte si l'utilisateur pose une question relative à la tarification ou si la conversation est en attente d'un pays.
  */
-function detectPricingIntent(messages) {
+function detectPricingIntent(messages, conversationState) {
+    if (conversationState && typeof conversationState === 'object' && conversationState.awaiting === 'pricing_country') {
+        return true;
+    }
+
     if (!Array.isArray(messages) || messages.length === 0) {
         return false;
     }
@@ -138,6 +221,14 @@ function detectGlobalPricingRequest(messages) {
 }
 
 /**
+ * Formate un message de clarification lorsque plusieurs pays sont mentionnés dans un même message.
+ */
+function formatMultipleCountriesClarification(countries) {
+    const names = (countries || []).map(c => COUNTRY_DISPLAY_NAMES[c] || c).join(' ou ');
+    return `Quel pays souhaitez‑vous recevoir la grille tarifaire : ${names} ?`;
+}
+
+/**
  * Formate un montant en tenant compte de currency_minor_unit.
  */
 function formatAmount(storedAmount, minorUnit, currencySymbol, currencyCode) {
@@ -145,17 +236,27 @@ function formatAmount(storedAmount, minorUnit, currencySymbol, currencyCode) {
     const divisor = 10 ** (typeof minorUnit === 'number' ? minorUnit : 0);
     const displayAmount = num / divisor;
 
+    const symbol = currencySymbol || currencyCode || '';
+
+    if (symbol === '₦') {
+        const isInteger = displayAmount % 1 === 0;
+        const formattedNumber = displayAmount.toLocaleString('fr-FR', {
+            minimumFractionDigits: isInteger ? 0 : (minorUnit > 0 ? minorUnit : 0),
+            maximumFractionDigits: minorUnit > 0 ? minorUnit : 0
+        });
+        return `₦${formattedNumber}`;
+    }
+
     const formattedNumber = displayAmount.toLocaleString('fr-FR', {
         minimumFractionDigits: minorUnit > 0 ? minorUnit : 0,
         maximumFractionDigits: minorUnit > 0 ? minorUnit : 0
     });
 
-    const symbol = currencySymbol || currencyCode || '';
-    if (symbol === 'GH₵' || symbol === '$' || symbol === '£') {
-        return `${symbol}${formattedNumber}`;
-    }
-    if (symbol === '€' || symbol === 'FCFA') {
+    if (symbol === 'GH₵' || symbol === 'FCFA' || symbol === '€') {
         return `${formattedNumber} ${symbol}`;
+    }
+    if (symbol === '$' || symbol === '£') {
+        return `${symbol}${formattedNumber}`;
     }
     return `${formattedNumber} ${symbol}`.trim();
 }
@@ -194,7 +295,16 @@ function buildCountryPricingResponse(pricingContext) {
 
     const formattedRates = formatMonthlyRates(rates_monthly, currency_minor_unit, currency_symbol, currency_code);
 
-    let response = `Voici la grille tarifaire officielle YZIOW applicable pour le pays [${country_code}] (Devise : ${currency_code}${currency_symbol ? ` / ${currency_symbol}` : ''}) :\n\n` +
+    const countryInfo = COUNTRY_CONFIG[country_code] || {
+        name: COUNTRY_DISPLAY_NAMES[country_code] || country_code,
+        prep: `pour le pays ${COUNTRY_DISPLAY_NAMES[country_code] || country_code}`,
+        currencyLabel: CURRENCY_LABELS[currency_code] || `${currency_code}${currency_symbol ? ` (${currency_symbol})` : ''}`
+    };
+
+    const prepAndName = countryInfo.prep;
+    const currencyLabel = CURRENCY_LABELS[currency_code] || countryInfo.currencyLabel || currency_code;
+
+    let response = `Voici les tarifs YZIOW applicables ${prepAndName}, en ${currencyLabel} :\n\n` +
         `• Maternelle & Primaire : ${formattedRates.maternelle_primaire} / élève / mois\n` +
         `• Collège & Secondaire : ${formattedRates.college_secondaire} / élève / mois\n` +
         `• Supérieur & Formation : ${formattedRates.superieur_formation} / élève / mois\n\n` +
@@ -203,7 +313,7 @@ function buildCountryPricingResponse(pricingContext) {
         `• Possibilité de paiement échelonné en ${installments_count || 3} tranches.\n\n`;
 
     if (payment_status === 'configuration_pending') {
-        response += `ℹ️ La grille tarifaire est disponible, mais le paiement électronique n’est pas encore activé dans votre pays. Veuillez contacter YZIOW pour connaître les modalités provisoires de règlement.`;
+        response += `ℹ️ Le module de paiement en ligne pour votre pays est en cours de configuration finale. Les règlements s'effectuent actuellement selon les modalités convenues avec notre équipe.`;
     } else {
         response += `✅ Le paiement électronique est disponible pour votre établissement.`;
     }
@@ -364,7 +474,12 @@ module.exports = {
     extractGuestCountry,
     detectPricingIntent,
     detectGlobalPricingRequest,
+    findCountriesInText,
+    formatMultipleCountriesClarification,
     formatAmount,
     formatMonthlyRates,
-    buildCountryPricingResponse
+    buildCountryPricingResponse,
+    COUNTRY_CONFIG,
+    COUNTRY_DISPLAY_NAMES,
+    CURRENCY_LABELS
 };

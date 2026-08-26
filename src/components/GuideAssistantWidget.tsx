@@ -42,6 +42,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [hasUnread, setHasUnread] = useState(true);
+    const [conversationState, setConversationState] = useState<{ awaiting?: string } | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -69,6 +70,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
     }, [language]);
 
     const initWelcomeMessages = () => {
+        setConversationState(null);
         setMessages([
             {
                 id: 'welcome-1',
@@ -111,6 +113,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
         let options: { label: string; action: () => void; icon?: React.ReactNode }[] = [];
 
         if (role === 'director') {
+            setConversationState(null);
             userLabel = t.roleDirector;
             botResponse = t.directorResponse;
             options = [
@@ -125,6 +128,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                 { label: t.backToMenu, action: () => initWelcomeMessages() }
             ];
         } else if (role === 'parent') {
+            setConversationState(null);
             userLabel = t.roleParent;
             botResponse = t.parentResponse;
             options = [
@@ -139,6 +143,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                 { label: t.backToMenu, action: () => initWelcomeMessages() }
             ];
         } else if (role === 'teacher') {
+            setConversationState(null);
             userLabel = t.roleTeacher;
             botResponse = t.teacherResponse;
             options = [
@@ -149,19 +154,52 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                 { label: t.backToMenu, action: () => initWelcomeMessages() }
             ];
         } else {
-            userLabel = t.roleInfo;
-            botResponse = t.infoResponse;
-            options = [
-                {
-                    label: t.infoActionRegisterSchool,
-                    action: () => { setIsOpen(false); onOpenRegisterSchool?.(); }
-                },
-                {
-                    label: t.infoActionRegisterParent,
-                    action: () => { setIsOpen(false); onOpenRegisterParent?.(); }
-                },
-                { label: t.backToMenu, action: () => initWelcomeMessages() }
-            ];
+            // INFO role: request product presentation from backend (feature discovery)
+            const triggerInfo = async () => {
+                // Optimistic UI: show loading indicator
+                const loadingId = (Date.now() + 2).toString();
+                const optimisticHistory = [...messages,
+                    { id: Date.now().toString(), sender: 'user', text: t.roleInfo },
+                    { id: loadingId, sender: 'bot', text: '…' }
+                ];
+                setMessages(optimisticHistory);
+                try {
+                    const res = await fetch(`${API_BASE_URL}/assistant/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            messages: prepareAssistantHistory(optimisticHistory),
+                            assistant_action: 'discover_features_and_pricing',
+                            language: language || 'fr'
+                        })
+                    });
+                    const data = await res.json();
+                    // Update conversation state if provided by backend
+                    if (data && data.conversation_state !== undefined) {
+                        setConversationState(data.conversation_state);
+                    }
+                    const botReply = (data && typeof data.reply === 'string') ? data.reply : getAssistantErrorMessage(res.status, null, language);
+                    // Replace loading placeholder with actual reply
+                    setMessages(prev => {
+                        const filtered = prev.filter(m => m.id !== loadingId);
+                        const finalHistory = [...filtered, { id: (Date.now() + 3).toString(), sender: 'bot', text: botReply }];
+                        saveStoredAssistantHistory(finalHistory);
+                        return finalHistory;
+                    });
+                } catch (e) {
+                    // On error, show connection error message
+                    setMessages(prev => {
+                        const filtered = prev.filter(m => m.id !== loadingId);
+                        const finalHistory = [...filtered, { id: (Date.now() + 3).toString(), sender: 'bot', text: t.errorConnection }];
+                        saveStoredAssistantHistory(finalHistory);
+                        return finalHistory;
+                    });
+                }
+            };
+            // Fire async request (no await to keep UI responsive)
+            triggerInfo();
+            // Exit early; no immediate bot response
+            return;
         }
 
         const newHistory: Message[] = [
@@ -197,7 +235,11 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
             const res = await fetch(`${API_BASE_URL}/assistant/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: payloadMessages, language: language || 'fr' })
+                body: JSON.stringify({
+                    messages: payloadMessages,
+                    conversation_state: conversationState,
+                    language: language || 'fr'
+                })
             });
 
             let data: any = null;
@@ -205,6 +247,10 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                 data = await res.json();
             } catch {
                 data = null;
+            }
+
+            if (data && data.conversation_state !== undefined) {
+                setConversationState(data.conversation_state);
             }
 
             const retryAfterHeader = res.headers.get('Retry-After') || (data && data.retryAfter);
