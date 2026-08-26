@@ -35,54 +35,124 @@ const COUNTRY_SYNONYMS = {
     BI: ['BI', 'BURUNDI']
 };
 
+const COUNTRY_DISPLAY_NAMES = {
+    GH: 'Ghana',
+    BJ: 'Bénin',
+    CM: 'Cameroun',
+    ES: 'Espagne',
+    CI: "Côte d'Ivoire",
+    SN: 'Sénégal',
+    TG: 'Togo',
+    BF: 'Burkina Faso',
+    ML: 'Mali',
+    NE: 'Niger',
+    GA: 'Gabon',
+    CG: 'Congo',
+    CD: 'RD Congo',
+    TD: 'Tchad',
+    CF: 'Centrafrique',
+    GN: 'Guinée',
+    GQ: 'Guinée équatoriale',
+    GW: 'Guinée-Bissau',
+    NG: 'Nigeria',
+    FR: 'France',
+    BE: 'Belgique',
+    CA: 'Canada',
+    US: 'États-Unis',
+    CH: 'Suisse',
+    MA: 'Maroc',
+    DZ: 'Algérie',
+    TN: 'Tunisie',
+    MG: 'Madagascar',
+    RW: 'Rwanda',
+    BI: 'Burundi'
+};
+
 /**
- * Normalise et extrait un code pays ISO-2 depuis les messages ou un paramètre explicite.
+ * Trouve tous les codes pays distincts mentionnés dans un texte donné.
  */
-function extractGuestCountry(messages, explicitCountry) {
+function findCountriesInText(text) {
+    if (!text || typeof text !== 'string') return [];
+    const textUpper = text.toUpperCase();
+    const foundCodes = [];
+
+    for (const [code, synonyms] of Object.entries(COUNTRY_SYNONYMS)) {
+        for (const syn of synonyms) {
+            const escaped = syn.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(`(^|[^A-ZÀ-ÖØ-öø-ÿ])${escaped}([^A-ZÀ-ÖØ-öø-ÿ]|$)`, 'i');
+            if (regex.test(textUpper)) {
+                if (!foundCodes.includes(code)) {
+                    foundCodes.push(code);
+                }
+                break;
+            }
+        }
+    }
+    return foundCodes;
+}
+
+/**
+ * Normalise et extrait un code pays ISO-2 depuis les messages avec priorité stricte au dernier message.
+ * Détecte les conflits / comparaisons multi-pays dans un même message.
+ */
+function extractGuestCountry(messages, explicitCountry, conversationState) {
     if (typeof explicitCountry === 'string' && explicitCountry.trim()) {
         const normExp = explicitCountry.trim().toUpperCase();
         if (/^[A-Z]{2}$/.test(normExp)) {
-            return normExp;
+            return { status: 'RESOLVED', countryCode: normExp };
         }
         for (const [code, synonyms] of Object.entries(COUNTRY_SYNONYMS)) {
             if (synonyms.includes(normExp)) {
-                return code;
+                return { status: 'RESOLVED', countryCode: code };
             }
         }
     }
 
     if (!Array.isArray(messages) || messages.length === 0) {
-        return null;
+        return arguments.length === 1 ? null : { status: 'NOT_FOUND', countryCode: null };
     }
 
-    const textToScan = messages
-        .filter(m => m && (m.role === 'user' || m.sender === 'user'))
-        .map(m => (typeof m.text === 'string' ? m.text : (typeof m.content === 'string' ? m.content : '')))
-        .join(' ')
-        .toUpperCase();
+    const lastUserMsg = [...messages]
+        .reverse()
+        .find(m => m && (m.role === 'user' || m.sender === 'user'));
 
-    if (!textToScan) {
-        return null;
+    if (!lastUserMsg) {
+        return arguments.length === 1 ? null : { status: 'NOT_FOUND', countryCode: null };
     }
 
-    // Détection par mot entier ou symbole
-    for (const [code, synonyms] of Object.entries(COUNTRY_SYNONYMS)) {
-        for (const syn of synonyms) {
-            const escaped = syn.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp(`(^|[^A-ZÀ-ÖØ-öø-ÿ])${escaped}([^A-ZÀ-ÖØ-öø-ÿ]|$)`, 'i');
-            if (regex.test(textToScan)) {
-                return code;
-            }
-        }
+    const lastText = (typeof lastUserMsg.text === 'string' ? lastUserMsg.text : (typeof lastUserMsg.content === 'string' ? lastUserMsg.content : ''));
+    const detectedInLast = findCountriesInText(lastText);
+
+    if (detectedInLast.length > 1) {
+        return arguments.length === 1 ? null : {
+            status: 'MULTIPLE_COUNTRIES_IN_INPUT',
+            countries: detectedInLast,
+            countryCode: null
+        };
     }
 
-    return null;
+    if (detectedInLast.length === 1) {
+        return arguments.length === 1 ? detectedInLast[0] : {
+            status: 'RESOLVED',
+            countryCode: detectedInLast[0]
+        };
+    }
+
+    // Aucun pays dans le dernier message : ne pas aller chercher un vieux pays dans l'historique
+    return arguments.length === 1 ? null : {
+        status: 'NOT_FOUND',
+        countryCode: null
+    };
 }
 
 /**
- * Détecte si l'utilisateur pose une question relative à la tarification.
+ * Détecte si l'utilisateur pose une question relative à la tarification ou si la conversation est en attente d'un pays.
  */
-function detectPricingIntent(messages) {
+function detectPricingIntent(messages, conversationState) {
+    if (conversationState && typeof conversationState === 'object' && conversationState.awaiting === 'pricing_country') {
+        return true;
+    }
+
     if (!Array.isArray(messages) || messages.length === 0) {
         return false;
     }
@@ -135,6 +205,14 @@ function detectGlobalPricingRequest(messages) {
     ];
 
     return globalKeywords.some(kw => text.includes(kw));
+}
+
+/**
+ * Formate un message de clarification lorsque plusieurs pays sont mentionnés dans un même message.
+ */
+function formatMultipleCountriesClarification(countries) {
+    const names = (countries || []).map(c => COUNTRY_DISPLAY_NAMES[c] || c).join(' ou ');
+    return `Quel pays souhaitez‑vous recevoir la grille tarifaire : ${names} ?`;
 }
 
 /**
@@ -364,7 +442,10 @@ module.exports = {
     extractGuestCountry,
     detectPricingIntent,
     detectGlobalPricingRequest,
+    findCountriesInText,
+    formatMultipleCountriesClarification,
     formatAmount,
     formatMonthlyRates,
-    buildCountryPricingResponse
+    buildCountryPricingResponse,
+    COUNTRY_DISPLAY_NAMES
 };
