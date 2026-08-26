@@ -23,7 +23,7 @@ Ce que YZIOW apporte concrètement à votre établissement :
 
 Bénéfices clés : Gain de temps administratif, automatisation des calculs de moyennes, suivi facilité avec les familles et outils de gestion financière.
 
-Tarification : Nos tarifs d'abonnement SaaS sont adaptés au pays de chaque établissement pour garantir l'accessibilité la plus juste.
+Tarification : La grille tarifaire applicable dépend du pays dans lequel se trouve l’établissement.
 
 Dans quel pays se trouve votre établissement ?`;
 
@@ -45,7 +45,7 @@ Key Features of YZIOW:
 
 Key Benefits: Administrative time savings, automated grade calculations, structured communication with families, and financial tracking tools.
 
-Pricing: Our SaaS subscription plans are customized by country to provide the fairest pricing for every school.
+Pricing: The applicable pricing grid depends on the country where the institution is located.
 
 In which country is your school located?`;
 
@@ -61,13 +61,13 @@ Funcionalidades principales de YZIOW:
 • Portal para Padres: Acceso para consultar notas, asistencias, tareas y boletines de los hijos.
 • Pagos de Colegiaturas y Recibos: Seguimiento de cobros y emisión de recibos de pago en PDF.
 • Contabilidad y Finanzas: Control de gastos, gestión de nóminas del personal y cuadros de mando de gestión.
-• Comunicación: Mensajería interna y difusión de avisos para las familias.
+• Communication: Mensajería interna y difusión de avisos para las familias.
 • Seguridad y Privacidad: Aislamiento estricto de datos por escuela (arquitectura multi-tenant) y control de acceso por roles.
 • Plataforma Multilingüe: Disponible en francés, inglés, español y árabe.
 
 Beneficios clave: Ahorro de tiempo administrativo, automatización de cálculos de promedios, mejor seguimiento con las familias y herramientas de gestión financiera.
 
-Tarifas: Nuestros planes de suscripción SaaS están adaptados al país de cada institución educativa.
+Tarifas: La tabla de tarifas aplicable depende del país en el que se encuentra la institución educativa.
 
 ¿En qué país se encuentra su institución educativa?`;
 

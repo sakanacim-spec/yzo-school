@@ -22,7 +22,9 @@ const {
     detectPricingIntent,
     detectGlobalPricingRequest,
     formatMultipleCountriesClarification,
-    buildCountryPricingResponse
+    buildCountryPricingResponse,
+    COUNTRY_CONFIG,
+    COUNTRY_DISPLAY_NAMES
 } = require('../services/assistantPricingContextService');
 
 const {
@@ -134,9 +136,10 @@ const chatWithAssistant = async (req, res) => {
                     conversation_state: null
                 });
             } catch (pricingErr) {
+                const countryArticle = COUNTRY_CONFIG[countryResult.countryCode]?.article || COUNTRY_DISPLAY_NAMES[countryResult.countryCode] || countryResult.countryCode;
                 return res.json({
                     reply: pricingErr.code === 'PRICING_NOT_CONFIGURED'
-                        ? "Aucune grille tarifaire n'est actuellement configurée pour ce pays. Veuillez contacter notre équipe commerciale."
+                        ? `La grille tarifaire YZIOW n’est pas encore disponible pour ${countryArticle}. Notre équipe commerciale peut vous renseigner sur les prochaines disponibilités.`
                         : "Une indisponibilité temporaire empêche la consultation de la grille tarifaire. Veuillez réessayer ultérieurement.",
                     conversation_state: null
                 });
@@ -251,7 +254,7 @@ const chatWithPrivateAssistant = async (req, res) => {
         } catch (pricingErr) {
             if (pricingErr.code === 'PRICING_NOT_CONFIGURED') {
                 return res.json({
-                    reply: "Aucune grille tarifaire n'est actuellement configurée pour votre établissement. Veuillez contacter notre équipe commerciale.",
+                    reply: "La grille tarifaire YZIOW n’est pas encore disponible pour votre pays. Notre équipe commerciale peut vous renseigner sur les prochaines disponibilités.",
                     conversation_state: null
                 });
             }

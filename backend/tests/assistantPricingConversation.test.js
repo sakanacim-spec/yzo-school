@@ -91,13 +91,17 @@ function createMockSupabase(customConfig = {}) {
 const MOCK_SCHOOLS = {
     'ecole-ghana': { id: 'sch_gh', slug: 'ecole-ghana', country: 'GH' },
     'ecole-espagne': { id: 'sch_es', slug: 'ecole-espagne', country: 'ES' },
-    'ecole-benin': { id: 'sch_bj', slug: 'ecole-benin', country: 'BJ' }
+    'ecole-benin': { id: 'sch_bj', slug: 'ecole-benin', country: 'BJ' },
+    'ecole-niger': { id: 'sch_ne', slug: 'ecole-niger', country: 'NE' },
+    'ecole-nigeria': { id: 'sch_ng', slug: 'ecole-nigeria', country: 'NG' }
 };
 
 const MOCK_ASSOCIATIONS = {
     GH: [{ pricing_grid_id: 'grid_gh', country_code: 'GH' }],
     ES: [{ pricing_grid_id: 'grid_es', country_code: 'ES' }],
-    BJ: [{ pricing_grid_id: 'grid_bj', country_code: 'BJ' }]
+    BJ: [{ pricing_grid_id: 'grid_bj', country_code: 'BJ' }],
+    NE: [{ pricing_grid_id: 'grid_uemoa', country_code: 'NE' }],
+    NG: [{ pricing_grid_id: 'grid_ng', country_code: 'NG' }]
 };
 
 const MOCK_GRIDS = {
@@ -141,7 +145,39 @@ const MOCK_GRIDS = {
         currency_code: 'XOF',
         currency_symbol: 'FCFA',
         currency_minor_unit: 0,
-        rates_monthly: { maternelle_primaire: 5000, college_secondaire: 7500, superieur_formation: 10000 },
+        rates_monthly: { maternelle_primaire: 100, college_secondaire: 150, superieur_formation: 200 },
+        billing_months: 10,
+        annual_discount_percent: 10,
+        installments_count: 3,
+        pricing_status: 'active',
+        payment_status: 'production',
+        enabled: true
+    },
+    grid_uemoa: {
+        id: 'grid_uemoa',
+        pricing_version: '2026.1_xof_uemoa',
+        scope_type: 'region',
+        scope_code: 'UEMOA',
+        currency_code: 'XOF',
+        currency_symbol: 'FCFA',
+        currency_minor_unit: 0,
+        rates_monthly: { maternelle_primaire: 100, college_secondaire: 150, superieur_formation: 200 },
+        billing_months: 10,
+        annual_discount_percent: 10,
+        installments_count: 3,
+        pricing_status: 'active',
+        payment_status: 'production',
+        enabled: true
+    },
+    grid_ng: {
+        id: 'grid_ng',
+        pricing_version: '2026.1_ngn_nigeria',
+        scope_type: 'country',
+        scope_code: 'NG',
+        currency_code: 'NGN',
+        currency_symbol: '₦',
+        currency_minor_unit: 2,
+        rates_monthly: { maternelle_primaire: 30000, college_secondaire: 45000, superieur_formation: 60000 },
         billing_months: 10,
         annual_discount_percent: 10,
         installments_count: 3,
@@ -195,14 +231,18 @@ test('2. Follow‑up with Ghana returns pricing and clears state', async () => {
         { role: 'assistant', content: 'Veuillez préciser le pays.' },
         { role: 'user', content: 'Ghana' }
     ] });
-    assert.ok(out.reply.includes('GH'));
+    assert.ok(out.reply.includes('Ghana'));
+    assert.ok(out.reply.includes('cedis ghanéens (GHS)'));
+    assert.ok(!out.reply.includes('[GH]'));
     assert.deepStrictEqual(out.conversation_state, null);
 });
 
 // 3. "Mon établissement est au Ghana" resolves directly
 test('3. "Mon établissement est au Ghana" resolves pricing', async () => {
     const out = await runPublic({ messages: [{ role: 'user', content: 'Mon établissement se trouve au Ghana' }] });
-    assert.ok(out.reply.includes('GH'));
+    assert.ok(out.reply.includes('Ghana'));
+    assert.ok(out.reply.includes('cedis ghanéens (GHS)'));
+    assert.ok(!out.reply.includes('[GH]'));
     assert.deepStrictEqual(out.conversation_state, null);
 });
 
@@ -212,11 +252,14 @@ test('4. Ghana then Spain – only Spain retained', async () => {
         { role: 'user', content: 'Quel est le tarif ?' },
         { role: 'assistant', content: 'Pays ?' },
         { role: 'user', content: 'Ghana' },
-        { role: 'assistant', content: 'Voici les tarifs GH' },
+        { role: 'assistant', content: 'Voici les tarifs pour le Ghana' },
         { role: 'user', content: "Et pour l'Espagne ?" }
     ] });
-    assert.ok(out.reply.includes('ES'));
-    assert.ok(!out.reply.includes('GH'));
+    assert.ok(out.reply.includes('Espagne'));
+    assert.ok(out.reply.includes('euros (EUR)'));
+    assert.ok(!out.reply.includes('Ghana'));
+    assert.ok(!out.reply.includes('[ES]'));
+    assert.ok(!out.reply.includes('[GH]'));
     assert.deepStrictEqual(out.conversation_state, null);
 });
 
@@ -226,11 +269,14 @@ test('5. Spain then Ghana – only Ghana retained', async () => {
         { role: 'user', content: 'Tarifs ?' },
         { role: 'assistant', content: 'Pays ?' },
         { role: 'user', content: 'Espagne' },
-        { role: 'assistant', content: 'Voici les tarifs ES' },
+        { role: 'assistant', content: 'Voici les tarifs Espagne' },
         { role: 'user', content: 'Mon établissement est au Ghana' }
     ] });
-    assert.ok(out.reply.includes('GH'));
-    assert.ok(!out.reply.includes('ES'));
+    assert.ok(out.reply.includes('Ghana'));
+    assert.ok(out.reply.includes('cedis ghanéens (GHS)'));
+    assert.ok(!out.reply.includes('Espagne'));
+    assert.ok(!out.reply.includes('[GH]'));
+    assert.ok(!out.reply.includes('[ES]'));
     assert.deepStrictEqual(out.conversation_state, null);
 });
 
@@ -260,7 +306,9 @@ test('8. Authenticated private request returns pricing directly', async () => {
         const req = { user: { id: 'u1', role: 'directeur', schoolSlug: 'ecole-ghana' }, body: { messages: [{ role: 'user', content: 'Quel est le tarif ?' }] } };
         const res = { status(s){ this._status = s; return this; }, set(){ return this; }, json(p){ jsonOutput = p; return this; } };
         await chatWithPrivateAssistant(req, res);
-        assert.ok(jsonOutput.reply.includes('GH'));
+        assert.ok(jsonOutput.reply.includes('Ghana'));
+        assert.ok(jsonOutput.reply.includes('cedis ghanéens (GHS)'));
+        assert.ok(!jsonOutput.reply.includes('[GH]'));
         assert.deepStrictEqual(jsonOutput.conversation_state, null);
     } finally { supabase.from = origFrom; restoreQuota(); }
 });
@@ -312,7 +360,8 @@ test('10. Malformed or unallowed conversation_state ignored (ex: { awaiting: "ot
         messages: [{ role: 'user', content: 'Tarifs pour le Ghana' }],
         conversation_state: { awaiting: 'unknown' }
     });
-    assert.ok(outCountry.reply.includes('GH'));
+    assert.ok(outCountry.reply.includes('Ghana'));
+    assert.ok(!outCountry.reply.includes('[GH]'));
     assert.deepStrictEqual(outCountry.conversation_state, null);
 });
 
@@ -333,8 +382,9 @@ test('12. Active session: awaiting pricing_country + country yields pricing and 
         ],
         conversation_state: { awaiting: 'pricing_country' }
     });
-    assert.ok(out.reply.includes('GH'));
-    assert.ok(out.reply.includes('GHS'));
+    assert.ok(out.reply.includes('Ghana'));
+    assert.ok(out.reply.includes('cedis ghanéens (GHS)'));
+    assert.ok(!out.reply.includes('[GH]'));
     assert.deepStrictEqual(out.conversation_state, null);
 });
 
@@ -373,15 +423,17 @@ test('13. Non‑pricing message triggers Groq path (simulated)', async () => {
 test('14. Historique Ghana → dernier message Espagne : EUR uniquement, zéro GHS', async () => {
     const out = await runPublic({ messages: [
         { role: 'user', content: 'Tarifs pour le Ghana ?' },
-        { role: 'assistant', content: 'Voici la grille tarifaire GH...' },
+        { role: 'assistant', content: 'Voici la grille tarifaire Ghana...' },
         { role: 'user', content: "Et pour l'Espagne ?" }
     ] });
     // Only Spain/EUR must appear
-    assert.ok(out.reply.includes('[ES]'), 'reply must contain [ES]');
+    assert.ok(out.reply.includes('Espagne'), 'reply must contain Espagne');
     assert.ok(out.reply.includes('EUR'), 'reply must contain EUR');
     assert.ok(out.reply.includes('€'), 'reply must contain €');
     // No Ghana content at all
+    assert.ok(!out.reply.includes('[ES]'), 'reply must NOT contain [ES]');
     assert.ok(!out.reply.includes('[GH]'), 'reply must NOT contain [GH]');
+    assert.ok(!out.reply.includes('Ghana'), 'reply must NOT contain Ghana');
     assert.ok(!out.reply.includes('GHS'), 'reply must NOT contain GHS');
     assert.ok(!out.reply.includes('GH₵'), 'reply must NOT contain GH₵');
     assert.deepStrictEqual(out.conversation_state, null);
@@ -403,11 +455,13 @@ test('15. Authentifié BJ demandant Espagne → grille UEMOA/XOF, zéro EUR', as
         const res = { status(s){ this._status = s; return this; }, set(){ return this; }, json(p){ jsonOutput = p; return this; } };
         await chatWithPrivateAssistant(req, res);
         // School country BJ is authoritative
-        assert.ok(jsonOutput.reply.includes('[BJ]'), 'must contain [BJ]');
+        assert.ok(jsonOutput.reply.includes('Bénin'), 'must contain Bénin');
         assert.ok(jsonOutput.reply.includes('XOF'), 'must contain XOF');
         assert.ok(jsonOutput.reply.includes('FCFA'), 'must contain FCFA');
         // No Spain/EUR
+        assert.ok(!jsonOutput.reply.includes('[BJ]'), 'must NOT contain [BJ]');
         assert.ok(!jsonOutput.reply.includes('[ES]'), 'must NOT contain [ES]');
+        assert.ok(!jsonOutput.reply.includes('Espagne'), 'must NOT contain Espagne');
         assert.ok(!jsonOutput.reply.includes('EUR'), 'must NOT contain EUR');
         assert.ok(!jsonOutput.reply.includes('€'), 'must NOT contain €');
         assert.deepStrictEqual(jsonOutput.conversation_state, null);
@@ -485,8 +539,9 @@ test('16. Exigence 16 complète : conversation_state non persisté ni reconstrui
         ],
         conversation_state: { awaiting: 'pricing_country' }
     });
-    assert.ok(outActive.reply.includes('[GH]'), 'Must return Ghana grid in active session');
+    assert.ok(outActive.reply.includes('Ghana'), 'Must return Ghana grid in active session');
     assert.ok(outActive.reply.includes('GHS'), 'Must contain GHS');
+    assert.ok(!outActive.reply.includes('[GH]'), 'Must NOT contain [GH]');
     assert.deepStrictEqual(outActive.conversation_state, null, 'Must clear state to null');
 
     // 16D. Vérification code source frontend (GuideAssistantWidget.tsx et assistantChatService.ts) :
@@ -694,37 +749,54 @@ test('20. Présentation commerciale couvre les 9 domaines fonctionnels et exclut
     assert.ok(pres.includes('Dans quel pays se trouve votre établissement ?'), 'presentation must conclude with explicit country request');
 });
 
-// 21. Exactitude et séparation des grilles (minor_unit, 3 catégories, zéro contamination)
-test('21. Grilles Ghana/Espagne : montants, catégories, zéro contamination croisée', async () => {
+// 21. Exactitude et séparation des grilles (Ghana, Espagne, Niger, Nigeria : montants, catégories, zéro contamination croisée)
+test('21. Grilles Ghana/Espagne/Niger/Nigeria : montants, catégories, zéro contamination croisée', async () => {
     // Ghana : 200/300/400 stored, minor_unit=2 → displayed as 2,00/3,00/4,00 GH₵
     const outGH = await runPublic({ messages: [{ role: 'user', content: 'Tarifs Ghana' }] });
-    assert.ok(outGH.reply.includes('[GH]'), 'Ghana reply must contain [GH]');
-    assert.ok(outGH.reply.includes('GHS'), 'Ghana reply must contain GHS');
-    assert.ok(outGH.reply.includes('GH₵'), 'Ghana reply must contain GH₵');
-    // Three categories with formatted amounts (200/100=2, 300/100=3, 400/100=4)
-    assert.ok(outGH.reply.includes('Maternelle'), 'must have Maternelle category');
-    assert.ok(outGH.reply.includes('Collège'), 'must have Collège category');
-    assert.ok(outGH.reply.includes('Supérieur'), 'must have Supérieur category');
-    // Verify minor_unit conversion: 200 stored / 10^2 = 2.00 → "2,00" in fr-FR
-    assert.match(outGH.reply, /GH₵2/, 'maternelle must show GH₵2 (not 200)');
-    assert.match(outGH.reply, /GH₵3/, 'collège must show GH₵3 (not 300)');
-    assert.match(outGH.reply, /GH₵4/, 'supérieur must show GH₵4 (not 400)');
-    // No Spain contamination
+    assert.ok(outGH.reply.includes('Voici les tarifs YZIOW applicables au Ghana, en cedis ghanéens (GHS) :'), 'Ghana intro check');
+    assert.ok(!outGH.reply.includes('[GH]'), 'Ghana reply must NOT contain [GH]');
+    assert.ok(!outGH.reply.includes('GHS / GH₵'), 'Ghana reply must NOT contain GHS / GH₵');
+    assert.ok(outGH.reply.includes('2,00 GH₵'), 'Ghana 2,00 GH₵ check');
+    assert.ok(outGH.reply.includes('3,00 GH₵'), 'Ghana 3,00 GH₵ check');
+    assert.ok(outGH.reply.includes('4,00 GH₵'), 'Ghana 4,00 GH₵ check');
     assert.ok(!outGH.reply.includes('EUR'), 'Ghana reply must NOT contain EUR');
     assert.ok(!outGH.reply.includes('€'), 'Ghana reply must NOT contain €');
+    assert.ok(!outGH.reply.includes('NGN'), 'Ghana reply must NOT contain NGN');
 
     // Espagne : 50/75/100 stored, minor_unit=2 → displayed as 0,50/0,75/1,00 €
     const outES = await runPublic({ messages: [{ role: 'user', content: "Tarifs pour l'Espagne" }] });
-    assert.ok(outES.reply.includes('[ES]'), 'Spain reply must contain [ES]');
-    assert.ok(outES.reply.includes('EUR'), 'Spain reply must contain EUR');
-    assert.ok(outES.reply.includes('€'), 'Spain reply must contain €');
-    // Verify minor_unit conversion: 50/100=0.50 → "0,50" in fr-FR
-    assert.match(outES.reply, /0,50/, 'maternelle must show 0,50 (not 50)');
-    assert.match(outES.reply, /0,75/, 'collège must show 0,75 (not 75)');
-    assert.match(outES.reply, /1,00/, 'supérieur must show 1,00 (not 100)');
-    // No Ghana contamination
+    assert.ok(outES.reply.includes('Voici les tarifs YZIOW applicables en Espagne, en euros (EUR) :'), 'Spain intro check');
+    assert.ok(!outES.reply.includes('[ES]'), 'Spain reply must NOT contain [ES]');
+    assert.ok(!outES.reply.includes('EUR / €'), 'Spain reply must NOT contain EUR / €');
+    assert.ok(outES.reply.includes('0,50 €'), 'Spain 0,50 € check');
+    assert.ok(outES.reply.includes('0,75 €'), 'Spain 0,75 € check');
+    assert.ok(outES.reply.includes('1,00 €'), 'Spain 1,00 € check');
     assert.ok(!outES.reply.includes('GH₵'), 'Spain reply must NOT contain GH₵');
     assert.ok(!outES.reply.includes('GHS'), 'Spain reply must NOT contain GHS');
+    assert.ok(!outES.reply.includes('NGN'), 'Spain reply must NOT contain NGN');
+
+    // Niger : 100/150/200 stored, minor_unit=0 → displayed as 100/150/200 FCFA
+    const outNE = await runPublic({ messages: [{ role: 'user', content: 'Tarifs pour le Niger' }] });
+    assert.ok(outNE.reply.includes('Voici les tarifs YZIOW applicables au Niger, en francs CFA (XOF) :'), 'Niger intro check');
+    assert.ok(!outNE.reply.includes('[NE]'), 'Niger reply must NOT contain [NE]');
+    assert.ok(!outNE.reply.includes('XOF / FCFA'), 'Niger reply must NOT contain XOF / FCFA');
+    assert.ok(outNE.reply.includes('100 FCFA'), 'Niger 100 FCFA check');
+    assert.ok(outNE.reply.includes('150 FCFA'), 'Niger 150 FCFA check');
+    assert.ok(outNE.reply.includes('200 FCFA'), 'Niger 200 FCFA check');
+    assert.ok(!outNE.reply.includes('NGN'), 'Niger reply must NOT contain NGN');
+    assert.ok(!outNE.reply.includes('₦'), 'Niger reply must NOT contain ₦');
+
+    // Nigeria : 30000/45000/60000 stored, minor_unit=2 → displayed as ₦300/₦450/₦600
+    const outNG = await runPublic({ messages: [{ role: 'user', content: 'Tarifs pour le Nigeria' }] });
+    assert.ok(outNG.reply.includes('Voici les tarifs YZIOW applicables au Nigeria, en nairas nigérians (NGN) :'), 'Nigeria intro check');
+    assert.ok(!outNG.reply.includes('[NG]'), 'Nigeria reply must NOT contain [NG]');
+    assert.ok(!outNG.reply.includes('NGN / ₦'), 'Nigeria reply must NOT contain NGN / ₦');
+    assert.ok(outNG.reply.includes('₦300'), 'Nigeria ₦300 check');
+    assert.ok(outNG.reply.includes('₦450'), 'Nigeria ₦450 check');
+    assert.ok(outNG.reply.includes('₦600'), 'Nigeria ₦600 check');
+    assert.ok(!outNG.reply.includes('USD'), 'Nigeria reply must NOT contain USD');
+    assert.ok(!outNG.reply.includes('FCFA'), 'Nigeria reply must NOT contain FCFA');
+    assert.ok(!outNG.reply.includes('EUR'), 'Nigeria reply must NOT contain EUR');
 });
 
 // 22. Parcours complet : présentation → awaiting → pays → grille → null
@@ -750,8 +822,9 @@ test('22. Parcours complet : présentation → awaiting → pays → grille → 
         ],
         conversation_state: step1.conversation_state
     });
-    assert.ok(step2.reply.includes('[GH]'), 'step2 must show GH pricing');
-    assert.ok(step2.reply.includes('GHS'), 'step2 must show GHS currency');
+    assert.ok(step2.reply.includes('Ghana'), 'step2 must show Ghana pricing');
+    assert.ok(step2.reply.includes('cedis ghanéens (GHS)'), 'step2 must show GHS currency');
+    assert.ok(!step2.reply.includes('[GH]'), 'step2 must NOT contain [GH]');
     assert.deepStrictEqual(step2.conversation_state, null, 'step2 must clear conversation_state');
 });
 
