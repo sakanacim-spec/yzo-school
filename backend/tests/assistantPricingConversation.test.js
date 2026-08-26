@@ -641,7 +641,7 @@ test('19. Widget source : assistant_action, pas de t.infoResponse, état React',
 });
 
 // 20. Présentation commerciale complète et factuelle
-test('20. Présentation commerciale couvre les 9 domaines fonctionnels', () => {
+test('20. Présentation commerciale couvre les 9 domaines fonctionnels et exclut les promesses non démontrées', () => {
     const { getProductPresentation } = require('../utils/assistantProductCatalog');
     const pres = getProductPresentation({ language: 'fr' });
     // 9 mandatory functional domains
@@ -654,12 +654,43 @@ test('20. Présentation commerciale couvre les 9 domaines fonctionnels', () => {
     assert.ok(/[Pp]arent|[Ff]amille/i.test(pres), 'must mention parents/families');
     assert.ok(/[Ss][ée]curit/i.test(pres), 'must mention security');
     assert.ok(/[Mm]ultilingue|[Ll]angue|[Ff]ran[çc]ais.*[Aa]nglais/i.test(pres), 'must mention multilingual');
-    // No unverified commercial claims (e.g., specific market share, invented statistics)
-    assert.ok(!/#1|numéro 1|leader mondial|market leader/i.test(pres), 'must not invent unverified market claims');
+
+    // Strict prohibition of unprovable, superlative or absolute commercial claims
+    const prohibitedTerms = [
+        'infalsifiable',
+        'certifié',
+        'certifiée',
+        'zéro erreur',
+        'zero erreur',
+        'transparence totale',
+        'maîtrise complète',
+        'maitrise complete',
+        'maîtrise financière complète',
+        'plateforme de référence',
+        'plateforme tout-en-un de référence',
+        'conformité multi-tenant',
+        'conformité',
+        'yziow pay',
+        'leader',
+        'numéro 1'
+    ];
+
+    const presLower = pres.toLowerCase();
+    for (const term of prohibitedTerms) {
+        assert.ok(
+            !presLower.includes(term),
+            `presentation must NOT contain unproven claim: "${term}"`
+        );
+    }
+
+    // Verify multilingual list only includes proven languages
+    assert.ok(!/russe|chinois|portugais|allemand|italien/i.test(pres), 'must not advertise unvalidated languages');
+
     // Plain text formatting verification (no markdown markers)
     assert.ok(!pres.includes('**'), 'presentation must NOT contain raw markdown ** markers');
     assert.ok(!pres.includes('###'), 'presentation must NOT contain markdown headers');
     assert.ok(!pres.includes('---'), 'presentation must NOT contain markdown hr separators');
+    assert.ok(!pres.includes('|'), 'presentation must NOT contain markdown table pipes');
     assert.ok(pres.includes('Dans quel pays se trouve votre établissement ?'), 'presentation must conclude with explicit country request');
 });
 

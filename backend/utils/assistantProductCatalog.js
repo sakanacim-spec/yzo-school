@@ -5,67 +5,67 @@
  * Construit exclusivement à partir des modules et fonctionnalités réellement implémentés dans le projet.
  */
 
-const PRODUCT_PRESENTATION_FR = `YZIOW est la plateforme Cloud tout-en-un de référence pour la gestion moderne des établissements scolaires (maternelles, primaires, collèges, lycées et supérieur).
+const PRODUCT_PRESENTATION_FR = `YZIOW est une plateforme Cloud de gestion scolaire pour les établissements d'enseignement (maternelles, primaires, collèges, lycées et supérieur).
 
 Ce que YZIOW apporte concrètement à votre établissement :
 
-• Administration & Structure Scolaire : Configuration complète de l'établissement, des années scolaires, des classes, des cycles et des matières sur-mesure.
-• Gestion des Élèves & Inscriptions : Dossiers scolaires centralisés, génération de matricules uniques, suivi des statuts et cartes scolaires certifiées.
-• Évaluations & Bulletins PDF Officiels : Saisie des notes, calcul automatique et instantané des moyennes/rangs, et édition de bulletins PDF infalsifiables.
-• Pointage & Présences par QR Code : Scanner de QR Code en temps réel pour l'émargement des présences et des sorties avec horodatage précis.
+• Administration & Structure Scolaire : Configuration de l'établissement, des années scolaires, des classes, des cycles et des matières.
+• Gestion des Élèves & Inscriptions : Dossiers scolaires centralisés, attribution de matricules élèves et édition de cartes scolaires avec QR Code.
+• Évaluations & Bulletins PDF : Saisie des notes, calcul des moyennes et des rangs, et édition de bulletins scolaires en PDF.
+• Pointage & Présences par QR Code : Émargement des présences et des sorties par scanner de QR Code avec suivi horodaté.
 • Cahier de Textes & Pédagogie : Suivi des devoirs, cours et activités par classe et par matière avec partage de documents.
-• Espace Parents & Familles : Portail dédié aux parents pour consulter en temps réel les notes, présences, bulletins et devoirs de leurs enfants.
-• Finances, Scolarités & Reçus Instantanés : Suivi du recouvrement, émission automatique de reçus PDF certifiés et gestion des paiements en ligne via Yziow Pay.
-• Comptabilité & Pilotage Analytique : Suivi des dépenses, salaires du personnel et tableaux de bord financiers pour les directeurs.
-• Communication & Notifications : Messagerie interne sécurisée, diffusion d'annonces officielles et notifications push.
-• Sécurité & Confidentialité : Cloisonnement strict des données de chaque école, rôles d'accès différenciés et conformité multi-tenant.
-• Accessibilité Multilingue : Interface internationale disponible en Français, Anglais, Espagnol, Arabe et plus.
+• Espace Parents & Familles : Portail dédié aux parents pour consulter les notes, présences, bulletins et devoirs de leurs enfants.
+• Finances & Scolarités : Suivi du recouvrement des frais scolaires et émission de reçus de paiement en PDF.
+• Comptabilité & Suivi Financier : Suivi des dépenses, gestion des salaires du personnel et tableaux de bord de gestion.
+• Communication : Messagerie interne et diffusion d'annonces aux familles.
+• Sécurité & Isolation des Données : Cloisonnement strict des données par établissement (architecture multi-tenant) et gestion des accès par rôle.
+• Interface Multilingue : Application disponible en Français, Anglais, Espagnol et Arabe.
 
-Bénéfices clés : Gain de temps administratif considérable, zéro erreur de calcul de moyenne, transparence totale avec les parents et maîtrise financière complète.
+Bénéfices clés : Gain de temps administratif, automatisation des calculs de moyennes, suivi facilité avec les familles et outils de gestion financière.
 
 Tarification : Nos tarifs d'abonnement SaaS sont adaptés au pays de chaque établissement pour garantir l'accessibilité la plus juste.
 
 Dans quel pays se trouve votre établissement ?`;
 
-const PRODUCT_PRESENTATION_EN = `YZIOW is the premier all-in-one Cloud school management platform for modern educational institutions (kindergarten, primary, secondary, high school, and higher education).
+const PRODUCT_PRESENTATION_EN = `YZIOW is a Cloud school management platform for educational institutions (kindergarten, primary, secondary, high school, and higher education).
 
 Key Features of YZIOW:
 
-• School Administration: Full setup of your institution, school years, classes, cycles, and customized subjects.
-• Student Management: Centralized records, unique student IDs, attendance tracking, and certified student ID cards.
-• Grades & Certified PDF Report Cards: Quick grade entry, automatic average & rank calculation, and official tamper-proof PDF report cards.
-• QR Code Attendance Scanner: Real-time QR Code scanning for student check-in/check-out with instant timestamping.
-• Digital Homework & Gradebook: Homework assignments, lecture logs, and learning material sharing.
-• Parent Portal: Dedicated portal for parents to track grades, attendance, homework, and report cards in real-time.
-• Tuition Fees & Instant Receipts: Tuition tracking, automatic certified PDF receipts, and online payments via Yziow Pay.
-• Accounting & Financial Analytics: Expense tracking, staff payroll, and live analytical dashboards for school leadership.
-• School-Family Communication: Direct secure messaging, broadcast announcements, and push notifications.
-• Security & Data Privacy: Strict tenant data isolation, role-based access control, and robust privacy.
-• Multilingual Platform: Available in French, English, Spanish, Arabic, and more.
+• School Administration: Setup of your institution, school years, classes, cycles, and customized subjects.
+• Student Management: Centralized student records, student ID assignment, and student ID cards with QR Code.
+• Grades & PDF Report Cards: Grade entry, automatic average and rank calculation, and PDF report cards generation.
+• Attendance Tracking: Student attendance and dismissal logging via QR Code scanner with timestamping.
+• Digital Gradebook & Homework: Homework logs, lesson plans, and learning document sharing.
+• Parent Portal: Dedicated portal for parents to follow grades, attendance, homework, and report cards.
+• Tuition Fees & Receipts: Tuition tracking and generation of payment receipts in PDF.
+• Accounting & Finance: Expense tracking, staff payroll management, and analytical management dashboards.
+• Communication: Internal messaging and school announcements for families.
+• Security & Data Isolation: Strict multi-tenant data isolation per school and role-based access control.
+• Multilingual Interface: Available in French, English, Spanish, and Arabic.
 
-Key Benefits: Significant administrative time savings, zero grade calculation errors, complete transparency with parents, and full financial control.
+Key Benefits: Administrative time savings, automated grade calculations, structured communication with families, and financial tracking tools.
 
 Pricing: Our SaaS subscription plans are customized by country to provide the fairest pricing for every school.
 
 In which country is your school located?`;
 
-const PRODUCT_PRESENTATION_ES = `YZIOW es la plataforma Cloud integral de referencia para la gestión moderna de instituciones educativas (infantil, primaria, secundaria, bachillerato y superior).
+const PRODUCT_PRESENTATION_ES = `YZIOW es una plataforma Cloud de gestión escolar para instituciones educativas (infantil, primaria, secundaria, bachillerato y superior).
 
 Funcionalidades principales de YZIOW:
 
-• Gestión Institucional: Configuración completa de años escolares, clases, ciclos y asignaturas personalizadas.
-• Expedientes de Alumnos: Matrículas centralizadas, identificadores únicos y carnets escolares certificados.
-• Boletines de Calificaciones en PDF: Registro de notas, cálculo automático de promedios y generación de boletines oficiales.
-• Control de Asistencia con Código QR: Escaneo rápido de códigos QR para el control de asistencia en tiempo real.
+• Gestión Institucional: Configuración de años escolares, clases, ciclos y asignaturas personalizadas.
+• Expedientes de Alumnos: Matrículas centralizadas, asignación de identificadores y carnets escolares con código QR.
+• Calificaciones y Boletines en PDF: Registro de notas, cálculo de promedios y rangos, y generación de boletines en PDF.
+• Control de Asistencia: Registro de asistencias y salidas mediante escaneo de código QR con registro horario.
 • Cuaderno de Tareas Digital: Seguimiento de tareas, clases y recursos pedagógicos compartidos.
-• Portal para Padres: Acceso directo para seguir notas, asistencias y boletines de los hijos.
-• Pagos de Colegiaturas y Recibos: Gestión de pagos escolares, recibos oficiales en PDF y pasarela Yziow Pay.
-• Contabilidad y Análisis: Control de gastos, salarios y cuadros de mando analíticos para directores.
-• Comunicación Segura: Mensajería interna, anuncios oficiales y notificaciones instantáneas.
-• Seguridad y Privacidad: Aislamiento total de datos por escuela y control de accesos por rol.
-• Plataforma Multilingüe: Disponible en francés, inglés, español, árabe y más.
+• Portal para Padres: Acceso para consultar notas, asistencias, tareas y boletines de los hijos.
+• Pagos de Colegiaturas y Recibos: Seguimiento de cobros y emisión de recibos de pago en PDF.
+• Contabilidad y Finanzas: Control de gastos, gestión de nóminas del personal y cuadros de mando de gestión.
+• Comunicación: Mensajería interna y difusión de avisos para las familias.
+• Seguridad y Privacidad: Aislamiento estricto de datos por escuela (arquitectura multi-tenant) y control de acceso por roles.
+• Plataforma Multilingüe: Disponible en francés, inglés, español y árabe.
 
-Beneficios clave: Ahorro considerable de tiempo administrativo, cero errores en cálculos de promedios, total transparencia con los padres y control financiero completo.
+Beneficios clave: Ahorro de tiempo administrativo, automatización de cálculos de promedios, mejor seguimiento con las familias y herramientas de gestión financiera.
 
 Tarifas: Nuestros planes de suscripción SaaS están adaptados al país de cada institución educativa.
 
