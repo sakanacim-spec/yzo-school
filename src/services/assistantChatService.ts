@@ -165,12 +165,56 @@ export function getAssistantErrorMessage(
     if (status === 400) {
         return t.error400;
     }
-    if (status === 401) {
+    if (status === 401 || status === 403) {
         return t.error401;
     }
     if (status === 503) {
         return t.error503;
     }
+    return t.error500;
+}
+
+/**
+ * Résout de manière sécurisée et centralisée le message d'erreur à afficher à l'utilisateur :
+ * - HTTP 429 : autorise le message explicite de quota du backend s'il est non technique, ou formate selon Retry-After
+ * - HTTP 400 : message d'erreur d'entrée normalisé (t.error400)
+ * - HTTP 401 / 403 : message d'authentification normalisé (t.error401)
+ * - HTTP 503 : message d'indisponibilité temporaire (t.error503)
+ * - HTTP 500 ou statut inattendu : message générique sécurisé (t.error500), rejetant tout message data.error serveur/SQL/stack
+ */
+export function resolveAssistantErrorMessage(
+    status: number,
+    dataError?: string | null,
+    retryAfter?: string | number | null,
+    targetLang?: string | null
+): string {
+    const t = getAssistantTranslations(targetLang);
+
+    if (status === 429) {
+        if (typeof dataError === 'string' && dataError.trim()) {
+            const trimmed = dataError.trim();
+            // Bloque toute fuite technique inattendue (mots-clés SQL, code, stack, exception, paths)
+            const isSensitiveOrTechnical = /error|sql|select|insert|update|delete|table|column|stack|at\s|object|exception|\.js|\.ts|pg_|supabase|token/i.test(trimmed);
+            if (!isSensitiveOrTechnical && trimmed.length <= 300) {
+                return trimmed;
+            }
+        }
+        return formatRetryAfterMessage(retryAfter, targetLang);
+    }
+
+    if (status === 400) {
+        return t.error400;
+    }
+
+    if (status === 401 || status === 403) {
+        return t.error401;
+    }
+
+    if (status === 503) {
+        return t.error503;
+    }
+
+    // Pour 500 ou tout autre code inattendu : TOUJOURS le message générique local sécurisé
     return t.error500;
 }
 

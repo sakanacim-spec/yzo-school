@@ -9,6 +9,7 @@ import { Language } from '../i18n';
 import {
     prepareAssistantHistory,
     getAssistantErrorMessage,
+    resolveAssistantErrorMessage,
     loadStoredAssistantHistory,
     saveStoredAssistantHistory
 } from '../services/assistantChatService';
@@ -132,9 +133,9 @@ export const PrivateAssistantWidget: React.FC = () => {
             if (res.ok) {
                 botReply = (data && typeof data.reply === 'string' && data.reply.trim())
                     ? data.reply.trim()
-                    : getAssistantErrorMessage(500, null, language);
+                    : resolveAssistantErrorMessage(500, null, null, language);
             } else {
-                botReply = getAssistantErrorMessage(res.status, retryAfterHeader, language);
+                botReply = resolveAssistantErrorMessage(res.status, data?.error, retryAfterHeader, language);
             }
 
             setMessages((prev) => {

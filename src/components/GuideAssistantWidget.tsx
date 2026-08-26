@@ -9,6 +9,7 @@ import { API_BASE_URL } from '../config';
 import {
     prepareAssistantHistory,
     getAssistantErrorMessage,
+    resolveAssistantErrorMessage,
     loadStoredAssistantHistory,
     saveStoredAssistantHistory
 } from '../services/assistantChatService';
@@ -173,12 +174,27 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                             language: language || 'fr'
                         })
                     });
-                    const data = await res.json();
-                    // Update conversation state if provided by backend
+                    let data: any = null;
+                    try {
+                        data = await res.json();
+                    } catch {
+                        data = null;
+                    }
+
                     if (data && data.conversation_state !== undefined) {
                         setConversationState(data.conversation_state);
                     }
-                    const botReply = (data && typeof data.reply === 'string') ? data.reply : getAssistantErrorMessage(res.status, null, language);
+
+                    const retryAfterHeader = res.headers.get('Retry-After') || (data && data.retryAfter);
+                    let botReply = '';
+                    if (res.ok) {
+                        botReply = (data && typeof data.reply === 'string' && data.reply.trim())
+                            ? data.reply.trim()
+                            : resolveAssistantErrorMessage(500, null, null, language);
+                    } else {
+                        botReply = resolveAssistantErrorMessage(res.status, data?.error, retryAfterHeader, language);
+                    }
+
                     // Replace loading placeholder with actual reply
                     setMessages(prev => {
                         const filtered = prev.filter(m => m.id !== loadingId);
@@ -259,9 +275,9 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
             if (res.ok) {
                 botReply = (data && typeof data.reply === 'string' && data.reply.trim())
                     ? data.reply.trim()
-                    : getAssistantErrorMessage(500, null, language);
+                    : resolveAssistantErrorMessage(500, null, null, language);
             } else {
-                botReply = getAssistantErrorMessage(res.status, retryAfterHeader, language);
+                botReply = resolveAssistantErrorMessage(res.status, data?.error, retryAfterHeader, language);
             }
 
             // Retirer le message de chargement et ajouter la réponse du bot
