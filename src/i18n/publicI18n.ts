@@ -119,7 +119,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       loginMobile: "CONNEXION"
     },
     hero: {
-      badge: "LA PLATEFORME ÉDUCATIVE DE RÉFÉRENCE",
+      badge: "LA PLATEFORME DE GESTION SCOLAIRE",
       title1: "L'excellence",
       title2: "au cœur de l'école.",
       desc: "Une solution complète pour la gestion scolaire, connectant directeurs, enseignants, parents et élèves dans un environnement moderne et intuitif.",
@@ -141,7 +141,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       c2_title: "Télécoms & Services numériques",
       c2_desc: "Infrastructures de connectivité, messagerie SMS et services digitaux pour les écoles.",
       c3_title: "Fournitures & Équipements scolaires",
-      c3_desc: "Réseau de fournisseurs de manuels, papeterie et matériel pédagogique de qualité.",
+      c3_desc: "Manuels, papeterie, équipements et matériel pédagogique destinés aux établissements.",
       c4_title: "Transport, Assurance & Services",
       c4_desc: "Solutions de mobilité scolaire, couverture d'assurance et accompagnement périscolaire.",
       partnerCta: "Devenir partenaire"
@@ -150,11 +150,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       subtitle: "Nos Solutions",
       title: "Tout le suivi scolaire regroupé sur une plateforme unique",
       f1_title: "Bulletins & Notes",
-      f1_desc: "Visualisez les notes dès leur saisie. Téléchargez et vérifiez les bulletins officiels en format PDF sécurisé.",
+      f1_desc: "Consultez les notes publiées par l’établissement et téléchargez les bulletins mis à disposition au format PDF.",
       f2_title: "Présences & Absences",
-      f2_desc: "Suivez en temps réel l'assiduité. Soyez immédiatement notifié en cas d'absence ou de retard.",
+      f2_desc: "Consultez les présences, les absences et les retards enregistrés par l’établissement.",
       f3_title: "Espaces Établissements",
-      f3_desc: "Interface complète pour directeurs et secrétaires : gestion des inscriptions, scolarité et facturation."
+      f3_desc: "Un espace destiné aux directeurs et au personnel autorisé pour gérer les inscriptions, la scolarité et la facturation."
     },
     footer: {
       desc: "La plateforme moderne qui connecte l'école, les parents et les élèves pour une réussite scolaire assurée.",
@@ -226,7 +226,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       loginMobile: "LOGIN"
     },
     hero: {
-      badge: "THE LEADING EDUCATIONAL PLATFORM",
+      badge: "THE SCHOOL MANAGEMENT PLATFORM",
       title1: "Excellence",
       title2: "at the heart of the school.",
       desc: "A complete school management solution connecting principals, teachers, parents, and students in a modern, intuitive environment.",
@@ -248,7 +248,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       c2_title: "Telecom & Digital Services",
       c2_desc: "Connectivity infrastructure, SMS notifications, and digital tools for schools.",
       c3_title: "School Supplies & Equipment",
-      c3_desc: "Network of verified suppliers for textbooks, stationery, and educational material.",
+      c3_desc: "Textbooks, stationery, equipment, and teaching material intended for schools.",
       c4_title: "Transport, Insurance & Services",
       c4_desc: "School mobility solutions, insurance coverage, and extracurricular support.",
       partnerCta: "Become a partner"
@@ -257,11 +257,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       subtitle: "Our Solutions",
       title: "All school tracking gathered on a single platform",
       f1_title: "Report Cards & Grades",
-      f1_desc: "View grades as soon as they are entered. Download and verify official report cards in a secure PDF format.",
+      f1_desc: "View grades published by the school and download term report cards available in PDF format.",
       f2_title: "Attendance & Absences",
-      f2_desc: "Track attendance in real-time. Get instantly notified in case of an absence or delay.",
+      f2_desc: "Check attendance, absences, and tardiness recorded by the school.",
       f3_title: "School Workspaces",
-      f3_desc: "Complete interface for principals and secretaries: manage enrollments, academics, and billing."
+      f3_desc: "A space dedicated to principals and authorized staff to manage enrollments, academics, and billing."
     },
     footer: {
       desc: "The modern platform connecting the school, parents, and students for guaranteed academic success.",
@@ -333,7 +333,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       loginMobile: "ACCEDER"
     },
     hero: {
-      badge: "LA PLATAFORMA EDUCATIVA DE REFERENCIA",
+      badge: "LA PLATAFORMA DE GESTIÓN ESCOLAR",
       title1: "La excelencia",
       title2: "en el corazón de la escuela.",
       desc: "Una solución integral de gestión escolar que conecta directores, profesores, familias y estudiantes en un entorno moderno e intuitivo.",
@@ -355,7 +355,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       c2_title: "Telecomunicaciones y Servicios Digitales",
       c2_desc: "Infraestructura de conectividad, notificaciones SMS y herramientas digitales escolares.",
       c3_title: "Suministros y Equipamiento Escolar",
-      c3_desc: "Red de distribuidores verificados de libros de texto, papelería y material pedagógico.",
+      c3_desc: "Libros de texto, papelería, equipamiento y material pedagógico destinados a los centros.",
       c4_title: "Transporte, Seguros y Servicios",
       c4_desc: "Soluciones de transporte escolar, coberturas de seguros y actividades complementarias.",
       partnerCta: "Convertirse en socio"
@@ -364,11 +364,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       subtitle: "Nuestras Soluciones",
       title: "Todo el seguimiento escolar en una plataforma única",
       f1_title: "Boletines y Notas",
-      f1_desc: "Visualice las notas apenas se ingresan. Descargue y verifique los boletines oficiales en PDF seguro.",
+      f1_desc: "Consulte las notas publicadas por el centro y descargue los boletines escolares en formato PDF.",
       f2_title: "Asistencias y Ausencias",
-      f2_desc: "Haga seguimiento de la asistencia en tiempo real. Sea notificado de inmediato en caso de ausencia.",
+      f2_desc: "Consulte las asistencias, ausencias y retrasos registrados por el centro.",
       f3_title: "Espacios para Escuelas",
-      f3_desc: "Interfaz completa para directores y secretarias: gestión de inscripciones y facturación."
+      f3_desc: "Un espacio destinado a directores y personal autorizado para gestionar admisiones, escolaridad y facturación."
     },
     footer: {
       desc: "La plataforma moderna que conecta a la escuela, padres y estudiantes para un éxito escolar asegurado.",
@@ -440,7 +440,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       loginMobile: "دخول"
     },
     hero: {
-      badge: "المنصة التعليمية الرائدة",
+      badge: "منصة الإدارة المدرسية",
       title1: "التميز",
       title2: "في قلب المدرسة.",
       desc: "حل متكامل للإدارة المدرسية يربط بين المديرين والمعلمين وأولياء الأمور والطلاب في بيئة حديثة وسلسة.",
@@ -462,7 +462,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       c2_title: "الاتصالات والخدمات الرقمية",
       c2_desc: "بنية تحتية للاتصال، رسائل نصية قصيرة وخدمات رقمية للمدارس.",
       c3_title: "المستلزمات والمعدات المدرسية",
-      c3_desc: "شبكة معتمدة لتوفير الكتب المدرسية والقرطاسية والوسائل التعليمية.",
+      c3_desc: "كتب مدرسية وقرطاسية وتجهيزات ووسائل تعليمية موجهة للمؤسسات.",
       c4_title: "النقل والتأمين والخدمات",
       c4_desc: "حلول النقل المدرسي والتغطية التأمينية والأنشطة الإضافية.",
       partnerCta: "كن شريكاً"
@@ -471,11 +471,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       subtitle: "حلولنا",
       title: "كل التتبع المدرسي مجموع في منصة واحدة",
       f1_title: "النتائج والدرجات",
-      f1_desc: "شاهد الدرجات بمجرد إدخالها. قم بتنزيل والتحقق من النتائج الرسمية بصيغة PDF آمنة.",
+      f1_desc: "اطلع على الدرجات المعلنة من المؤسسة وحمّل كشوف النقاط المتوفرة بصيغة PDF.",
       f2_title: "الحضور والغياب",
-      f2_desc: "تتبع الحضور في الوقت الفعلي. احصل على إشعار فوري في حالة الغياب أو التأخير.",
+      f2_desc: "اطلع على سجل الحضور والغياب والتأخيرات المسجلة من طرف المؤسسة.",
       f3_title: "مساحات المؤسسات",
-      f3_desc: "واجهة كاملة للمديرين والسكرتارية: إدارة التسجيل والفوترة."
+      f3_desc: "مساحة مخصصة للمديرين والموظفين المخولين لإدارة التسجيل والدراسة والفوترة."
     },
     footer: {
       desc: "المنصة الحديثة التي تربط بين المدرسة والآباء والطلاب لنجاح دراسي مضمون.",
@@ -547,7 +547,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       loginMobile: "ACCEDI"
     },
     hero: {
-      badge: "LA PIATTAFORMA EDUCATIVA DI RIFERIMENTO",
+      badge: "LA PIATTAFORMA DI GESTIONE SCOLASTICA",
       title1: "L'eccellenza",
       title2: "al cuore della scuola.",
       desc: "Una soluzione completa di gestione scolastica che connette dirigenti, insegnanti, genitori e studenti in un ambiente moderno e intuitivo.",
@@ -569,7 +569,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       c2_title: "Telecomunicazioni e Servizi Digitali",
       c2_desc: "Infrastrutture di connettività, notifiche SMS e strumenti digitali per gli istituti.",
       c3_title: "Forniture e Attrezzature Scolastiche",
-      c3_desc: "Rete di fornitori per libri di testo, cancelleria e materiale didattico.",
+      c3_desc: "Libri di testo, cancelleria, attrezzature e materiale didattico destinati agli istituti.",
       c4_title: "Trasporti, Assicurazioni e Servizi",
       c4_desc: "Soluzioni per la mobilità scolastica, coperture assicurative e attività extrascolastiche.",
       partnerCta: "Diventa partner"
@@ -578,11 +578,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       subtitle: "Le Nostre Soluzioni",
       title: "Tutto il monitoraggio scolastico in un'unica piattaforma",
       f1_title: "Pagelle e Voti",
-      f1_desc: "Visualizza i voti appena inseriti. Scarica e verifica le pagelle ufficiali in formato PDF sicuro.",
+      f1_desc: "Consulta i voti pubblicati dall'istituto e scarica le pagelle rese disponibili in formato PDF.",
       f2_title: "Presenze e Assenze",
-      f2_desc: "Segui le presenze in tempo reale. Ricevi notifiche istantanee in caso di assenza o ritardo.",
+      f2_desc: "Consulta le presenze, le assenze e i ritardi registrati dall'istituto.",
       f3_title: "Spazi Istituti",
-      f3_desc: "Interfaccia completa per dirigenti e segreteria: gestione iscrizioni e fatturazione."
+      f3_desc: "Uno spazio dedicato ai dirigenti e al personale autorizzato per gestire iscrizioni, didattica e fatturazione."
     },
     footer: {
       desc: "La piattaforma moderna che unisce scuola, famiglie e studenti per il successo educativo.",
@@ -654,7 +654,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       loginMobile: "LOGIN"
     },
     hero: {
-      badge: "DIE FÜHRENDE BILDUNGSPLATTFORM",
+      badge: "DIE SCHULVERWALTUNGSPLATTFORM",
       title1: "Exzellenz",
       title2: "im Herzen der Schule.",
       desc: "Eine ganzheitliche Schulverwaltungslösung, die Schulleitung, Lehrkräfte, Eltern und Schüler in einer modernen, intuitiven Umgebung verbindet.",
@@ -676,7 +676,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       c2_title: "Telekom & Digitale Dienste",
       c2_desc: "Konnektivität, SMS-Benachrichtigungen und digitale Werkzeuge für Schulen.",
       c3_title: "Schulbedarf & Ausstattung",
-      c3_desc: "Netzwerk verifizierter Anbieter für Schulbücher, Schreibwaren und Lehrmaterial.",
+      c3_desc: "Schulbücher, Schreibwaren, Geräte und Lehrmaterialien für Bildungseinrichtungen.",
       c4_title: "Transport, Versicherung & Services",
       c4_desc: "Schülertransport, Versicherungsschutz und schulbegleitende Angebote.",
       partnerCta: "Partner werden"
@@ -685,11 +685,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       subtitle: "Unsere Lösungen",
       title: "Gesamte Schulverwaltung auf einer Plattform",
       f1_title: "Zeugnisse & Noten",
-      f1_desc: "Noten direkt nach Eingabe einsehen. Offizielle Zeugnisse als geschützte PDF herunterladen.",
+      f1_desc: "Sehen Sie die von der Schule veröffentlichten Noten ein und laden Sie die Zeugnisse als PDF herunter.",
       f2_title: "Anwesenheit & Fehlzeiten",
-      f2_desc: "Echtzeit-Anwesenheitskontrolle mit sofortiger Benachrichtigung bei Verspätungen.",
+      f2_desc: "Sehen Sie die von der Schule erfassten Anwesenheiten, Fehlzeiten und Verspätungen ein.",
       f3_title: "Schulverwaltung",
-      f3_desc: "Komplette Schnittstelle für Leitung und Sekretariat: Einschreibungen und Abrechnung."
+      f3_desc: "Ein Bereich für Schulleitung und befugtes Personal zur Verwaltung von Anmeldungen, Unterricht und Abrechnung."
     },
     footer: {
       desc: "Die moderne Plattform für erfolgreiche Schul- und Bildungsverwaltung.",
@@ -761,7 +761,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       loginMobile: "ENTRAR"
     },
     hero: {
-      badge: "A PLATAFORMA EDUCACIONAL DE REFERÊNCIA",
+      badge: "A PLATAFORMA DE GESTÃO ESCOLAR",
       title1: "A excelência",
       title2: "no coração da escola.",
       desc: "Uma solução abrangente de gestão escolar que conecta diretores, professores, pais e alunos em um ambiente moderno e intuitivo.",
@@ -783,7 +783,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       c2_title: "Telecomunicações e Serviços Digitais",
       c2_desc: "Infraestrutura de conectividade, SMS e ferramentas digitais escolares.",
       c3_title: "Materiais e Equipamentos Escolares",
-      c3_desc: "Rede de fornecedores certificados de livros, papelaria e material didático.",
+      c3_desc: "Livros didáticos, papelaria, equipamentos e material pedagógico destinados às escolas.",
       c4_title: "Transporte, Seguros e Serviços",
       c4_desc: "Transporte escolar, cobertura de seguro e atividades extracurriculares.",
       partnerCta: "Tornar-se parceiro"
@@ -792,11 +792,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       subtitle: "Nossas Soluções",
       title: "Todo o acompanhamento escolar em uma única plataforma",
       f1_title: "Boletins e Notas",
-      f1_desc: "Visualize notas assim que forem lançadas. Baixe e valide boletins oficiais em PDF seguro.",
+      f1_desc: "Consulte as notas publicadas pela escola e baixe os boletins disponibilizados em formato PDF.",
       f2_title: "Presenças e Faltas",
-      f2_desc: "Acompanhe a frequência em tempo real. Receba alertas imediatos em caso de ausência.",
+      f2_desc: "Consulte as presenças, faltas e atrasos registrados pela escola.",
       f3_title: "Espaço Instituições",
-      f3_desc: "Interface completa para diretores e secretários: matrículas e faturamento."
+      f3_desc: "Um espaço destinado a diretores e pessoal autorizado para gerir matrículas, vida acadêmica e faturação."
     },
     footer: {
       desc: "A plataforma moderna que conecta a escola, famílias e alunos para o sucesso acadêmico.",
@@ -868,7 +868,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       loginMobile: "登录"
     },
     hero: {
-      badge: "行业领先的数字化教育平台",
+      badge: "数字化学校管理平台",
       title1: "卓越管理",
       title2: "始于智慧校园。",
       desc: "全面的学校管理系统，在现代化直观的环境中连接校长、教师、家长与学生。",
@@ -890,7 +890,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       c2_title: "电信与数字化服务",
       c2_desc: "校园网络连接基础设施、短信通知与数字化工具。",
       c3_title: "学校用品与教学设备",
-      c3_desc: "经认证的教材、文具和教学设备供应商网络。",
+      c3_desc: "面向学校的教材、文具、设备及教学用品支持。",
       c4_title: "交通、保险与综合服务",
       c4_desc: "校车出行、学生保险与课后服务综合支持。",
       partnerCta: "成为合作伙伴"
@@ -899,11 +899,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       subtitle: "解决方案",
       title: "在一站式平台上汇聚所有校园管理",
       f1_title: "成绩单与考评",
-      f1_desc: "实时查看录入的成绩。下载并验证安全 PDF 格式的官方成绩单。",
+      f1_desc: "查阅学校发布的成绩，并下载提供的 PDF 格式成绩单。",
       f2_title: "考勤与缺勤管理",
-      f2_desc: "实时跟踪出勤情况。发生缺勤或迟到时即刻接收通知。",
+      f2_desc: "查阅学校记录的出勤、缺勤及迟到情况。",
       f3_title: "学校管理空间",
-      f3_desc: "面向校长和教务人员的完整界面：管理招生、教务与账单。"
+      f3_desc: "专为校长及授权人员打造的空间，用于管理招生、教务与账单。"
     },
     footer: {
       desc: "连接学校、家长和学生的现代化平台，助力学业成功。",
@@ -975,7 +975,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       loginMobile: "ВХОД"
     },
     hero: {
-      badge: "ВЕДУЩАЯ ОБРАЗОВАТЕЛЬНАЯ ПЛАТФОРМА",
+      badge: "ПЛАТФОРМА УПРАВЛЕНИЯ ШКОЛОЙ",
       title1: "Превосходство",
       title2: "в самом центре школы.",
       desc: "Комплексная система управления школой, объединяющая директоров, учителей, родителей и учеников в современной и удобной среде.",
@@ -997,7 +997,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       c2_title: "Телеком и цифровые сервисы",
       c2_desc: "Инфраструктура связи, SMS-уведомления и цифровые инструменты для школ.",
       c3_title: "Школьные товары и оборудование",
-      c3_desc: "Сеть проверенных поставщиков учебников, канцелярии и учебного оборудования.",
+      c3_desc: "Учебники, канцелярия, оборудование и учебные материалы для образовательных учреждений.",
       c4_title: "Транспорт, страхование и сервисы",
       c4_desc: "Школьный транспорт, страховая защита и внеклассное сопровождение.",
       partnerCta: "Стать партнёром"
@@ -1006,11 +1006,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       subtitle: "Наши Решения",
       title: "Весь школьный мониторинг на единой платформе",
       f1_title: "Табели и Оценки",
-      f1_desc: "Просматривайте оценки сразу после выставления. Скачивайте официальные табели в защищённом формате PDF.",
+      f1_desc: "Просматривайте оценки, опубликованные школой, и скачивайте табели успеваемости в формате PDF.",
       f2_title: "Посещаемость и Пропуски",
-      f2_desc: "Контролируйте посещаемость в реальном времени. Получайте мгновенные уведомления об опозданиях.",
+      f2_desc: "Просматривайте данные о присутствии, пропусках и опозданиях, зафиксированные школой.",
       f3_title: "Кабинет Школы",
-      f3_desc: "Полноценный интерфейс для директоров и секретарей: приём учеников, учебный процесс и оплата."
+      f3_desc: "Пространство для директоров и уполномоченного персонала для управления приёмом, учебным процессом и оплатой."
     },
     footer: {
       desc: "Современная платформа, объединяющая школу, родителей и учеников для успешной учёбы.",

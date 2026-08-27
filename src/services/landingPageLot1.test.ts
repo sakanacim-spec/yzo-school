@@ -80,8 +80,20 @@ const unprovenClaims = [
   'notifier immédiatement la vie scolaire et les parents',
   'retrouver tous vos enfants inscrits',
   'bulletins scolaires officiels',
-  'Enregistrez votre école en quelques minutes'
+  'Enregistrez votre école en quelques minutes',
+  'LA PLATEFORME ÉDUCATIVE DE RÉFÉRENCE',
+  'Visualisez les notes dès leur saisie',
+  'bulletins officiels en format PDF sécurisé',
+  'Suivez en temps réel l’assiduité',
+  'Suivez en temps réel l\'assiduité',
+  'Soyez immédiatement notifié en cas d’absence',
+  'Soyez immédiatement notifié en cas d\'absence',
+  'Interface complète pour directeurs et secrétaires',
+  'Réseau de fournisseurs de manuels'
 ];
+
+const publicI18nPath = path.join(workspaceRoot, 'src/i18n/publicI18n.ts');
+const publicI18nContent = fs.readFileSync(publicI18nPath, 'utf8');
 
 for (const claim of unprovenClaims) {
   assert.ok(
@@ -96,8 +108,12 @@ for (const claim of unprovenClaims) {
     !guideContent.toLowerCase().includes(claim.toLowerCase()),
     `[Contrôle statique 1.2] L'allégation non prouvée "${claim}" est présente dans UserGuide.tsx`
   );
+  assert.ok(
+    !publicI18nContent.toLowerCase().includes(claim.toLowerCase()),
+    `[Contrôle statique 1.2] L'allégation non prouvée "${claim}" est présente dans publicI18n.ts`
+  );
 }
-console.log('✅ [Contrôle statique 1.2] Absence confirmée des certifications et allégations absolues dans LandingPage, LegalPage et UserGuide');
+console.log('✅ [Contrôle statique 1.2] Absence confirmée des certifications et allégations absolues dans LandingPage, LegalPage, UserGuide et publicI18n');
 
 // Test 1.3 : Zéro lien fictif href="#"
 assert.ok(
