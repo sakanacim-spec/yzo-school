@@ -73,7 +73,7 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
     : undefined;
 
   usePageSeo({
-    title: post ? post.title : t.blog?.notFoundTitle || 'Article introuvable',
+    title: post ? `${post.title} | YZIOW` : `${t.blog?.notFoundTitle || 'Article introuvable'} | YZIOW`,
     description: post ? post.excerpt : undefined,
     canonical: post ? `https://www.yziow.com/blog/${post.slug}` : undefined,
     ogType: 'article',
@@ -240,9 +240,9 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
       )}
 
       {/* ──── ARTICLE CONTENT / NOT FOUND ──── */}
-      <main className="max-w-4xl mx-auto px-6 py-10 flex-1 w-full">
+      <main className="max-w-4xl mx-auto px-6 py-8 flex-1 w-full">
         {!post ? (
-          <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-xl mx-auto space-y-6 shadow-sm mt-8">
+          <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center max-w-xl mx-auto space-y-6 shadow-sm mt-4">
             <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
               <AlertCircle className="w-8 h-8" />
             </div>
@@ -250,7 +250,7 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
               <h1 className="text-2xl font-black text-slate-900">
                 {t.blog?.notFoundTitle || 'Article introuvable'}
               </h1>
-              <p className="text-sm text-slate-500 leading-relaxed font-medium">
+              <p className="text-sm text-slate-600 leading-relaxed font-medium">
                 {t.blog?.notFoundDesc ||
                   "L'article demandé n'existe pas, a été retiré ou n'est pas encore accessible au public."}
               </p>
@@ -295,20 +295,20 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
               {/* Header de l'article */}
               <div className="space-y-6 border-b border-slate-200 pb-8">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="px-3.5 py-1 bg-orange-50 text-orange-600 rounded-xl text-xs font-black tracking-wide border border-orange-200/50">
+                  <span className="px-3.5 py-1 bg-orange-50 text-orange-700 rounded-xl text-xs font-black tracking-wide border border-orange-200/50">
                     {post.category}
                   </span>
 
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
                     <span>
                       {post.readingTimeMinutes} {t.blog?.readTime || 'min de lecture'}
                     </span>
                   </span>
 
                   {post.publishedAt && (
-                    <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Calendar className="w-3.5 h-3.5 text-slate-500" />
                       <span>
                         {t.blog?.publishedOn || 'Publié le'}{' '}
                         {formatLocalizedDate(post.publishedAt, language)}
@@ -322,12 +322,12 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
                 </h1>
 
                 <div className="flex items-center gap-3 pt-2">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-black text-sm shadow-sm">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-black text-sm shadow-sm">
                     <User className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="text-sm font-black text-slate-900">{post.author}</div>
-                    <div className="text-xs text-slate-400 font-medium">YZIOW Édition</div>
+                    <div className="text-xs text-slate-500 font-medium">YZIOW Édition</div>
                   </div>
                 </div>
               </div>
@@ -378,7 +378,7 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
 
                   if (trimmed.startsWith('Note :')) {
                     return (
-                      <div key={index} className="bg-orange-50/60 border border-orange-200/60 rounded-2xl p-5 text-sm text-slate-600 font-medium leading-relaxed my-4">
+                      <div key={index} className="bg-orange-50/60 border border-orange-200/60 rounded-2xl p-5 text-sm text-slate-700 font-medium leading-relaxed my-4">
                         {trimmed}
                       </div>
                     );
@@ -395,11 +395,11 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
               {/* Tags facultatifs */}
               {post.tags && post.tags.length > 0 && (
                 <div className="pt-6 border-t border-slate-200 flex flex-wrap items-center gap-2">
-                  <Tag className="w-4 h-4 text-slate-400" />
+                  <Tag className="w-4 h-4 text-slate-500" />
                   {post.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold"
+                      className="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold"
                     >
                       #{tag}
                     </span>
@@ -450,7 +450,7 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
         )}
       </main>
 
-      {/* ──── PIED DE PAGE STRUCTURÉ AVEC RETOUR COHÉRENT ──── */}
+      {/* ──── PIED DE PAGE STRUCTURÉ AVEC CONTRASTE AMÉLIORÉ ──── */}
       <footer className="bg-slate-900 text-white py-12 border-t border-slate-800 text-xs font-medium mt-auto">
         <div className="max-w-7xl mx-auto px-6 space-y-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pb-8 border-b border-slate-800">
@@ -465,7 +465,7 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
               <span className="text-xl font-black text-white tracking-tight">yziow</span>
             </button>
 
-            <nav className="flex flex-wrap items-center justify-center gap-6 text-slate-400 font-bold">
+            <nav className="flex flex-wrap items-center justify-center gap-6 text-slate-300 font-bold">
               <button onClick={() => handleNav('landing')} className="hover:text-orange-400 transition-colors">
                 {t.blog?.breadcrumbHome || 'Accueil'}
               </button>
@@ -487,9 +487,9 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
             </nav>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-400 font-medium">
             <p>{t.footer.rights || '© 2026 Yziow. Tous droits réservés.'}</p>
-            <p>{t.footer.madeIn || 'Fait avec passion au Bénin 🇧🇯'}</p>
+            <p>{t.footer.madeIn || 'Conçu au Bénin'}</p>
           </div>
         </div>
       </footer>

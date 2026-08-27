@@ -197,11 +197,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_discover: "Découvrir les partenaires",
       partner_btn: "Devenir partenaire",
       rights: "© 2026 Yziow. Tous droits réservés.",
-      madeIn: "Fait avec passion au Bénin 🇧🇯"
+      madeIn: "Conçu au Bénin"
     },
     blog: {
       title: "Blog YZIOW",
-      subtitle: "Actualités, conseils et réflexions sur la gestion scolaire moderne et l'éducation.",
+      subtitle: "Conseils, méthodes et actualités pour accompagner la gestion des établissements scolaires.",
       badge: "Blog & Ressources",
       emptyTitle: "Aucun article publié pour le moment",
       emptyDesc: "Nos articles et guides pratiques seront bientôt disponibles. Revenez très prochainement !",
@@ -326,11 +326,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_discover: "Explore partners",
       partner_btn: "Become a partner",
       rights: "© 2026 Yziow. All rights reserved.",
-      madeIn: "Made with passion in Benin 🇧🇯"
+      madeIn: "Designed in Benin"
     },
     blog: {
       title: "YZIOW Blog",
-      subtitle: "News, guides, and insights on modern school management and education.",
+      subtitle: "Insights, best practices, and news for modern school management.",
       badge: "Blog & Resources",
       emptyTitle: "No articles published yet",
       emptyDesc: "Our articles and practical guides will be available soon. Please check back later!",
@@ -455,11 +455,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_discover: "Descubrir socios",
       partner_btn: "Convertirse en socio",
       rights: "© 2026 Yziow. Todos los derechos reservados.",
-      madeIn: "Hecho con pasión en Benín 🇧🇯"
+      madeIn: "Diseñado en Benín"
     },
     blog: {
       title: "Blog YZIOW",
-      subtitle: "Noticias, guías y reflexiones sobre gestión escolar moderna y educación.",
+      subtitle: "Consejos, métodos y noticias para la gestión moderna de centros escolares.",
       badge: "Blog y Recursos",
       emptyTitle: "No hay artículos publicados todavía",
       emptyDesc: "Nuestros artículos y guías prácticas estarán disponibles pronto. ¡Vuelva pronto!",
@@ -584,11 +584,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_discover: "استكشف الشركاء",
       partner_btn: "كن شريكاً",
       rights: "© 2026 Yziow. جميع الحقوق محفوظة.",
-      madeIn: "صنع بشغف في بنين 🇧🇯"
+      madeIn: "صُمم في بنين"
     },
     blog: {
       title: "مدونة YZIOW",
-      subtitle: "أخبار وأدلة ومقالات حول الإدارة المدرسية الحديثة والتعليم.",
+      subtitle: "إرشادات وأساليب وأخبار حديثة لدعم إدارة المؤسسات التعليمية.",
       badge: "المدونة والموارد",
       emptyTitle: "لا توجد مقالات منشورة حالياً",
       emptyDesc: "ستتوفر مقالاتنا وأدلتنا العملية قريباً. يرجى العودة لاحقاً!",
@@ -713,11 +713,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_discover: "Scopri i partner",
       partner_btn: "Diventa partner",
       rights: "© 2026 Yziow. Tutti i diritti riservati.",
-      madeIn: "Fatto con passione in Benin 🇧🇯"
+      madeIn: "Progettato in Benin"
     },
     blog: {
       title: "Blog YZIOW",
-      subtitle: "Notizie, guide e approfondimenti sulla gestione scolastica moderna e l'educazione.",
+      subtitle: "Consigli, metodi e novità per la gestione moderna degli istituti scolastici.",
       badge: "Blog e Risorse",
       emptyTitle: "Nessun articolo pubblicato al momento",
       emptyDesc: "I nostri articoli e guide pratiche saranno presto disponibili. Torna a trovarci presto!",
@@ -842,11 +842,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_discover: "Partner entdecken",
       partner_btn: "Partner werden",
       rights: "© 2026 Yziow. Alle Rechte vorbehalten.",
-      madeIn: "Mit Leidenschaft in Benin entwickelt 🇧🇯"
+      madeIn: "Entwickelt in Benin"
     },
     blog: {
       title: "YZIOW Blog",
-      subtitle: "Neuigkeiten, Leitfäden und Einblicke in modernes Schulmanagement und Bildung.",
+      subtitle: "Praxistipps, Methoden und Neuigkeiten für das moderne Schulmanagement.",
       badge: "Blog & Ressourcen",
       emptyTitle: "Derzeit keine Beiträge veröffentlicht",
       emptyDesc: "Unsere Beiträge und Praxisratgeber sind in Kürze verfügbar. Schauen Sie bald wieder vorbei!",
@@ -971,11 +971,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_discover: "Descobrir parceiros",
       partner_btn: "Tornar-se parceiro",
       rights: "© 2026 Yziow. Todos os direitos reservados.",
-      madeIn: "Feito com paixão no Benim 🇧🇯"
+      madeIn: "Concebido no Benim"
     },
     blog: {
       title: "Blog YZIOW",
-      subtitle: "Notícias, guias e reflexões sobre gestão escolar moderna e educação.",
+      subtitle: "Conselhos, métodos e novidades para a gestão moderna de escolas.",
       badge: "Blog e Recursos",
       emptyTitle: "Nenhum artigo publicado no momento",
       emptyDesc: "Nossos artigos e guias práticos estarão disponíveis em breve. Volte em breve!",
@@ -1100,11 +1100,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_discover: "了解合作伙伴",
       partner_btn: "成为合作伙伴",
       rights: "© 2026 Yziow. 保留所有权利。",
-      madeIn: "倾心打造于贝宁 🇧🇯"
+      madeIn: "设计于贝宁"
     },
     blog: {
       title: "YZIOW 博客",
-      subtitle: "关于现代学校管理与教育发展的最新动态、实用指南与前沿观点。",
+      subtitle: "关于现代学校管理、教学方法与最新资讯的实用指南。",
       badge: "博客与资源",
       emptyTitle: "暂无已发布的文章",
       emptyDesc: "我们的精选文章和实用指南即将上线，敬请期待！",
@@ -1229,11 +1229,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_discover: "Партнёры платформы",
       partner_btn: "Стать партнёром",
       rights: "© 2026 Yziow. Все права защищены.",
-      madeIn: "Создано с душой в Бенине 🇧🇯"
+      madeIn: "Разработано в Бенине"
     },
     blog: {
       title: "Блог YZIOW",
-      subtitle: "Новости, руководства и статьи о современном управлении школой и образовании.",
+      subtitle: "Советы, методики и новости для эффективного управления учебными заведениями.",
       badge: "Блог и Ресурсы",
       emptyTitle: "На данный момент нет опубликованных статей",
       emptyDesc: "Наши практические руководства и статьи скоро появятся. Загляните позже!",

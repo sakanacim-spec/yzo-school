@@ -47,8 +47,8 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
   const currentLang = LANGUAGES.find(l => l.code === language) || LANGUAGES[0];
 
   usePageSeo({
-    title: t.blog?.title || 'Blog YZIOW - Gestion scolaire et éducation',
-    description: t.blog?.subtitle || 'Retrouvez tous nos articles, conseils et guides pour digitaliser et piloter votre établissement scolaire.',
+    title: `${t.blog?.title || 'Blog YZIOW'} | YZIOW`,
+    description: t.blog?.subtitle || 'Conseils, méthodes et actualités pour accompagner la gestion des établissements scolaires.',
     canonical: 'https://www.yziow.com/blog',
     ogType: 'website'
   });
@@ -120,7 +120,7 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
             </nav>
           </div>
 
-          {/* Sélecteur de langue 9 langues (même composant premium) */}
+          {/* Sélecteur de langue 9 langues */}
           <div className="relative">
             <button
               type="button"
@@ -163,29 +163,29 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
         </div>
       </header>
 
-      {/* ──── HERO SECTION ──── */}
-      <section className="relative pt-16 pb-12 bg-gradient-to-b from-orange-50/50 to-transparent">
-        <div className="max-w-5xl mx-auto px-6 text-center space-y-4">
+      {/* ──── HERO SECTION (Espacement optimisé et compact) ──── */}
+      <section className="relative pt-10 pb-6 bg-gradient-to-b from-orange-50/40 to-transparent">
+        <div className="max-w-5xl mx-auto px-6 text-center space-y-3">
           <div className="inline-flex items-center gap-2 bg-white border border-slate-200/60 rounded-full py-1.5 px-4 text-xs font-black text-[#ea580c] tracking-wide shadow-sm">
             <BookOpen className="w-3.5 h-3.5" />
             <span>{t.blog?.badge || 'Blog & Ressources'}</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
             {t.blog?.title || 'Blog YZIOW'}
           </h1>
 
           <p className="text-base sm:text-lg text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
             {t.blog?.subtitle ||
-              'Découvrez nos analyses, guides et retours d’expérience pour accompagner la transition numérique de votre établissement.'}
+              'Conseils, méthodes et actualités pour accompagner la gestion des établissements scolaires.'}
           </p>
         </div>
       </section>
 
-      {/* ──── LISTING ARTICLES (Centré si 1 seul article, responsive si plusieurs) ──── */}
-      <main className="max-w-6xl mx-auto px-6 py-12 flex-1 w-full">
+      {/* ──── LISTING ARTICLES (Espacement vertical resserré et carte centrée) ──── */}
+      <main className="max-w-6xl mx-auto px-6 py-6 flex-1 w-full">
         {posts.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-xl mx-auto space-y-6 shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center max-w-xl mx-auto space-y-6 shadow-sm">
             <div className="w-16 h-16 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
               <BookOpen className="w-8 h-8" />
             </div>
@@ -193,7 +193,7 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
               <h2 className="text-2xl font-black text-slate-900">
                 {t.blog?.emptyTitle || 'Aucun article publié pour le moment'}
               </h2>
-              <p className="text-sm text-slate-500 leading-relaxed font-medium">
+              <p className="text-sm text-slate-600 leading-relaxed font-medium">
                 {t.blog?.emptyDesc ||
                   'Nos équipes préparent des articles détaillés et des guides pratiques. Revenez très bientôt !'}
               </p>
@@ -225,11 +225,11 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
               >
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="px-3.5 py-1 bg-orange-50 text-orange-600 rounded-lg text-xs font-black tracking-wide">
+                    <span className="px-3.5 py-1 bg-orange-50 text-orange-700 rounded-lg text-xs font-black tracking-wide border border-orange-200/50">
                       {post.category}
                     </span>
-                    <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
-                      <Clock className="w-3.5 h-3.5" />
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Clock className="w-3.5 h-3.5 text-slate-500" />
                       <span>
                         {post.readingTimeMinutes} {t.blog?.readTime || 'min de lecture'}
                       </span>
@@ -240,20 +240,20 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
                     {post.title}
                   </h2>
 
-                  <p className="text-sm text-slate-500 font-medium leading-relaxed line-clamp-3">
+                  <p className="text-sm text-slate-600 font-medium leading-relaxed line-clamp-3">
                     {post.excerpt}
                   </p>
                 </div>
 
-                <div className="pt-6 border-t border-slate-100 mt-6 flex items-center justify-between text-xs font-bold text-slate-400">
+                <div className="pt-6 border-t border-slate-100 mt-6 flex items-center justify-between text-xs font-bold text-slate-700">
                   <div className="flex items-center gap-2">
-                    <User className="w-3.5 h-3.5 text-slate-400" />
+                    <User className="w-3.5 h-3.5 text-slate-500" />
                     <span>{post.author}</span>
                   </div>
 
                   {post.publishedAt && (
-                    <div className="flex items-center gap-1 text-slate-400">
-                      <Calendar className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1.5 text-slate-700">
+                      <Calendar className="w-3.5 h-3.5 text-slate-500" />
                       <span>{formatLocalizedDate(post.publishedAt, language)}</span>
                     </div>
                   )}
@@ -269,7 +269,7 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
         )}
       </main>
 
-      {/* ──── PIED DE PAGE STRUCTURÉ AVEC RETOUR COHÉRENT ──── */}
+      {/* ──── PIED DE PAGE STRUCTURÉ AVEC CONTRASTE AMÉLIORÉ ──── */}
       <footer className="bg-slate-900 text-white py-12 border-t border-slate-800 text-xs font-medium mt-auto">
         <div className="max-w-7xl mx-auto px-6 space-y-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pb-8 border-b border-slate-800">
@@ -284,7 +284,7 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
               <span className="text-xl font-black text-white tracking-tight">yziow</span>
             </button>
 
-            <nav className="flex flex-wrap items-center justify-center gap-6 text-slate-400 font-bold">
+            <nav className="flex flex-wrap items-center justify-center gap-6 text-slate-300 font-bold">
               <button onClick={() => handleNav('landing')} className="hover:text-orange-400 transition-colors">
                 {t.blog?.breadcrumbHome || 'Accueil'}
               </button>
@@ -303,9 +303,9 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
             </nav>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-400 font-medium">
             <p>{t.footer.rights || '© 2026 Yziow. Tous droits réservés.'}</p>
-            <p>{t.footer.madeIn || 'Fait avec passion au Bénin 🇧🇯'}</p>
+            <p>{t.footer.madeIn || 'Conçu au Bénin'}</p>
           </div>
         </div>
       </footer>

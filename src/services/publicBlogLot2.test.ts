@@ -391,6 +391,7 @@ test('12. Traductions complètes du blog pour les 9 langues', () => {
     const t = getPublicTranslations(lang);
     assert.ok(t, `Traductions existantes pour ${lang}`);
     assert.ok(t.footer.blog, `footer.blog présent pour ${lang}`);
+    assert.ok(t.footer.madeIn, `footer.madeIn présent pour ${lang}`);
     assert.ok(t.blog, `Section blog présente pour ${lang}`);
 
     for (const key of requiredBlogKeys) {
@@ -405,4 +406,20 @@ test('12. Traductions complètes du blog pour les 9 langues', () => {
       );
     }
   }
+
+  assert.equal(getPublicTranslations('fr').footer.madeIn, 'Conçu au Bénin');
+  assert.equal(getPublicTranslations('en').footer.madeIn, 'Designed in Benin');
+  assert.equal(getPublicTranslations('ar').footer.madeIn, 'صُمم في بنين');
+});
+
+test('13. Hiérarchie H1 unique et conforme sur /blog et /blog/:slug', () => {
+  const blogContent = fs.readFileSync(path.resolve('src/pages/public/Blog.tsx'), 'utf-8');
+  const postContent = fs.readFileSync(path.resolve('src/pages/public/BlogPost.tsx'), 'utf-8');
+
+  const h1MatchesBlog = blogContent.match(/<h1[\s>]/g) || [];
+  assert.equal(h1MatchesBlog.length, 1, 'Blog.tsx doit contenir exactement 1 balise <h1>');
+
+  const h1MatchesPost = postContent.match(/<h1[\s>]/g) || [];
+  // Dans BlogPost: 1 h1 pour l'état notFound et 1 h1 pour l'article (mutuellement exclusifs dans le JSX ternaire)
+  assert.equal(h1MatchesPost.length, 2, 'BlogPost.tsx doit définir 1 h1 par branche conditionnelle (not found vs article)');
 });
