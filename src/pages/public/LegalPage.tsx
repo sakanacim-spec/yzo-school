@@ -55,7 +55,7 @@ export const LegalPage: React.FC<LegalPageProps> = ({ type, onBack }) => {
         },
         {
           title: t(language as Language, 'public.legal.privacy.sec3.title') || "3. Sécurité des données",
-          content: t(language as Language, 'public.legal.privacy.sec3.content') || "Toutes les données transitant sur notre plateforme sont chiffrées de bout en bout avec les standards de sécurité les plus élevés. Nos serveurs garantissent une protection optimale contre toute tentative d'intrusion."
+          content: t(language as Language, 'public.legal.privacy.sec3.content') || "Les échanges avec la plateforme sont protégés au moyen du protocole HTTPS. L'accès aux données est strictement restreint selon le rôle attribué à chaque utilisateur."
         },
         {
           title: t(language as Language, 'public.legal.privacy.sec4.title') || "4. Droits des utilisateurs",
@@ -77,11 +77,11 @@ export const LegalPage: React.FC<LegalPageProps> = ({ type, onBack }) => {
         },
         {
           title: t(language as Language, 'public.legal.mentions.sec2.title') || "2. Hébergement",
-          content: t(language as Language, 'public.legal.mentions.sec2.content') || "L'hébergement de la plateforme est assuré par des fournisseurs Cloud reconnus, garantissant la haute disponibilité et la sécurité des infrastructures, en respectant les normes de souveraineté des données."
+          content: t(language as Language, 'public.legal.mentions.sec2.content') || "L'hébergement de la plateforme et de ses bases de données est assuré par des infrastructures Cloud. Les communications avec les services sont protégées par chiffrement HTTPS."
         },
         {
-          title: t(language as Language, 'public.legal.mentions.sec3.title') || "3. Accréditations",
-          content: t(language as Language, 'public.legal.mentions.sec3.content') || "Yziow met en œuvre tous les moyens nécessaires pour assurer la sécurité des paiements intégrés et agit en conformité avec les directives locales sur les transactions électroniques."
+          title: t(language as Language, 'public.legal.mentions.sec3.title') || "3. Paiements électroniques",
+          content: t(language as Language, 'public.legal.mentions.sec3.content') || "Les paiements disponibles sont traités par les prestataires configurés pour le pays de l'établissement."
         },
         {
           title: t(language as Language, 'public.legal.mentions.sec4.title') || "4. Droit applicable",
@@ -98,15 +98,15 @@ export const LegalPage: React.FC<LegalPageProps> = ({ type, onBack }) => {
   }, [type]);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-['Poppins'] text-slate-800 selection:bg-orange-500 selection:text-white pb-24">
+    <div className={`min-h-screen bg-slate-50 font-['Poppins'] text-slate-800 selection:bg-orange-500 selection:text-white pb-24 ${language === 'ar' ? 'dir-rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm transition-all duration-300">
         <div className="max-w-4xl mx-auto px-6 h-20 flex items-center">
-          <button 
+          <button
             onClick={onBack}
             className="flex items-center gap-2 text-slate-500 hover:text-[#f97316] transition-colors font-bold text-sm"
           >
-            <ArrowLeft className="w-5 h-5" /> {t(language as Language, 'public.backToHome') || "Retour à l'accueil"}
+            <ArrowLeft className={`w-5 h-5 ${language === 'ar' ? 'rotate-180' : ''}`} /> {t(language as Language, 'public.backToHome') || "Retour à l'accueil"}
           </button>
         </div>
       </header>
@@ -114,7 +114,7 @@ export const LegalPage: React.FC<LegalPageProps> = ({ type, onBack }) => {
       <section className="relative pt-16 pb-16 overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-orange-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
         <div className="max-w-4xl mx-auto px-6 relative z-10">
-          
+
           <div className="mb-12 flex items-center gap-4">
             <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center shrink-0">
               {content.icon}
