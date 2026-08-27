@@ -6,11 +6,12 @@ import {
   Landmark, Radio, Package, Bus, UserCheck, Layers
 } from 'lucide-react';
 import { getPublicTranslations } from '../i18n/publicI18n';
+import { hasPublishedPosts } from '../utils/blogCatalog';
 
 export interface LandingPageProps {
   onLogin: () => void;
   onRegisterSchool: () => void;
-  onNavigate: (page: 'about' | 'contact' | 'careers' | 'cgu' | 'privacy' | 'legal' | 'guide', extra?: { subject?: string; message?: string }) => void;
+  onNavigate: (page: 'about' | 'contact' | 'careers' | 'cgu' | 'privacy' | 'legal' | 'guide' | 'blog', extra?: { subject?: string; message?: string }) => void;
 }
 
 const LANGUAGES = [
@@ -330,6 +331,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegisterSch
                     <span>📖 {t.footer.guide}</span>
                   </button>
                 </li>
+                {hasPublishedPosts() && (
+                  <li>
+                    <button onClick={() => onNavigate('blog')} className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors text-left flex items-center gap-1.5">
+                      <span>📰 {t.footer.blog || 'Blog'}</span>
+                    </button>
+                  </li>
+                )}
               </ul>
 
               <h4 className="text-white font-black text-lg mb-6">{t.footer.legal}</h4>
