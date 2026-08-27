@@ -6,29 +6,38 @@ import type { Language } from '../../i18n';
 
 interface ContactProps {
   onBack: () => void;
+  initialSubject?: string;
+  initialMessage?: string;
 }
 
-export const Contact: React.FC<ContactProps> = ({ onBack }) => {
+export const Contact: React.FC<ContactProps> = ({ onBack, initialSubject, initialMessage }) => {
   const { language } = useStore();
   const [contactName, setContactName] = useState('');
   const [contactCountry, setContactCountry] = useState('');
   const [contactEmail, setContactEmail] = useState('');
-  const [contactMessage, setContactMessage] = useState('');
+  const [contactMessage, setContactMessage] = useState(
+    initialMessage || (initialSubject ? `[${initialSubject}] ` : '')
+  );
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+    if (initialMessage) {
+      setContactMessage(initialMessage);
+    } else if (initialSubject) {
+      setContactMessage(`[${initialSubject}] `);
+    }
+  }, [initialSubject, initialMessage]);
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contactName || !contactCountry || !contactEmail || !contactMessage) return;
-    
+
     setIsSubmitting(true);
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      
+
       const response = await fetch(`${apiUrl}/api/public/contact`, {
         method: 'POST',
         headers: {
@@ -60,15 +69,15 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-['Poppins'] text-slate-800 selection:bg-orange-500 selection:text-white pb-24">
+    <div className={`min-h-screen bg-slate-50 font-['Poppins'] text-slate-800 selection:bg-orange-500 selection:text-white pb-24 ${language === 'ar' ? 'dir-rtl' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {/* Premium Compact Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center">
-          <button 
+          <button
             onClick={onBack}
             className="flex items-center gap-2 text-slate-500 hover:text-[#f97316] transition-colors font-bold text-sm"
           >
-            <ArrowLeft className="w-5 h-5" /> {t(language as Language, 'public.backToHome') || "Retour à l'accueil"}
+            <ArrowLeft className={`w-5 h-5 ${language === 'ar' ? 'rotate-180' : ''}`} /> {t(language as Language, 'public.backToHome') || "Retour à l'accueil"}
           </button>
         </div>
       </header>
@@ -100,7 +109,7 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
                   <p className="text-sm text-slate-500 font-medium">support@yziow.com</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 shrink-0">
                   <Phone className="w-6 h-6 text-[#f97316]" />
@@ -132,8 +141,8 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
               <form onSubmit={handleContactSubmit} className="space-y-6">
                 <div>
                   <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">{t(language as Language, 'public.careers.fullName') || "Nom complet"}</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
@@ -143,8 +152,8 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
                 </div>
                 <div>
                   <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">{t(language as Language, 'public.careers.country') || "Pays de résidence"}</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     value={contactCountry}
                     onChange={(e) => setContactCountry(e.target.value)}
@@ -154,8 +163,8 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
                 </div>
                 <div>
                   <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">{t(language as Language, 'public.careers.email') || "Adresse email"}</label>
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     required
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
@@ -165,7 +174,7 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
                 </div>
                 <div>
                   <label className="block text-xs font-black text-slate-700 mb-2 uppercase tracking-wide">{t(language as Language, 'public.contact.message') || "Message"}</label>
-                  <textarea 
+                  <textarea
                     required
                     value={contactMessage}
                     onChange={(e) => setContactMessage(e.target.value)}
@@ -174,7 +183,7 @@ export const Contact: React.FC<ContactProps> = ({ onBack }) => {
                     placeholder={t(language as Language, 'public.contact.messagePlaceholder') || "Comment pouvons-nous vous aider ?"}
                   ></textarea>
                 </div>
-                <button 
+                <button
                   type="submit"
                   disabled={formSubmitted}
                   className="w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-bold tracking-wide shadow-lg shadow-orange-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70"

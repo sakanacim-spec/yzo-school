@@ -13,7 +13,16 @@ import { Careers } from './pages/public/Careers';
 import { LegalPage, LegalPageType } from './pages/public/LegalPage';
 import { GuideAssistantWidget } from './components/GuideAssistantWidget';
 import { SupportPage } from './pages/SupportPage';
-import { DonationPage } from './pages/public/DonationPage';
+import { UserGuide } from './pages/public/UserGuide';
+import { Register } from './components/Register';
+import {
+  PublicPage,
+  ContactExtra,
+  handlePublicNavigate,
+  handleRegisterSchool,
+  handleLoginNavigate,
+  handleBackToLanding
+} from './utils/publicNavigation';
 
 // Lazy loading for pages to reduce initial bundle size
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -214,7 +223,13 @@ export function App() {
     return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
   }, []);
 
-  const [publicPage, setPublicPage] = React.useState<'landing' | 'about' | 'contact' | 'login' | 'cgu' | 'privacy' | 'legal' | 'careers'>('landing');
+  const [publicPage, setPublicPage] = React.useState<PublicPage>('landing');
+  const [contactExtra, setContactExtra] = React.useState<ContactExtra | null>(null);
+
+  const applyNavState = (state: { publicPage: PublicPage; contactExtra: ContactExtra | null }) => {
+    setContactExtra(state.contactExtra);
+    setPublicPage(state.publicPage);
+  };
 
   // ── Routes Ambassadeurs / Affiliés (Accessibles à tous) ──
   const pathname = window.location.pathname.replace(/\/$/, '');
@@ -242,30 +257,57 @@ export function App() {
 
   if (!isAuthenticated) {
     if (publicPage === 'login') {
-      return <Login onBackToLanding={() => setPublicPage('landing')} />;
+      return <Login onBackToLanding={() => applyNavState(handleBackToLanding())} />;
+    }
+    if (publicPage === 'register') {
+      return (
+        <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-4">
+          <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+            <Register
+              onBack={() => applyNavState(handleBackToLanding())}
+              onSuccess={() => window.location.reload()}
+            />
+          </div>
+        </div>
+      );
+    }
+    if (publicPage === 'guide') {
+      return (
+        <UserGuide
+          onBack={() => applyNavState(handleBackToLanding())}
+          onRegister={() => applyNavState(handleRegisterSchool())}
+        />
+      );
     }
     if (publicPage === 'about') {
-      return <About onBack={() => setPublicPage('landing')} />;
+      return <About onBack={() => applyNavState(handleBackToLanding())} />;
     }
     if (publicPage === 'contact') {
-      return <Contact onBack={() => setPublicPage('landing')} />;
+      return (
+        <Contact
+          initialSubject={contactExtra?.subject}
+          initialMessage={contactExtra?.message}
+          onBack={() => applyNavState(handleBackToLanding())}
+        />
+      );
     }
     if (publicPage === 'careers') {
-      return <Careers onBack={() => setPublicPage('landing')} />;
+      return <Careers onBack={() => applyNavState(handleBackToLanding())} />;
     }
     if (['cgu', 'privacy', 'legal'].includes(publicPage)) {
-      return <LegalPage type={publicPage as LegalPageType} onBack={() => setPublicPage('landing')} />;
+      return <LegalPage type={publicPage as LegalPageType} onBack={() => applyNavState(handleBackToLanding())} />;
     }
     return (
       <>
-        <LandingPage 
-          onLogin={() => setPublicPage('login')} 
-          onNavigate={(page) => setPublicPage(page as any)}
+        <LandingPage
+          onLogin={() => applyNavState(handleLoginNavigate())}
+          onRegisterSchool={() => applyNavState(handleRegisterSchool())}
+          onNavigate={(page, extra) => applyNavState(handlePublicNavigate(page, extra))}
         />
-        <GuideAssistantWidget 
-          onOpenRegisterSchool={() => setPublicPage('login')}
-          onOpenRegisterParent={() => setPublicPage('login')}
-          onOpenLogin={() => setPublicPage('login')}
+        <GuideAssistantWidget
+          onOpenRegisterSchool={() => applyNavState(handleRegisterSchool())}
+          onOpenRegisterParent={() => applyNavState(handleLoginNavigate())}
+          onOpenLogin={() => applyNavState(handleLoginNavigate())}
         />
       </>
     );
