@@ -18,7 +18,9 @@ import { Register } from './components/Register';
 import {
   PublicPage,
   ContactExtra,
+  parsePublicLocation,
   handlePublicNavigate,
+  handleBlogNavigate,
   handleRegisterSchool,
   handleLoginNavigate,
   handleBackToLanding
@@ -69,6 +71,8 @@ const ParentRessources = lazy(() => import('./pages/parent/ParentRessources').th
 const Salaires = lazy(() => import('./pages/Salaires').then(m => ({ default: m.Salaires })));
 const CahierTextes = lazy(() => import('./pages/professeur/CahierTextes').then(m => ({ default: m.CahierTextes })));
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
+const Blog = lazy(() => import('./pages/public/Blog'));
+const BlogPost = lazy(() => import('./pages/public/BlogPost'));
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center p-12">
@@ -223,34 +227,90 @@ export function App() {
     return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
   }, []);
 
-  const [publicPage, setPublicPage] = React.useState<PublicPage>('landing');
-  const [contactExtra, setContactExtra] = React.useState<ContactExtra | null>(null);
+  const [publicPage, setPublicPage] = React.useState<PublicPage>(() =>
+    parsePublicLocation(typeof window !== 'undefined' ? window.location.pathname : '/').publicPage
+  );
+  const [contactExtra, setContactExtra] = React.useState<ContactExtra | null>(() =>
+    parsePublicLocation(typeof window !== 'undefined' ? window.location.pathname : '/').contactExtra
+  );
+  const [blogSlug, setBlogSlug] = React.useState<string | null>(() =>
+    parsePublicLocation(typeof window !== 'undefined' ? window.location.pathname : '/').blogSlug
+  );
 
-  const applyNavState = (state: { publicPage: PublicPage; contactExtra: ContactExtra | null }) => {
+  const applyNavState = (state: { publicPage: PublicPage; contactExtra: ContactExtra | null; blogSlug?: string | null }) => {
     setContactExtra(state.contactExtra);
+    setBlogSlug(state.blogSlug || null);
     setPublicPage(state.publicPage);
   };
+
+  React.useEffect(() => {
+    const handlePopState = () => {
+      const state = parsePublicLocation(window.location.pathname);
+      applyNavState(state);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // ── Routes Ambassadeurs / Affiliés (Accessibles à tous) ──
   const pathname = window.location.pathname.replace(/\/$/, '');
   if (pathname === '/ambassadeur') {
     return (
       <Suspense fallback={<LoadingSpinner />}>
-         <AffiliateLogin />
+        <AffiliateLogin />
       </Suspense>
     );
   }
   if (pathname === '/ambassadeur/dashboard') {
     return (
       <Suspense fallback={<LoadingSpinner />}>
-         <AffiliateDashboard />
+        <AffiliateDashboard />
       </Suspense>
     );
   }
   if (pathname === '/ambassadeur/kit') {
     return (
       <Suspense fallback={<LoadingSpinner />}>
-         <AmbassadorKitPage />
+        <AmbassadorKitPage />
+      </Suspense>
+    );
+  }
+
+  // ── Routes Blog (Publiques et consultables par tous, y compris utilisateurs authentifiés) ──
+  if (publicPage === 'blog') {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <Blog
+          onBack={() => {
+            window.history.pushState({}, '', '/');
+            applyNavState(handleBackToLanding());
+          }}
+          onHome={() => {
+            window.history.pushState({}, '', '/');
+            applyNavState(handleBackToLanding());
+          }}
+          onSelectPost={(slug) => {
+            window.history.pushState({}, '', `/blog/${slug}`);
+            applyNavState(handleBlogNavigate(slug));
+          }}
+        />
+      </Suspense>
+    );
+  }
+  if (publicPage === 'blog-post') {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <BlogPost
+          slug={blogSlug || ''}
+          onBack={() => {
+            window.history.pushState({}, '', '/blog');
+            applyNavState(handleBlogNavigate());
+          }}
+          onHome={() => {
+            window.history.pushState({}, '', '/');
+            applyNavState(handleBackToLanding());
+          }}
+        />
       </Suspense>
     );
   }
@@ -302,7 +362,14 @@ export function App() {
         <LandingPage
           onLogin={() => applyNavState(handleLoginNavigate())}
           onRegisterSchool={() => applyNavState(handleRegisterSchool())}
-          onNavigate={(page, extra) => applyNavState(handlePublicNavigate(page, extra))}
+          onNavigate={(page, extra) => {
+            if (page === 'blog') {
+              window.history.pushState({}, '', '/blog');
+              applyNavState(handleBlogNavigate());
+            } else {
+              applyNavState(handlePublicNavigate(page, extra));
+            }
+          }}
         />
         <GuideAssistantWidget
           onOpenRegisterSchool={() => applyNavState(handleRegisterSchool())}

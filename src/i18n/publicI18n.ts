@@ -57,6 +57,7 @@ export interface PublicTranslations {
     ambassador: string;
     resources: string;
     guide: string;
+    blog?: string;
     legal: string;
     cgu: string;
     privacy: string;
@@ -67,6 +68,27 @@ export interface PublicTranslations {
     partner_btn: string;
     rights: string;
     madeIn: string;
+  };
+  blog: {
+    title: string;
+    subtitle: string;
+    badge: string;
+    emptyTitle: string;
+    emptyDesc: string;
+    backHome: string;
+    backBlog: string;
+    notFoundTitle: string;
+    notFoundDesc: string;
+    readTime: string;
+    readMore: string;
+    publishedOn: string;
+    authorBy: string;
+    category: string;
+    breadcrumbHome?: string;
+    breadcrumbBlog?: string;
+    allArticles?: string;
+    backArticles?: string;
+    discoverYziow?: string;
   };
   guide: {
     backToHome: string;
@@ -165,6 +187,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       ambassador: "Programme Ambassadeur",
       resources: "Ressources",
       guide: "Guide de prise en main",
+      blog: "Blog & Actualités",
       legal: "Légal",
       cgu: "Conditions générales d'utilisation",
       privacy: "Politique de confidentialité",
@@ -175,6 +198,27 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_btn: "Devenir partenaire",
       rights: "© 2026 Yziow. Tous droits réservés.",
       madeIn: "Fait avec passion au Bénin 🇧🇯"
+    },
+    blog: {
+      title: "Blog YZIOW",
+      subtitle: "Actualités, conseils et réflexions sur la gestion scolaire moderne et l'éducation.",
+      badge: "Blog & Ressources",
+      emptyTitle: "Aucun article publié pour le moment",
+      emptyDesc: "Nos articles et guides pratiques seront bientôt disponibles. Revenez très prochainement !",
+      backHome: "Retour à l'accueil",
+      backBlog: "Retour au Blog",
+      notFoundTitle: "Article introuvable",
+      notFoundDesc: "L'article que vous recherchez n'existe pas ou a été déplacé.",
+      readTime: "min de lecture",
+      readMore: "Lire l'article",
+      publishedOn: "Publié le",
+      authorBy: "Par",
+      category: "Catégorie",
+      breadcrumbHome: "Accueil",
+      breadcrumbBlog: "Blog",
+      allArticles: "Tous les articles",
+      backArticles: "Retour aux articles",
+      discoverYziow: "Découvrir YZIOW"
     },
     guide: {
       backToHome: "Retour à l'accueil",
@@ -272,6 +316,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       ambassador: "Ambassador Program",
       resources: "Resources",
       guide: "User Guide",
+      blog: "Blog & News",
       legal: "Legal",
       cgu: "Terms of Service",
       privacy: "Privacy Policy",
@@ -282,6 +327,27 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_btn: "Become a partner",
       rights: "© 2026 Yziow. All rights reserved.",
       madeIn: "Made with passion in Benin 🇧🇯"
+    },
+    blog: {
+      title: "YZIOW Blog",
+      subtitle: "News, guides, and insights on modern school management and education.",
+      badge: "Blog & Resources",
+      emptyTitle: "No articles published yet",
+      emptyDesc: "Our articles and practical guides will be available soon. Please check back later!",
+      backHome: "Back to home",
+      backBlog: "Back to Blog",
+      notFoundTitle: "Article not found",
+      notFoundDesc: "The article you are looking for does not exist or has been moved.",
+      readTime: "min read",
+      readMore: "Read article",
+      publishedOn: "Published on",
+      authorBy: "By",
+      category: "Category",
+      breadcrumbHome: "Home",
+      breadcrumbBlog: "Blog",
+      allArticles: "All articles",
+      backArticles: "Back to articles",
+      discoverYziow: "Discover YZIOW"
     },
     guide: {
       backToHome: "Back to home",
@@ -379,6 +445,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       ambassador: "Programa de Embajadores",
       resources: "Recursos",
       guide: "Guía de inicio",
+      blog: "Blog y Noticias",
       legal: "Legal",
       cgu: "Términos de Servicio",
       privacy: "Política de Privacidad",
@@ -389,6 +456,27 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_btn: "Convertirse en socio",
       rights: "© 2026 Yziow. Todos los derechos reservados.",
       madeIn: "Hecho con pasión en Benín 🇧🇯"
+    },
+    blog: {
+      title: "Blog YZIOW",
+      subtitle: "Noticias, guías y reflexiones sobre gestión escolar moderna y educación.",
+      badge: "Blog y Recursos",
+      emptyTitle: "No hay artículos publicados todavía",
+      emptyDesc: "Nuestros artículos y guías prácticas estarán disponibles pronto. ¡Vuelva pronto!",
+      backHome: "Volver al inicio",
+      backBlog: "Volver al Blog",
+      notFoundTitle: "Artículo no encontrado",
+      notFoundDesc: "El artículo solicitado no existe o ha sido trasladado.",
+      readTime: "min de lectura",
+      readMore: "Leer artículo",
+      publishedOn: "Publicado el",
+      authorBy: "Por",
+      category: "Categoría",
+      breadcrumbHome: "Inicio",
+      breadcrumbBlog: "Blog",
+      allArticles: "Todos los artículos",
+      backArticles: "Volver a los artículos",
+      discoverYziow: "Descubrir YZIOW"
     },
     guide: {
       backToHome: "Volver al inicio",
@@ -486,6 +574,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       ambassador: "برنامج السفراء",
       resources: "الموارد",
       guide: "دليل البدء",
+      blog: "المدونة والأخبار",
       legal: "قانوني",
       cgu: "شروط الاستخدام",
       privacy: "سياسة الخصوصية",
@@ -496,6 +585,27 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_btn: "كن شريكاً",
       rights: "© 2026 Yziow. جميع الحقوق محفوظة.",
       madeIn: "صنع بشغف في بنين 🇧🇯"
+    },
+    blog: {
+      title: "مدونة YZIOW",
+      subtitle: "أخبار وأدلة ومقالات حول الإدارة المدرسية الحديثة والتعليم.",
+      badge: "المدونة والموارد",
+      emptyTitle: "لا توجد مقالات منشورة حالياً",
+      emptyDesc: "ستتوفر مقالاتنا وأدلتنا العملية قريباً. يرجى العودة لاحقاً!",
+      backHome: "العودة للرئيسية",
+      backBlog: "العودة للمدونة",
+      notFoundTitle: "المقال غير موجود",
+      notFoundDesc: "المقال الذي تبحث عنه غير موجود أو تم نقله.",
+      readTime: "دقائق للقراءة",
+      readMore: "اقرأ المقال",
+      publishedOn: "نُشر في",
+      authorBy: "بواسطة",
+      category: "التصنيف",
+      breadcrumbHome: "الرئيسية",
+      breadcrumbBlog: "المدونة",
+      allArticles: "جميع المقالات",
+      backArticles: "العودة للمقالات",
+      discoverYziow: "اكتشف YZIOW"
     },
     guide: {
       backToHome: "العودة للرئيسية",
@@ -593,6 +703,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       ambassador: "Programma Ambasciatori",
       resources: "Risorse",
       guide: "Guida Introduttiva",
+      blog: "Blog & Notizie",
       legal: "Legale",
       cgu: "Condizioni di Servizio",
       privacy: "Informativa sulla Privacy",
@@ -603,6 +714,27 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_btn: "Diventa partner",
       rights: "© 2026 Yziow. Tutti i diritti riservati.",
       madeIn: "Fatto con passione in Benin 🇧🇯"
+    },
+    blog: {
+      title: "Blog YZIOW",
+      subtitle: "Notizie, guide e approfondimenti sulla gestione scolastica moderna e l'educazione.",
+      badge: "Blog e Risorse",
+      emptyTitle: "Nessun articolo pubblicato al momento",
+      emptyDesc: "I nostri articoli e guide pratiche saranno presto disponibili. Torna a trovarci presto!",
+      backHome: "Torna alla home",
+      backBlog: "Torna al Blog",
+      notFoundTitle: "Articolo non trovato",
+      notFoundDesc: "L'articolo cercato non esiste o è stato rimosso.",
+      readTime: "min di lettura",
+      readMore: "Leggi articolo",
+      publishedOn: "Pubblicato il",
+      authorBy: "Di",
+      category: "Categoria",
+      breadcrumbHome: "Home",
+      breadcrumbBlog: "Blog",
+      allArticles: "Tutti gli articoli",
+      backArticles: "Torna agli articoli",
+      discoverYziow: "Scopri YZIOW"
     },
     guide: {
       backToHome: "Torna alla home",
@@ -700,6 +832,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       ambassador: "Botschafter-Programm",
       resources: "Ressourcen",
       guide: "Benutzerhandbuch",
+      blog: "Blog & Aktuelles",
       legal: "Rechtliches",
       cgu: "Nutzungsbedingungen",
       privacy: "Datenschutzerklärung",
@@ -710,6 +843,27 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_btn: "Partner werden",
       rights: "© 2026 Yziow. Alle Rechte vorbehalten.",
       madeIn: "Mit Leidenschaft in Benin entwickelt 🇧🇯"
+    },
+    blog: {
+      title: "YZIOW Blog",
+      subtitle: "Neuigkeiten, Leitfäden und Einblicke in modernes Schulmanagement und Bildung.",
+      badge: "Blog & Ressourcen",
+      emptyTitle: "Derzeit keine Beiträge veröffentlicht",
+      emptyDesc: "Unsere Beiträge und Praxisratgeber sind in Kürze verfügbar. Schauen Sie bald wieder vorbei!",
+      backHome: "Zurück zur Startseite",
+      backBlog: "Zurück zum Blog",
+      notFoundTitle: "Beitrag nicht gefunden",
+      notFoundDesc: "Der gesuchte Beitrag existiert nicht oder wurde verschoben.",
+      readTime: "Min. Lesezeit",
+      readMore: "Beitrag lesen",
+      publishedOn: "Veröffentlicht am",
+      authorBy: "Von",
+      category: "Kategorie",
+      breadcrumbHome: "Startseite",
+      breadcrumbBlog: "Blog",
+      allArticles: "Alle Artikel",
+      backArticles: "Zurück zu den Artikeln",
+      discoverYziow: "YZIOW entdecken"
     },
     guide: {
       backToHome: "Zurück zur Startseite",
@@ -807,6 +961,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       ambassador: "Programa de Embaixadores",
       resources: "Recursos",
       guide: "Guia de Introdução",
+      blog: "Blog e Notícias",
       legal: "Legal",
       cgu: "Termos de Uso",
       privacy: "Política de Privacidade",
@@ -817,6 +972,27 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_btn: "Tornar-se parceiro",
       rights: "© 2026 Yziow. Todos os direitos reservados.",
       madeIn: "Feito com paixão no Benim 🇧🇯"
+    },
+    blog: {
+      title: "Blog YZIOW",
+      subtitle: "Notícias, guias e reflexões sobre gestão escolar moderna e educação.",
+      badge: "Blog e Recursos",
+      emptyTitle: "Nenhum artigo publicado no momento",
+      emptyDesc: "Nossos artigos e guias práticos estarão disponíveis em breve. Volte em breve!",
+      backHome: "Voltar ao início",
+      backBlog: "Voltar ao Blog",
+      notFoundTitle: "Artigo não encontrado",
+      notFoundDesc: "O artigo que procura não existe ou foi movido.",
+      readTime: "min de leitura",
+      readMore: "Ler artigo",
+      publishedOn: "Publicado em",
+      authorBy: "Por",
+      category: "Categoria",
+      breadcrumbHome: "Início",
+      breadcrumbBlog: "Blog",
+      allArticles: "Todos os artigos",
+      backArticles: "Voltar aos artigos",
+      discoverYziow: "Descobrir o YZIOW"
     },
     guide: {
       backToHome: "Voltar ao início",
@@ -914,6 +1090,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       ambassador: "校园大使计划",
       resources: "资源中心",
       guide: "使用指南",
+      blog: "博客与动态",
       legal: "法律信息",
       cgu: "服务条款",
       privacy: "隐私政策",
@@ -924,6 +1101,27 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_btn: "成为合作伙伴",
       rights: "© 2026 Yziow. 保留所有权利。",
       madeIn: "倾心打造于贝宁 🇧🇯"
+    },
+    blog: {
+      title: "YZIOW 博客",
+      subtitle: "关于现代学校管理与教育发展的最新动态、实用指南与前沿观点。",
+      badge: "博客与资源",
+      emptyTitle: "暂无已发布的文章",
+      emptyDesc: "我们的精选文章和实用指南即将上线，敬请期待！",
+      backHome: "返回首页",
+      backBlog: "返回博客",
+      notFoundTitle: "未找到相关文章",
+      notFoundDesc: "您查找的文章不存在或已被移动。",
+      readTime: "分钟阅读",
+      readMore: "阅读全文",
+      publishedOn: "发布于",
+      authorBy: "作者：",
+      category: "分类",
+      breadcrumbHome: "首页",
+      breadcrumbBlog: "博客",
+      allArticles: "所有文章",
+      backArticles: "返回文章列表",
+      discoverYziow: "探索 YZIOW"
     },
     guide: {
       backToHome: "返回首页",
@@ -1021,6 +1219,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       ambassador: "Программа Амбассадоров",
       resources: "Ресурсы",
       guide: "Руководство пользователя",
+      blog: "Блог и Новости",
       legal: "Правовая информация",
       cgu: "Условия использования",
       privacy: "Политика конфиденциальности",
@@ -1031,6 +1230,27 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
       partner_btn: "Стать партнёром",
       rights: "© 2026 Yziow. Все права защищены.",
       madeIn: "Создано с душой в Бенине 🇧🇯"
+    },
+    blog: {
+      title: "Блог YZIOW",
+      subtitle: "Новости, руководства и статьи о современном управлении школой и образовании.",
+      badge: "Блог и Ресурсы",
+      emptyTitle: "На данный момент нет опубликованных статей",
+      emptyDesc: "Наши практические руководства и статьи скоро появятся. Загляните позже!",
+      backHome: "На главную",
+      backBlog: "Назад в блог",
+      notFoundTitle: "Статья не найдена",
+      notFoundDesc: "Запрашиваемая статья не существует или была перемещена.",
+      readTime: "мин чтения",
+      readMore: "Читать статью",
+      publishedOn: "Опубликовано",
+      authorBy: "Автор",
+      category: "Категория",
+      breadcrumbHome: "Главная",
+      breadcrumbBlog: "Блог",
+      allArticles: "Все статьи",
+      backArticles: "Вернуться к статьям",
+      discoverYziow: "Узнать больше о YZIOW"
     },
     guide: {
       backToHome: "На главную",
