@@ -241,12 +241,14 @@ export function App() {
     setContactExtra(state.contactExtra);
     setBlogSlug(state.blogSlug || null);
     setPublicPage(state.publicPage);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   React.useEffect(() => {
     const handlePopState = () => {
       const state = parsePublicLocation(window.location.pathname);
       applyNavState(state);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);

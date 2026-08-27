@@ -53,6 +53,10 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavi
 
   const currentLang = LANGUAGES.find(l => l.code === language) || LANGUAGES[0];
 
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [slug]);
+
   const articleJsonLd = post
     ? {
         '@context': 'https://schema.org',

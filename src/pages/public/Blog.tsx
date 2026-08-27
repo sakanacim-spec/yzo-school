@@ -46,6 +46,10 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavi
 
   const currentLang = LANGUAGES.find(l => l.code === language) || LANGUAGES[0];
 
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, []);
+
   usePageSeo({
     title: `${t.blog?.title || 'Blog YZIOW'} | YZIOW`,
     description: t.blog?.subtitle || 'Conseils, méthodes et actualités pour accompagner la gestion des établissements scolaires.',

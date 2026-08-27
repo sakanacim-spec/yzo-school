@@ -423,3 +423,13 @@ test('13. Hiérarchie H1 unique et conforme sur /blog et /blog/:slug', () => {
   // Dans BlogPost: 1 h1 pour l'état notFound et 1 h1 pour l'article (mutuellement exclusifs dans le JSX ternaire)
   assert.equal(h1MatchesPost.length, 2, 'BlogPost.tsx doit définir 1 h1 par branche conditionnelle (not found vs article)');
 });
+
+test('14. Réinitialisation du défilement (window.scrollTo) sur Blog, BlogPost et App', () => {
+  const blogContent = fs.readFileSync(path.resolve('src/pages/public/Blog.tsx'), 'utf-8');
+  const postContent = fs.readFileSync(path.resolve('src/pages/public/BlogPost.tsx'), 'utf-8');
+  const appContent = fs.readFileSync(path.resolve('src/App.tsx'), 'utf-8');
+
+  assert.ok(blogContent.includes('window.scrollTo'), 'Blog.tsx doit réinitialiser le scroll au montage');
+  assert.ok(postContent.includes('window.scrollTo'), 'BlogPost.tsx doit réinitialiser le scroll au montage');
+  assert.ok(appContent.includes('window.scrollTo'), 'App.tsx doit réinitialiser le scroll lors des navigations');
+});
