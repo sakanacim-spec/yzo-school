@@ -14,11 +14,13 @@ export type PublicPage =
   | 'guide'
   | 'register'
   | 'blog'
-  | 'blog-post';
+  | 'blog-post'
+  | 'partners';
 
 export interface ContactExtra {
   subject?: string;
   message?: string;
+  partnerFormula?: string;
 }
 
 export interface NavigationState {
@@ -79,6 +81,9 @@ export function parsePublicLocation(pathname: string): NavigationState {
     };
   }
 
+  if (clean === '/partenaires' || clean === '/partners') {
+    return { publicPage: 'partners', contactExtra: null, blogSlug: null };
+  }
   if (clean === '/about') {
     return { publicPage: 'about', contactExtra: null, blogSlug: null };
   }
