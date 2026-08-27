@@ -289,6 +289,15 @@ export function App() {
             window.history.pushState({}, '', '/');
             applyNavState(handleBackToLanding());
           }}
+          onNavigate={(page) => {
+            if (page === 'landing') {
+              window.history.pushState({}, '', '/');
+              applyNavState(handleBackToLanding());
+            } else {
+              window.history.pushState({}, '', `/${page}`);
+              applyNavState(handlePublicNavigate(page as any));
+            }
+          }}
           onSelectPost={(slug) => {
             window.history.pushState({}, '', `/blog/${slug}`);
             applyNavState(handleBlogNavigate(slug));
@@ -309,6 +318,18 @@ export function App() {
           onHome={() => {
             window.history.pushState({}, '', '/');
             applyNavState(handleBackToLanding());
+          }}
+          onNavigate={(page) => {
+            if (page === 'landing') {
+              window.history.pushState({}, '', '/');
+              applyNavState(handleBackToLanding());
+            } else if (page === 'blog') {
+              window.history.pushState({}, '', '/blog');
+              applyNavState(handleBlogNavigate());
+            } else {
+              window.history.pushState({}, '', `/${page}`);
+              applyNavState(handlePublicNavigate(page as any));
+            }
           }}
         />
       </Suspense>

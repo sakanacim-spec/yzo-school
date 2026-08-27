@@ -226,7 +226,6 @@ test('6. Localisation des dates avec Intl.DateTimeFormat (formatLocalizedDate)',
   assert.ok(dateAr.length > 0);
   assert.match(dateAr, /أغسطس/);
 
-  // Cas invalides ou null -> renvoi sûr sans crash
   assert.equal(formatLocalizedDate(null, 'fr'), '');
   assert.equal(formatLocalizedDate('', 'fr'), '');
   assert.equal(formatLocalizedDate('date-invalide', 'fr'), 'date-invalide');
@@ -259,7 +258,6 @@ test('8. Préservation de la langue et direction de l’article dans BlogPost.ts
   const postFilePath = path.resolve('src/pages/public/BlogPost.tsx');
   const postContent = fs.readFileSync(postFilePath, 'utf-8');
 
-  // L'article utilise sa propre langue et direction
   assert.ok(
     postContent.includes('lang={post.language}'),
     'BlogPost.tsx doit définir lang={post.language} sur la balise article'
@@ -269,7 +267,6 @@ test('8. Préservation de la langue et direction de l’article dans BlogPost.ts
     'BlogPost.tsx doit définir dir selon post.language (ltr pour le français)'
   );
 
-  // Bannière d'indication si langue interface != post.language
   assert.ok(
     postContent.includes('language !== post.language'),
     'BlogPost.tsx doit vérifier si language !== post.language'
@@ -279,7 +276,6 @@ test('8. Préservation de la langue et direction de l’article dans BlogPost.ts
 test('9. Validation SEO et structure JSON-LD Article sans image inventée', () => {
   const post = BLOG_POSTS[0];
 
-  // Construction JSON-LD Article
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -306,7 +302,6 @@ test('9. Validation SEO et structure JSON-LD Article sans image inventée', () =
   assert.equal(jsonLd.inLanguage, 'fr');
   assert.equal(jsonLd.mainEntityOfPage['@id'], `https://www.yziow.com/blog/${post.slug}`);
 
-  // Absence absolue d'image fictive
   assert.equal((jsonLd as any).image, undefined, 'Le champ image JSON-LD doit être absent si pas de coverImage');
   assert.equal(post.coverImage, undefined, 'post.coverImage ne doit pas contenir d image inventée');
 
@@ -319,7 +314,30 @@ test('9. Validation SEO et structure JSON-LD Article sans image inventée', () =
   );
 });
 
-test('10. Contrôle d’absence totale de liens et icônes sociaux dans les composants Blog', () => {
+test('10. Présence du sélecteur 9 langues et structure de mise en page réactive dans Blog & BlogPost', () => {
+  const blogContent = fs.readFileSync(path.resolve('src/pages/public/Blog.tsx'), 'utf-8');
+  const postContent = fs.readFileSync(path.resolve('src/pages/public/BlogPost.tsx'), 'utf-8');
+
+  // Sélecteur de langue présent dans les 2 en-têtes
+  assert.ok(blogContent.includes('setLanguage'), 'Blog.tsx doit inclure setLanguage');
+  assert.ok(postContent.includes('setLanguage'), 'BlogPost.tsx doit inclure setLanguage');
+  assert.ok(blogContent.includes('flagUrl'), 'Blog.tsx doit afficher les drapeaux du sélecteur de langue');
+  assert.ok(postContent.includes('flagUrl'), 'BlogPost.tsx doit afficher les drapeaux du sélecteur de langue');
+
+  // Centrage de la carte quand 1 seul article est publié
+  assert.ok(
+    blogContent.includes('max-w-2xl mx-auto') && blogContent.includes('posts.length === 1'),
+    'Blog.tsx doit centrer la carte avec max-w-2xl mx-auto quand 1 seul article est publié'
+  );
+
+  // Pied de page cohérent présent dans Blog et BlogPost
+  assert.ok(blogContent.includes('<footer'), 'Blog.tsx doit contenir un footer structuré');
+  assert.ok(postContent.includes('<footer'), 'BlogPost.tsx doit contenir un footer structuré');
+  assert.ok(blogContent.includes('t.footer.guide'), 'Blog.tsx doit proposer un retour vers le Guide');
+  assert.ok(postContent.includes('t.footer.guide'), 'BlogPost.tsx doit proposer un retour vers le Guide');
+});
+
+test('11. Contrôle d’absence totale de liens et icônes sociaux dans les composants Blog', () => {
   const blogFilePath = path.resolve('src/pages/public/Blog.tsx');
   const postFilePath = path.resolve('src/pages/public/BlogPost.tsx');
 
@@ -351,7 +369,7 @@ test('10. Contrôle d’absence totale de liens et icônes sociaux dans les comp
   }
 });
 
-test('11. Traductions complètes du blog pour les 9 langues', () => {
+test('12. Traductions complètes du blog pour les 9 langues', () => {
   const requiredBlogKeys = [
     'title',
     'subtitle',

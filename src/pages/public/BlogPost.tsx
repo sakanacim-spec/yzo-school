@@ -2,7 +2,7 @@
 // BLOG POST — Page de lecture complète d'un article de blog
 // ============================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import {
   getPostBySlug,
@@ -21,6 +21,8 @@ import {
   Tag,
   ArrowRight,
   ChevronRight,
+  ChevronDown,
+  CheckCircle,
   Globe
 } from 'lucide-react';
 
@@ -28,12 +30,28 @@ interface BlogPostProps {
   slug: string;
   onBack?: () => void;
   onHome?: () => void;
+  onNavigate?: (page: 'landing' | 'blog' | 'guide' | 'contact' | 'cgu' | 'privacy' | 'legal') => void;
 }
 
-export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome }) => {
-  const language = useStore((s) => s.language);
+const LANGUAGES = [
+  { code: 'fr', name: 'Français', flagUrl: 'https://flagcdn.com/w40/fr.png' },
+  { code: 'en', name: 'English', flagUrl: 'https://flagcdn.com/w40/gb.png' },
+  { code: 'es', name: 'Español', flagUrl: 'https://flagcdn.com/w40/es.png' },
+  { code: 'ar', name: 'العربية', flagUrl: 'https://flagcdn.com/w40/sa.png' },
+  { code: 'it', name: 'Italiano', flagUrl: 'https://flagcdn.com/w40/it.png' },
+  { code: 'de', name: 'Deutsch', flagUrl: 'https://flagcdn.com/w40/de.png' },
+  { code: 'pt', name: 'Português', flagUrl: 'https://flagcdn.com/w40/pt.png' },
+  { code: 'zh', name: '中文', flagUrl: 'https://flagcdn.com/w40/cn.png' },
+  { code: 'ru', name: 'Русский', flagUrl: 'https://flagcdn.com/w40/ru.png' }
+];
+
+export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome, onNavigate }) => {
+  const { language, setLanguage } = useStore();
+  const [langOpen, setLangOpen] = useState(false);
   const t = getPublicTranslations(language);
   const post = getPostBySlug(slug, false);
+
+  const currentLang = LANGUAGES.find(l => l.code === language) || LANGUAGES[0];
 
   const articleJsonLd = post
     ? {
@@ -79,6 +97,18 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome }) => {
     }
   };
 
+  const handleNav = (page: 'landing' | 'blog' | 'guide' | 'contact' | 'cgu' | 'privacy' | 'legal') => {
+    if (onNavigate) {
+      onNavigate(page);
+    } else if (page === 'landing') {
+      handleBackToHome();
+    } else if (page === 'blog') {
+      handleBackToBlog();
+    } else {
+      window.location.href = `/${page}`;
+    }
+  };
+
   return (
     <div
       className={`min-h-screen bg-[#fafcff] font-['Poppins'] text-slate-800 flex flex-col ${
@@ -86,10 +116,10 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome }) => {
       }`}
       dir={language === 'ar' ? 'rtl' : 'ltr'}
     >
-      {/* ──── HEADER / NAVBAR MINIMALE (Respecte la langue de l'interface) ──── */}
+      {/* ──── HEADER / NAVBAR ÉPURÉE AVEC SÉLECTEUR DE LANGUE ──── */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_2px_20px_rgb(0,0,0,0.02)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             <button
               type="button"
               onClick={handleBackToHome}
@@ -103,7 +133,7 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome }) => {
             </button>
 
             {/* Navigation minimale sur desktop */}
-            <nav className="hidden md:flex items-center gap-3 text-xs font-bold text-slate-500 border-l border-slate-200 pl-6">
+            <nav className="hidden md:flex items-center gap-2.5 text-xs font-bold text-slate-500 border-l border-slate-200 pl-6" aria-label="Navigation supérieure">
               <button
                 type="button"
                 onClick={handleBackToHome}
@@ -122,14 +152,56 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome }) => {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Sélecteur de langue 9 langues */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setLangOpen(!langOpen)}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all"
+                aria-label="Choisir la langue"
+              >
+                <img src={currentLang.flagUrl} alt={currentLang.name} className="w-5 h-auto rounded-sm shadow-sm" />
+                <span className="text-xs font-black hidden sm:block">{currentLang.name}</span>
+                <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform ${langOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {langOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)}></div>
+                  <div className={`absolute top-full mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-fade-in ${
+                    language === 'ar' ? 'left-0' : 'right-0'
+                  }`}>
+                    {LANGUAGES.map(lang => (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        onClick={() => {
+                          setLanguage(lang.code as any);
+                          setLangOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                          language === lang.code ? 'bg-orange-50 text-[#f97316] font-black' : 'text-slate-600 hover:bg-slate-50 font-bold text-sm'
+                        }`}
+                      >
+                        <img src={lang.flagUrl} alt={lang.name} className="w-5 h-auto rounded-sm shadow-sm" />
+                        <span>{lang.name}</span>
+                        {language === lang.code && <CheckCircle className={`w-4 h-4 ${language === 'ar' ? 'mr-auto ml-0' : 'ml-auto mr-0'}`} />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={handleBackToBlog}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95"
+              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95"
             >
               <ArrowLeft className={`w-4 h-4 ${language === 'ar' ? 'rotate-180' : ''}`} />
-              <span>{t.blog?.backArticles || t.blog?.backBlog || 'Retour aux articles'}</span>
+              <span className="hidden sm:inline">{t.blog?.backArticles || t.blog?.backBlog || 'Retour aux articles'}</span>
+              <span className="sm:hidden">{t.blog?.breadcrumbBlog || 'Blog'}</span>
             </button>
           </div>
         </div>
@@ -378,11 +450,47 @@ export const BlogPost: React.FC<BlogPostProps> = ({ slug, onBack, onHome }) => {
         )}
       </main>
 
-      {/* ──── FOOTER SIMPLE ──── */}
-      <footer className="bg-slate-900 py-8 border-t border-slate-800 text-center text-xs text-slate-500 font-medium">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 Yziow. Tous droits réservés.</p>
-          <p>Fait avec passion au Bénin 🇧🇯</p>
+      {/* ──── PIED DE PAGE STRUCTURÉ AVEC RETOUR COHÉRENT ──── */}
+      <footer className="bg-slate-900 text-white py-12 border-t border-slate-800 text-xs font-medium mt-auto">
+        <div className="max-w-7xl mx-auto px-6 space-y-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pb-8 border-b border-slate-800">
+            <button
+              type="button"
+              onClick={handleBackToHome}
+              className="flex items-center gap-3 text-left focus:outline-none"
+            >
+              <div className="w-9 h-9 bg-gradient-to-br from-[#f97316] to-[#ea580c] rounded-xl flex items-center justify-center">
+                <GraduationCap className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-black text-white tracking-tight">yziow</span>
+            </button>
+
+            <nav className="flex flex-wrap items-center justify-center gap-6 text-slate-400 font-bold">
+              <button onClick={() => handleNav('landing')} className="hover:text-orange-400 transition-colors">
+                {t.blog?.breadcrumbHome || 'Accueil'}
+              </button>
+              <button onClick={() => handleNav('blog')} className="hover:text-orange-400 transition-colors">
+                {t.blog?.breadcrumbBlog || 'Blog'}
+              </button>
+              <button onClick={() => handleNav('guide')} className="hover:text-orange-400 transition-colors">
+                {t.footer.guide || 'Guide'}
+              </button>
+              <button onClick={() => handleNav('contact')} className="hover:text-orange-400 transition-colors">
+                {t.footer.contact || 'Contact'}
+              </button>
+              <button onClick={() => handleNav('cgu')} className="hover:text-orange-400 transition-colors">
+                {t.footer.cgu || 'CGU'}
+              </button>
+              <button onClick={() => handleNav('privacy')} className="hover:text-orange-400 transition-colors">
+                {t.footer.privacy || 'Confidentialité'}
+              </button>
+            </nav>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500">
+            <p>{t.footer.rights || '© 2026 Yziow. Tous droits réservés.'}</p>
+            <p>{t.footer.madeIn || 'Fait avec passion au Bénin 🇧🇯'}</p>
+          </div>
         </div>
       </footer>
     </div>

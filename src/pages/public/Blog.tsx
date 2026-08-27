@@ -2,7 +2,7 @@
 // BLOG — Page publique de la liste des articles
 // ============================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { getPublishedPosts, formatLocalizedDate } from '../../utils/blogCatalog';
 import { usePageSeo } from '../../hooks/usePageSeo';
@@ -14,19 +14,37 @@ import {
   Clock,
   User,
   ArrowRight,
-  BookOpen
+  BookOpen,
+  ChevronDown,
+  CheckCircle
 } from 'lucide-react';
 
 interface BlogProps {
   onBack?: () => void;
   onSelectPost?: (slug: string) => void;
   onHome?: () => void;
+  onNavigate?: (page: 'landing' | 'guide' | 'contact' | 'cgu' | 'privacy' | 'legal') => void;
 }
 
-export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
-  const language = useStore((s) => s.language);
+const LANGUAGES = [
+  { code: 'fr', name: 'Français', flagUrl: 'https://flagcdn.com/w40/fr.png' },
+  { code: 'en', name: 'English', flagUrl: 'https://flagcdn.com/w40/gb.png' },
+  { code: 'es', name: 'Español', flagUrl: 'https://flagcdn.com/w40/es.png' },
+  { code: 'ar', name: 'العربية', flagUrl: 'https://flagcdn.com/w40/sa.png' },
+  { code: 'it', name: 'Italiano', flagUrl: 'https://flagcdn.com/w40/it.png' },
+  { code: 'de', name: 'Deutsch', flagUrl: 'https://flagcdn.com/w40/de.png' },
+  { code: 'pt', name: 'Português', flagUrl: 'https://flagcdn.com/w40/pt.png' },
+  { code: 'zh', name: '中文', flagUrl: 'https://flagcdn.com/w40/cn.png' },
+  { code: 'ru', name: 'Русский', flagUrl: 'https://flagcdn.com/w40/ru.png' }
+];
+
+export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome, onNavigate }) => {
+  const { language, setLanguage } = useStore();
+  const [langOpen, setLangOpen] = useState(false);
   const t = getPublicTranslations(language);
   const posts = getPublishedPosts();
+
+  const currentLang = LANGUAGES.find(l => l.code === language) || LANGUAGES[0];
 
   usePageSeo({
     title: t.blog?.title || 'Blog YZIOW - Gestion scolaire et éducation',
@@ -45,19 +63,21 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
     }
   };
 
-  const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      window.location.href = '/';
-    }
-  };
-
   const handlePostClick = (slug: string) => {
     if (onSelectPost) {
       onSelectPost(slug);
     } else {
       window.location.href = `/blog/${slug}`;
+    }
+  };
+
+  const handleNav = (page: 'landing' | 'guide' | 'contact' | 'cgu' | 'privacy' | 'legal') => {
+    if (onNavigate) {
+      onNavigate(page);
+    } else if (page === 'landing') {
+      handleHome();
+    } else {
+      window.location.href = `/${page}`;
     }
   };
 
@@ -68,10 +88,10 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
       }`}
       dir={language === 'ar' ? 'rtl' : 'ltr'}
     >
-      {/* ──── HEADER / NAVBAR MINIMALE ──── */}
+      {/* ──── HEADER / NAVBAR ÉPURÉE AVEC SÉLECTEUR DE LANGUE ──── */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_2px_20px_rgb(0,0,0,0.02)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             <button
               type="button"
               onClick={handleHome}
@@ -84,8 +104,8 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
               <span className="text-2xl font-black text-[#0f172a] tracking-tight">yziow</span>
             </button>
 
-            {/* Navigation minimale */}
-            <nav className="hidden sm:flex items-center gap-4 text-xs font-bold text-slate-500 border-l border-slate-200 pl-6">
+            {/* Navigation minimale et compacte */}
+            <nav className="flex items-center gap-2 sm:gap-3 text-xs font-bold text-slate-500 border-l border-slate-200 pl-4 sm:pl-6" aria-label="Navigation Blog">
               <button
                 type="button"
                 onClick={handleHome}
@@ -94,20 +114,52 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
                 {t.blog?.breadcrumbHome || 'Accueil'}
               </button>
               <span className="text-slate-300">/</span>
-              <span className="text-orange-600 font-black">
+              <span className="text-orange-600 font-black truncate max-w-[140px] sm:max-w-none">
                 {t.blog?.allArticles || 'Tous les articles'}
               </span>
             </nav>
           </div>
 
-          <button
-            type="button"
-            onClick={handleBack}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95"
-          >
-            <ArrowLeft className={`w-4 h-4 ${language === 'ar' ? 'rotate-180' : ''}`} />
-            <span>{t.blog?.backHome || "Retour à l'accueil"}</span>
-          </button>
+          {/* Sélecteur de langue 9 langues (même composant premium) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setLangOpen(!langOpen)}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all"
+              aria-label="Choisir la langue"
+            >
+              <img src={currentLang.flagUrl} alt={currentLang.name} className="w-5 h-auto rounded-sm shadow-sm" />
+              <span className="text-xs font-black hidden sm:block">{currentLang.name}</span>
+              <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform ${langOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {langOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)}></div>
+                <div className={`absolute top-full mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-fade-in ${
+                  language === 'ar' ? 'left-0' : 'right-0'
+                }`}>
+                  {LANGUAGES.map(lang => (
+                    <button
+                      key={lang.code}
+                      type="button"
+                      onClick={() => {
+                        setLanguage(lang.code as any);
+                        setLangOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                        language === lang.code ? 'bg-orange-50 text-[#f97316] font-black' : 'text-slate-600 hover:bg-slate-50 font-bold text-sm'
+                      }`}
+                    >
+                      <img src={lang.flagUrl} alt={lang.name} className="w-5 h-auto rounded-sm shadow-sm" />
+                      <span>{lang.name}</span>
+                      {language === lang.code && <CheckCircle className={`w-4 h-4 ${language === 'ar' ? 'mr-auto ml-0' : 'ml-auto mr-0'}`} />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -130,7 +182,7 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
         </div>
       </section>
 
-      {/* ──── LISTING ARTICLES / EMPTY STATE ──── */}
+      {/* ──── LISTING ARTICLES (Centré si 1 seul article, responsive si plusieurs) ──── */}
       <main className="max-w-6xl mx-auto px-6 py-12 flex-1 w-full">
         {posts.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-xl mx-auto space-y-6 shadow-sm">
@@ -148,7 +200,7 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
             </div>
             <button
               type="button"
-              onClick={handleBack}
+              onClick={handleHome}
               className="inline-flex items-center gap-2 px-6 py-3 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-black tracking-wide shadow-lg shadow-orange-500/20 active:scale-95 transition-all"
             >
               <ArrowLeft className={`w-4 h-4 ${language === 'ar' ? 'rotate-180' : ''}`} />
@@ -156,16 +208,24 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div
+            className={
+              posts.length === 1
+                ? 'max-w-2xl mx-auto'
+                : posts.length === 2
+                ? 'grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto gap-8'
+                : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'
+            }
+          >
             {posts.map((post) => (
               <article
                 key={post.slug}
                 onClick={() => handlePostClick(post.slug)}
-                className="bg-white rounded-3xl border border-slate-200/80 hover:border-orange-300 p-6 flex flex-col justify-between hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
+                className="bg-white rounded-3xl border border-slate-200/80 hover:border-orange-300 p-6 sm:p-8 flex flex-col justify-between hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
               >
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="px-3 py-1 bg-orange-50 text-orange-600 rounded-lg text-xs font-black tracking-wide">
+                    <span className="px-3.5 py-1 bg-orange-50 text-orange-600 rounded-lg text-xs font-black tracking-wide">
                       {post.category}
                     </span>
                     <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
@@ -176,7 +236,7 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
                     </span>
                   </div>
 
-                  <h2 className="text-xl font-black text-slate-900 group-hover:text-orange-600 transition-colors leading-snug">
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 group-hover:text-orange-600 transition-colors leading-snug">
                     {post.title}
                   </h2>
 
@@ -209,11 +269,44 @@ export const Blog: React.FC<BlogProps> = ({ onBack, onSelectPost, onHome }) => {
         )}
       </main>
 
-      {/* ──── FOOTER SIMPLE ──── */}
-      <footer className="bg-slate-900 py-8 border-t border-slate-800 text-center text-xs text-slate-500 font-medium">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 Yziow. Tous droits réservés.</p>
-          <p>Fait avec passion au Bénin 🇧🇯</p>
+      {/* ──── PIED DE PAGE STRUCTURÉ AVEC RETOUR COHÉRENT ──── */}
+      <footer className="bg-slate-900 text-white py-12 border-t border-slate-800 text-xs font-medium mt-auto">
+        <div className="max-w-7xl mx-auto px-6 space-y-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pb-8 border-b border-slate-800">
+            <button
+              type="button"
+              onClick={handleHome}
+              className="flex items-center gap-3 text-left focus:outline-none"
+            >
+              <div className="w-9 h-9 bg-gradient-to-br from-[#f97316] to-[#ea580c] rounded-xl flex items-center justify-center">
+                <GraduationCap className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-black text-white tracking-tight">yziow</span>
+            </button>
+
+            <nav className="flex flex-wrap items-center justify-center gap-6 text-slate-400 font-bold">
+              <button onClick={() => handleNav('landing')} className="hover:text-orange-400 transition-colors">
+                {t.blog?.breadcrumbHome || 'Accueil'}
+              </button>
+              <button onClick={() => handleNav('guide')} className="hover:text-orange-400 transition-colors">
+                {t.footer.guide || 'Guide'}
+              </button>
+              <button onClick={() => handleNav('contact')} className="hover:text-orange-400 transition-colors">
+                {t.footer.contact || 'Contact'}
+              </button>
+              <button onClick={() => handleNav('cgu')} className="hover:text-orange-400 transition-colors">
+                {t.footer.cgu || 'CGU'}
+              </button>
+              <button onClick={() => handleNav('privacy')} className="hover:text-orange-400 transition-colors">
+                {t.footer.privacy || 'Confidentialité'}
+              </button>
+            </nav>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500">
+            <p>{t.footer.rights || '© 2026 Yziow. Tous droits réservés.'}</p>
+            <p>{t.footer.madeIn || 'Fait avec passion au Bénin 🇧🇯'}</p>
+          </div>
         </div>
       </footer>
     </div>
