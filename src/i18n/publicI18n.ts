@@ -549,7 +549,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "Aucun partenaire n'a d'accès direct aux bases de données des établissements, enseignants, parents ou élèves. YZIOW ne commercialise aucune donnée personnelle.",
         "p3": "YZIOW n’accorde aucun prêt. Le cas échéant, les services financiers présentés sur la plateforme seront exclusivement proposés et gérés par des institutions agréées, sous leur propre responsabilité."
-    }
+    },
+    "placeholderTitle": "Construisons ensemble des services utiles à l’éducation",
+    "placeholderDesc": "Choisissez une formule de collaboration ci-dessus ou proposez un don ou mécénat pour ouvrir votre dossier de candidature.",
+    "placeholderAlt": "Illustration des partenariats et du mécénat éducatif YZIOW",
+    "modifyChoiceBtn": "Modifier mes choix"
 },
     contact: {
       partnershipSubject: "Demande de partenariat",
@@ -865,7 +869,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "No partner has direct access to school, teacher, parent, or student databases. YZIOW does not sell any personal data.",
         "p3": "YZIOW does not grant any loans. Where applicable, financial services presented on the platform will be exclusively offered and managed by licensed institutions under their own responsibility."
-    }
+    },
+    "placeholderTitle": "Together, let's build useful services for education",
+    "placeholderDesc": "Select a collaboration package above or submit a donation / sponsorship proposal to open your application.",
+    "placeholderAlt": "Illustration of YZIOW educational partnerships and philanthropy",
+    "modifyChoiceBtn": "Modify my choices"
 },
     contact: {
       partnershipSubject: "Partnership Request",
@@ -1181,7 +1189,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "Ningún socio tiene acceso directo a las bases de datos de centros, docentes, padres o alumnos. YZIOW no comercializa datos personales.",
         "p3": "YZIOW no concede ningún préstamo. En su caso, los servicios financieros presentados en la plateforme serán ofrecidos y gestionados exclusivamente por instituciones autorizadas, bajo su propia responsabilité."
-    }
+    },
+    "placeholderTitle": "Construyamos juntos servicios útiles para la educación",
+    "placeholderDesc": "Seleccione un paquete de colaboración arriba o proponga una donación o mecenazgo para abrir su solicitud.",
+    "placeholderAlt": "Ilustración de alianzas educativas y mecenazgo YZIOW",
+    "modifyChoiceBtn": "Modificar mis elecciones"
 },
     contact: {
       partnershipSubject: "Solicitud de asociación",
@@ -1497,7 +1509,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "لا يملك أي شريك وصولاً مباشراً إلى قواعد بيانات المدارس أو المعلمين أو أولياء الأمور أو الطلاب. ولا تبيع YZIOW أي بيانات شخصية.",
         "p3": "لا تقدم YZIOW أي قروض. وعند الاقتضاء، تُعرض وتُدار الخدمات المالية على المنصة حصرياً من قِبل مؤسسات معتمدة وتحت مسؤوليتها الخاصة."
-    }
+    },
+    "placeholderTitle": "معاً نبني خدمات مفيدة ومسؤولة للتعليم",
+    "placeholderDesc": "اختر باقة تعاون من الأعلى أو قدم مقترح تبرع أو رعاية لفتح ملف الترشح.",
+    "placeholderAlt": "رسم توضيحي للشراكات والرعاية التعليمية YZIOW",
+    "modifyChoiceBtn": "تعديل اختياراتي"
 },
     contact: {
       partnershipSubject: "طلب شراكة",
@@ -1813,7 +1829,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "Nessun partner ha accesso diretto ai database di scuole, docenti, genitori o studenti. YZIOW non vende dati personali.",
         "p3": "YZIOW non concede alcun prestito. Se del caso, i servizi finanziari presentati sulla piattaforma saranno esclusivamente offerti e gestiti da istituti autorizzati, sotto la propria responsabilità."
-    }
+    },
+    "placeholderTitle": "Costruiamo insieme servizi utili per l'istruzione",
+    "placeholderDesc": "Seleziona una formula di collaborazione sopra o proponi una donazione o mecenatismo per aprire la tua candidatura.",
+    "placeholderAlt": "Illustrazione delle partnership educative e mecenatismo YZIOW",
+    "modifyChoiceBtn": "Modifica le mie scelte"
 },
     contact: {
       partnershipSubject: "Richiesta di partnership",
@@ -2129,7 +2149,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "Kein Partner hat direkten Zugriff auf Datenbanken von Schulen, Lehrern, Eltern oder Schülern. YZIOW verkauft keine personenbezogenen Daten.",
         "p3": "YZIOW vergibt keine Kredite. Gegebenenfalls werden auf der Plattform vorgestellte Finanzdienstleistungen ausschließlich von zugelassenen Instituten unter deren eigener Verantwortung angeboten und verwaltet."
-    }
+    },
+    "placeholderTitle": "Gemeinsam bauen wir nützliche Bildungsdienste auf",
+    "placeholderDesc": "Wählen Sie oben ein Partnerschaftsmodell oder schlagen Sie eine Spende / ein Mäzenatentum vor, um Ihre Bewerbung zu öffnen.",
+    "placeholderAlt": "Illustration von YZIOW-Bildungspartnerschaften und Mäzenatentum",
+    "modifyChoiceBtn": "Auswahl bearbeiten"
 },
     contact: {
       partnershipSubject: "Partnerschaftsanfrage",
@@ -2445,7 +2469,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "Nenhum parceiro tem acesso direto às bases de dados de escolas, professores, pais ou alunos. A YZIOW não comercializa dados pessoais.",
         "p3": "A YZIOW não concede empréstimos. Se aplicável, os services financeiros apresentados na plataforma serão exclusivamente oferecidos e geridos por instituições autorizadas, sob sua própria responsabilidade."
-    }
+    },
+    "placeholderTitle": "Vamos construir juntos serviços úteis para a educação",
+    "placeholderDesc": "Selecione uma modalidade de colaboração acima ou proponha uma doação ou mecenato para abrir sua candidatura.",
+    "placeholderAlt": "Ilustração das parcerias educacionais e mecenato YZIOW",
+    "modifyChoiceBtn": "Alterar minhas escolhas"
 },
     contact: {
       partnershipSubject: "Pedido de parceria",
@@ -2761,7 +2789,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "任何合作伙伴均无权直接访问学校、教师、家长或学生数据库。YZIOW 绝不出售任何个人数据。",
         "p3": "YZIOW 不提供任何直接贷款。如涉及金融服务，本平台上展示的相关服务将由受监管的持牌机构全权独立提供并承担责任。"
-    }
+    },
+    "placeholderTitle": "携手共建实用、负责任的教育服务",
+    "placeholderDesc": "请在上方选择一项合作方案，或提交公益赞助与捐赠意向，即可开启合作申请。",
+    "placeholderAlt": "YZIOW 教育合作与公益赞助示意图",
+    "modifyChoiceBtn": "修改我的选择"
 },
     contact: {
       partnershipSubject: "合作咨询",
@@ -3077,7 +3109,11 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "Партнёры не имеют прямого доступа к базам данных школ, учителей, родителей или учеников. YZIOW не продаёт персональные данные.",
         "p3": "YZIOW не предоставляет кредиты. При наличии, финансовые услуги, представленные на платформе, будут предлагаться и управляться исключительно лицензированными организациями под их собственную ответственность."
-    }
+    },
+    "placeholderTitle": "Вместе создаём полезные сервисы для образования",
+    "placeholderDesc": "Выберите формат сотрудничества выше или предложите пожертвование / меценатство, чтобы открыть форму заявки.",
+    "placeholderAlt": "Иллюстрация образовательного партнёрства и меценатства YZIOW",
+    "modifyChoiceBtn": "Изменить выбор"
 },
     contact: {
       partnershipSubject: "Запрос на партнерство",

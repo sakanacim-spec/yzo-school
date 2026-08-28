@@ -760,3 +760,56 @@ test('30. Production buildPartnerStructuredMessage avec tous les nouveaux champs
   assert.ok(msg.includes('Agrément / Régulation : Agrément Ministère Enseignement N° 402/2026'));
   assert.ok(msg.includes('Formule souhaitée : Partenaire stratégique (Sur devis)'));
 });
+
+test('31. Révélation progressive : formulaire absent au chargement initial et bloc visuel élégant présent', () => {
+  const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
+
+  // Vérifie l'état initial masqué du formulaire
+  assert.ok(partnersContent.includes("const [isFormVisible, setIsFormVisible] = useState(false);") , "isFormVisible doit être initialisé à false par défaut");
+  assert.ok(partnersContent.includes('id="partner-placeholder-block"'), "Le bloc visuel temporaire doit être présent");
+  assert.ok(partnersContent.includes('id="partner-form-section"'), "La section de formulaire doit être identifiée");
+});
+
+test('32. Dictionnaire i18n : clés de révélation progressive et titre du bloc visuel présents dans les 9 langues', () => {
+  const supportedLangs = LANGUAGES.map((l) => l.code);
+  for (const lang of supportedLangs) {
+    const dict = PUBLIC_I18N[lang]?.partners;
+    assert.ok(dict, `partners manquant pour [${lang}]`);
+    assert.ok(dict.placeholderTitle && dict.placeholderTitle.length > 5, `placeholderTitle manquant pour [${lang}]`);
+    assert.ok(dict.placeholderDesc && dict.placeholderDesc.length > 10, `placeholderDesc manquant pour [${lang}]`);
+    assert.ok(dict.placeholderAlt && dict.placeholderAlt.length > 5, `placeholderAlt manquant pour [${lang}]`);
+    assert.ok(dict.modifyChoiceBtn && dict.modifyChoiceBtn.length > 2, `modifyChoiceBtn manquant pour [${lang}]`);
+  }
+});
+
+test('33. Révélation progressive : sélection de formule active le formulaire commercial', () => {
+  const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
+
+  // handleSelectFormula doit activer le formulaire
+  assert.ok(partnersContent.includes('setIsFormVisible(true)'), "handleSelectFormula doit rendre le formulaire visible");
+  assert.ok(partnersContent.includes('setSelectedFormula(formulaKey)'), "La formule sélectionnée doit être enregistrée");
+});
+
+test('34. Révélation progressive : Dons & Mécénat active le formulaire sans formule commerciale', () => {
+  const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
+
+  assert.ok(partnersContent.includes("setApplicationIntent('donation_sponsorship')"), "L'intention doit être donation_sponsorship");
+  assert.ok(partnersContent.includes("setSelectedFormula('')"), "Aucune formule commerciale ne doit être sélectionnée");
+});
+
+test('35. Bouton Modifier mes choix : masque le formulaire et réaffiche les choix', () => {
+  const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
+
+  assert.ok(partnersContent.includes('id="partner-modify-choices-btn"'), "Bouton Modifier mes choix présent dans le formulaire");
+  assert.ok(partnersContent.includes('handleModifyChoices'), "Handler handleModifyChoices présent");
+  assert.ok(partnersContent.includes('setIsFormVisible(false)'), "handleModifyChoices doit masquer le formulaire");
+});
+
+test('36. Intégrité et absence de vidéos distantes, iframes ou autoplay audio', () => {
+  const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
+
+  assert.ok(!partnersContent.includes('<iframe'), "Aucune iframe ne doit être présente");
+  assert.ok(!partnersContent.includes('<video'), "Aucune balise vidéo distante ne doit être présente");
+  assert.ok(!partnersContent.includes('autoplay'), "Aucun autoplay sonore ne doit être présent");
+  assert.ok(!partnersContent.includes('youtube.com') && !partnersContent.includes('vimeo.com'), "Aucun lien vidéo externe ne doit être présent");
+});

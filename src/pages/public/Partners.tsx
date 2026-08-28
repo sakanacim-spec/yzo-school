@@ -64,7 +64,7 @@ export const Partners: React.FC<PartnersProps> = ({
   const currentLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
   const [langOpen, setLangOpen] = useState(false);
 
-  // Form State
+  const [isFormVisible, setIsFormVisible] = useState(false);
   const [applicationIntent, setApplicationIntent] = useState<PartnerApplicationIntent>('commercial_partnership');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('');
@@ -89,6 +89,7 @@ export const Partners: React.FC<PartnersProps> = ({
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'rate_limit'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
+  const categoriesSectionRef = useRef<HTMLElement>(null);
   const formulasSectionRef = useRef<HTMLElement>(null);
   const formSectionRef = useRef<HTMLDivElement>(null);
   const donationsSectionRef = useRef<HTMLElement>(null);
@@ -147,9 +148,14 @@ export const Partners: React.FC<PartnersProps> = ({
     if (applicationIntent === 'donation_sponsorship') {
       setApplicationIntent('commercial_partnership');
     }
-    if (formSectionRef.current) {
-      formSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    setIsFormVisible(true);
+    setTimeout(() => {
+      if (formSectionRef.current) {
+        formSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const target = document.getElementById('partner-fullname') || document.getElementById('form-heading');
+        target?.focus();
+      }
+    }, 50);
   };
 
   const handleInitiateDonation = () => {
@@ -158,8 +164,20 @@ export const Partners: React.FC<PartnersProps> = ({
     if (!sector) {
       setSector('ngo_institutions');
     }
-    if (formSectionRef.current) {
-      formSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setIsFormVisible(true);
+    setTimeout(() => {
+      if (formSectionRef.current) {
+        formSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const target = document.getElementById('partner-fullname') || document.getElementById('form-heading');
+        target?.focus();
+      }
+    }, 50);
+  };
+
+  const handleModifyChoices = () => {
+    setIsFormVisible(false);
+    if (formulasSectionRef.current) {
+      formulasSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -393,6 +411,7 @@ export const Partners: React.FC<PartnersProps> = ({
             {/* Sélecteur 9 langues */}
             <div className="relative">
               <button
+                data-testid="language-toggle"
                 type="button"
                 onClick={() => setLangOpen(!langOpen)}
                 className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer"
@@ -419,6 +438,7 @@ export const Partners: React.FC<PartnersProps> = ({
                     {LANGUAGES.map((lang) => (
                       <button
                         key={lang.code}
+                        data-testid={`language-option-${lang.code}`}
                         type="button"
                         onClick={() => {
                           setLanguage(lang.code as Language);
@@ -488,7 +508,7 @@ export const Partners: React.FC<PartnersProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {/* Cat 1 : Banques & Finances */}
-            <button
+            <button data-testid="partner-category-cat1"
               type="button"
               onClick={() => handleSelectCategory('cat1')}
               aria-pressed={isCat1Selected}
@@ -525,7 +545,7 @@ export const Partners: React.FC<PartnersProps> = ({
             </button>
 
             {/* Cat 2 : Télécoms */}
-            <button
+            <button data-testid="partner-category-cat2"
               type="button"
               onClick={() => handleSelectCategory('cat2')}
               aria-pressed={isCat2Selected}
@@ -562,7 +582,7 @@ export const Partners: React.FC<PartnersProps> = ({
             </button>
 
             {/* Cat 3 : Fournitures & Édition */}
-            <button
+            <button data-testid="partner-category-cat3"
               type="button"
               onClick={() => handleSelectCategory('cat3')}
               aria-pressed={isCat3Selected}
@@ -599,7 +619,7 @@ export const Partners: React.FC<PartnersProps> = ({
             </button>
 
             {/* Cat 4 : Mobilité & Services scolaires */}
-            <button
+            <button data-testid="partner-category-cat4"
               type="button"
               onClick={() => handleSelectCategory('cat4')}
               aria-pressed={isCat4Selected}
@@ -615,7 +635,7 @@ export const Partners: React.FC<PartnersProps> = ({
                     <ShieldCheck className="w-6 h-6" />
                   </div>
                   {isCat4Selected && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
+                    <span data-testid="partner-category-selected-cat4" className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
                       <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
                       {tp.formulas.selectedBadge || 'Sélectionné'}
                     </span>
@@ -636,7 +656,7 @@ export const Partners: React.FC<PartnersProps> = ({
             </button>
 
             {/* Cat 5 : ONG, Fondations & Institutions internationales */}
-            <button
+            <button data-testid="partner-category-cat5"
               type="button"
               onClick={() => handleSelectCategory('cat5')}
               aria-pressed={isCat5Selected}
@@ -697,7 +717,7 @@ export const Partners: React.FC<PartnersProps> = ({
               {selectedFormula === 'presence' && (
                 <div className="absolute -top-3 right-6 px-3 py-1 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md flex items-center gap-1">
                   <CheckCircle className="w-3.5 h-3.5" />
-                  <span>{tp.formulas.selectedBadge || '✓ Sélectionnée'}</span>
+                  <span data-testid="partner-formula-selected-presence">{tp.formulas.selectedBadge || '✓ Sélectionnée'}</span>
                 </div>
               )}
 
@@ -726,7 +746,7 @@ export const Partners: React.FC<PartnersProps> = ({
               </div>
 
               <div className="pt-8">
-                <button
+                <button data-testid="partner-formula-presence"
                   type="button"
                   onClick={() => handleSelectFormula('presence')}
                   className={`w-full py-3 px-4 rounded-xl text-xs font-black transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer ${
@@ -751,7 +771,7 @@ export const Partners: React.FC<PartnersProps> = ({
               }`}
             >
               {/* Badge Recommandé permanent */}
-              <div className="absolute -top-3 left-6 px-3.5 py-1 bg-gradient-to-r from-[#f97316] to-[#ea580c] text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md flex items-center gap-1">
+              <div data-testid="partner-formula-recommended-visibility" className="absolute -top-3 left-6 px-3.5 py-1 bg-gradient-to-r from-[#f97316] to-[#ea580c] text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md flex items-center gap-1">
                 <span>{tp.formulas.recommendedBadge || '★ Recommandée'}</span>
               </div>
 
@@ -759,7 +779,7 @@ export const Partners: React.FC<PartnersProps> = ({
               {selectedFormula === 'visibility' && (
                 <div className="absolute -top-3 right-6 px-3 py-1 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md flex items-center gap-1">
                   <CheckCircle className="w-3.5 h-3.5" />
-                  <span>{tp.formulas.selectedBadge || '✓ Sélectionnée'}</span>
+                  <span data-testid="partner-formula-selected-visibility">{tp.formulas.selectedBadge || '✓ Sélectionnée'}</span>
                 </div>
               )}
 
@@ -788,7 +808,7 @@ export const Partners: React.FC<PartnersProps> = ({
               </div>
 
               <div className="pt-8">
-                <button
+                <button data-testid="partner-formula-visibility"
                   type="button"
                   onClick={() => handleSelectFormula('visibility')}
                   className={`w-full py-3 px-4 rounded-xl text-xs font-black transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer ${
@@ -815,7 +835,7 @@ export const Partners: React.FC<PartnersProps> = ({
               {selectedFormula === 'strategic' && (
                 <div className="absolute -top-3 right-6 px-3 py-1 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md flex items-center gap-1">
                   <CheckCircle className="w-3.5 h-3.5" />
-                  <span>{tp.formulas.selectedBadge || '✓ Sélectionnée'}</span>
+                  <span data-testid="partner-formula-selected-strategic">{tp.formulas.selectedBadge || '✓ Sélectionnée'}</span>
                 </div>
               )}
 
@@ -845,6 +865,7 @@ export const Partners: React.FC<PartnersProps> = ({
 
               <div className="pt-8">
                 <button
+                  data-testid="partner-formula-strategic"
                   type="button"
                   onClick={() => handleSelectFormula('strategic')}
                   className={`w-full py-3 px-4 rounded-xl text-xs font-black transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer ${
@@ -893,6 +914,7 @@ export const Partners: React.FC<PartnersProps> = ({
 
             <div className="pt-2">
               <button
+                data-testid="partner-initiate-donation-btn"
                 type="button"
                 onClick={handleInitiateDonation}
                 className="px-6 py-3.5 bg-gradient-to-r from-[#f97316] to-[#ea580c] hover:from-[#ea580c] hover:to-[#c2410c] text-white rounded-xl text-xs sm:text-sm font-black tracking-wide shadow-lg shadow-orange-500/25 active:scale-95 transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer inline-flex items-center gap-2"
@@ -904,29 +926,103 @@ export const Partners: React.FC<PartnersProps> = ({
           </div>
         </section>
 
-        {/* ──── SECTION 3 : FORMULAIRE DE CANDIDATURE / MÉCÉNAT ──── */}
-        <section
-          ref={formSectionRef}
-          aria-labelledby="form-heading"
-          className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xl shadow-slate-200/40"
-        >
-          <div className="max-w-3xl mx-auto space-y-8">
-            <div className="text-center space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-50 text-orange-600 rounded-lg text-xs font-black uppercase">
-                <FileCheck className="w-4 h-4" />
-                <span>
-                  {applicationIntent === 'donation_sponsorship'
-                    ? tp.donations.title
-                    : 'Candidature officielle'}
-                </span>
+        {/* ──── SECTION 3 : BLOC VISUEL OU FORMULAIRE DE CANDIDATURE (PROGRESSIVE REVEAL) ──── */}
+        {!isFormVisible ? (
+          <section
+            id="partner-placeholder-block" data-testid="partner-placeholder-block"
+            aria-labelledby="placeholder-heading"
+            className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 sm:p-14 border border-slate-200/80 shadow-lg text-center space-y-8 relative overflow-hidden"
+          >
+            {/* Arrière-plan décoratif discret */}
+            <div className="absolute inset-0 bg-gradient-to-b from-orange-50/40 via-transparent to-slate-50/30 pointer-events-none" />
+
+            <div className="relative z-10 max-w-2xl mx-auto space-y-5">
+              {/* Illustration visuelle locale neutre */}
+              <div
+                role="img"
+                aria-label={tp.placeholderAlt || "Illustration des partenariats éducatifs YZIOW"}
+                className="w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-3xl bg-gradient-to-tr from-orange-500 to-amber-400 p-0.5 shadow-xl shadow-orange-500/20"
+              >
+                <div className="w-full h-full bg-white rounded-[22px] flex items-center justify-center text-orange-600">
+                  <GraduationCap className="w-10 h-10 sm:w-12 sm:h-12" />
+                </div>
               </div>
-              <h2 id="form-heading" className="text-2xl sm:text-3xl font-black text-slate-900">
-                {tp.form.title}
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                {tp.form.subtitle}
-              </p>
+
+              <div className="space-y-3">
+                <h2 id="placeholder-heading" className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  {tp.placeholderTitle || "Construisons ensemble des services utiles à l’éducation"}
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                  {tp.placeholderDesc || "Choisissez une formule de collaboration ci-dessus ou proposez un don ou mécénat pour ouvrir votre dossier de candidature."}
+                </p>
+              </div>
+
+              {/* Badges d'engagements éthiques */}
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Cadre contractuel transparent</span>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
+                  <Lock className="w-3.5 h-3.5 text-orange-600" />
+                  <span>Protection stricte des données</span>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Sur devis personnalisé</span>
+                </div>
+              </div>
             </div>
+          </section>
+        ) : (
+          <section
+            id="partner-form-section" data-testid="partner-form-section"
+            ref={formSectionRef}
+            aria-labelledby="form-heading"
+            className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xl shadow-slate-200/40"
+          >
+            <div className="max-w-3xl mx-auto space-y-8">
+              {/* Barre de retour et modification de choix */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <button
+                  type="button"
+                  id="partner-modify-choices-btn"
+                  data-testid="partner-modify-choices-btn"
+                  onClick={handleModifyChoices}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/30 cursor-pointer"
+                  aria-label={tp.modifyChoiceBtn || "Modifier mes choix"}
+                >
+                  <ArrowLeft className={`w-4 h-4 ${isArabic ? 'rotate-180' : ''}`} />
+                  <span>{tp.modifyChoiceBtn || "Modifier mes choix"}</span>
+                </button>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-50/80 border border-orange-200/60 text-[11px] font-black text-orange-800">
+                  <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+                  <span>
+                    {applicationIntent === 'donation_sponsorship'
+                      ? (tp.donations.badge || 'Dons & Mécénat')
+                      : selectedFormula
+                      ? `${tp.form.formula} : ${selectedFormula === 'presence' ? tp.formulas.presence.name : selectedFormula === 'visibility' ? tp.formulas.visibility.name : tp.formulas.strategic.name} (${selectedFormula === 'presence' ? tp.formulas.presence.priceTag : selectedFormula === 'visibility' ? tp.formulas.visibility.priceTag : tp.formulas.strategic.priceTag})`
+                      : 'Formule à définir'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-50 text-orange-600 rounded-lg text-xs font-black uppercase">
+                  <FileCheck className="w-4 h-4" />
+                  <span>
+                    {applicationIntent === 'donation_sponsorship'
+                      ? tp.donations.title
+                      : 'Candidature officielle'}
+                  </span>
+                </div>
+                <h2 id="form-heading" className="text-2xl sm:text-3xl font-black text-slate-900">
+                  {tp.form.title}
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium">
+                  {tp.form.subtitle}
+                </p>
+              </div>
 
             {/* Messages de retour accessibles (aria-live) */}
             <div id="form-status-feedback" aria-live="polite">
@@ -1390,6 +1486,7 @@ export const Partners: React.FC<PartnersProps> = ({
             </form>
           </div>
         </section>
+        )}
 
         {/* ──── SECTION 4 : ÉTHIQUE & ENGAGEMENTS DE CONFORMITÉ ──── */}
         <section aria-labelledby="ethics-heading" className="bg-slate-900 text-white rounded-3xl p-8 sm:p-10 space-y-6">
