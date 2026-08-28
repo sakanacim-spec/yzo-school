@@ -15,7 +15,7 @@ import {
   FileCheck,
   Lock,
   Globe,
-  ExternalLink
+  HeartHandshake
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { PUBLIC_I18N, LANGUAGES } from '../../i18n/publicI18n';
@@ -24,6 +24,10 @@ import { usePageSeo } from '../../hooks/usePageSeo';
 import {
   PartnerSector,
   MobilitySubSector,
+  RegulationDeclaration,
+  PartnerApplicationIntent,
+  OrganizationType,
+  SupportType,
   PartnerFormulaType,
   isRegulatedSector,
   mapCategoryToSector,
@@ -61,11 +65,16 @@ export const Partners: React.FC<PartnersProps> = ({
   const [langOpen, setLangOpen] = useState(false);
 
   // Form State
+  const [applicationIntent, setApplicationIntent] = useState<PartnerApplicationIntent>('commercial_partnership');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [sector, setSector] = useState<PartnerSector>('');
   const [subSector, setSubSector] = useState<MobilitySubSector>('');
+  const [otherSectorDetails, setOtherSectorDetails] = useState('');
+  const [regulationDeclaration, setRegulationDeclaration] = useState<RegulationDeclaration>('');
+  const [organizationType, setOrganizationType] = useState<OrganizationType>('');
+  const [supportType, setSupportType] = useState<SupportType>('');
   const [license, setLicense] = useState('');
   const [country, setCountry] = useState('');
   const [targetMarkets, setTargetMarkets] = useState('');
@@ -82,6 +91,7 @@ export const Partners: React.FC<PartnersProps> = ({
 
   const formulasSectionRef = useRef<HTMLElement>(null);
   const formSectionRef = useRef<HTMLDivElement>(null);
+  const donationsSectionRef = useRef<HTMLElement>(null);
 
   // SEO setup
   const isArabic = language === 'ar';
@@ -111,9 +121,22 @@ export const Partners: React.FC<PartnersProps> = ({
   }, []);
 
   // Category selection handler with smooth scroll to formulas
-  const handleSelectCategory = (catKey: 'cat1' | 'cat2' | 'cat3' | 'cat4') => {
+  const handleSelectCategory = (catKey: 'cat1' | 'cat2' | 'cat3' | 'cat4' | 'cat5') => {
     const targetSector = mapCategoryToSector(catKey);
     setSector(targetSector);
+    if (targetSector !== 'mobility_services') {
+      setSubSector('');
+    }
+    if (targetSector !== 'other') {
+      setOtherSectorDetails('');
+      setRegulationDeclaration('');
+    }
+    if (targetSector !== 'ngo_institutions') {
+      setOrganizationType('');
+    }
+    if (!isRegulatedSector(targetSector)) {
+      setLicense('');
+    }
     if (formulasSectionRef.current) {
       formulasSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -121,6 +144,20 @@ export const Partners: React.FC<PartnersProps> = ({
 
   const handleSelectFormula = (formulaKey: 'presence' | 'visibility' | 'strategic') => {
     setSelectedFormula(formulaKey);
+    if (applicationIntent === 'donation_sponsorship') {
+      setApplicationIntent('commercial_partnership');
+    }
+    if (formSectionRef.current) {
+      formSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handleInitiateDonation = () => {
+    setApplicationIntent('donation_sponsorship');
+    setSelectedFormula('');
+    if (!sector) {
+      setSector('ngo_institutions');
+    }
     if (formSectionRef.current) {
       formSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -139,7 +176,14 @@ export const Partners: React.FC<PartnersProps> = ({
   const isCat1Selected = sector === 'finance';
   const isCat2Selected = sector === 'telecom';
   const isCat3Selected = sector === 'equipment';
-  const isCat4Selected = sector === 'mobility_services' || sector === 'insurance' || sector === 'transport';
+  const isCat4Selected =
+    sector === 'mobility_services' ||
+    sector === 'after_school_services' ||
+    sector === 'insurance' ||
+    sector === 'transport';
+  const isCat5Selected = sector === 'ngo_institutions';
+
+  const isCurrentSectorRegulated = isRegulatedSector(sector, subSector, regulationDeclaration);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +195,12 @@ export const Partners: React.FC<PartnersProps> = ({
       companyName,
       sector,
       subSector,
-      license,
+      regulationDeclaration,
+      otherSectorDetails,
+      organizationType,
+      intent: applicationIntent,
+      supportType,
+      license: isCurrentSectorRegulated ? license : '',
       country,
       targetMarkets,
       email,
@@ -185,7 +234,9 @@ export const Partners: React.FC<PartnersProps> = ({
         ? tp.formulas.presence.name
         : selectedFormula === 'visibility'
         ? tp.formulas.visibility.name
-        : tp.formulas.strategic.name;
+        : selectedFormula === 'strategic'
+        ? tp.formulas.strategic.name
+        : undefined;
 
     const sectorLabel = tp.form.sectorOptions[sector as keyof typeof tp.form.sectorOptions] || sector;
     const subSectorLabel =
@@ -193,11 +244,37 @@ export const Partners: React.FC<PartnersProps> = ({
         ? tp.form.subSectorOptions[subSector as keyof typeof tp.form.subSectorOptions] || subSector
         : undefined;
 
+    const organizationTypeLabel =
+      sector === 'ngo_institutions' && organizationType
+        ? tp.form.organizationTypeOptions[organizationType as keyof typeof tp.form.organizationTypeOptions] || organizationType
+        : undefined;
+
+    const supportTypeLabel =
+      applicationIntent === 'donation_sponsorship' && supportType
+        ? tp.form.supportTypeOptions[supportType as keyof typeof tp.form.supportTypeOptions] || supportType
+        : undefined;
+
+    const regulationDeclarationLabel =
+      sector === 'other' && regulationDeclaration
+        ? regulationDeclaration === 'yes'
+          ? tp.form.otherRegulatedYes
+          : tp.form.otherRegulatedNo
+        : undefined;
+
+    const intentLabel =
+      applicationIntent === 'donation_sponsorship'
+        ? tp.donations.title
+        : tp.title;
+
     // 2. Construction structurée du message via module de production partagé
     const structuredMessage = buildPartnerStructuredMessage(formData, {
       formulaName,
       sectorLabel,
-      subSectorLabel
+      subSectorLabel,
+      organizationTypeLabel,
+      intentLabel,
+      supportTypeLabel,
+      regulationDeclarationLabel
     });
 
     // 3. Vérification stricte de la longueur (<= 5 000 car) avant tout appel réseau
@@ -246,11 +323,16 @@ export const Partners: React.FC<PartnersProps> = ({
       setStatusMessage(tp.form.successMessage);
 
       // Reset form fields
+      setApplicationIntent('commercial_partnership');
       setFullName('');
       setRole('');
       setCompanyName('');
       setSector('');
       setSubSector('');
+      setOtherSectorDetails('');
+      setRegulationDeclaration('');
+      setOrganizationType('');
+      setSupportType('');
       setLicense('');
       setCountry('');
       setTargetMarkets('');
@@ -313,7 +395,7 @@ export const Partners: React.FC<PartnersProps> = ({
               <button
                 type="button"
                 onClick={() => setLangOpen(!langOpen)}
-                className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all focus:ring-2 focus:ring-orange-500/30 outline-none"
+                className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer"
                 aria-label="Choisir la langue de l'interface"
               >
                 <img
@@ -342,7 +424,7 @@ export const Partners: React.FC<PartnersProps> = ({
                           setLanguage(lang.code as Language);
                           setLangOpen(false);
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
                           language === lang.code
                             ? 'bg-orange-50 text-[#f97316] font-black'
                             : 'text-slate-600 hover:bg-slate-50 font-bold text-sm'
@@ -365,7 +447,7 @@ export const Partners: React.FC<PartnersProps> = ({
             <button
               type="button"
               onClick={onBack}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors focus:ring-2 focus:ring-orange-500/30 outline-none"
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer"
             >
               <ArrowLeft className={`w-4 h-4 ${isArabic ? 'rotate-180' : ''}`} />
               <span className="hidden sm:inline">{tp.backHome}</span>
@@ -393,7 +475,7 @@ export const Partners: React.FC<PartnersProps> = ({
       </section>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-20 flex-1">
-        {/* ──── SECTION 1 : CATÉGORIES ADMISSIBLES ──── */}
+        {/* ──── SECTION 1 : CATÉGORIES ADMISSIBLES (5 CARTES) ──── */}
         <section aria-labelledby="categories-heading" className="space-y-8">
           <div className="text-center max-w-3xl mx-auto space-y-3">
             <h2 id="categories-heading" className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -404,7 +486,7 @@ export const Partners: React.FC<PartnersProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {/* Cat 1 : Banques & Finances */}
             <button
               type="button"
@@ -424,7 +506,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   {isCat1Selected && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
                       <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
-                      Sélectionné
+                      {tp.formulas.selectedBadge || 'Sélectionné'}
                     </span>
                   )}
                 </div>
@@ -461,7 +543,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   {isCat2Selected && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
                       <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
-                      Sélectionné
+                      {tp.formulas.selectedBadge || 'Sélectionné'}
                     </span>
                   )}
                 </div>
@@ -498,7 +580,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   {isCat3Selected && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
                       <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
-                      Sélectionné
+                      {tp.formulas.selectedBadge || 'Sélectionné'}
                     </span>
                   )}
                 </div>
@@ -516,7 +598,7 @@ export const Partners: React.FC<PartnersProps> = ({
               </div>
             </button>
 
-            {/* Cat 4 : Mobilité & Assurance */}
+            {/* Cat 4 : Mobilité & Services scolaires */}
             <button
               type="button"
               onClick={() => handleSelectCategory('cat4')}
@@ -535,7 +617,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   {isCat4Selected && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
                       <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
-                      Sélectionné
+                      {tp.formulas.selectedBadge || 'Sélectionné'}
                     </span>
                   )}
                 </div>
@@ -549,6 +631,43 @@ export const Partners: React.FC<PartnersProps> = ({
               <div className="pt-3 border-t border-slate-100 w-full flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-400">
                   {tp.categories.cat4.scope}
+                </span>
+              </div>
+            </button>
+
+            {/* Cat 5 : ONG, Fondations & Institutions internationales */}
+            <button
+              type="button"
+              onClick={() => handleSelectCategory('cat5')}
+              aria-pressed={isCat5Selected}
+              className={`p-6 sm:p-7 rounded-3xl border text-left transition-all space-y-4 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 relative group ${
+                isCat5Selected
+                  ? 'bg-orange-50/40 border-orange-500 ring-2 ring-orange-500/20 shadow-md'
+                  : 'bg-white border-slate-200/80 shadow-sm hover:border-orange-300 hover:shadow-md'
+              }`}
+            >
+              <div className="space-y-3 w-full">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 group-hover:scale-105 transition-transform">
+                    <Globe className="w-6 h-6" />
+                  </div>
+                  {isCat5Selected && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
+                      <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
+                      {tp.formulas.selectedBadge || 'Sélectionné'}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-base font-black text-slate-900 leading-snug">
+                  {tp.categories.cat5.title}
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                  {tp.categories.cat5.desc}
+                </p>
+              </div>
+              <div className="pt-3 border-t border-slate-100 w-full flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-400">
+                  {tp.categories.cat5.scope}
                 </span>
               </div>
             </button>
@@ -575,6 +694,13 @@ export const Partners: React.FC<PartnersProps> = ({
                   : 'border-slate-200/80 shadow-sm hover:border-slate-300'
               }`}
             >
+              {selectedFormula === 'presence' && (
+                <div className="absolute -top-3 right-6 px-3 py-1 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>{tp.formulas.selectedBadge || '✓ Sélectionnée'}</span>
+                </div>
+              )}
+
               <div className="space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -603,13 +729,15 @@ export const Partners: React.FC<PartnersProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSelectFormula('presence')}
-                  className={`w-full py-3 px-4 rounded-xl text-xs font-black transition-all focus:ring-2 focus:ring-orange-500/30 outline-none ${
+                  className={`w-full py-3 px-4 rounded-xl text-xs font-black transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer ${
                     selectedFormula === 'presence'
-                      ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
                   }`}
                 >
-                  {tp.formulas.presence.cta}
+                  {selectedFormula === 'presence'
+                    ? tp.formulas.presence.selectedCta || `✓ ${tp.formulas.presence.name} sélectionnée`
+                    : tp.formulas.presence.cta}
                 </button>
               </div>
             </div>
@@ -622,9 +750,18 @@ export const Partners: React.FC<PartnersProps> = ({
                   : 'border-orange-400/80 hover:border-orange-500'
               }`}
             >
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 bg-gradient-to-r from-[#f97316] to-[#ea580c] text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md">
-                ⭐ Recommandé
+              {/* Badge Recommandé permanent */}
+              <div className="absolute -top-3 left-6 px-3.5 py-1 bg-gradient-to-r from-[#f97316] to-[#ea580c] text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md flex items-center gap-1">
+                <span>{tp.formulas.recommendedBadge || '★ Recommandée'}</span>
               </div>
+
+              {/* Badge Sélectionnée distinct si choisie */}
+              {selectedFormula === 'visibility' && (
+                <div className="absolute -top-3 right-6 px-3 py-1 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>{tp.formulas.selectedBadge || '✓ Sélectionnée'}</span>
+                </div>
+              )}
 
               <div className="space-y-6 pt-2">
                 <div>
@@ -654,9 +791,15 @@ export const Partners: React.FC<PartnersProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSelectFormula('visibility')}
-                  className="w-full py-3 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-[#f97316] to-[#ea580c] hover:from-[#ea580c] hover:to-[#c2410c] text-white shadow-lg shadow-orange-500/20 active:scale-95 transition-all focus:ring-2 focus:ring-orange-500/30 outline-none"
+                  className={`w-full py-3 px-4 rounded-xl text-xs font-black transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer ${
+                    selectedFormula === 'visibility'
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+                      : 'bg-gradient-to-r from-[#f97316] to-[#ea580c] hover:from-[#ea580c] hover:to-[#c2410c] text-white shadow-lg shadow-orange-500/20 active:scale-95'
+                  }`}
                 >
-                  {tp.formulas.visibility.cta}
+                  {selectedFormula === 'visibility'
+                    ? tp.formulas.visibility.selectedCta || `✓ ${tp.formulas.visibility.name} sélectionnée`
+                    : tp.formulas.visibility.cta}
                 </button>
               </div>
             </div>
@@ -669,6 +812,13 @@ export const Partners: React.FC<PartnersProps> = ({
                   : 'border-slate-200/80 shadow-sm hover:border-slate-300'
               }`}
             >
+              {selectedFormula === 'strategic' && (
+                <div className="absolute -top-3 right-6 px-3 py-1 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider rounded-full shadow-md flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>{tp.formulas.selectedBadge || '✓ Sélectionnée'}</span>
+                </div>
+              )}
+
               <div className="space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -697,20 +847,64 @@ export const Partners: React.FC<PartnersProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSelectFormula('strategic')}
-                  className={`w-full py-3 px-4 rounded-xl text-xs font-black transition-all focus:ring-2 focus:ring-orange-500/30 outline-none ${
+                  className={`w-full py-3 px-4 rounded-xl text-xs font-black transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer ${
                     selectedFormula === 'strategic'
-                      ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
                   }`}
                 >
-                  {tp.formulas.strategic.cta}
+                  {selectedFormula === 'strategic'
+                    ? tp.formulas.strategic.selectedCta || `✓ ${tp.formulas.strategic.name} sélectionnée`
+                    : tp.formulas.strategic.cta}
                 </button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ──── SECTION 3 : FORMULAIRE DE CANDIDATURE ──── */}
+        {/* ──── SECTION DONS & MÉCÉNAT (POINT D'ENTRÉE SANS PAIEMENT LOT 3A) ──── */}
+        <section
+          ref={donationsSectionRef}
+          aria-labelledby="donations-heading"
+          className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-8 sm:p-12 border border-slate-700/60 shadow-xl space-y-6 relative overflow-hidden"
+        >
+          <div className="max-w-3xl space-y-4 relative z-10">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/40 text-orange-300 text-xs font-black uppercase tracking-wider">
+              <HeartHandshake className="w-4 h-4 text-orange-400" />
+              <span>{tp.donations.badge}</span>
+            </div>
+
+            <h2 id="donations-heading" className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              {tp.donations.title}
+            </h2>
+
+            <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed">
+              {tp.donations.subtitle}
+            </p>
+
+            <p className="text-xs sm:text-sm text-slate-400 font-medium leading-relaxed">
+              {tp.donations.desc}
+            </p>
+
+            {/* Mention d'exclusion de paiement Lot 3A */}
+            <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 text-xs text-orange-200/90 font-medium leading-relaxed">
+              ℹ️ {tp.donations.noticeLot3B}
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleInitiateDonation}
+                className="px-6 py-3.5 bg-gradient-to-r from-[#f97316] to-[#ea580c] hover:from-[#ea580c] hover:to-[#c2410c] text-white rounded-xl text-xs sm:text-sm font-black tracking-wide shadow-lg shadow-orange-500/25 active:scale-95 transition-all focus:ring-2 focus:ring-orange-500/30 outline-none cursor-pointer inline-flex items-center gap-2"
+              >
+                <HeartHandshake className="w-4 h-4" />
+                <span>{tp.donations.cta}</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ──── SECTION 3 : FORMULAIRE DE CANDIDATURE / MÉCÉNAT ──── */}
         <section
           ref={formSectionRef}
           aria-labelledby="form-heading"
@@ -720,7 +914,11 @@ export const Partners: React.FC<PartnersProps> = ({
             <div className="text-center space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-50 text-orange-600 rounded-lg text-xs font-black uppercase">
                 <FileCheck className="w-4 h-4" />
-                <span>Candidature officielle</span>
+                <span>
+                  {applicationIntent === 'donation_sponsorship'
+                    ? tp.donations.title
+                    : 'Candidature officielle'}
+                </span>
               </div>
               <h2 id="form-heading" className="text-2xl sm:text-3xl font-black text-slate-900">
                 {tp.form.title}
@@ -793,7 +991,7 @@ export const Partners: React.FC<PartnersProps> = ({
                 </div>
               </div>
 
-              {/* Ligne 2 : Entreprise & Formule */}
+              {/* Ligne 2 : Entreprise & Formule commerciale (ou Type de soutien pour don) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label htmlFor="partner-company" className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">
@@ -810,23 +1008,46 @@ export const Partners: React.FC<PartnersProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="partner-formula" className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">
-                    {tp.form.formula} <span className="text-orange-500">*</span>
-                  </label>
-                  <select
-                    id="partner-formula"
-                    required
-                    value={selectedFormula}
-                    onChange={(e) => setSelectedFormula(e.target.value as any)}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700"
-                  >
-                    <option value="">-- {tp.form.selectFormula} --</option>
-                    <option value="presence">{tp.formulas.presence.name} (Sur devis)</option>
-                    <option value="visibility">{tp.formulas.visibility.name} (Sur devis)</option>
-                    <option value="strategic">{tp.formulas.strategic.name} (Sur devis)</option>
-                  </select>
-                </div>
+                {applicationIntent === 'donation_sponsorship' ? (
+                  <div>
+                    <label htmlFor="partner-support-type" className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">
+                      {tp.form.supportType} <span className="text-orange-500">*</span>
+                    </label>
+                    <select
+                      id="partner-support-type"
+                      required
+                      value={supportType}
+                      onChange={(e) => setSupportType(e.target.value as SupportType)}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700 cursor-pointer"
+                    >
+                      <option value="">-- {tp.form.selectSupportType} --</option>
+                      <option value="future_financial_donation">{tp.form.supportTypeOptions.future_financial_donation}</option>
+                      <option value="equipment_donation">{tp.form.supportTypeOptions.equipment_donation}</option>
+                      <option value="school_sponsorship">{tp.form.supportTypeOptions.school_sponsorship}</option>
+                      <option value="educational_project_funding">{tp.form.supportTypeOptions.educational_project_funding}</option>
+                      <option value="skills_sponsorship">{tp.form.supportTypeOptions.skills_sponsorship}</option>
+                      <option value="other_proposal">{tp.form.supportTypeOptions.other_proposal}</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label htmlFor="partner-formula" className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">
+                      {tp.form.formula} <span className="text-orange-500">*</span>
+                    </label>
+                    <select
+                      id="partner-formula"
+                      required
+                      value={selectedFormula}
+                      onChange={(e) => setSelectedFormula(e.target.value as any)}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700 cursor-pointer"
+                    >
+                      <option value="">-- {tp.form.selectFormula} --</option>
+                      <option value="presence">{tp.formulas.presence.name} (Sur devis)</option>
+                      <option value="visibility">{tp.formulas.visibility.name} (Sur devis)</option>
+                      <option value="strategic">{tp.formulas.strategic.name} (Sur devis)</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Ligne 3 : Secteur d'activité */}
@@ -839,25 +1060,119 @@ export const Partners: React.FC<PartnersProps> = ({
                   required
                   value={sector}
                   onChange={(e) => {
-                    const newSector = e.target.value as any;
+                    const newSector = e.target.value as PartnerSector;
                     setSector(newSector);
                     if (newSector !== 'mobility_services') {
                       setSubSector('');
                     }
+                    if (newSector !== 'other') {
+                      setOtherSectorDetails('');
+                      setRegulationDeclaration('');
+                    }
+                    if (newSector !== 'ngo_institutions') {
+                      setOrganizationType('');
+                    }
+                    // Effacement immédiat de l'agrément si le nouveau secteur n'est pas réglementé
+                    if (!isRegulatedSector(newSector, undefined, undefined)) {
+                      setLicense('');
+                    }
                   }}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700 cursor-pointer"
                 >
                   <option value="">-- {tp.form.selectSector} --</option>
                   <option value="finance">{tp.form.sectorOptions.finance}</option>
                   <option value="telecom">{tp.form.sectorOptions.telecom}</option>
                   <option value="equipment">{tp.form.sectorOptions.equipment}</option>
                   <option value="mobility_services">{tp.form.sectorOptions.mobility_services}</option>
-                  <option value="insurance">{tp.form.sectorOptions.insurance}</option>
+                  <option value="after_school_services">{tp.form.sectorOptions.after_school_services}</option>
                   <option value="transport">{tp.form.sectorOptions.transport}</option>
+                  <option value="ngo_institutions">{tp.form.sectorOptions.ngo_institutions}</option>
                   <option value="otherRegulated">{tp.form.sectorOptions.otherRegulated}</option>
                   <option value="other">{tp.form.sectorOptions.other}</option>
                 </select>
               </div>
+
+              {/* Bloc conditionnel 1 : Type d'organisation pour ONG & Institutions */}
+              {sector === 'ngo_institutions' && (
+                <div className="p-4 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-2 animate-fade-in">
+                  <label htmlFor="partner-org-type" className="block text-xs font-black text-slate-800 uppercase tracking-wide">
+                    {tp.form.organizationType} <span className="text-orange-500">*</span>
+                  </label>
+                  <select
+                    id="partner-org-type"
+                    required={sector === 'ngo_institutions'}
+                    value={organizationType}
+                    onChange={(e) => setOrganizationType(e.target.value as OrganizationType)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-teal-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700 cursor-pointer"
+                  >
+                    <option value="">-- {tp.form.selectOrganizationType} --</option>
+                    <option value="ngo">{tp.form.organizationTypeOptions.ngo}</option>
+                    <option value="foundation">{tp.form.organizationTypeOptions.foundation}</option>
+                    <option value="association">{tp.form.organizationTypeOptions.association}</option>
+                    <option value="international_institution">{tp.form.organizationTypeOptions.international_institution}</option>
+                    <option value="cooperation_agency">{tp.form.organizationTypeOptions.cooperation_agency}</option>
+                    <option value="public_body">{tp.form.organizationTypeOptions.public_body}</option>
+                    <option value="sponsor_company">{tp.form.organizationTypeOptions.sponsor_company}</option>
+                    <option value="other">{tp.form.organizationTypeOptions.other}</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Bloc conditionnel 2 : Précision et Régulation pour "Autre secteur d'activité" */}
+              {sector === 'other' && (
+                <div className="p-5 rounded-2xl bg-slate-100/90 border border-slate-200 space-y-4 animate-fade-in">
+                  <div>
+                    <label htmlFor="partner-other-sector" className="block text-xs font-black text-slate-800 mb-1.5 uppercase tracking-wide">
+                      {tp.form.otherSectorLabel} <span className="text-orange-500">*</span>
+                    </label>
+                    <input
+                      id="partner-other-sector"
+                      type="text"
+                      required={sector === 'other'}
+                      value={otherSectorDetails}
+                      onChange={(e) => setOtherSectorDetails(e.target.value)}
+                      placeholder={tp.form.otherSectorPlaceholder}
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="block text-xs font-black text-slate-800 uppercase tracking-wide">
+                      {tp.form.otherRegulatedQuestion} <span className="text-orange-500">*</span>
+                    </span>
+                    <div className="flex items-center gap-6 pt-1">
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="radio"
+                          name="partner-other-regulation"
+                          value="yes"
+                          checked={regulationDeclaration === 'yes'}
+                          onChange={() => {
+                            setRegulationDeclaration('yes');
+                          }}
+                          className="w-4 h-4 text-orange-500 border-slate-300 focus:ring-orange-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-slate-700">{tp.form.otherRegulatedYes}</span>
+                      </label>
+
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="radio"
+                          name="partner-other-regulation"
+                          value="no"
+                          checked={regulationDeclaration === 'no'}
+                          onChange={() => {
+                            setRegulationDeclaration('no');
+                            setLicense(''); // Effacement immédiat lors de la sélection de 'Non'
+                          }}
+                          className="w-4 h-4 text-orange-500 border-slate-300 focus:ring-orange-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-slate-700">{tp.form.otherRegulatedNo}</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Sous-catégorie obligatoire pour Mobilité, Assurance & Services scolaires */}
               {sector === 'mobility_services' && (
@@ -869,8 +1184,15 @@ export const Partners: React.FC<PartnersProps> = ({
                     id="partner-subsector"
                     required={sector === 'mobility_services'}
                     value={subSector}
-                    onChange={(e) => setSubSector(e.target.value as any)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700"
+                    onChange={(e) => {
+                      const newSub = e.target.value as MobilitySubSector;
+                      setSubSector(newSub);
+                      // Effacement immédiat si la sous-catégorie n'est pas réglementée
+                      if (!isRegulatedSector(sector, newSub, undefined)) {
+                        setLicense('');
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700 cursor-pointer"
                   >
                     <option value="">-- {tp.form.selectSubSector} --</option>
                     <option value="transport">{tp.form.subSectorOptions.transport}</option>
@@ -881,8 +1203,8 @@ export const Partners: React.FC<PartnersProps> = ({
                 </div>
               )}
 
-              {/* Champ conditionnel pour secteurs réglementés (Banque, Assurance, etc.) */}
-              {isRegulatedSector(sector, subSector) && (
+              {/* Champ conditionnel pour secteurs ou activités réglementé(e)s (Banque, Assurance, Autre réglementé) */}
+              {isCurrentSectorRegulated && (
                 <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2 animate-fade-in">
                   <label htmlFor="partner-license" className="block text-xs font-black text-amber-900 uppercase tracking-wide">
                     {tp.form.license} <span className="text-orange-500">*</span>
@@ -890,7 +1212,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <input
                     id="partner-license"
                     type="text"
-                    required={isRegulatedSector(sector, subSector)}
+                    required={isCurrentSectorRegulated}
                     aria-describedby="partner-license-help"
                     value={license}
                     onChange={(e) => setLicense(e.target.value)}
@@ -983,7 +1305,7 @@ export const Partners: React.FC<PartnersProps> = ({
                 </div>
               </div>
 
-              {/* Ligne 6 : Description du projet */}
+              {/* Ligne 6 : Description du projet / proposition de don */}
               <div>
                 <label htmlFor="partner-description" className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wide">
                   {tp.form.projectDescription} <span className="text-orange-500">*</span>
@@ -994,7 +1316,11 @@ export const Partners: React.FC<PartnersProps> = ({
                   rows={4}
                   value={projectDescription}
                   onChange={(e) => setProjectDescription(e.target.value)}
-                  placeholder={tp.form.projectPlaceholder}
+                  placeholder={
+                    applicationIntent === 'donation_sponsorship'
+                      ? tp.form.donationProjectPlaceholder
+                      : tp.form.projectPlaceholder
+                  }
                   className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all resize-none"
                 />
               </div>
@@ -1052,7 +1378,11 @@ export const Partners: React.FC<PartnersProps> = ({
                   ) : (
                     <>
                       <Send className={`w-4 h-4 ${isArabic ? 'rotate-180' : ''}`} />
-                      <span>{tp.form.submit}</span>
+                      <span>
+                        {applicationIntent === 'donation_sponsorship'
+                          ? tp.form.submitDonation
+                          : tp.form.submit}
+                      </span>
                     </>
                   )}
                 </button>
@@ -1097,7 +1427,7 @@ export const Partners: React.FC<PartnersProps> = ({
               <button
                 type="button"
                 onClick={onHome}
-                className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-xl p-1"
+                className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-xl p-1 cursor-pointer"
                 aria-label="Retour en haut de page"
               >
                 <div className="w-10 h-10 bg-gradient-to-br from-[#f97316] to-[#ea580c] rounded-xl flex items-center justify-center">
@@ -1117,7 +1447,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate?.('about')}
-                    className="hover:text-orange-400 font-medium transition-colors"
+                    className="hover:text-orange-400 font-medium transition-colors cursor-pointer"
                   >
                     {t.footer.about}
                   </button>
@@ -1126,7 +1456,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate?.('contact')}
-                    className="hover:text-orange-400 font-medium transition-colors"
+                    className="hover:text-orange-400 font-medium transition-colors cursor-pointer"
                   >
                     {t.footer.contact}
                   </button>
@@ -1135,7 +1465,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate?.('careers')}
-                    className="hover:text-orange-400 font-medium transition-colors"
+                    className="hover:text-orange-400 font-medium transition-colors cursor-pointer"
                   >
                     {t.footer.careers}
                   </button>
@@ -1150,7 +1480,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate?.('guide')}
-                    className="hover:text-orange-400 font-medium transition-colors"
+                    className="hover:text-orange-400 font-medium transition-colors cursor-pointer"
                   >
                     📖 {t.footer.guide}
                   </button>
@@ -1159,7 +1489,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate?.('blog')}
-                    className="hover:text-orange-400 font-medium transition-colors"
+                    className="hover:text-orange-400 font-medium transition-colors cursor-pointer"
                   >
                     📰 {t.footer.blog || 'Blog'}
                   </button>
@@ -1174,7 +1504,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate?.('cgu')}
-                    className="hover:text-orange-400 font-medium transition-colors"
+                    className="hover:text-orange-400 font-medium transition-colors cursor-pointer"
                   >
                     {t.footer.cgu}
                   </button>
@@ -1183,7 +1513,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate?.('privacy')}
-                    className="hover:text-orange-400 font-medium transition-colors"
+                    className="hover:text-orange-400 font-medium transition-colors cursor-pointer"
                   >
                     {t.footer.privacy}
                   </button>
@@ -1192,7 +1522,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate?.('legal')}
-                    className="hover:text-orange-400 font-medium transition-colors"
+                    className="hover:text-orange-400 font-medium transition-colors cursor-pointer"
                   >
                     {t.footer.mentions}
                   </button>

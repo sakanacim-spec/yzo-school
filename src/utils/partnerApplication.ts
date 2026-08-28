@@ -8,8 +8,10 @@ export type PartnerSector =
   | 'telecom'
   | 'equipment'
   | 'mobility_services'
+  | 'after_school_services'
   | 'insurance'
   | 'transport'
+  | 'ngo_institutions'
   | 'otherRegulated'
   | 'other'
   | '';
@@ -21,12 +23,46 @@ export type MobilitySubSector =
   | 'otherRegulated'
   | '';
 
+export type RegulationDeclaration = 'yes' | 'no' | '';
+
+export type PartnerApplicationIntent =
+  | 'commercial_partnership'
+  | 'institutional_partnership'
+  | 'donation_sponsorship';
+
+export type OrganizationType =
+  | 'ngo'
+  | 'foundation'
+  | 'association'
+  | 'international_institution'
+  | 'cooperation_agency'
+  | 'public_body'
+  | 'sponsor_company'
+  | 'other'
+  | '';
+
+export type SupportType =
+  | 'future_financial_donation'
+  | 'equipment_donation'
+  | 'school_sponsorship'
+  | 'educational_project_funding'
+  | 'skills_sponsorship'
+  | 'other_proposal'
+  | '';
+
+export type PartnerFormulaType = 'presence' | 'visibility' | 'strategic' | '';
+
 export interface PartnerApplicationData {
   fullName: string;
   role: string;
   companyName: string;
   sector: PartnerSector;
   subSector?: MobilitySubSector;
+  regulationDeclaration?: RegulationDeclaration;
+  otherSectorDetails?: string;
+  organizationType?: OrganizationType;
+  intent?: PartnerApplicationIntent;
+  supportType?: SupportType;
   license: string;
   country: string;
   targetMarkets: string;
@@ -38,33 +74,67 @@ export interface PartnerApplicationData {
   consent: boolean;
 }
 
-export type PartnerFormulaType = 'presence' | 'visibility' | 'strategic' | '';
-
 export interface PartnerValidationResult {
   valid: boolean;
-  errorField?: 'required' | 'subSector' | 'email' | 'phone' | 'website' | 'license' | 'payloadTooLong';
+  errorField?:
+    | 'required'
+    | 'subSector'
+    | 'otherSectorDetails'
+    | 'regulationDeclaration'
+    | 'organizationType'
+    | 'supportType'
+    | 'formula'
+    | 'email'
+    | 'phone'
+    | 'website'
+    | 'license'
+    | 'payloadTooLong';
 }
 
 /**
- * Détermine si un secteur d'activité (ou une sous-catégorie) requiert un agrément ou une licence réglementaire.
- * - Secteurs réglementés : Finance, Assurance, Autre activité réglementée.
- * - Secteurs exemptés : Télécoms, Fournitures, Transport scolaire ordinaire, Services périscolaires.
+ * Détermine si un secteur d'activité (ou une sous-catégorie ou déclaration) requiert un agrément ou une licence réglementaire.
+ * - Secteurs obligatoirement réglementés : Finance, Assurance, Autre activité réglementée.
+ * - Groupe Mobilité & Services scolaires : réglementé si sous-secteur Assurance ou Autre réglementé.
+ * - Autre secteur d'activité ('other') : réglementé UNIQUEMENT si regulationDeclaration === 'yes'.
+ * - Secteurs exemptés : Télécoms, Fournitures, Transport scolaire ordinaire, Services et activités périscolaires, ONG/Fondations/Institutions internationales, et Autre secteur si 'no' ou non déclaré 'yes'.
  */
-export function isRegulatedSector(sector: string, subSector?: string): boolean {
+export function isRegulatedSector(
+  sector: string,
+  subSector?: string,
+  regulationDeclaration?: RegulationDeclaration
+): boolean {
+  if (
+    sector === 'after_school_services' ||
+    sector === 'transport' ||
+    sector === 'telecom' ||
+    sector === 'equipment' ||
+    sector === 'ngo_institutions'
+  ) {
+    return false;
+  }
   if (sector === 'finance' || sector === 'insurance' || sector === 'otherRegulated') {
     return true;
   }
   if (sector === 'mobility_services') {
     return subSector === 'insurance' || subSector === 'otherRegulated';
   }
+  if (sector === 'other') {
+    return regulationDeclaration === 'yes';
+  }
   return false;
 }
 
 /**
  * Associe une carte de catégorie partenaire à sa valeur de secteur correspondante.
- * La catégorie 4 correspond au groupe 'mobility_services' (Mobilité, Assurance & Services scolaires).
+ * - cat1 -> finance
+ * - cat2 -> telecom
+ * - cat3 -> equipment
+ * - cat4 -> mobility_services
+ * - cat5 -> ngo_institutions
  */
-export function mapCategoryToSector(categoryKey: 'cat1' | 'cat2' | 'cat3' | 'cat4'): PartnerSector {
+export function mapCategoryToSector(
+  categoryKey: 'cat1' | 'cat2' | 'cat3' | 'cat4' | 'cat5'
+): PartnerSector {
   switch (categoryKey) {
     case 'cat1':
       return 'finance';
@@ -74,6 +144,8 @@ export function mapCategoryToSector(categoryKey: 'cat1' | 'cat2' | 'cat3' | 'cat
       return 'equipment';
     case 'cat4':
       return 'mobility_services';
+    case 'cat5':
+      return 'ngo_institutions';
     default:
       return 'other';
   }
@@ -122,35 +194,60 @@ export function validatePartnerForm(data: PartnerApplicationData): PartnerValida
     !trimmedMarkets ||
     !trimmedEmail ||
     !trimmedPhone ||
-    !data.selectedFormula ||
     !trimmedDesc ||
     !data.consent
   ) {
     return { valid: false, errorField: 'required' };
   }
 
-  // 2. Si groupe Mobilité & Services scolaires, la sous-catégorie est obligatoire
+  // 2. Si intent !== 'donation_sponsorship', la formule est obligatoire
+  const isDonation = data.intent === 'donation_sponsorship';
+  if (!isDonation && !data.selectedFormula) {
+    return { valid: false, errorField: 'formula' };
+  }
+
+  // 3. Si intent === 'donation_sponsorship', supportType est obligatoire
+  if (isDonation && !data.supportType) {
+    return { valid: false, errorField: 'supportType' };
+  }
+
+  // 4. Si groupe Mobilité & Services scolaires, la sous-catégorie est obligatoire
   if (data.sector === 'mobility_services' && !data.subSector) {
     return { valid: false, errorField: 'subSector' };
   }
 
-  // 3. Format Email
+  // 5. Si Autre secteur d'activité :
+  if (data.sector === 'other') {
+    if (!data.otherSectorDetails?.trim()) {
+      return { valid: false, errorField: 'otherSectorDetails' };
+    }
+    if (!data.regulationDeclaration || (data.regulationDeclaration !== 'yes' && data.regulationDeclaration !== 'no')) {
+      return { valid: false, errorField: 'regulationDeclaration' };
+    }
+  }
+
+  // 6. Si ONG, Fondations & Institutions internationales, type d'organisation obligatoire
+  if (data.sector === 'ngo_institutions' && !data.organizationType) {
+    return { valid: false, errorField: 'organizationType' };
+  }
+
+  // 7. Format Email
   if (!isValidEmail(trimmedEmail)) {
     return { valid: false, errorField: 'email' };
   }
 
-  // 4. Format Téléphone international
+  // 8. Format Téléphone international
   if (!isValidPhone(trimmedPhone)) {
     return { valid: false, errorField: 'phone' };
   }
 
-  // 5. Format Site Web facultatif (doit être http/https si renseigné)
+  // 9. Format Site Web facultatif (doit être http/https si renseigné)
   if (!isValidWebsite(data.website)) {
     return { valid: false, errorField: 'website' };
   }
 
-  // 6. Agrément conditionnel obligatoire si secteur ou sous-catégorie réglementé(e)
-  if (isRegulatedSector(data.sector, data.subSector) && !trimmedLicense) {
+  // 10. Agrément conditionnel obligatoire si secteur ou déclaration réglementé(e)
+  if (isRegulatedSector(data.sector, data.subSector, data.regulationDeclaration) && !trimmedLicense) {
     return { valid: false, errorField: 'license' };
   }
 
@@ -162,7 +259,15 @@ export function validatePartnerForm(data: PartnerApplicationData): PartnerValida
  */
 export function buildPartnerStructuredMessage(
   data: PartnerApplicationData,
-  labels: { formulaName: string; sectorLabel: string; subSectorLabel?: string }
+  labels: {
+    formulaName?: string;
+    sectorLabel: string;
+    subSectorLabel?: string;
+    organizationTypeLabel?: string;
+    intentLabel?: string;
+    supportTypeLabel?: string;
+    regulationDeclarationLabel?: string;
+  }
 ): string {
   const trimmedName = data.fullName.trim();
   const trimmedRole = data.role.trim();
@@ -173,23 +278,40 @@ export function buildPartnerStructuredMessage(
   const trimmedPhone = data.phone.trim();
   const trimmedWebsite = data.website.trim();
   const trimmedDesc = data.projectDescription.trim();
+  const trimmedOther = data.otherSectorDetails?.trim();
+
+  const isDonation = data.intent === 'donation_sponsorship';
 
   const lines = [
-    '[DEMANDE DE PARTENARIAT YZIOW]',
+    isDonation ? '[PROPOSITION DE DON & MÉCÉNAT YZIOW]' : '[DEMANDE DE PARTENARIAT YZIOW]',
+    labels.intentLabel ? `Intention : ${labels.intentLabel}` : null,
     `Représentant : ${trimmedName} (${trimmedRole})`,
     `Entreprise / Organisation : ${trimmedCompany}`,
-    `Secteur : ${labels.sectorLabel}`,
+    labels.organizationTypeLabel ? `Type d’organisation : ${labels.organizationTypeLabel}` : null,
+    trimmedOther
+      ? `Secteur : ${labels.sectorLabel} (Précision : ${trimmedOther})`
+      : `Secteur : ${labels.sectorLabel}`,
     data.sector === 'mobility_services' && labels.subSectorLabel
       ? `Sous-catégorie : ${labels.subSectorLabel}`
       : null,
-    trimmedLicense ? `Agrément / Régulation : ${trimmedLicense}` : null,
-    `Formule souhaitée : ${labels.formulaName} (Sur devis)`,
+    data.sector === 'other' && labels.regulationDeclarationLabel
+      ? `Activité réglementée : ${labels.regulationDeclarationLabel}`
+      : null,
+    isRegulatedSector(data.sector, data.subSector, data.regulationDeclaration) && trimmedLicense
+      ? `Agrément / Régulation : ${trimmedLicense}`
+      : null,
+    labels.supportTypeLabel ? `Type de soutien : ${labels.supportTypeLabel}` : null,
+    labels.formulaName
+      ? `Formule souhaitée : ${labels.formulaName} (Sur devis)`
+      : isDonation
+      ? 'Formule commerciale : Aucune (Mécénat / Don sans contrepartie commerciale standard)'
+      : null,
     `Pays d'implantation : ${trimmedCountry}`,
     `Marchés ciblés : ${trimmedMarkets}`,
     `Téléphone : ${trimmedPhone}`,
     trimmedWebsite ? `Site web : ${trimmedWebsite}` : null,
     '',
-    'Description du projet :',
+    isDonation ? 'Description de la proposition de mécénat / don :' : 'Description du projet :',
     trimmedDesc
   ];
 

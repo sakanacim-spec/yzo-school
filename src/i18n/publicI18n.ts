@@ -393,11 +393,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
             "title": "Mobilité, Assurance & Services scolaires",
             "desc": "Transport scolaire sécurisé, couvertures assurantielles adaptées et services d'accompagnement périscolaire.",
             "scope": "Transport scolaire, assurances scolaires et activités périscolaires"
+        },
+        "cat5": {
+            "title": "ONG, Fondations & Institutions internationales",
+            "desc": "Programmes éducatifs, bourses d'études, mécénat et projets d'inclusion scolaire à impact durable.",
+            "scope": "Bourses, développement communautaire, mécénat et programmes éducatifs"
         }
     },
     "formulasTitle": "Nos formules de collaboration",
     "formulasSubtitle": "Trois niveaux d'accompagnement transparents, sur mesure et soumis à un accord contractuel préalable.",
     "formulas": {
+        "selectedBadge": "✓ Sélectionnée",
+        "recommendedBadge": "★ Recommandée",
         "presence": {
             "name": "Présence",
             "tagline": "Référencement dans l'annuaire partenaire",
@@ -408,7 +415,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Lien direct vers vos offres dédiées à l'éducation",
                 "Revue annuelle de conformité et de qualité"
             ],
-            "cta": "Choisir la formule Présence"
+            "cta": "Choisir la formule Présence",
+            "selectedCta": "✓ Formule Présence sélectionnée"
         },
         "visibility": {
             "name": "Visibilité",
@@ -420,7 +428,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Ciblage géographique et sectoriel respectueux des choix utilisateurs",
                 "Rapports consolidés de visibilité et d'impact"
             ],
-            "cta": "Choisir la formule Visibilité"
+            "cta": "Choisir la formule Visibilité",
+            "selectedCta": "✓ Formule Visibilité sélectionnée"
         },
         "strategic": {
             "name": "Partenaire stratégique",
@@ -432,8 +441,17 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Accompagnement opérationnel et gouvernance dédiée",
                 "Comité de suivi régulier et déploiement coordonné"
             ],
-            "cta": "Choisir la formule Partenaire stratégique"
+            "cta": "Choisir la formule Partenaire stratégique",
+            "selectedCta": "✓ Formule Partenaire stratégique sélectionnée"
         }
+    },
+    "donations": {
+        "badge": "MÉCÉNAT & IMPACT ÉDUCATIF",
+        "title": "Dons & Mécénat",
+        "subtitle": "Soutenez des initiatives scolaires et favorisez l'égalité des chances éducatives.",
+        "desc": "Vous êtes une fondation, une institution, une entreprise ou un donateur engagé ? Proposez un soutien matériel, financier ou pédagogique pour équiper et accompagner les écoles partenaires.",
+        "noticeLot3B": "Point d’entrée Lot 3A : Aucun encaissement direct n’est réalisé à cette étape. La collecte et la traçabilité comptable des dons seront déployées dans le Lot 3B.",
+        "cta": "Proposer un don ou un mécénat"
     },
     "form": {
         "title": "Transmettre une demande de partenariat",
@@ -444,24 +462,43 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "rolePlaceholder": "Ex. : Directeur des Partenariats",
         "companyName": "Entreprise ou organisation",
         "companyPlaceholder": "Ex. : Société Éducative SA",
+        "organizationType": "Type d’organisation",
+        "selectOrganizationType": "Sélectionnez votre type d’organisation",
+        "organizationTypeOptions": {
+            "ngo": "ONG",
+            "foundation": "Fondation",
+            "association": "Association",
+            "international_institution": "Institution internationale",
+            "cooperation_agency": "Agence de coopération",
+            "public_body": "Organisme public",
+            "sponsor_company": "Entreprise mécène",
+            "other": "Autre"
+        },
         "sector": "Secteur d'activité & Catégorie",
         "selectSector": "Sélectionnez votre secteur",
         "sectorOptions": {
             "finance": "Banques & Institutions financières agréées",
-        "insurance": "Assurance & Prévoyance scolaire",
+            "insurance": "Assurance & Prévoyance scolaire",
             "telecom": "Télécoms & Services numériques",
             "equipment": "Fournitures, Édition & Équipements",
             "mobility_services": "Mobilité, Assurance & Services scolaires",
+            "after_school_services": "Services et activités périscolaires",
             "transport": "Transport scolaire",
-        "otherRegulated": "Autre activité réglementée (avec agrément)",
+            "ngo_institutions": "ONG, Fondations & Institutions internationales",
+            "otherRegulated": "Autre activité réglementée (avec agrément)",
             "other": "Autre secteur d'activité"
         },
+        "otherSectorLabel": "Précisez votre secteur d’activité",
+        "otherSectorPlaceholder": "Ex. : Énergie solaire, Équipements de cantine, EdTech...",
+        "otherRegulatedQuestion": "Votre activité nécessite-t-elle un agrément ou une autorisation réglementaire ?",
+        "otherRegulatedYes": "Oui",
+        "otherRegulatedNo": "Non",
         "subSector": "Sous-catégorie d’activité",
         "selectSubSector": "Sélectionnez votre activité",
         "subSectorOptions": {
             "transport": "Transport scolaire",
             "insurance": "Assurance & Prévoyance scolaire (Agrément requis)",
-            "afterSchool": "Service périscolaire & activités",
+            "afterSchool": "Services et activités périscolaires",
             "otherRegulated": "Autre activité réglementée (Agrément requis)"
         },
         "regulatedHelp": "Pour les activités bancaires, financières ou d'assurance, veuillez préciser votre agrément réglementaire.",
@@ -479,10 +516,22 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "websitePlaceholder": "https://www.entreprise.com",
         "formula": "Formule souhaitée",
         "selectFormula": "Sélectionnez une formule",
+        "supportType": "Type de soutien envisagé",
+        "selectSupportType": "Sélectionnez le type de soutien",
+        "supportTypeOptions": {
+            "future_financial_donation": "Don financier futur",
+            "equipment_donation": "Don de matériel",
+            "school_sponsorship": "Parrainage d’un établissement",
+            "educational_project_funding": "Financement d’un projet éducatif",
+            "skills_sponsorship": "Mécénat de compétences",
+            "other_proposal": "Autre proposition"
+        },
         "projectDescription": "Description du projet de partenariat",
         "projectPlaceholder": "Décrivez les services envisagés, vos objectifs et la valeur apportée aux établissements scolaires et aux familles...",
+        "donationProjectPlaceholder": "Décrivez votre proposition de don ou de mécénat, les bénéficiaires visés et les modalités de mise en œuvre...",
         "consentText": "J’accepte que YZIOW utilise les informations transmises afin d’étudier ma demande et de me recontacter conformément à sa politique de confidentialité.",
         "submit": "Envoyer ma demande de partenariat",
+        "submitDonation": "Transmettre ma proposition de mécénat",
         "submitting": "Transmission en cours...",
         "successTitle": "Demande de partenariat transmise",
         "successMessage": "Votre demande a bien été envoyée à l'équipe YZIOW. Nous l'étudierons dans les plus brefs délais.",
@@ -493,7 +542,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "invalidEmailError": "Veuillez saisir une adresse email professionnelle valide.",
         "invalidPhoneError": "Veuillez saisir un numéro de téléphone professionnel valide.",
         "invalidWebsiteError": "Le site internet doit débuter par http:// ou https://",
-        "privacyLinkText": "politique de confidentialité",
+        "privacyLinkText": "politique de confidentialité"
     },
     "ethics": {
         "title": "Protection des données et engagements éthiques",
@@ -660,11 +709,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
             "title": "Mobility, Insurance & School Services",
             "desc": "Safe student transportation, tailored insurance coverage, and extracurricular support services.",
             "scope": "School transportation, student insurance, and extracurricular programs"
+        },
+        "cat5": {
+            "title": "NGOs, Foundations & International Institutions",
+            "desc": "Educational programs, scholarships, philanthropy, and school inclusion projects with sustainable impact.",
+            "scope": "Scholarships, community development, philanthropy, and educational programs"
         }
     },
     "formulasTitle": "Our Partnership Packages",
     "formulasSubtitle": "Three transparent, tailored collaboration levels subject to prior contractual agreement.",
     "formulas": {
+        "selectedBadge": "✓ Selected",
+        "recommendedBadge": "★ Recommended",
         "presence": {
             "name": "Presence",
             "tagline": "Listing in the partner directory",
@@ -675,7 +731,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Direct link to your education-specific offers",
                 "Annual quality and compliance review"
             ],
-            "cta": "Select Presence Package"
+            "cta": "Select Presence Package",
+            "selectedCta": "✓ Presence Package Selected"
         },
         "visibility": {
             "name": "Visibility",
@@ -687,7 +744,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Geographic and sector targeting respecting user preferences",
                 "Consolidated visibility and impact analytics"
             ],
-            "cta": "Select Visibility Package"
+            "cta": "Select Visibility Package",
+            "selectedCta": "✓ Visibility Package Selected"
         },
         "strategic": {
             "name": "Strategic Partner",
@@ -699,8 +757,17 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Dedicated operational and technical governance",
                 "Regular steering committee and coordinated deployment"
             ],
-            "cta": "Select Strategic Partner Package"
+            "cta": "Select Strategic Partner Package",
+            "selectedCta": "✓ Strategic Partner Package Selected"
         }
+    },
+    "donations": {
+        "badge": "PHILANTHROPY & EDUCATIONAL IMPACT",
+        "title": "Donations & Philanthropy",
+        "subtitle": "Support educational initiatives and promote equal opportunities in schooling.",
+        "desc": "Are you a foundation, international institution, corporation, or committed donor? Provide material, financial, or pedagogical support to equip and assist partner schools.",
+        "noticeLot3B": "Lot 3A Entry Point: No direct payment or transaction is performed at this stage. Donation collection and accounting traceability will be deployed in Lot 3B.",
+        "cta": "Propose a Donation or Sponsorship"
     },
     "form": {
         "title": "Submit a Partnership Application",
@@ -711,24 +778,43 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "rolePlaceholder": "e.g. Head of Partnerships",
         "companyName": "Company or Organization",
         "companyPlaceholder": "e.g. Education Solutions Ltd",
+        "organizationType": "Organization Type",
+        "selectOrganizationType": "Select your organization type",
+        "organizationTypeOptions": {
+            "ngo": "NGO",
+            "foundation": "Foundation",
+            "association": "Association",
+            "international_institution": "International Institution",
+            "cooperation_agency": "Cooperation Agency",
+            "public_body": "Public Body",
+            "sponsor_company": "Corporate Sponsor",
+            "other": "Other"
+        },
         "sector": "Industry Sector & Category",
         "selectSector": "Select your sector",
         "sectorOptions": {
             "finance": "Licensed Banks & Financial Institutions",
-        "insurance": "Insurance & Student Coverage",
+            "insurance": "Insurance & Student Coverage",
             "telecom": "Telecom & Digital Services",
             "equipment": "Supplies, Publishing & Equipment",
             "mobility_services": "Mobility, Insurance & School Services",
+            "after_school_services": "Services et activités périscolaires",
             "transport": "Student Transportation",
-        "otherRegulated": "Other Regulated Activity (Licensed)",
+            "ngo_institutions": "NGOs, Foundations & International Institutions",
+            "otherRegulated": "Other Regulated Activity (Licensed)",
             "other": "Other Sector"
         },
+        "otherSectorLabel": "Specify your activity sector",
+        "otherSectorPlaceholder": "e.g. Solar energy, Cafeteria equipment, EdTech...",
+        "otherRegulatedQuestion": "Does your activity require official licensing or regulatory authorization?",
+        "otherRegulatedYes": "Yes",
+        "otherRegulatedNo": "No",
         "subSector": "Service sub-category",
         "selectSubSector": "Select your activity",
         "subSectorOptions": {
             "transport": "School transport",
             "insurance": "School insurance & protection (License required)",
-            "afterSchool": "Extracurricular services & activities",
+            "afterSchool": "Extracurricular and after-school services",
             "otherRegulated": "Other regulated activity (License required)"
         },
         "regulatedHelp": "For banking, financial, or insurance activities, please specify your regulatory license.",
@@ -746,10 +832,22 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "websitePlaceholder": "https://www.company.com",
         "formula": "Desired Package",
         "selectFormula": "Select a package",
+        "supportType": "Intended Type of Support",
+        "selectSupportType": "Select the type of support",
+        "supportTypeOptions": {
+            "future_financial_donation": "Future Financial Donation",
+            "equipment_donation": "Equipment Donation",
+            "school_sponsorship": "School Sponsorship",
+            "educational_project_funding": "Educational Project Funding",
+            "skills_sponsorship": "Skills-based Philanthropy",
+            "other_proposal": "Other Proposal"
+        },
         "projectDescription": "Partnership Project Description",
         "projectPlaceholder": "Describe proposed services, objectives, and value brought to schools and families...",
+        "donationProjectPlaceholder": "Describe your donation or sponsorship proposal, target beneficiaries, and collaboration terms...",
         "consentText": "I agree that YZIOW may use the information submitted to review my request and contact me in accordance with its privacy policy.",
         "submit": "Submit Partnership Request",
+        "submitDonation": "Submit Sponsorship Proposal",
         "submitting": "Submitting...",
         "successTitle": "Partnership Request Submitted",
         "successMessage": "Your request has been successfully submitted to YZIOW. We will review it promptly.",
@@ -760,7 +858,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "invalidEmailError": "Please enter a valid work email address.",
         "invalidPhoneError": "Please enter a valid work phone number.",
         "invalidWebsiteError": "The website URL must start with http:// or https://",
-        "privacyLinkText": "privacy policy",
+        "privacyLinkText": "privacy policy"
     },
     "ethics": {
         "title": "Data Protection & Ethical Commitments",
@@ -927,11 +1025,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
             "title": "Movilidad, Seguros y Servicios Escolares",
             "desc": "Transporte escolar seguro, coberturas de seguro adaptadas y servicios de actividades extraescolares.",
             "scope": "Transporte escolar, seguros escolares y programas extraescolares"
+        },
+        "cat5": {
+            "title": "ONG, Fundaciones e Instituciones Internacionales",
+            "desc": "Programas educativos, becas escolares, mecenazgo y proyectos de inclusión escolar con impacto sostenible.",
+            "scope": "Becas, desarrollo comunitario, mecenazgo y programas educativos"
         }
     },
     "formulasTitle": "Nuestras fórmulas de colaboración",
     "formulasSubtitle": "Tres niveles de acompañamiento transparentes, a medida y sujetos a acuerdo contractual previo.",
     "formulas": {
+        "selectedBadge": "✓ Seleccionada",
+        "recommendedBadge": "★ Recomendada",
         "presence": {
             "name": "Presencia",
             "tagline": "Inclusión en el directorio de socios",
@@ -942,7 +1047,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Enlace directo a sus ofertas educativas",
                 "Revisión anual de calidad y cumplimiento"
             ],
-            "cta": "Elegir fórmula Presencia"
+            "cta": "Elegir fórmula Presencia",
+            "selectedCta": "✓ Fórmula Presencia seleccionada"
         },
         "visibility": {
             "name": "Visibilidad",
@@ -954,7 +1060,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Segmentación geográfica y sectorial respetuosa con los usuarios",
                 "Informes consolidados de visibilidad e impacto"
             ],
-            "cta": "Elegir fórmula Visibilidad"
+            "cta": "Elegir fórmula Visibilidad",
+            "selectedCta": "✓ Fórmula Visibilidad seleccionada"
         },
         "strategic": {
             "name": "Socio Estratégico",
@@ -966,8 +1073,17 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Acompañamiento operativo y gobernanza dedicada",
                 "Comité de seguimiento periódico y despliegue coordinado"
             ],
-            "cta": "Elegir fórmula Socio Estratégico"
+            "cta": "Elegir fórmula Socio Estratégico",
+            "selectedCta": "✓ Fórmula Socio Estratégico seleccionada"
         }
+    },
+    "donations": {
+        "badge": "MECENAZGO E IMPACTO EDUCATIVO",
+        "title": "Donaciones y Mecenazgo",
+        "subtitle": "Apoye iniciativas escolares y fomente la igualdad de oportunidades educativas.",
+        "desc": "¿Es usted una fundación, institución, empresa o donante comprometido? Ofrezca apoyo material, financiero o pedagógico para equipar y respaldar a los centros escolares.",
+        "noticeLot3B": "Punto de entrada Lote 3A: No se realiza ningún cobro directo en esta etapa. La recaudación y trazabilidad contable de las donaciones se implementarán en el Lote 3B.",
+        "cta": "Proponer una donación o mecenazgo"
     },
     "form": {
         "title": "Enviar una solicitud de alianza",
@@ -978,24 +1094,43 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "rolePlaceholder": "Ej.: Director de Alianzas",
         "companyName": "Empresa u organización",
         "companyPlaceholder": "Ej.: Soluciones Educativas S.A.",
+        "organizationType": "Tipo de organización",
+        "selectOrganizationType": "Seleccione el tipo de organización",
+        "organizationTypeOptions": {
+            "ngo": "ONG",
+            "foundation": "Fundación",
+            "association": "Asociación",
+            "international_institution": "Institución internacional",
+            "cooperation_agency": "Agencia de cooperación",
+            "public_body": "Organismo público",
+            "sponsor_company": "Empresa mecenas",
+            "other": "Otro"
+        },
         "sector": "Sector de actividad y categoría",
         "selectSector": "Seleccione su sector",
         "sectorOptions": {
             "finance": "Bancos e Instituciones Financieras Autorizadas",
-        "insurance": "Seguros y Coberturas Escolares",
+            "insurance": "Seguros y Coberturas Escolares",
             "telecom": "Telecomunicaciones y Servicios Digitales",
             "equipment": "Material, Editorial y Equipamiento Escolar",
             "mobility_services": "Movilidad, Seguros y Servicios escolares",
+            "after_school_services": "Services et activités périscolaires",
             "transport": "Transporte Escolar",
-        "otherRegulated": "Otra actividad regulada (con acreditación)",
+            "ngo_institutions": "ONG, Fundaciones e Instituciones Internacionales",
+            "otherRegulated": "Otra actividad regulada (con acreditación)",
             "other": "Otro sector de actividad"
         },
+        "otherSectorLabel": "Especifique su sector de actividad",
+        "otherSectorPlaceholder": "Ej.: Energía solar, Equipamiento de comedor, EdTech...",
+        "otherRegulatedQuestion": "¿Su actividad requiere una licencia o autorización regulatoria oficial?",
+        "otherRegulatedYes": "Sí",
+        "otherRegulatedNo": "No",
         "subSector": "Subcategoría de actividad",
         "selectSubSector": "Seleccione su actividad",
         "subSectorOptions": {
             "transport": "Transporte escolar",
             "insurance": "Seguro y previsión escolar (Requiere autorización)",
-            "afterSchool": "Servicios extraescolares y actividades",
+            "afterSchool": "Servicios y actividades extraescolares",
             "otherRegulated": "Otra actividad regulada (Requiere autorización)"
         },
         "regulatedHelp": "Para actividades bancarias, financieras o de seguros, indique su acreditación regulatoria.",
@@ -1013,10 +1148,22 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "websitePlaceholder": "https://www.empresa.com",
         "formula": "Fórmula deseada",
         "selectFormula": "Seleccione una fórmula",
+        "supportType": "Tipo de apoyo previsto",
+        "selectSupportType": "Seleccione el tipo de apoyo",
+        "supportTypeOptions": {
+            "future_financial_donation": "Donación financiera futura",
+            "equipment_donation": "Donación de material",
+            "school_sponsorship": "Patrocinio de un centro educativo",
+            "educational_project_funding": "Financiación de proyecto educativo",
+            "skills_sponsorship": "Mecenazgo de competencias",
+            "other_proposal": "Otra propuesta"
+        },
         "projectDescription": "Descripción del proyecto de alianza",
         "projectPlaceholder": "Describa los servicios previstos, sus objetivos y el valor aportado a las escuelas y familias...",
+        "donationProjectPlaceholder": "Describa su propuesta de donación o mecenazgo, los beneficiarios previstos y las modalidades de colaboración...",
         "consentText": "Acepto que YZIOW utilice la información transmitida para estudiar mi solicitud y contactarme de acuerdo con su política de privacidad.",
         "submit": "Enviar mi solicitud de alianza",
+        "submitDonation": "Enviar propuesta de mecenazgo",
         "submitting": "Enviando...",
         "successTitle": "Solicitud enviada con éxito",
         "successMessage": "Su solicitud ha sido enviada al equipo de YZIOW. La evaluaremos a la mayor brevedad.",
@@ -1027,13 +1174,13 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "invalidEmailError": "Por favor introduzca un correo electrónico profesional válido.",
         "invalidPhoneError": "Por favor introduzca un número de teléfono profesional válido.",
         "invalidWebsiteError": "El sitio web debe comenzar con http:// o https://",
-        "privacyLinkText": "política de privacidad",
+        "privacyLinkText": "política de privacidad"
     },
     "ethics": {
         "title": "Protección de datos y compromisos éticos",
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "Ningún socio tiene acceso directo a las bases de datos de centros, docentes, padres o alumnos. YZIOW no comercializa datos personales.",
-        "p3": "YZIOW no concede ningún préstamo. En su caso, los servicios financieros presentados en la plataforma serán ofrecidos y gestionados exclusivamente por instituciones autorizadas, bajo su propia responsabilité."
+        "p3": "YZIOW no concede ningún préstamo. En su caso, los servicios financieros presentados en la plateforme serán ofrecidos y gestionados exclusivamente por instituciones autorizadas, bajo su propia responsabilité."
     }
 },
     contact: {
@@ -1194,11 +1341,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
             "title": "النقل، التأمين والخدمات المدرسية",
             "desc": "النقل المدرسي الآمن، التغطية التأمينية المناسبة وخدمات الأنشطة المدرسية التكميلية.",
             "scope": "نقل مدرسي، تأمين مدرسي وأنشطة لاصفية"
+        },
+        "cat5": {
+            "title": "المنظمات غير الحكومية والمؤسسات والهيئات الدولية",
+            "desc": "البرامج التعليمية والمنح الدراسية ورعاية المشاريع ومبادرات الشمول المدرسي ذات الأثر المستدام.",
+            "scope": "المنح الدراسية والتنمية المجتمعية والرعاية والبرامج التعليمية"
         }
     },
     "formulasTitle": "باقات التعاون والشراكة",
     "formulasSubtitle": "ثلاثة مستويات مرافقة شفافة ومخصصة تخضع لاتفاق تعاقدي مسبق.",
     "formulas": {
+        "selectedBadge": "✓ محددة",
+        "recommendedBadge": "★ موصى بها",
         "presence": {
             "name": "حضور",
             "tagline": "الإدراج في دليل الشركاء",
@@ -1209,7 +1363,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "رابط مباشر لعروضكم الموجهة للتعليم",
                 "مراجعة سنوية لضمان الجودة والمطابقة"
             ],
-            "cta": "اختيار باقة حضور"
+            "cta": "اختيار باقة حضور",
+            "selectedCta": "✓ تم اختيار باقة حضور"
         },
         "visibility": {
             "name": "ظهور",
@@ -1221,7 +1376,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "استهداف جغرافي وقطاعي يحترم اختيارات المستخدمين",
                 "تقارير موحدة لقياس الوصول والتأثير"
             ],
-            "cta": "اختيار باقة ظهور"
+            "cta": "اختيار باقة ظهور",
+            "selectedCta": "✓ تم اختيار باقة ظهور"
         },
         "strategic": {
             "name": "شريك استراتيجي",
@@ -1233,8 +1389,17 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "مرافقة تشغيلية وإشراف مخصص",
                 "لجنة متابعة دورية وانتشار منسق"
             ],
-            "cta": "اختيار باقة شريك استراتيجي"
+            "cta": "اختيار باقة شريك استراتيجي",
+            "selectedCta": "✓ تم اختيار باقة شريك استراتيجي"
         }
+    },
+    "donations": {
+        "badge": "الرعاية والأثر التعليمي",
+        "title": "التبرعات والرعاية التعليمية",
+        "subtitle": "ادعم المبادرات المدرسية وعزز تكافؤ الفرص في التعليم.",
+        "desc": "هل أنتم مؤسسة خيرية أو هيئة دولية أو شركة أو جهة مانحة؟ قدموا دعماً مادياً أو مالياً أو تربوياً لتجهيز ودعم المدارس الشريكة.",
+        "noticeLot3B": "نقطة دخول الحزمة 3A: لا يتم تحصيل أي مبالغ مالية في هذه المرحلة. سيتم نشر آلية التبرعات والتحصيل في الحزمة 3B.",
+        "cta": "تقديم مقترح تبرع أو رعاية"
     },
     "form": {
         "title": "تقديم طلب شراكة",
@@ -1245,24 +1410,43 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "rolePlaceholder": "مثال: مدير الشراكات",
         "companyName": "الشركة أو المؤسسة",
         "companyPlaceholder": "مثال: مؤسسة الحلول التعليمية",
+        "organizationType": "نوع المنظمة أو الهيئة",
+        "selectOrganizationType": "اختر نوع المنظمة",
+        "organizationTypeOptions": {
+            "ngo": "منظمة غير حكومية",
+            "foundation": "مؤسسة خيرية / وقفية",
+            "association": "جمعية",
+            "international_institution": "هيئة دولية",
+            "cooperation_agency": "وكالة تعاون دولي",
+            "public_body": "جهة حكومية أو عامة",
+            "sponsor_company": "شركة راعية / مانحة",
+            "other": "أخرى"
+        },
         "sector": "قطاع النشاط والفئة",
         "selectSector": "اختر قطاع نشاطك",
         "sectorOptions": {
             "finance": "البنوك والمؤسسات المالية المعتمدة",
-        "insurance": "التأمين والحماية المدرسية",
+            "insurance": "التأمين والحماية المدرسية",
             "telecom": "الاتصالات والخدمات الرقمية",
             "equipment": "المستلزمات، النشر والتجهيزات المدرسية",
             "mobility_services": "التنقل والتأمين والخدمات المدرسية",
+            "after_school_services": "Services et activités périscolaires",
             "transport": "النقل المدرسي",
-        "otherRegulated": "نشاط منظم آخر (مع ترخيص رسمي)",
+            "ngo_institutions": "المنظمات غير الحكومية والمؤسسات والهيئات الدولية",
+            "otherRegulated": "نشاط منظم آخر (مع ترخيص رسمي)",
             "other": "قطاع نشاط آخر"
         },
+        "otherSectorLabel": "يرجى تحديد قطاع نشاطكم",
+        "otherSectorPlaceholder": "مثال: الطاقة الشمسية، تجهيزات المطاعم المدرسية، تكنولوجيا التعليم...",
+        "otherRegulatedQuestion": "هل يتطلب نشاطكم ترخيصاً أو اعتماداً تنظيمياً رسمياً؟",
+        "otherRegulatedYes": "نعم",
+        "otherRegulatedNo": "لا",
         "subSector": "الفئة الفرعية للنشاط",
         "selectSubSector": "اختر نوع النشاط",
         "subSectorOptions": {
             "transport": "النقل المدرسي",
             "insurance": "التأمين والحماية المدرسية (يتطلب ترخيصاً)",
-            "afterSchool": "الخدمات والأنشطة الموازية للمدرسة",
+            "afterSchool": "الخدمات والأنشطة المدرسية التكميلية",
             "otherRegulated": "نشاط آخر خاضع للتنظيم (يتطلب ترخيصاً)"
         },
         "regulatedHelp": "بالنسبة للأنشطة البنكية أو المالية أو التأمينية، يرجى تحديد الترخيص الرسمي.",
@@ -1280,10 +1464,22 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "websitePlaceholder": "https://www.company.com",
         "formula": "الباقة المطلوبة",
         "selectFormula": "اختر باقة",
+        "supportType": "نوع الدعم المقترح",
+        "selectSupportType": "اختر نوع الدعم",
+        "supportTypeOptions": {
+            "future_financial_donation": "تبرع مالي مستقبلي",
+            "equipment_donation": "تبرع بمعدات وتجهيزات",
+            "school_sponsorship": "كفالة أو رعاية مؤسسة تعليمية",
+            "educational_project_funding": "تمويل مشروع تعليمي",
+            "skills_sponsorship": "رعاية بالخبرات والمهارات",
+            "other_proposal": "مقترح آخر"
+        },
         "projectDescription": "وصف مشروع الشراكة",
         "projectPlaceholder": "صف الخدمات المقترحة، أهدافكم والقيمة المضافة المقدمة للمدارس والأسر...",
+        "donationProjectPlaceholder": "صف مقترح التبرع أو الرعاية، الفئات المستفيدة وآليات التنفيذ المقترحة...",
         "consentText": "أوافق على أن تستخدم YZIOW المعلومات المرسلة لدراسة طلبي والتواصل معي وفقاً لسياسة الخصوصية الخاصة بها.",
         "submit": "إرسال طلب الشراكة",
+        "submitDonation": "إرسال مقترح الرعاية أو التبرع",
         "submitting": "جاري الإرسال...",
         "successTitle": "تم إرسال طلب الشراكة بنجاح",
         "successMessage": "تم استلام طلبكم وسيقوم فريق YZIOW بمراجعته والتواصل معكم في أقرب وقت.",
@@ -1294,7 +1490,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "invalidEmailError": "يرجى إدخال عنوان بريد إلكتروني مهني صحيح.",
         "invalidPhoneError": "يرجى إدخال رقم هاتف مهني صحيح.",
         "invalidWebsiteError": "يجب أن يبدأ عنوان الموقع الإلكتروني بـ http:// أو https://",
-        "privacyLinkText": "سياسة الخصوصية",
+        "privacyLinkText": "سياسة الخصوصية"
     },
     "ethics": {
         "title": "حماية البيانات والالتزامات الأخلاقية",
@@ -1461,11 +1657,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
             "title": "Mobilità, Assicurazioni e Servizi Scolastici",
             "desc": "Trasporto scolastico sicuro, coperture assicurative su misura e servizi extrascolastici.",
             "scope": "Trasporto scolastico, assicurazioni e attività extrascolastiche"
+        },
+        "cat5": {
+            "title": "ONG, Fondazioni e Istituzioni Internazionali",
+            "desc": "Programmi educativi, borse di studio, mecenatismo e progetti di inclusione scolastica a impatto sostenibile.",
+            "scope": "Borse di studio, sviluppo comunitario, mecenatismo e programmi educativi"
         }
     },
     "formulasTitle": "Le nostre formule di collaborazione",
     "formulasSubtitle": "Tre livelli di supporto trasparenti, su misura e soggetti ad accordo contrattuale preventivo.",
     "formulas": {
+        "selectedBadge": "✓ Selezionata",
+        "recommendedBadge": "★ Consigliata",
         "presence": {
             "name": "Presenza",
             "tagline": "Inserimento nella directory partner",
@@ -1476,11 +1679,12 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Link diretto alle vostre offerte per l'istruzione",
                 "Revisione annuale di qualità e conformità"
             ],
-            "cta": "Scegli la formula Presenza"
+            "cta": "Scegli la formula Presenza",
+            "selectedCta": "✓ Formula Presenza selezionata"
         },
         "visibility": {
             "name": "Visibilità",
-            "tagline": "In risalto mirato e comunicazione sponsorizzata",
+            "tagline": "In risalto mirato e communication sponsorizzata",
             "priceTag": "Su preventivo",
             "desc": "Campagne identificate come Offerta partner o Contenuto sponsorizzato, diffuse unicamente negli spazi autorizzati e agli utenti che hanno accettato di riceverle.",
             "features": [
@@ -1488,7 +1692,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Targeting geografico e di settore nel rispetto degli utenti",
                 "Report consolidati di visibilità e impatto"
             ],
-            "cta": "Scegli la formula Visibilità"
+            "cta": "Scegli la formula Visibilità",
+            "selectedCta": "✓ Formula Visibilità selezionata"
         },
         "strategic": {
             "name": "Partner Strategico",
@@ -1500,8 +1705,17 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Supporto operativo e governance dedicata",
                 "Comitato di monitoraggio periodico e implementazione coordinata"
             ],
-            "cta": "Scegli la formula Partner Strategico"
+            "cta": "Scegli la formula Partner Strategico",
+            "selectedCta": "✓ Formula Partner Strategico selezionata"
         }
+    },
+    "donations": {
+        "badge": "MECENATISMO E IMPATTO EDUCATIVO",
+        "title": "Donazioni e Mecenatismo",
+        "subtitle": "Sostieni iniziative scolastiche e favorisci pari opportunità educative.",
+        "desc": "Sei una fondazione, istituzione, azienda o un donatore impegnato? Offri supporto materiale, finanziario o pedagogico per attrezzare e accompagnare le scuole partner.",
+        "noticeLot3B": "Punto di ingresso Lotto 3A: Nessun incasso diretto viene effettuato in questa fase. La raccolta e tracciabilità contabile delle donazioni saranno implementate nel Lotto 3B.",
+        "cta": "Proponi una donazione o mecenatismo"
     },
     "form": {
         "title": "Invia una richiesta di partnership",
@@ -1512,24 +1726,43 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "rolePlaceholder": "Es.: Responsabile Partnership",
         "companyName": "Azienda o organizzazione",
         "companyPlaceholder": "Es.: Soluzioni Educative S.p.A.",
+        "organizationType": "Tipo di organizzazione",
+        "selectOrganizationType": "Seleziona il tipo di organizzazione",
+        "organizationTypeOptions": {
+            "ngo": "ONG",
+            "foundation": "Fondazione",
+            "association": "Associazione",
+            "international_institution": "Istituzione internazionale",
+            "cooperation_agency": "Agenzia di cooperazione",
+            "public_body": "Ente pubblico",
+            "sponsor_company": "Azienda mecenate",
+            "other": "Altro"
+        },
         "sector": "Settore di attività e categoria",
         "selectSector": "Seleziona il tuo settore",
         "sectorOptions": {
             "finance": "Banche e Istituti Finanziari Autorizzati",
-        "insurance": "Assicurazioni e Previdenza Scolastica",
+            "insurance": "Assicurazioni e Previdenza Scolastica",
             "telecom": "Telecomunicazioni e Servizi Digitali",
             "equipment": "Forniture, Editoria e Attrezzature Scolastiche",
             "mobility_services": "Mobilità, Assicurazione e Servizi scolastici",
+            "after_school_services": "Services et activités périscolaires",
             "transport": "Trasporto Scolastico",
-        "otherRegulated": "Altra attività regolamentata (con autorizzazione)",
+            "ngo_institutions": "ONG, Fondazioni e Istituzioni Internazionali",
+            "otherRegulated": "Altra attività regolamentata (con autorizzazione)",
             "other": "Altro settore di attività"
         },
+        "otherSectorLabel": "Specificare il settore di attività",
+        "otherSectorPlaceholder": "Es.: Energia solare, Attrezzature per mense, EdTech...",
+        "otherRegulatedQuestion": "La vostra attività richiede un'autorizzazione o abilitazione normativa specifica?",
+        "otherRegulatedYes": "Sì",
+        "otherRegulatedNo": "No",
         "subSector": "Sottocategoria di attività",
         "selectSubSector": "Seleziona la tua attività",
         "subSectorOptions": {
             "transport": "Trasporto scolastico",
             "insurance": "Assicurazione e protezione scolastica (Autorizzazione richiesta)",
-            "afterSchool": "Servizi parascolastici e attività",
+            "afterSchool": "Servizi e attività parascolastiche",
             "otherRegulated": "Altra attività regolamentata (Autorizzazione richiesta)"
         },
         "regulatedHelp": "Per attività bancarie, finanziarie o assicurative, indicare l'autorizzazione normativa.",
@@ -1547,10 +1780,22 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "websitePlaceholder": "https://www.azienda.com",
         "formula": "Formula desiderata",
         "selectFormula": "Seleziona una formula",
+        "supportType": "Tipo di supporto previsto",
+        "selectSupportType": "Seleziona il tipo di supporto",
+        "supportTypeOptions": {
+            "future_financial_donation": "Donazione finanziaria futura",
+            "equipment_donation": "Donazione di attrezzature",
+            "school_sponsorship": "Adozione o sostegno a una scuola",
+            "educational_project_funding": "Finanziamento di un progetto educativo",
+            "skills_sponsorship": "Mecenatismo di competenze",
+            "other_proposal": "Altra proposta"
+        },
         "projectDescription": "Descrizione del progetto di partnership",
         "projectPlaceholder": "Descrivi i servizi proposti, i tuoi obiettivi e il valore offerto a scuole e famiglie...",
+        "donationProjectPlaceholder": "Descrivi la proposta di donazione o mecenatismo, i beneficiari previsti e le modalità di attuazione...",
         "consentText": "Accetto che YZIOW utilizzi le informazioni trasmesse per valutare la mia richiesta e ricontattarmi in conformità con la sua informativa sulla privacy.",
         "submit": "Invia richiesta di partnership",
+        "submitDonation": "Invia proposta di mecenatismo",
         "submitting": "Invio in corso...",
         "successTitle": "Richiesta inviata con successo",
         "successMessage": "La tua richiesta è stata trasmessa al team YZIOW. La esamineremo al più presto.",
@@ -1561,7 +1806,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "invalidEmailError": "Inserisci un indirizzo email aziendale valido.",
         "invalidPhoneError": "Inserisci un numero di telefono aziendale valido.",
         "invalidWebsiteError": "L'indirizzo del sito web deve iniziare con http:// o https://",
-        "privacyLinkText": "informativa sulla privacy",
+        "privacyLinkText": "informativa sulla privacy"
     },
     "ethics": {
         "title": "Protezione dei dati e impegni etici",
@@ -1728,11 +1973,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
             "title": "Mobilität, Versicherung & Schuldienste",
             "desc": "Sicherer Schülertransport, maßgeschneiderter Versicherungsschutz und außerschulische Förderprogramme.",
             "scope": "Schülertransport, Schulversicherungen und außerschulische Aktivitäten"
+        },
+        "cat5": {
+            "title": "NGOs, Stiftungen & Internationale Institutionen",
+            "desc": "Bildungsprogramme, Stipendien, Mäzenatentum und schulische Inklusionsprojekte mit nachhaltiger Wirkung.",
+            "scope": "Stipendien, Gemeinschaftsentwicklung, Mäzenatentum und Bildungsprogramme"
         }
     },
     "formulasTitle": "Unsere Partnerschaftsmodelle",
     "formulasSubtitle": "Drei transparente, maßgeschneiderte Zusammenarbeitsstufen vorbehaltlich vertraglicher Vereinbarung.",
     "formulas": {
+        "selectedBadge": "✓ Ausgewählt",
+        "recommendedBadge": "★ Empfohlen",
         "presence": {
             "name": "Präsenz",
             "tagline": "Eintrag im Partnerverzeichnis",
@@ -1743,7 +1995,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Direkter Link zu Ihren Bildungsangeboten",
                 "Jährliche Qualitäts- und Compliance-Prüfung"
             ],
-            "cta": "Paket Präsenz wählen"
+            "cta": "Paket Präsenz wählen",
+            "selectedCta": "✓ Paket Präsenz ausgewählt"
         },
         "visibility": {
             "name": "Sichtbarkeit",
@@ -1755,7 +2008,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Geografisches und sektorielles Targeting unter Wahrung der Nutzerrechte",
                 "Konsolidierte Reichweiten- und Wirkungsberichte"
             ],
-            "cta": "Paket Sichtbarkeit wählen"
+            "cta": "Paket Sichtbarkeit wählen",
+            "selectedCta": "✓ Paket Sichtbarkeit ausgewählt"
         },
         "strategic": {
             "name": "Strategischer Partner",
@@ -1767,8 +2021,17 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Dedizierte operative Betreuung und Governance",
                 "Regelmäßiger Lenkungsausschuss und koordinierter Rollout"
             ],
-            "cta": "Paket Strategischer Partner wählen"
+            "cta": "Paket Strategischer Partner wählen",
+            "selectedCta": "✓ Paket Strategischer Partner ausgewählt"
         }
+    },
+    "donations": {
+        "badge": "MÄZENATENTUM & BILDUNGSWIRKUNG",
+        "title": "Spenden & Mäzenatentum",
+        "subtitle": "Unterstützen Sie Schulinitiativen und fördern Sie Bildungsgerechtigkeit.",
+        "desc": "Sind Sie eine Stiftung, Institution, ein Unternehmen oder engagierter Förderer? Bieten Sie materielle, finanzielle oder pädagogische Unterstützung für Partnerschulen.",
+        "noticeLot3B": "Einstiegspunkt Los 3A: In dieser Phase findet kein direkter Zahlungseinzug statt. Sammlung und buchhalterische Nachverfolgung von Spenden werden in Los 3B umgesetzt.",
+        "cta": "Spende oder Mäzenatentum vorschlagen"
     },
     "form": {
         "title": "Partnerschaftsanfrage stellen",
@@ -1779,24 +2042,43 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "rolePlaceholder": "z.B. Leiter Partnerschaften",
         "companyName": "Unternehmen oder Organisation",
         "companyPlaceholder": "z.B. Bildungslösungen GmbH",
+        "organizationType": "Organisationstyp",
+        "selectOrganizationType": "Wählen Sie Ihren Organisationstyp",
+        "organizationTypeOptions": {
+            "ngo": "NGO",
+            "foundation": "Stiftung",
+            "association": "Verein / Verband",
+            "international_institution": "Internationale Institution",
+            "cooperation_agency": "Entwicklungsagentur",
+            "public_body": "Öffentliche Körperschaft",
+            "sponsor_company": "Förderunternehmen",
+            "other": "Sonstiges"
+        },
         "sector": "Branche & Kategorie",
         "selectSector": "Wählen Sie Ihre Branche",
         "sectorOptions": {
             "finance": "Zugelassene Banken & Finanzinstitute",
-        "insurance": "Versicherung & Schulischer Schutz",
+            "insurance": "Versicherung & Schulischer Schutz",
             "telecom": "Telekommunikation & Digitale Dienste",
             "equipment": "Schulbedarf, Verlage & Ausstattung",
             "mobility_services": "Mobilität, Versicherung & Schuldienste",
+            "after_school_services": "Services et activités périscolaires",
             "transport": "Schülertransport",
-        "otherRegulated": "Sonstige regulierte Tätigkeit (mit Zulassung)",
+            "ngo_institutions": "NGOs, Stiftungen & Internationale Institutionen",
+            "otherRegulated": "Sonstige regulierte Tätigkeit (mit Zulassung)",
             "other": "Sonstige Branche"
         },
+        "otherSectorLabel": "Geben Sie Ihren Tätigkeitsbereich an",
+        "otherSectorPlaceholder": "z.B. Solarenergie, Mensa-Ausstattung, EdTech...",
+        "otherRegulatedQuestion": "Erfordert Ihre Tätigkeit eine behördliche Genehmigung oder Regulierung?",
+        "otherRegulatedYes": "Ja",
+        "otherRegulatedNo": "Nein",
         "subSector": "Tätigkeits-Unterkategorie",
         "selectSubSector": "Wählen Sie Ihre Tätigkeit",
         "subSectorOptions": {
             "transport": "Schülertransport",
             "insurance": "Schulversicherung & Vorsorge (Zulassung erforderlich)",
-            "afterSchool": "Ganztags- & Zusatzangebote",
+            "afterSchool": "Schulische und außerschulische Aktivitäten",
             "otherRegulated": "Sonstige regulierte Tätigkeit (Zulassung erforderlich)"
         },
         "regulatedHelp": "Für Bank-, Finanz- oder Versicherungsaktivitäten geben Sie bitte Ihre behördliche Zulassung an.",
@@ -1814,10 +2096,22 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "websitePlaceholder": "https://www.unternehmen.de",
         "formula": "Gewünschtes Modell",
         "selectFormula": "Modell auswählen",
+        "supportType": "Art der geplanten Unterstützung",
+        "selectSupportType": "Wählen Sie die Art der Unterstützung",
+        "supportTypeOptions": {
+            "future_financial_donation": "Künftige Geldspende",
+            "equipment_donation": "Sachspende / Material",
+            "school_sponsorship": "Schulpatenschaft",
+            "educational_project_funding": "Finanzierung eines Bildungsprojekts",
+            "skills_sponsorship": "Kompetenz-Mäzenatentum",
+            "other_proposal": "Sonstiger Vorschlag"
+        },
         "projectDescription": "Beschreibung des Partnerschaftsprojekts",
         "projectPlaceholder": "Beschreiben Sie Ihre geplanten Dienste, Ziele und den Mehrwert für Schulen und Familien...",
+        "donationProjectPlaceholder": "Beschreiben Sie Ihren Spenden- oder Förderansatz, Zielgruppen und Durchführungsmodalitäten...",
         "consentText": "Ich stimme zu, dass YZIOW die übermittelten Daten zur Prüfung meiner Anfrage und Kontaktaufnahme gemäß seiner Datenschutzerklärung verwendet.",
         "submit": "Partnerschaftsanfrage absenden",
+        "submitDonation": "Förderantrag übermitteln",
         "submitting": "Wird gesendet...",
         "successTitle": "Anfrage erfolgreich übermittelt",
         "successMessage": "Ihre Partnerschaftsanfrage wurde an das YZIOW-Team übermittelt. Wir melden uns zeitnah.",
@@ -1828,7 +2122,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "invalidEmailError": "Bitte geben Sie eine gültige geschäftliche E-Mail-Adresse ein.",
         "invalidPhoneError": "Bitte geben Sie eine gültige geschäftliche Telefonnummer ein.",
         "invalidWebsiteError": "Die Website-Adresse muss mit http:// oder https:// beginnen.",
-        "privacyLinkText": "Datenschutzerklärung",
+        "privacyLinkText": "Datenschutzerklärung"
     },
     "ethics": {
         "title": "Datenschutz & Ethische Verpflichtungen",
@@ -1995,11 +2289,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
             "title": "Mobilidade, Seguros e Serviços Escolares",
             "desc": "Transporte escolar seguro, coberturas de seguro sob medida e serviços extracurriculares.",
             "scope": "Transporte escolar, seguros escolares e programas extracurriculares"
+        },
+        "cat5": {
+            "title": "ONGs, Fundações e Instituições Internacionais",
+            "desc": "Programas educacionais, bolsas de estudo, mecenato e projetos de inclusão escolar de impacto sustentável.",
+            "scope": "Bolsas de estudo, desenvolvimento comunitário, mecenato e programas educacionais"
         }
     },
     "formulasTitle": "Nossas modalidades de colaboração",
     "formulasSubtitle": "Três níveis de suporte transparentes, sob medida e sujeitos a acordo contratual prévio.",
     "formulas": {
+        "selectedBadge": "✓ Selecionada",
+        "recommendedBadge": "★ Recomendada",
         "presence": {
             "name": "Presença",
             "tagline": "Inclusão no diretório de parceiros",
@@ -2010,7 +2311,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Link direto para suas ofertas educacionais",
                 "Revisão anual de qualidade e conformidade"
             ],
-            "cta": "Escolher modalidade Presença"
+            "cta": "Escolher modalidade Presença",
+            "selectedCta": "✓ Modalidade Presença selecionada"
         },
         "visibility": {
             "name": "Visibilidade",
@@ -2022,7 +2324,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Segmentação geográfica e setorial com respeito aos utilizadores",
                 "Relatórios consolidados de visibilidade e impacto"
             ],
-            "cta": "Escolher modalidade Visibilidade"
+            "cta": "Escolher modalidade Visibilidade",
+            "selectedCta": "✓ Modalidade Visibilidade selecionada"
         },
         "strategic": {
             "name": "Parceiro Estratégico",
@@ -2034,8 +2337,17 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Suporte operacional e governança dedicada",
                 "Comitê de acompanhamento periódico e implantação coordenada"
             ],
-            "cta": "Escolher modalidade Parceiro Estratégico"
+            "cta": "Escolher modalidade Parceiro Estratégico",
+            "selectedCta": "✓ Modalidade Parceiro Estratégico selecionada"
         }
+    },
+    "donations": {
+        "badge": "MECENATO E IMPACTO EDUCACIONAL",
+        "title": "Doações e Mecenato",
+        "subtitle": "Apoie iniciativas escolares e promova a igualdade de oportunidades educacionais.",
+        "desc": "É uma fundação, instituição, empresa ou doador empenhado? Proponha apoio material, financeiro ou pedagógico para equipar e acompanhar escolas parceiras.",
+        "noticeLot3B": "Ponto de entrada Lote 3A: Nenhuma cobrança direta é realizada nesta etapa. A arrecadação e rastreabilidade contábil de doações serão implementadas no Lote 3B.",
+        "cta": "Propor uma doação ou mecenato"
     },
     "form": {
         "title": "Enviar proposta de parceria",
@@ -2046,24 +2358,43 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "rolePlaceholder": "Ex.: Diretor de Parcerias",
         "companyName": "Empresa ou organização",
         "companyPlaceholder": "Ex.: Soluções Educacionais Ltda",
+        "organizationType": "Tipo de organização",
+        "selectOrganizationType": "Selecione o tipo de organização",
+        "organizationTypeOptions": {
+            "ngo": "ONG",
+            "foundation": "Fundação",
+            "association": "Associação",
+            "international_institution": "Instituição internacional",
+            "cooperation_agency": "Agência de cooperação",
+            "public_body": "Organismo público",
+            "sponsor_company": "Empresa mecenas",
+            "other": "Outro"
+        },
         "sector": "Setor de atividade e categoria",
         "selectSector": "Selecione o seu setor",
         "sectorOptions": {
             "finance": "Bancos e Instituições Financeiras Autorizadas",
-        "insurance": "Seguros e Proteção Escolar",
+            "insurance": "Seguros e Proteção Escolar",
             "telecom": "Telecomunicações e Serviços Digitais",
             "equipment": "Materiais, Editoras e Equipamentos Escolares",
             "mobility_services": "Mobilidade, Seguros e Serviços escolares",
+            "after_school_services": "Services et activités périscolaires",
             "transport": "Transporte Escolar",
-        "otherRegulated": "Outra atividade regulamentada (com autorização)",
+            "ngo_institutions": "ONGs, Fundações e Instituições Internacionais",
+            "otherRegulated": "Outra atividade regulamentada (com autorização)",
             "other": "Outro setor de atividade"
         },
+        "otherSectorLabel": "Especifique seu setor de atividade",
+        "otherSectorPlaceholder": "Ex.: Energia solar, Equipamentos de cantina, EdTech...",
+        "otherRegulatedQuestion": "A sua atividade exige autorização ou licença regulatória oficial?",
+        "otherRegulatedYes": "Sim",
+        "otherRegulatedNo": "Não",
         "subSector": "Subcategoria de atividade",
         "selectSubSector": "Selecione a sua atividade",
         "subSectorOptions": {
             "transport": "Transporte escolar",
             "insurance": "Seguro e previdência escolar (Autorização necessária)",
-            "afterSchool": "Serviços extracurriculares e atividades",
+            "afterSchool": "Serviços e atividades extracurriculares",
             "otherRegulated": "Outra atividade regulada (Autorização necessária)"
         },
         "regulatedHelp": "Para atividades bancárias, financeiras ou de seguros, especifique a sua autorização regulatória.",
@@ -2081,10 +2412,22 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "websitePlaceholder": "https://www.empresa.com",
         "formula": "Modalidade desejada",
         "selectFormula": "Selecione uma modalidade",
+        "supportType": "Tipo de apoio pretendido",
+        "selectSupportType": "Selecione o tipo de apoio",
+        "supportTypeOptions": {
+            "future_financial_donation": "Doação financeira futura",
+            "equipment_donation": "Doação de equipamentos",
+            "school_sponsorship": "Apadrinhamento de escola",
+            "educational_project_funding": "Financiamento de projeto educativo",
+            "skills_sponsorship": "Mecenato de competências",
+            "other_proposal": "Outra proposta"
+        },
         "projectDescription": "Descrição do projeto de parceria",
         "projectPlaceholder": "Descreva os serviços propostos, os seus objetivos e o valor gerado para escolas e famílias...",
+        "donationProjectPlaceholder": "Descreva a sua proposta de doação ou mecenato, os beneficiários visados e os termos de parceria...",
         "consentText": "Concordo que a YZIOW utilize as informações transmitidas para analisar o meu pedido e entrar em contacto de acordo com a sua política de privacidade.",
         "submit": "Enviar proposta de parceria",
+        "submitDonation": "Enviar proposta de mecenato",
         "submitting": "Enviando...",
         "successTitle": "Proposta enviada com sucesso",
         "successMessage": "A sua solicitação foi enviada à equipe da YZIOW. Analisaremos com brevidade.",
@@ -2095,13 +2438,13 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "invalidEmailError": "Por favor insira um endereço de e-mail profissional válido.",
         "invalidPhoneError": "Por favor insira um número de telefone profissional válido.",
         "invalidWebsiteError": "O site deve começar com http:// ou https://",
-        "privacyLinkText": "política de privacidade",
+        "privacyLinkText": "política de privacidade"
     },
     "ethics": {
         "title": "Proteção de dados e compromissos éticos",
         "p1": "Protection des données et séparation stricte entre les services partenaires et les données scolaires.",
         "p2": "Nenhum parceiro tem acesso direto às bases de dados de escolas, professores, pais ou alunos. A YZIOW não comercializa dados pessoais.",
-        "p3": "A YZIOW não concede empréstimos. Se aplicável, os serviços financeiros apresentados na plataforma serão exclusivamente oferecidos e geridos por instituições autorizadas, sob sua própria responsabilidade."
+        "p3": "A YZIOW não concede empréstimos. Se aplicável, os services financeiros apresentados na plataforma serão exclusivamente oferecidos e geridos por instituições autorizadas, sob sua própria responsabilidade."
     }
 },
     contact: {
@@ -2262,11 +2605,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
             "title": "校车出行、保险与课外服务",
             "desc": "安全校车接送、定制化校园保险及丰富的课外活动支持服务。",
             "scope": "校车交通、学生保险和课外活动项目"
+        },
+        "cat5": {
+            "title": "非政府组织、基金会与国际机构",
+            "desc": "教育合作项目、奖助学金、公益赞助及具备可持续影响力的全纳教育计划。",
+            "scope": "奖助学金、社区发展、公益资助与教育发展项目"
         }
     },
     "formulasTitle": "合作方案与模式",
     "formulasSubtitle": "三个清晰、定制化的合作层级，均须事先达成正式协议。",
     "formulas": {
+        "selectedBadge": "✓ 已选择",
+        "recommendedBadge": "★ 推荐",
         "presence": {
             "name": "入驻方案",
             "tagline": "收录于合作伙伴名录",
@@ -2277,7 +2627,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "直达教育专项产品或服务的链接",
                 "年度合规与服务质量审核"
             ],
-            "cta": "选择入驻方案"
+            "cta": "选择入驻方案",
+            "selectedCta": "✓ 已选择入驻方案"
         },
         "visibility": {
             "name": "推广方案",
@@ -2289,7 +2640,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "尊重用户意愿的地理区域和行业精准定向",
                 "曝光度与影响力的综合统计报告"
             ],
-            "cta": "选择推广方案"
+            "cta": "选择推广方案",
+            "selectedCta": "✓ 已选择推广方案"
         },
         "strategic": {
             "name": "战略合作伙伴",
@@ -2301,8 +2653,17 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "专属运营支持与协调治理机制",
                 "定期联席会议与联合推广落地"
             ],
-            "cta": "选择战略合作伙伴方案"
+            "cta": "选择战略合作伙伴方案",
+            "selectedCta": "✓ 已选择战略合作伙伴方案"
         }
+    },
+    "donations": {
+        "badge": "公益赞助与教育赋能",
+        "title": "公益捐赠与教育资助",
+        "subtitle": "支持优质校园公益项目，促进教育公平与资源均衡发展。",
+        "desc": "如果您是基金会、国际机构、企业或爱心捐助者，欢迎提供物资、资金或教育资源支持，共同赋能合作学校。",
+        "noticeLot3B": "阶段说明（Lot 3A）：本阶段仅为合作意向登记，不设任何在线收款功能。捐赠收款与资金财务追溯将在后续 Lot 3B 中统一推出。",
+        "cta": "提交公益赞助与捐赠意向"
     },
     "form": {
         "title": "提交合作意向申请",
@@ -2313,24 +2674,43 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "rolePlaceholder": "例如：商务合作总监",
         "companyName": "企业或机构名称",
         "companyPlaceholder": "例如：某某教育科技有限公司",
+        "organizationType": "机构类型",
+        "selectOrganizationType": "请选择机构类型",
+        "organizationTypeOptions": {
+            "ngo": "非政府组织 (NGO)",
+            "foundation": "基金会",
+            "association": "行业协会 / 社会团体",
+            "international_institution": "国际机构",
+            "cooperation_agency": "国际合作机构",
+            "public_body": "公共事业单位",
+            "sponsor_company": "爱心赞助企业",
+            "other": "其他机构"
+        },
         "sector": "行业领域与合作类别",
         "selectSector": "请选择行业领域",
         "sectorOptions": {
             "finance": "持牌银行与受监管金融机构",
-        "insurance": "校园保险与学生保障",
+            "insurance": "校园保险与学生保障",
             "telecom": "电信与数字技术服务",
             "equipment": "教材出版、学习用品与教学设备",
             "mobility_services": "出行、保险与校园综合服务",
+            "after_school_services": "Services et activités périscolaires",
             "transport": "校车与学生交通",
-        "otherRegulated": "其他受监管行业（须持牌）",
+            "ngo_institutions": "非政府组织、基金会与国际机构",
+            "otherRegulated": "其他受监管行业（须持牌）",
             "other": "其他行业领域"
         },
+        "otherSectorLabel": "请明确您的业务领域",
+        "otherSectorPlaceholder": "例如：太阳能、食堂设备、教育科技...",
+        "otherRegulatedQuestion": "您的业务是否需要特定的行业牌照或许可资质？",
+        "otherRegulatedYes": "是",
+        "otherRegulatedNo": "否",
         "subSector": "业务子类别",
         "selectSubSector": "请选择具体业务",
         "subSectorOptions": {
             "transport": "校车与学生接送交通",
             "insurance": "校园保险与安全保障（需持牌资质）",
-            "afterSchool": "课后托管与课外综合服务",
+            "afterSchool": "课外活动与综合拓展服务",
             "otherRegulated": "其他受监管业务（需持牌资质）"
         },
         "regulatedHelp": "若涉及银行、金融或保险业务，请填写监管牌照或主管机构信息。",
@@ -2348,10 +2728,22 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "websitePlaceholder": "https://www.company.com",
         "formula": "意向合作方案",
         "selectFormula": "请选择合作方案",
+        "supportType": "意向支持形式",
+        "selectSupportType": "请选择支持形式",
+        "supportTypeOptions": {
+            "future_financial_donation": "意向资金捐赠",
+            "equipment_donation": "教学物资与设备捐赠",
+            "school_sponsorship": "定向学校帮扶结对",
+            "educational_project_funding": "专项教育项目资助",
+            "skills_sponsorship": "专业技能与师资赋能",
+            "other_proposal": "其他合作意向"
+        },
         "projectDescription": "合作项目详细说明",
         "projectPlaceholder": "请描述拟提供的服务、合作目标及为学校和家庭带来的价值...",
+        "donationProjectPlaceholder": "请简要描述您的捐赠或公益合作设想、受惠对象及期望的实施方式...",
         "consentText": "我同意 YZIOW 根据其隐私政策使用所提交的信息评估我的申请并与我联系。",
         "submit": "提交合作申请",
+        "submitDonation": "提交公益赞助意向",
         "submitting": "正在提交...",
         "successTitle": "合作申请提交成功",
         "successMessage": "您的合作意向已成功发送至 YZIOW 团队，我们将尽快与您取得联系。",
@@ -2362,7 +2754,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "invalidEmailError": "请输入有效的企业工作邮箱。",
         "invalidPhoneError": "请输入有效的工作联系电话。",
         "invalidWebsiteError": "网站地址必须以 http:// 或 https:// 开头",
-        "privacyLinkText": "隐私政策",
+        "privacyLinkText": "隐私政策"
     },
     "ethics": {
         "title": "数据安全与合规承诺",
@@ -2529,11 +2921,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
             "title": "Транспорт, страхование и школьные услуги",
             "desc": "Безопасный школьный транспорт, адаптированные страховые программы и внеурочные сервисы.",
             "scope": "Школьный транспорт, страхование учащихся и внеурочные программы"
+        },
+        "cat5": {
+            "title": "НКО, фонды и международные институты",
+            "desc": "Образовательные программы, стипендии, меценатство и проекты инклюзивного образования с устойчивым эффектом.",
+            "scope": "Стипендии, развитие сообществ, меценатство и образовательные программы"
         }
     },
     "formulasTitle": "Форматы сотрудничества",
     "formulasSubtitle": "Три прозрачных уровня взаимодействия на индивидуальной договорной основе.",
     "formulas": {
+        "selectedBadge": "✓ Выбрано",
+        "recommendedBadge": "★ Рекомендуется",
         "presence": {
             "name": "Присутствие",
             "tagline": "Размещение в каталоге партнёров",
@@ -2544,7 +2943,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Прямая ссылка на образовательные предложения",
                 "Ежегодный аудит качества и соответствия"
             ],
-            "cta": "Выбрать пакет Присутствие"
+            "cta": "Выбрать пакет Присутствие",
+            "selectedCta": "✓ Пакет Присутствие выбран"
         },
         "visibility": {
             "name": "Видимость",
@@ -2556,7 +2956,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Географический и отраслевой таргетинг с уважением к пользователям",
                 "Консолидированные отчёты об охвате и эффективности"
             ],
-            "cta": "Выбрать пакет Видимость"
+            "cta": "Выбрать пакет Видимость",
+            "selectedCta": "✓ Пакет Видимость выбран"
         },
         "strategic": {
             "name": "Стратегический партнёр",
@@ -2568,8 +2969,17 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
                 "Персональное операционное сопровождение и координация",
                 "Регулярный управляющий комитет и совместный запуск"
             ],
-            "cta": "Выбрать пакет Стратегический партнёр"
+            "cta": "Выбрать пакет Стратегический партнёр",
+            "selectedCta": "✓ Пакет Стратегический партнёр выбран"
         }
+    },
+    "donations": {
+        "badge": "МЕЦЕНАТСТВО И ОБРАЗОВАНИЕ",
+        "title": "Пожертвования и Меценатство",
+        "subtitle": "Поддерживайте школьные инициативы и содействуйте качественному образованию для всех.",
+        "desc": "Вы представляете фонд, международную организацию, компанию или являетесь частным меценатом? Предложите материальную, финансовую или экспертную поддержку школам.",
+        "noticeLot3B": "Точка входа Лота 3A: На данном этапе прямой приём платежей не осуществляется. Сбор и финансовая отчётность по пожертвованиям будут реализованы в Лоте 3B.",
+        "cta": "Предложить пожертвование или меценатство"
     },
     "form": {
         "title": "Подать заявку на партнёрство",
@@ -2580,24 +2990,43 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "rolePlaceholder": "Например: Директор по развитию",
         "companyName": "Компания или организация",
         "companyPlaceholder": "Например: ООО Образовательные Технологии",
+        "organizationType": "Тип организации",
+        "selectOrganizationType": "Выберите тип организации",
+        "organizationTypeOptions": {
+            "ngo": "НКО",
+            "foundation": "Фонд",
+            "association": "Ассоциация / Союз",
+            "international_institution": "Международный институт",
+            "cooperation_agency": "Агентство по сотрудничеству",
+            "public_body": "Государственная организация",
+            "sponsor_company": "Компания-меценат",
+            "other": "Другое"
+        },
         "sector": "Сфера деятельности и категория",
         "selectSector": "Выберите сферу деятельности",
         "sectorOptions": {
             "finance": "Лицензированные банки и финансовые институты",
-        "insurance": "Страхование и школьная защита",
+            "insurance": "Страхование и школьная защита",
             "telecom": "Телекоммуникации и цифровые сервисы",
             "equipment": "Учебные материалы, издательства и оборудование",
             "mobility_services": "Транспорт, страхование и школьные сервисы",
+            "after_school_services": "Services et activités périscolaires",
             "transport": "Школьный транспорт",
-        "otherRegulated": "Другая регулируемая деятельность (с лицензией)",
+            "ngo_institutions": "НКО, фонды и международные институты",
+            "otherRegulated": "Другая регулируемая деятельность (с лицензией)",
             "other": "Другая сфера деятельности"
         },
+        "otherSectorLabel": "Укажите сферу вашей деятельности",
+        "otherSectorPlaceholder": "Напр.: Солнечная энергетика, Оборудование для столовых, EdTech...",
+        "otherRegulatedQuestion": "Требуется ли для вашей деятельности специальная лицензия или регуляторное разрешение?",
+        "otherRegulatedYes": "Да",
+        "otherRegulatedNo": "Нет",
         "subSector": "Подкатегория деятельности",
         "selectSubSector": "Выберите направление деятельности",
         "subSectorOptions": {
             "transport": "Школьный транспорт",
             "insurance": "Школьное страхование и защита (требуется лицензия)",
-            "afterSchool": "Внеурочные и школьные сервисы",
+            "afterSchool": "Внеурочные сервисы и развивающие программы",
             "otherRegulated": "Другая регулируемая деятельность (требуется лицензия)"
         },
         "regulatedHelp": "Для банковской, финансовой или страховой деятельности укажите лицензию регулятора.",
@@ -2615,10 +3044,22 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "websitePlaceholder": "https://www.company.com",
         "formula": "Желаемый формат",
         "selectFormula": "Выберите формат сотрудничества",
+        "supportType": "Формат поддержки",
+        "selectSupportType": "Выберите формат поддержки",
+        "supportTypeOptions": {
+            "future_financial_donation": "Финансовое пожертвование",
+            "equipment_donation": "Передача оборудования и материалов",
+            "school_sponsorship": "Шефство над школой",
+            "educational_project_funding": "Финансирование образовательного проекта",
+            "skills_sponsorship": "Экспертная и менторская помощь",
+            "other_proposal": "Другое предложение"
+        },
         "projectDescription": "Описание проекта сотрудничества",
         "projectPlaceholder": "Опишите предполагаемые услуги, цели и пользу для учебных заведений и семей...",
+        "donationProjectPlaceholder": "Опишите ваше предложение по меценатству, целевых получателей и условия сотрудничества...",
         "consentText": "Я согласен на обработку переданной информации компанией YZIOW для рассмотрения заявки и связи со мной в соответствии с политикой конфиденциальности.",
         "submit": "Отправить заявку на партнёрство",
+        "submitDonation": "Отправить предложение о меценатстве",
         "submitting": "Отправка...",
         "successTitle": "Заявка успешно отправлена",
         "successMessage": "Ваша заявка направлена команде YZIOW. Мы свяжемся с вами в ближайшее время.",
@@ -2629,7 +3070,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "invalidEmailError": "Пожалуйста, введите корректный рабочий email.",
         "invalidPhoneError": "Пожалуйста, введите корректный номер рабочего телефона.",
         "invalidWebsiteError": "Адрес веб-сайта должен начинаться с http:// или https://",
-        "privacyLinkText": "политикой конфиденциальности",
+        "privacyLinkText": "политикой конфиденциальности"
     },
     "ethics": {
         "title": "Защита данных и этические стандарты",

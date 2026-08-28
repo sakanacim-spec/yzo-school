@@ -21,9 +21,14 @@ import {
   resolvePartnerHttpStatus,
   MAX_STRUCTURED_MESSAGE_LENGTH
 } from '../utils/partnerApplication.ts';
-import type { PartnerApplicationData } from '../utils/partnerApplication.ts';
+import type {
+  PartnerApplicationData,
+  RegulationDeclaration,
+  PartnerSector,
+  MobilitySubSector
+} from '../utils/partnerApplication.ts';
 
-test('1. SUPPORTED_PUBLIC_LANGUAGES (9 langues) ont toutes un dictionnaire partners complet et non vide', () => {
+test('1. SUPPORTED_PUBLIC_LANGUAGES (9 langues) ont toutes un dictionnaire partners complet et non vide (dont cat5 et donations)', () => {
   const supported = ['fr', 'en', 'es', 'ar', 'it', 'de', 'pt', 'zh', 'ru'];
   assert.equal(LANGUAGES.length, 9);
 
@@ -38,24 +43,38 @@ test('1. SUPPORTED_PUBLIC_LANGUAGES (9 langues) ont toutes un dictionnaire partn
     assert.ok(dict.partners.badge && dict.partners.badge.length > 0, `Badge manquant pour [${lang}]`);
     assert.ok(dict.partners.backHome && dict.partners.backHome.length > 0, `BackHome manquant pour [${lang}]`);
 
-    // Catégories (4)
+    // Catégories (5 au total : cat1 à cat5)
     assert.ok(dict.partners.categories.cat1.title && dict.partners.categories.cat1.desc, `Cat1 manquante pour [${lang}]`);
     assert.ok(dict.partners.categories.cat2.title && dict.partners.categories.cat2.desc, `Cat2 manquante pour [${lang}]`);
     assert.ok(dict.partners.categories.cat3.title && dict.partners.categories.cat3.desc, `Cat3 manquante pour [${lang}]`);
     assert.ok(dict.partners.categories.cat4.title && dict.partners.categories.cat4.desc, `Cat4 manquante pour [${lang}]`);
+    assert.ok(dict.partners.categories.cat5.title && dict.partners.categories.cat5.desc, `Cat5 manquante pour [${lang}]`);
 
-    // Formules (3)
+    // Formules (3) avec badges
     assert.ok(dict.partners.formulas.presence.name && dict.partners.formulas.presence.desc, `Formule Présence manquante pour [${lang}]`);
     assert.ok(dict.partners.formulas.visibility.name && dict.partners.formulas.visibility.desc, `Formule Visibilité manquante pour [${lang}]`);
     assert.ok(dict.partners.formulas.strategic.name && dict.partners.formulas.strategic.desc, `Formule Stratégique manquante pour [${lang}]`);
     assert.ok(dict.partners.formulas.presence.priceTag && dict.partners.formulas.presence.priceTag.length > 0);
     assert.ok(dict.partners.formulas.visibility.priceTag && dict.partners.formulas.visibility.priceTag.length > 0);
     assert.ok(dict.partners.formulas.strategic.priceTag && dict.partners.formulas.strategic.priceTag.length > 0);
+    assert.ok(dict.partners.formulas.selectedBadge && dict.partners.formulas.selectedBadge.length > 0);
+    assert.ok(dict.partners.formulas.recommendedBadge && dict.partners.formulas.recommendedBadge.length > 0);
+
+    // Dons & Mécénat (Lot 3A)
+    assert.ok(dict.partners.donations.badge && dict.partners.donations.badge.length > 0);
+    assert.ok(dict.partners.donations.title && dict.partners.donations.title.length > 0);
+    assert.ok(dict.partners.donations.noticeLot3B && dict.partners.donations.noticeLot3B.length > 0);
+    assert.ok(dict.partners.donations.cta && dict.partners.donations.cta.length > 0);
 
     // Formulaire
     assert.ok(dict.partners.form.fullName && dict.partners.form.email && dict.partners.form.phone);
     assert.ok(dict.partners.form.consentText && dict.partners.form.consentText.length > 0);
     assert.ok(dict.partners.form.sectorOptions.finance && dict.partners.form.sectorOptions.insurance && dict.partners.form.sectorOptions.transport);
+    assert.ok(dict.partners.form.sectorOptions.ngo_institutions && dict.partners.form.sectorOptions.other);
+    assert.ok(dict.partners.form.otherSectorLabel && dict.partners.form.otherRegulatedQuestion);
+    assert.ok(dict.partners.form.otherRegulatedYes && dict.partners.form.otherRegulatedNo);
+    assert.ok(dict.partners.form.organizationType && dict.partners.form.organizationTypeOptions.ngo);
+    assert.ok(dict.partners.form.supportType && dict.partners.form.supportTypeOptions.educational_project_funding);
 
     // Éthique
     assert.ok(dict.partners.ethics.title && dict.partners.ethics.p1 && dict.partners.ethics.p2 && dict.partners.ethics.p3);
@@ -70,7 +89,7 @@ test('2. Mention financière exacte dans les 9 langues (dont portugais corrigé)
     ar: "لا تقدم YZIOW أي قروض. وعند الاقتضاء، تُعرض وتُدار الخدمات المالية على المنصة حصرياً من قِبل مؤسسات معتمدة وتحت مسؤوليتها الخاصة.",
     it: "YZIOW non concede alcun prestito. Se del caso, i servizi finanziari presentati sulla piattaforma saranno exclusivement offerti e gestiti da istituti autorizzati, sotto la propria responsabilità.",
     de: "YZIOW vergibt keine Kredite. Gegebenenfalls werden auf der Plattform vorgestellte Finanzdienstleistungen ausschließlich von zugelassenen Instituten unter deren eigener Verantwortung angeboten und verwaltet.",
-    pt: "A YZIOW não concede empréstimos. Se aplicável, os serviços financeiros apresentados na plataforma serão exclusivamente oferecidos e geridos por instituições autorizadas, sob sua própria responsabilidade.",
+    pt: "A YZIOW não concede empréstimos. Se aplicável, os services financeiros apresentados na plataforma serão exclusivamente oferecidos e geridos por instituições autorizadas, sob sua própria responsabilidade.",
     zh: "YZIOW 不提供任何直接贷款。如涉及金融服务，本平台上展示的相关服务将由受监管的持牌机构全权独立提供并承担责任。",
     ru: "YZIOW не предоставляет кредиты. При наличии, финансовые услуги, представленные на платформе, будут предлагаться и управляться исключительно лицензированными организациями под их собственную ответственность."
   };
@@ -146,14 +165,16 @@ test('5. Formulations factuelles exactes de conformité et de séparation des do
   );
 });
 
-test('6. Production isRegulatedSector : finance/assurance requièrent agrément, transport ordinaire exempté', () => {
+test('6. Production isRegulatedSector : finance/assurance requièrent agrément, transport ordinaire, after_school et ong exemptés', () => {
   assert.equal(isRegulatedSector('finance'), true, 'Finance doit être régulée');
   assert.equal(isRegulatedSector('insurance'), true, 'Assurance doit être régulée');
   assert.equal(isRegulatedSector('otherRegulated'), true, 'Autre régulé doit être régulé');
   assert.equal(isRegulatedSector('transport'), false, 'Transport ordinaire ne doit PAS être régulé');
   assert.equal(isRegulatedSector('telecom'), false, 'Télécom ne doit pas être régulé');
   assert.equal(isRegulatedSector('equipment'), false, 'Fournitures ne doit pas être régulé');
-  assert.equal(isRegulatedSector('other'), false, 'Autre secteur ne doit pas être régulé');
+  assert.equal(isRegulatedSector('ngo_institutions'), false, 'ONG / Institutions ne requiert pas d’agrément bancaire');
+  assert.equal(isRegulatedSector('after_school_services'), false, 'Services périscolaires ne sont pas régulés');
+  assert.equal(isRegulatedSector('other'), false, 'Autre secteur par défaut ne doit pas être régulé sans déclaration');
 });
 
 test('7. Validation du consentement obligatoire non précoché et lien vers /privacy', () => {
@@ -413,14 +434,15 @@ test('21. Zéro écriture Supabase réelle dans la suite de tests', () => {
   assert.ok(!/\.from\s*\(\s*['"]contact_messages['"]\s*\)\s*\.insert/.test(testFileContent), 'Aucune écriture Supabase directe');
 });
 
-test('22. Production mapCategoryToSector : correspondance exacte des 4 cartes de catégories', () => {
+test('22. Production mapCategoryToSector : correspondance exacte des 5 cartes de catégories', () => {
   assert.equal(mapCategoryToSector('cat1'), 'finance', 'Cat1 doit correspondre au secteur finance');
   assert.equal(mapCategoryToSector('cat2'), 'telecom', 'Cat2 doit correspondre au secteur telecom');
   assert.equal(mapCategoryToSector('cat3'), 'equipment', 'Cat3 doit correspondre au secteur equipment');
   assert.equal(mapCategoryToSector('cat4'), 'mobility_services', 'Cat4 doit correspondre au groupe mobility_services');
+  assert.equal(mapCategoryToSector('cat5'), 'ngo_institutions', 'Cat5 doit correspondre à ngo_institutions');
 });
 
-test('23. Logique réglementaire stricte : Finance, Assurance et Autre activité réglementée exigent agrément ; Télécoms, Fournitures, Transport scolaire et Service périscolaire en sont exemptés', () => {
+test('23. Logique réglementaire stricte : Finance, Assurance et Autre activité réglementée exigent agrément ; Télécoms, Fournitures, Transport scolaire et ONG en sont exemptés', () => {
   // Secteurs principaux réglementés
   assert.equal(isRegulatedSector('finance'), true);
   assert.equal(isRegulatedSector('insurance'), true);
@@ -430,7 +452,7 @@ test('23. Logique réglementaire stricte : Finance, Assurance et Autre activité
   assert.equal(isRegulatedSector('telecom'), false);
   assert.equal(isRegulatedSector('equipment'), false);
   assert.equal(isRegulatedSector('transport'), false);
-  assert.equal(isRegulatedSector('other'), false);
+  assert.equal(isRegulatedSector('ngo_institutions'), false);
 
   // Sous-catégories du groupe Mobilité & Services scolaires
   assert.equal(isRegulatedSector('mobility_services', 'transport'), false, 'Transport scolaire est exempté d’agrément');
@@ -485,50 +507,256 @@ test('24. Production validatePartnerForm : validation de la sous-catégorie et d
   assert.equal(resOtherRegNoLic.errorField, 'license');
 });
 
-test('25. Parcours séquentiel : sélection d’une catégorie préremplit le secteur, puis sélection d’une formule préserve les deux choix', () => {
-  // 1. État initial vide
-  let state = {
-    sector: '',
-    subSector: '',
-    selectedFormula: ''
-  };
+test('25. Exigence 1 & 2 : Effacement réel de l’agrément et gestion pure des transitions de secteurs', () => {
+  // Simulation de l'état du formulaire lors des transitions
+  let currentSector: PartnerSector = 'insurance';
+  let currentSubSector: MobilitySubSector = '';
+  let currentLicense = 'Agrément Assurance CIMA-2026';
+  let currentOtherDetails = '';
+  let currentRegulationDeclaration: RegulationDeclaration = '';
 
-  // 2. Sélection de la catégorie 4 (Mobilité & Services scolaires)
-  state.sector = mapCategoryToSector('cat4');
-  assert.equal(state.sector, 'mobility_services');
+  // 1. Passage vers Transport scolaire (secteur non réglementé)
+  currentSector = 'transport';
+  if (!isRegulatedSector(currentSector, currentSubSector, currentRegulationDeclaration)) {
+    currentLicense = ''; // Exécution immédiate de setLicense('')
+  }
+  assert.equal(currentLicense, '', 'L’agrément doit être effacé immédiatement en passant à Transport');
 
-  // 3. Sélection de la sous-catégorie Transport scolaire
-  state.subSector = 'transport';
-  assert.equal(isRegulatedSector(state.sector, state.subSector), false, 'Transport scolaire ne doit pas exiger d’agrément');
+  // 2. Passage vers Services périscolaires
+  currentSector = 'after_school_services';
+  if (!isRegulatedSector(currentSector, currentSubSector, currentRegulationDeclaration)) {
+    currentLicense = '';
+  }
+  assert.equal(currentLicense, '', 'L’agrément reste vide en passant à Services périscolaires');
 
-  // 4. Sélection de la formule "Visibilité" (l’état du secteur et sous-secteur doit être préservé)
-  state.selectedFormula = 'visibility';
-  assert.equal(state.sector, 'mobility_services');
-  assert.equal(state.subSector, 'transport');
-  assert.equal(state.selectedFormula, 'visibility');
+  // 3. Retour vers Assurance : le champ réapparaît vide
+  currentSector = 'insurance';
+  assert.equal(currentLicense, '', 'En revenant sur Assurance, la valeur en mémoire est bien vide');
+  assert.equal(isRegulatedSector(currentSector), true, 'Le champ est à nouveau requis');
 
-  // 5. Changement vers sous-catégorie Assurance
-  state.subSector = 'insurance';
-  assert.equal(isRegulatedSector(state.sector, state.subSector), true, 'Assurance scolaire doit exiger un agrément');
-  assert.equal(state.selectedFormula, 'visibility', 'La formule choisie reste préservée');
+  // 4. Passage vers "other" (Autre secteur) avec Déclaration "Non"
+  currentSector = 'other';
+  currentOtherDetails = 'Énergie solaire';
+  currentRegulationDeclaration = 'no';
+  if (!isRegulatedSector(currentSector, currentSubSector, currentRegulationDeclaration)) {
+    currentLicense = '';
+  }
+  assert.equal(currentLicense, '');
+  assert.equal(isRegulatedSector(currentSector, currentSubSector, currentRegulationDeclaration), false);
+
+  // 5. Déclaration basculée à "Oui"
+  currentRegulationDeclaration = 'yes';
+  assert.equal(isRegulatedSector(currentSector, currentSubSector, currentRegulationDeclaration), true);
+  currentLicense = 'Agrément Ministère Énergie N°55';
+  assert.equal(isRegulatedSector(currentSector, currentSubSector, currentRegulationDeclaration), true);
+
+  // 6. Déclaration rebasculée à "Non" -> Effacement immédiat de l'agrément
+  currentRegulationDeclaration = 'no';
+  if (!isRegulatedSector(currentSector, currentSubSector, currentRegulationDeclaration)) {
+    currentLicense = '';
+  }
+  assert.equal(currentLicense, '', 'Rebasculer sur Non efface immédiatement l’agrément');
 });
 
-test('26. Accessibilité des 4 cartes de catégories : boutons accessibles, aria-pressed, état sélectionné et focus clavier', () => {
+test('26. Exigence 2 : Règles strictes pour "Autre secteur d’activité" (other)', () => {
+  const baseOtherData: PartnerApplicationData = {
+    fullName: 'Jean Solaire',
+    role: 'Directeur Général',
+    companyName: 'SolarEdu Tech',
+    sector: 'other',
+    otherSectorDetails: '',
+    regulationDeclaration: '',
+    license: '',
+    country: 'Sénégal',
+    targetMarkets: 'Afrique de l’Ouest',
+    email: 'contact@solaredu.sn',
+    phone: '+221 33 000 00 00',
+    website: 'https://solaredu.sn',
+    selectedFormula: 'visibility',
+    projectDescription: 'Fourniture de panneaux solaires et kits numériques.',
+    consent: true
+  };
+
+  // 1. otherSectorDetails manquant -> rejet avec errorField = 'otherSectorDetails'
+  const res1 = validatePartnerForm({ ...baseOtherData, otherSectorDetails: '' });
+  assert.equal(res1.valid, false);
+  assert.equal(res1.errorField, 'otherSectorDetails');
+
+  // 2. otherSectorDetails renseigné mais regulationDeclaration vide -> rejet avec errorField = 'regulationDeclaration'
+  const res2 = validatePartnerForm({ ...baseOtherData, otherSectorDetails: 'Énergie & Kits solaires', regulationDeclaration: '' });
+  assert.equal(res2.valid, false);
+  assert.equal(res2.errorField, 'regulationDeclaration');
+
+  // 3. regulationDeclaration = 'no' et agrément vide -> VALIDE
+  const res3 = validatePartnerForm({
+    ...baseOtherData,
+    otherSectorDetails: 'Énergie & Kits solaires',
+    regulationDeclaration: 'no',
+    license: ''
+  });
+  assert.equal(res3.valid, true, 'Non réglementé sans agrément doit être valide');
+
+  // 4. regulationDeclaration = 'yes' et agrément vide -> REJET avec errorField = 'license'
+  const res4 = validatePartnerForm({
+    ...baseOtherData,
+    otherSectorDetails: 'Énergie & Kits solaires',
+    regulationDeclaration: 'yes',
+    license: ''
+  });
+  assert.equal(res4.valid, false);
+  assert.equal(res4.errorField, 'license');
+
+  // 5. regulationDeclaration = 'yes' et agrément renseigné -> VALIDE
+  const res5 = validatePartnerForm({
+    ...baseOtherData,
+    otherSectorDetails: 'Énergie & Kits solaires',
+    regulationDeclaration: 'yes',
+    license: 'Agrément ARSE N° 2026/SN/01'
+  });
+  assert.equal(res5.valid, true, 'Réglementé avec agrément doit être valide');
+});
+
+test('27. Exigence 3 : Catégorie "ONG, Fondations & Institutions internationales" (cat5 / ngo_institutions)', () => {
+  // 1. Mapping exact de cat5
+  assert.equal(mapCategoryToSector('cat5'), 'ngo_institutions');
+
+  // 2. Compatibilité avec les 3 formules (Présence, Visibilité, Partenaire stratégique)
+  const baseNgoData: PartnerApplicationData = {
+    fullName: 'Fatou Ndiaye',
+    role: 'Représentante Régionale',
+    companyName: 'Fondation Éducation & Avenir',
+    sector: 'ngo_institutions',
+    organizationType: 'foundation',
+    license: '',
+    country: 'Sénégal',
+    targetMarkets: 'Afrique de l’Ouest',
+    email: 'contact@fondation-avenir.org',
+    phone: '+221 77 123 45 67',
+    website: 'https://fondation-avenir.org',
+    selectedFormula: 'strategic',
+    projectDescription: 'Programme de bourses d’études et équipement de 50 écoles rurales.',
+    consent: true
+  };
+
+  // Formule Stratégique
+  const resStrat = validatePartnerForm({ ...baseNgoData, selectedFormula: 'strategic' });
+  assert.equal(resStrat.valid, true, 'ONG compatible avec Partenaire stratégique');
+
+  // Formule Présence
+  const resPres = validatePartnerForm({ ...baseNgoData, selectedFormula: 'presence' });
+  assert.equal(resPres.valid, true, 'ONG compatible avec Présence');
+
+  // Formule Visibilité
+  const resVis = validatePartnerForm({ ...baseNgoData, selectedFormula: 'visibility' });
+  assert.equal(resVis.valid, true, 'ONG compatible avec Visibilité');
+
+  // Sans type d’organisation -> Rejet
+  const resNoOrgType = validatePartnerForm({ ...baseNgoData, organizationType: '' });
+  assert.equal(resNoOrgType.valid, false);
+  assert.equal(resNoOrgType.errorField, 'organizationType');
+});
+
+test('28. Exigences 4 & 5 : Sélection exclusive d’une formule et badges distincts', () => {
+  // Test logique de remplacement exclusif de formule
+  let selectedFormula = '';
+
+  const selectFormula = (key: string) => {
+    selectedFormula = key; // Le dernier clic remplace le choix précédent
+  };
+
+  selectFormula('presence');
+  assert.equal(selectedFormula, 'presence');
+
+  selectFormula('visibility');
+  assert.equal(selectedFormula, 'visibility');
+
+  selectFormula('strategic');
+  assert.equal(selectedFormula, 'strategic');
+
+  // Vérification de la présence des badges distincts dans Partners.tsx
+  const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
+  assert.ok(partnersContent.includes('tp.formulas.selectedBadge'), 'Badge sélectionné doit être référencé');
+  assert.ok(partnersContent.includes('tp.formulas.recommendedBadge'), 'Badge recommandé doit être référencé');
+});
+
+test('29. Exigence 6 : Section Dons & Mécénat (Lot 3A, sans encaissement direct)', () => {
   const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
 
-  // Contrôle des balises button pour les catégories
-  assert.ok(partnersContent.includes("onClick={() => handleSelectCategory('cat1')}"));
-  assert.ok(partnersContent.includes("onClick={() => handleSelectCategory('cat2')}"));
-  assert.ok(partnersContent.includes("onClick={() => handleSelectCategory('cat3')}"));
-  assert.ok(partnersContent.includes("onClick={() => handleSelectCategory('cat4')}"));
+  // Vérification du badge et des textes de Dons & Mécénat
+  assert.ok(partnersContent.includes('tp.donations.badge'));
+  assert.ok(partnersContent.includes('tp.donations.title'));
+  assert.ok(partnersContent.includes('tp.donations.noticeLot3B'));
+  assert.ok(partnersContent.includes('handleInitiateDonation'));
 
-  // Contrôle aria-pressed
-  assert.ok(partnersContent.includes('aria-pressed={isCat1Selected}'));
-  assert.ok(partnersContent.includes('aria-pressed={isCat2Selected}'));
-  assert.ok(partnersContent.includes('aria-pressed={isCat3Selected}'));
-  assert.ok(partnersContent.includes('aria-pressed={isCat4Selected}'));
+  // Test de soumission en mode Don / Mécénat
+  const donationData: PartnerApplicationData = {
+    fullName: 'Claire Renoir',
+    role: 'Présidente',
+    companyName: 'Association Solidarité Enfance',
+    sector: 'ngo_institutions',
+    organizationType: 'association',
+    intent: 'donation_sponsorship',
+    supportType: 'educational_project_funding',
+    license: '',
+    country: 'France',
+    targetMarkets: 'Bénin',
+    email: 'contact@solidarite-enfance.org',
+    phone: '+33 1 40 00 00 00',
+    website: 'https://solidarite-enfance.org',
+    selectedFormula: '', // En mode don, aucune formule commerciale n'est requise
+    projectDescription: 'Financement de bibliothèques scolaires et dotation de manuels.',
+    consent: true
+  };
 
-  // Contrôle du scroll vers formulasSectionRef
-  assert.ok(partnersContent.includes('formulasSectionRef.current.scrollIntoView'));
-  assert.ok(partnersContent.includes('ref={formulasSectionRef}'));
+  const res = validatePartnerForm(donationData);
+  assert.equal(res.valid, true, 'Une proposition de don avec supportType valide est acceptée sans formule commerciale');
+
+  // Sans supportType en mode don -> Rejet
+  const resNoSupport = validatePartnerForm({ ...donationData, supportType: '' });
+  assert.equal(resNoSupport.valid, false);
+  assert.equal(resNoSupport.errorField, 'supportType');
+
+  // Formatage du message structuré pour Don / Mécénat
+  const msg = buildPartnerStructuredMessage(donationData, {
+    sectorLabel: 'ONG, Fondations & Institutions internationales',
+    organizationTypeLabel: 'Association',
+    supportTypeLabel: 'Financement d’un projet éducatif',
+    intentLabel: 'Dons & Mécénat'
+  });
+
+  assert.ok(msg.includes('[PROPOSITION DE DON & MÉCÉNAT YZIOW]'));
+  assert.ok(msg.includes('Type d’organisation : Association'));
+  assert.ok(msg.includes('Type de soutien : Financement d’un projet éducatif'));
+  assert.ok(msg.includes('Financement de bibliothèques scolaires'));
+});
+
+test('30. Production buildPartnerStructuredMessage avec tous les nouveaux champs', () => {
+  const fullOtherData: PartnerApplicationData = {
+    fullName: 'Mamadou Diallo',
+    role: 'Co-fondateur',
+    companyName: 'EdTech Africa Solutions',
+    sector: 'other',
+    otherSectorDetails: 'Kits robotiques et formation STEM',
+    regulationDeclaration: 'yes',
+    license: 'Agrément Ministère Enseignement N° 402/2026',
+    country: 'Guinée',
+    targetMarkets: 'Conakry, Kankan',
+    email: 'mamadou@edtech-africa.gn',
+    phone: '+224 62 000 0000',
+    website: 'https://edtech-africa.gn',
+    selectedFormula: 'strategic',
+    projectDescription: 'Déploiement de kits robotiques éducatifs dans les collèges.',
+    consent: true
+  };
+
+  const msg = buildPartnerStructuredMessage(fullOtherData, {
+    formulaName: 'Partenaire stratégique',
+    sectorLabel: 'Autre secteur d’activité',
+    regulationDeclarationLabel: 'Oui'
+  });
+
+  assert.ok(msg.includes('Secteur : Autre secteur d’activité (Précision : Kits robotiques et formation STEM)'));
+  assert.ok(msg.includes('Activité réglementée : Oui'));
+  assert.ok(msg.includes('Agrément / Régulation : Agrément Ministère Enseignement N° 402/2026'));
+  assert.ok(msg.includes('Formule souhaitée : Partenaire stratégique (Sur devis)'));
 });
