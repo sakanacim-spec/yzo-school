@@ -23,8 +23,10 @@ import type { Language } from '../../i18n';
 import { usePageSeo } from '../../hooks/usePageSeo';
 import {
   PartnerSector,
+  MobilitySubSector,
   PartnerFormulaType,
   isRegulatedSector,
+  mapCategoryToSector,
   validatePartnerForm,
   buildPartnerStructuredMessage,
   isPayloadWithinLimit,
@@ -63,6 +65,7 @@ export const Partners: React.FC<PartnersProps> = ({
   const [role, setRole] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [sector, setSector] = useState<PartnerSector>('');
+  const [subSector, setSubSector] = useState<MobilitySubSector>('');
   const [license, setLicense] = useState('');
   const [country, setCountry] = useState('');
   const [targetMarkets, setTargetMarkets] = useState('');
@@ -77,6 +80,7 @@ export const Partners: React.FC<PartnersProps> = ({
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'rate_limit'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
+  const formulasSectionRef = useRef<HTMLElement>(null);
   const formSectionRef = useRef<HTMLDivElement>(null);
 
   // SEO setup
@@ -106,8 +110,14 @@ export const Partners: React.FC<PartnersProps> = ({
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, []);
 
-  // Regulated sectors requiring regulatory license/accreditation
-  const sectorIsRegulated = isRegulatedSector(sector);
+  // Category selection handler with smooth scroll to formulas
+  const handleSelectCategory = (catKey: 'cat1' | 'cat2' | 'cat3' | 'cat4') => {
+    const targetSector = mapCategoryToSector(catKey);
+    setSector(targetSector);
+    if (formulasSectionRef.current) {
+      formulasSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const handleSelectFormula = (formulaKey: 'presence' | 'visibility' | 'strategic') => {
     setSelectedFormula(formulaKey);
@@ -126,6 +136,11 @@ export const Partners: React.FC<PartnersProps> = ({
     }
   };
 
+  const isCat1Selected = sector === 'finance';
+  const isCat2Selected = sector === 'telecom';
+  const isCat3Selected = sector === 'equipment';
+  const isCat4Selected = sector === 'mobility_services' || sector === 'insurance' || sector === 'transport';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -135,6 +150,7 @@ export const Partners: React.FC<PartnersProps> = ({
       role,
       companyName,
       sector,
+      subSector,
       license,
       country,
       targetMarkets,
@@ -172,11 +188,16 @@ export const Partners: React.FC<PartnersProps> = ({
         : tp.formulas.strategic.name;
 
     const sectorLabel = tp.form.sectorOptions[sector as keyof typeof tp.form.sectorOptions] || sector;
+    const subSectorLabel =
+      sector === 'mobility_services' && subSector
+        ? tp.form.subSectorOptions[subSector as keyof typeof tp.form.subSectorOptions] || subSector
+        : undefined;
 
     // 2. Construction structurée du message via module de production partagé
     const structuredMessage = buildPartnerStructuredMessage(formData, {
       formulaName,
-      sectorLabel
+      sectorLabel,
+      subSectorLabel
     });
 
     // 3. Vérification stricte de la longueur (<= 5 000 car) avant tout appel réseau
@@ -229,6 +250,7 @@ export const Partners: React.FC<PartnersProps> = ({
       setRole('');
       setCompanyName('');
       setSector('');
+      setSubSector('');
       setLicense('');
       setCountry('');
       setTargetMarkets('');
@@ -383,11 +405,28 @@ export const Partners: React.FC<PartnersProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Cat 1 */}
-            <div className="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
-                  <Landmark className="w-6 h-6" />
+            {/* Cat 1 : Banques & Finances */}
+            <button
+              type="button"
+              onClick={() => handleSelectCategory('cat1')}
+              aria-pressed={isCat1Selected}
+              className={`p-6 sm:p-7 rounded-3xl border text-left transition-all space-y-4 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 relative group ${
+                isCat1Selected
+                  ? 'bg-orange-50/40 border-orange-500 ring-2 ring-orange-500/20 shadow-md'
+                  : 'bg-white border-slate-200/80 shadow-sm hover:border-orange-300 hover:shadow-md'
+              }`}
+            >
+              <div className="space-y-3 w-full">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 group-hover:scale-105 transition-transform">
+                    <Landmark className="w-6 h-6" />
+                  </div>
+                  {isCat1Selected && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
+                      <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
+                      Sélectionné
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-base font-black text-slate-900 leading-snug">
                   {tp.categories.cat1.title}
@@ -396,18 +435,35 @@ export const Partners: React.FC<PartnersProps> = ({
                   {tp.categories.cat1.desc}
                 </p>
               </div>
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 w-full flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-400">
                   {tp.categories.cat1.scope}
                 </span>
               </div>
-            </div>
+            </button>
 
-            {/* Cat 2 */}
-            <div className="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
-                  <Radio className="w-6 h-6" />
+            {/* Cat 2 : Télécoms */}
+            <button
+              type="button"
+              onClick={() => handleSelectCategory('cat2')}
+              aria-pressed={isCat2Selected}
+              className={`p-6 sm:p-7 rounded-3xl border text-left transition-all space-y-4 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 relative group ${
+                isCat2Selected
+                  ? 'bg-orange-50/40 border-orange-500 ring-2 ring-orange-500/20 shadow-md'
+                  : 'bg-white border-slate-200/80 shadow-sm hover:border-orange-300 hover:shadow-md'
+              }`}
+            >
+              <div className="space-y-3 w-full">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-105 transition-transform">
+                    <Radio className="w-6 h-6" />
+                  </div>
+                  {isCat2Selected && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
+                      <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
+                      Sélectionné
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-base font-black text-slate-900 leading-snug">
                   {tp.categories.cat2.title}
@@ -416,18 +472,35 @@ export const Partners: React.FC<PartnersProps> = ({
                   {tp.categories.cat2.desc}
                 </p>
               </div>
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 w-full flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-400">
                   {tp.categories.cat2.scope}
                 </span>
               </div>
-            </div>
+            </button>
 
-            {/* Cat 3 */}
-            <div className="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-                  <Package className="w-6 h-6" />
+            {/* Cat 3 : Fournitures & Édition */}
+            <button
+              type="button"
+              onClick={() => handleSelectCategory('cat3')}
+              aria-pressed={isCat3Selected}
+              className={`p-6 sm:p-7 rounded-3xl border text-left transition-all space-y-4 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 relative group ${
+                isCat3Selected
+                  ? 'bg-orange-50/40 border-orange-500 ring-2 ring-orange-500/20 shadow-md'
+                  : 'bg-white border-slate-200/80 shadow-sm hover:border-orange-300 hover:shadow-md'
+              }`}
+            >
+              <div className="space-y-3 w-full">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-105 transition-transform">
+                    <Package className="w-6 h-6" />
+                  </div>
+                  {isCat3Selected && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
+                      <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
+                      Sélectionné
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-base font-black text-slate-900 leading-snug">
                   {tp.categories.cat3.title}
@@ -436,18 +509,35 @@ export const Partners: React.FC<PartnersProps> = ({
                   {tp.categories.cat3.desc}
                 </p>
               </div>
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 w-full flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-400">
                   {tp.categories.cat3.scope}
                 </span>
               </div>
-            </div>
+            </button>
 
-            {/* Cat 4 */}
-            <div className="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
-                  <ShieldCheck className="w-6 h-6" />
+            {/* Cat 4 : Mobilité & Assurance */}
+            <button
+              type="button"
+              onClick={() => handleSelectCategory('cat4')}
+              aria-pressed={isCat4Selected}
+              className={`p-6 sm:p-7 rounded-3xl border text-left transition-all space-y-4 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 relative group ${
+                isCat4Selected
+                  ? 'bg-orange-50/40 border-orange-500 ring-2 ring-orange-500/20 shadow-md'
+                  : 'bg-white border-slate-200/80 shadow-sm hover:border-orange-300 hover:shadow-md'
+              }`}
+            >
+              <div className="space-y-3 w-full">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 group-hover:scale-105 transition-transform">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  {isCat4Selected && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-orange-700 bg-orange-100 px-2.5 py-1 rounded-full animate-fade-in shadow-xs">
+                      <CheckCircle className="w-3.5 h-3.5 text-orange-600" />
+                      Sélectionné
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-base font-black text-slate-900 leading-snug">
                   {tp.categories.cat4.title}
@@ -456,17 +546,17 @@ export const Partners: React.FC<PartnersProps> = ({
                   {tp.categories.cat4.desc}
                 </p>
               </div>
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 w-full flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-400">
                   {tp.categories.cat4.scope}
                 </span>
               </div>
-            </div>
+            </button>
           </div>
         </section>
 
         {/* ──── SECTION 2 : FORMULES COMMERCIALES (SUR DEVIS) ──── */}
-        <section aria-labelledby="formulas-heading" className="space-y-8">
+        <section ref={formulasSectionRef} aria-labelledby="formulas-heading" className="space-y-8">
           <div className="text-center max-w-3xl mx-auto space-y-3">
             <h2 id="formulas-heading" className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
               {tp.formulasTitle}
@@ -748,22 +838,51 @@ export const Partners: React.FC<PartnersProps> = ({
                   id="partner-sector"
                   required
                   value={sector}
-                  onChange={(e) => setSector(e.target.value as any)}
+                  onChange={(e) => {
+                    const newSector = e.target.value as any;
+                    setSector(newSector);
+                    if (newSector !== 'mobility_services') {
+                      setSubSector('');
+                    }
+                  }}
                   className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700"
                 >
                   <option value="">-- {tp.form.selectSector} --</option>
                   <option value="finance">{tp.form.sectorOptions.finance}</option>
-                  <option value="insurance">{tp.form.sectorOptions.insurance}</option>
                   <option value="telecom">{tp.form.sectorOptions.telecom}</option>
                   <option value="equipment">{tp.form.sectorOptions.equipment}</option>
+                  <option value="mobility_services">{tp.form.sectorOptions.mobility_services}</option>
+                  <option value="insurance">{tp.form.sectorOptions.insurance}</option>
                   <option value="transport">{tp.form.sectorOptions.transport}</option>
                   <option value="otherRegulated">{tp.form.sectorOptions.otherRegulated}</option>
                   <option value="other">{tp.form.sectorOptions.other}</option>
                 </select>
               </div>
 
+              {/* Sous-catégorie obligatoire pour Mobilité, Assurance & Services scolaires */}
+              {sector === 'mobility_services' && (
+                <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-200/80 space-y-2 animate-fade-in">
+                  <label htmlFor="partner-subsector" className="block text-xs font-black text-slate-800 uppercase tracking-wide">
+                    {tp.form.subSector} <span className="text-orange-500">*</span>
+                  </label>
+                  <select
+                    id="partner-subsector"
+                    required={sector === 'mobility_services'}
+                    value={subSector}
+                    onChange={(e) => setSubSector(e.target.value as any)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white border border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-xs sm:text-sm font-medium transition-all text-slate-700"
+                  >
+                    <option value="">-- {tp.form.selectSubSector} --</option>
+                    <option value="transport">{tp.form.subSectorOptions.transport}</option>
+                    <option value="insurance">{tp.form.subSectorOptions.insurance}</option>
+                    <option value="afterSchool">{tp.form.subSectorOptions.afterSchool}</option>
+                    <option value="otherRegulated">{tp.form.subSectorOptions.otherRegulated}</option>
+                  </select>
+                </div>
+              )}
+
               {/* Champ conditionnel pour secteurs réglementés (Banque, Assurance, etc.) */}
-              {isRegulatedSector(sector) && (
+              {isRegulatedSector(sector, subSector) && (
                 <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2 animate-fade-in">
                   <label htmlFor="partner-license" className="block text-xs font-black text-amber-900 uppercase tracking-wide">
                     {tp.form.license} <span className="text-orange-500">*</span>
@@ -771,7 +890,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   <input
                     id="partner-license"
                     type="text"
-                    required={isRegulatedSector(sector)}
+                    required={isRegulatedSector(sector, subSector)}
                     aria-describedby="partner-license-help"
                     value={license}
                     onChange={(e) => setLicense(e.target.value)}

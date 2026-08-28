@@ -5,21 +5,28 @@
 
 export type PartnerSector =
   | 'finance'
-  | 'insurance'
   | 'telecom'
   | 'equipment'
+  | 'mobility_services'
+  | 'insurance'
   | 'transport'
   | 'otherRegulated'
   | 'other'
   | '';
 
-export type PartnerFormulaType = 'presence' | 'visibility' | 'strategic' | '';
+export type MobilitySubSector =
+  | 'transport'
+  | 'insurance'
+  | 'afterSchool'
+  | 'otherRegulated'
+  | '';
 
 export interface PartnerApplicationData {
   fullName: string;
   role: string;
   companyName: string;
   sector: PartnerSector;
+  subSector?: MobilitySubSector;
   license: string;
   country: string;
   targetMarkets: string;
@@ -31,18 +38,45 @@ export interface PartnerApplicationData {
   consent: boolean;
 }
 
+export type PartnerFormulaType = 'presence' | 'visibility' | 'strategic' | '';
+
 export interface PartnerValidationResult {
   valid: boolean;
-  errorField?: 'required' | 'email' | 'phone' | 'website' | 'license' | 'payloadTooLong';
+  errorField?: 'required' | 'subSector' | 'email' | 'phone' | 'website' | 'license' | 'payloadTooLong';
 }
 
 /**
- * Détermine si un secteur d'activité requiert un agrément ou une licence réglementaire.
- * Les secteurs bancaires/financiers, assurantiels et autres activités régulées sont strictement contrôlés.
- * Le transport ordinaire et les fournitures générales ne sont pas régulés.
+ * Détermine si un secteur d'activité (ou une sous-catégorie) requiert un agrément ou une licence réglementaire.
+ * - Secteurs réglementés : Finance, Assurance, Autre activité réglementée.
+ * - Secteurs exemptés : Télécoms, Fournitures, Transport scolaire ordinaire, Services périscolaires.
  */
-export function isRegulatedSector(sector: string): boolean {
-  return sector === 'finance' || sector === 'insurance' || sector === 'otherRegulated';
+export function isRegulatedSector(sector: string, subSector?: string): boolean {
+  if (sector === 'finance' || sector === 'insurance' || sector === 'otherRegulated') {
+    return true;
+  }
+  if (sector === 'mobility_services') {
+    return subSector === 'insurance' || subSector === 'otherRegulated';
+  }
+  return false;
+}
+
+/**
+ * Associe une carte de catégorie partenaire à sa valeur de secteur correspondante.
+ * La catégorie 4 correspond au groupe 'mobility_services' (Mobilité, Assurance & Services scolaires).
+ */
+export function mapCategoryToSector(categoryKey: 'cat1' | 'cat2' | 'cat3' | 'cat4'): PartnerSector {
+  switch (categoryKey) {
+    case 'cat1':
+      return 'finance';
+    case 'cat2':
+      return 'telecom';
+    case 'cat3':
+      return 'equipment';
+    case 'cat4':
+      return 'mobility_services';
+    default:
+      return 'other';
+  }
 }
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -78,7 +112,7 @@ export function validatePartnerForm(data: PartnerApplicationData): PartnerValida
   const trimmedDesc = data.projectDescription.trim();
   const trimmedLicense = data.license.trim();
 
-  // 1. Validation des champs obligatoires
+  // 1. Validation des champs obligatoires généraux
   if (
     !trimmedName ||
     !trimmedRole ||
@@ -95,23 +129,28 @@ export function validatePartnerForm(data: PartnerApplicationData): PartnerValida
     return { valid: false, errorField: 'required' };
   }
 
-  // 2. Format Email
+  // 2. Si groupe Mobilité & Services scolaires, la sous-catégorie est obligatoire
+  if (data.sector === 'mobility_services' && !data.subSector) {
+    return { valid: false, errorField: 'subSector' };
+  }
+
+  // 3. Format Email
   if (!isValidEmail(trimmedEmail)) {
     return { valid: false, errorField: 'email' };
   }
 
-  // 3. Format Téléphone international
+  // 4. Format Téléphone international
   if (!isValidPhone(trimmedPhone)) {
     return { valid: false, errorField: 'phone' };
   }
 
-  // 4. Format Site Web facultatif (doit être http/https si renseigné)
+  // 5. Format Site Web facultatif (doit être http/https si renseigné)
   if (!isValidWebsite(data.website)) {
     return { valid: false, errorField: 'website' };
   }
 
-  // 5. Agrément conditionnel obligatoire si secteur réglementé
-  if (isRegulatedSector(data.sector) && !trimmedLicense) {
+  // 6. Agrément conditionnel obligatoire si secteur ou sous-catégorie réglementé(e)
+  if (isRegulatedSector(data.sector, data.subSector) && !trimmedLicense) {
     return { valid: false, errorField: 'license' };
   }
 
@@ -123,7 +162,7 @@ export function validatePartnerForm(data: PartnerApplicationData): PartnerValida
  */
 export function buildPartnerStructuredMessage(
   data: PartnerApplicationData,
-  labels: { formulaName: string; sectorLabel: string }
+  labels: { formulaName: string; sectorLabel: string; subSectorLabel?: string }
 ): string {
   const trimmedName = data.fullName.trim();
   const trimmedRole = data.role.trim();
@@ -140,6 +179,9 @@ export function buildPartnerStructuredMessage(
     `Représentant : ${trimmedName} (${trimmedRole})`,
     `Entreprise / Organisation : ${trimmedCompany}`,
     `Secteur : ${labels.sectorLabel}`,
+    data.sector === 'mobility_services' && labels.subSectorLabel
+      ? `Sous-catégorie : ${labels.subSectorLabel}`
+      : null,
     trimmedLicense ? `Agrément / Régulation : ${trimmedLicense}` : null,
     `Formule souhaitée : ${labels.formulaName} (Sur devis)`,
     `Pays d'implantation : ${trimmedCountry}`,

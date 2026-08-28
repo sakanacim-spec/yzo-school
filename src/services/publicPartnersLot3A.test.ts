@@ -11,6 +11,7 @@ import { PUBLIC_I18N, LANGUAGES } from '../i18n/publicI18n.ts';
 import { parsePublicLocation } from '../utils/publicNavigation.ts';
 import {
   isRegulatedSector,
+  mapCategoryToSector,
   isValidEmail,
   isValidPhone,
   isValidWebsite,
@@ -410,4 +411,124 @@ test('21. Zéro écriture Supabase réelle dans la suite de tests', () => {
   const testFileContent = fs.readFileSync(path.resolve('src/services/publicPartnersLot3A.test.ts'), 'utf-8');
   assert.ok(!/@supabase\/supabase-js/.test(testFileContent), 'Aucun import Supabase dans la suite de tests');
   assert.ok(!/\.from\s*\(\s*['"]contact_messages['"]\s*\)\s*\.insert/.test(testFileContent), 'Aucune écriture Supabase directe');
+});
+
+test('22. Production mapCategoryToSector : correspondance exacte des 4 cartes de catégories', () => {
+  assert.equal(mapCategoryToSector('cat1'), 'finance', 'Cat1 doit correspondre au secteur finance');
+  assert.equal(mapCategoryToSector('cat2'), 'telecom', 'Cat2 doit correspondre au secteur telecom');
+  assert.equal(mapCategoryToSector('cat3'), 'equipment', 'Cat3 doit correspondre au secteur equipment');
+  assert.equal(mapCategoryToSector('cat4'), 'mobility_services', 'Cat4 doit correspondre au groupe mobility_services');
+});
+
+test('23. Logique réglementaire stricte : Finance, Assurance et Autre activité réglementée exigent agrément ; Télécoms, Fournitures, Transport scolaire et Service périscolaire en sont exemptés', () => {
+  // Secteurs principaux réglementés
+  assert.equal(isRegulatedSector('finance'), true);
+  assert.equal(isRegulatedSector('insurance'), true);
+  assert.equal(isRegulatedSector('otherRegulated'), true);
+
+  // Secteurs principaux exemptés
+  assert.equal(isRegulatedSector('telecom'), false);
+  assert.equal(isRegulatedSector('equipment'), false);
+  assert.equal(isRegulatedSector('transport'), false);
+  assert.equal(isRegulatedSector('other'), false);
+
+  // Sous-catégories du groupe Mobilité & Services scolaires
+  assert.equal(isRegulatedSector('mobility_services', 'transport'), false, 'Transport scolaire est exempté d’agrément');
+  assert.equal(isRegulatedSector('mobility_services', 'afterSchool'), false, 'Service périscolaire est exempté d’agrément');
+  assert.equal(isRegulatedSector('mobility_services', 'insurance'), true, 'Assurance scolaire exige un agrément');
+  assert.equal(isRegulatedSector('mobility_services', 'otherRegulated'), true, 'Autre activité réglementée exige un agrément');
+});
+
+test('24. Production validatePartnerForm : validation de la sous-catégorie et de l’agrément pour mobility_services', () => {
+  const baseMobilityData: PartnerApplicationData = {
+    fullName: 'Sophie Durand',
+    role: 'Responsable Partenariats',
+    companyName: 'Mobilité & Services Scolaires SARL',
+    sector: 'mobility_services',
+    subSector: '',
+    license: '',
+    country: 'Côte d’Ivoire',
+    targetMarkets: 'Abidjan',
+    email: 'contact@mobilite-scolaire.ci',
+    phone: '+225 07 00 00 00',
+    website: 'https://mobilite-scolaire.ci',
+    selectedFormula: 'presence',
+    projectDescription: 'Services de transport et accompagnement périscolaire.',
+    consent: true
+  };
+
+  // 1. Sous-catégorie non sélectionnée -> rejet avec errorField = 'subSector'
+  const resNoSub = validatePartnerForm({ ...baseMobilityData, subSector: '' });
+  assert.equal(resNoSub.valid, false);
+  assert.equal(resNoSub.errorField, 'subSector');
+
+  // 2. Sous-catégorie Transport scolaire sans agrément -> autorisé (exempté)
+  const resTransport = validatePartnerForm({ ...baseMobilityData, subSector: 'transport', license: '' });
+  assert.equal(resTransport.valid, true, 'Transport scolaire sans agrément doit être valide');
+
+  // 3. Sous-catégorie Service périscolaire sans agrément -> autorisé (exempté)
+  const resAfterSchool = validatePartnerForm({ ...baseMobilityData, subSector: 'afterSchool', license: '' });
+  assert.equal(resAfterSchool.valid, true, 'Service périscolaire sans agrément doit être valide');
+
+  // 4. Sous-catégorie Assurance scolaire sans agrément -> rejeté avec errorField = 'license'
+  const resInsuranceNoLic = validatePartnerForm({ ...baseMobilityData, subSector: 'insurance', license: '' });
+  assert.equal(resInsuranceNoLic.valid, false);
+  assert.equal(resInsuranceNoLic.errorField, 'license');
+
+  // 5. Sous-catégorie Assurance scolaire avec agrément -> valide
+  const resInsuranceWithLic = validatePartnerForm({ ...baseMobilityData, subSector: 'insurance', license: 'Agrément CIMA N° 2026/04' });
+  assert.equal(resInsuranceWithLic.valid, true);
+
+  // 6. Sous-catégorie Autre activité réglementée sans agrément -> rejeté
+  const resOtherRegNoLic = validatePartnerForm({ ...baseMobilityData, subSector: 'otherRegulated', license: '' });
+  assert.equal(resOtherRegNoLic.valid, false);
+  assert.equal(resOtherRegNoLic.errorField, 'license');
+});
+
+test('25. Parcours séquentiel : sélection d’une catégorie préremplit le secteur, puis sélection d’une formule préserve les deux choix', () => {
+  // 1. État initial vide
+  let state = {
+    sector: '',
+    subSector: '',
+    selectedFormula: ''
+  };
+
+  // 2. Sélection de la catégorie 4 (Mobilité & Services scolaires)
+  state.sector = mapCategoryToSector('cat4');
+  assert.equal(state.sector, 'mobility_services');
+
+  // 3. Sélection de la sous-catégorie Transport scolaire
+  state.subSector = 'transport';
+  assert.equal(isRegulatedSector(state.sector, state.subSector), false, 'Transport scolaire ne doit pas exiger d’agrément');
+
+  // 4. Sélection de la formule "Visibilité" (l’état du secteur et sous-secteur doit être préservé)
+  state.selectedFormula = 'visibility';
+  assert.equal(state.sector, 'mobility_services');
+  assert.equal(state.subSector, 'transport');
+  assert.equal(state.selectedFormula, 'visibility');
+
+  // 5. Changement vers sous-catégorie Assurance
+  state.subSector = 'insurance';
+  assert.equal(isRegulatedSector(state.sector, state.subSector), true, 'Assurance scolaire doit exiger un agrément');
+  assert.equal(state.selectedFormula, 'visibility', 'La formule choisie reste préservée');
+});
+
+test('26. Accessibilité des 4 cartes de catégories : boutons accessibles, aria-pressed, état sélectionné et focus clavier', () => {
+  const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
+
+  // Contrôle des balises button pour les catégories
+  assert.ok(partnersContent.includes("onClick={() => handleSelectCategory('cat1')}"));
+  assert.ok(partnersContent.includes("onClick={() => handleSelectCategory('cat2')}"));
+  assert.ok(partnersContent.includes("onClick={() => handleSelectCategory('cat3')}"));
+  assert.ok(partnersContent.includes("onClick={() => handleSelectCategory('cat4')}"));
+
+  // Contrôle aria-pressed
+  assert.ok(partnersContent.includes('aria-pressed={isCat1Selected}'));
+  assert.ok(partnersContent.includes('aria-pressed={isCat2Selected}'));
+  assert.ok(partnersContent.includes('aria-pressed={isCat3Selected}'));
+  assert.ok(partnersContent.includes('aria-pressed={isCat4Selected}'));
+
+  // Contrôle du scroll vers formulasSectionRef
+  assert.ok(partnersContent.includes('formulasSectionRef.current.scrollIntoView'));
+  assert.ok(partnersContent.includes('ref={formulasSectionRef}'));
 });

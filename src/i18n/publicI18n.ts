@@ -451,9 +451,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "insurance": "Assurance & Prévoyance scolaire",
             "telecom": "Télécoms & Services numériques",
             "equipment": "Fournitures, Édition & Équipements",
+            "mobility_services": "Mobilité, Assurance & Services scolaires",
             "transport": "Transport scolaire",
         "otherRegulated": "Autre activité réglementée (avec agrément)",
             "other": "Autre secteur d'activité"
+        },
+        "subSector": "Sous-catégorie d’activité",
+        "selectSubSector": "Sélectionnez votre activité",
+        "subSectorOptions": {
+            "transport": "Transport scolaire",
+            "insurance": "Assurance & Prévoyance scolaire (Agrément requis)",
+            "afterSchool": "Service périscolaire & activités",
+            "otherRegulated": "Autre activité réglementée (Agrément requis)"
         },
         "regulatedHelp": "Pour les activités bancaires, financières ou d'assurance, veuillez préciser votre agrément réglementaire.",
         "license": "Agrément ou autorité de régulation",
@@ -709,9 +718,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "insurance": "Insurance & Student Coverage",
             "telecom": "Telecom & Digital Services",
             "equipment": "Supplies, Publishing & Equipment",
+            "mobility_services": "Mobility, Insurance & School Services",
             "transport": "Student Transportation",
         "otherRegulated": "Other Regulated Activity (Licensed)",
             "other": "Other Sector"
+        },
+        "subSector": "Service sub-category",
+        "selectSubSector": "Select your activity",
+        "subSectorOptions": {
+            "transport": "School transport",
+            "insurance": "School insurance & protection (License required)",
+            "afterSchool": "Extracurricular services & activities",
+            "otherRegulated": "Other regulated activity (License required)"
         },
         "regulatedHelp": "For banking, financial, or insurance activities, please specify your regulatory license.",
         "license": "Regulatory License or Authority",
@@ -967,9 +985,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "insurance": "Seguros y Coberturas Escolares",
             "telecom": "Telecomunicaciones y Servicios Digitales",
             "equipment": "Material, Editorial y Equipamiento Escolar",
+            "mobility_services": "Movilidad, Seguros y Servicios escolares",
             "transport": "Transporte Escolar",
         "otherRegulated": "Otra actividad regulada (con acreditación)",
             "other": "Otro sector de actividad"
+        },
+        "subSector": "Subcategoría de actividad",
+        "selectSubSector": "Seleccione su actividad",
+        "subSectorOptions": {
+            "transport": "Transporte escolar",
+            "insurance": "Seguro y previsión escolar (Requiere autorización)",
+            "afterSchool": "Servicios extraescolares y actividades",
+            "otherRegulated": "Otra actividad regulada (Requiere autorización)"
         },
         "regulatedHelp": "Para actividades bancarias, financieras o de seguros, indique su acreditación regulatoria.",
         "license": "Acreditación o autoridad de regulación",
@@ -1225,9 +1252,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "insurance": "التأمين والحماية المدرسية",
             "telecom": "الاتصالات والخدمات الرقمية",
             "equipment": "المستلزمات، النشر والتجهيزات المدرسية",
+            "mobility_services": "التنقل والتأمين والخدمات المدرسية",
             "transport": "النقل المدرسي",
         "otherRegulated": "نشاط منظم آخر (مع ترخيص رسمي)",
             "other": "قطاع نشاط آخر"
+        },
+        "subSector": "الفئة الفرعية للنشاط",
+        "selectSubSector": "اختر نوع النشاط",
+        "subSectorOptions": {
+            "transport": "النقل المدرسي",
+            "insurance": "التأمين والحماية المدرسية (يتطلب ترخيصاً)",
+            "afterSchool": "الخدمات والأنشطة الموازية للمدرسة",
+            "otherRegulated": "نشاط آخر خاضع للتنظيم (يتطلب ترخيصاً)"
         },
         "regulatedHelp": "بالنسبة للأنشطة البنكية أو المالية أو التأمينية، يرجى تحديد الترخيص الرسمي.",
         "license": "الترخيص أو الهيئة الرقابية",
@@ -1483,9 +1519,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "insurance": "Assicurazioni e Previdenza Scolastica",
             "telecom": "Telecomunicazioni e Servizi Digitali",
             "equipment": "Forniture, Editoria e Attrezzature Scolastiche",
+            "mobility_services": "Mobilità, Assicurazione e Servizi scolastici",
             "transport": "Trasporto Scolastico",
         "otherRegulated": "Altra attività regolamentata (con autorizzazione)",
             "other": "Altro settore di attività"
+        },
+        "subSector": "Sottocategoria di attività",
+        "selectSubSector": "Seleziona la tua attività",
+        "subSectorOptions": {
+            "transport": "Trasporto scolastico",
+            "insurance": "Assicurazione e protezione scolastica (Autorizzazione richiesta)",
+            "afterSchool": "Servizi parascolastici e attività",
+            "otherRegulated": "Altra attività regolamentata (Autorizzazione richiesta)"
         },
         "regulatedHelp": "Per attività bancarie, finanziarie o assicurative, indicare l'autorizzazione normativa.",
         "license": "Autorizzazione o autorità di vigilanza",
@@ -1741,9 +1786,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "insurance": "Versicherung & Schulischer Schutz",
             "telecom": "Telekommunikation & Digitale Dienste",
             "equipment": "Schulbedarf, Verlage & Ausstattung",
+            "mobility_services": "Mobilität, Versicherung & Schuldienste",
             "transport": "Schülertransport",
         "otherRegulated": "Sonstige regulierte Tätigkeit (mit Zulassung)",
             "other": "Sonstige Branche"
+        },
+        "subSector": "Tätigkeits-Unterkategorie",
+        "selectSubSector": "Wählen Sie Ihre Tätigkeit",
+        "subSectorOptions": {
+            "transport": "Schülertransport",
+            "insurance": "Schulversicherung & Vorsorge (Zulassung erforderlich)",
+            "afterSchool": "Ganztags- & Zusatzangebote",
+            "otherRegulated": "Sonstige regulierte Tätigkeit (Zulassung erforderlich)"
         },
         "regulatedHelp": "Für Bank-, Finanz- oder Versicherungsaktivitäten geben Sie bitte Ihre behördliche Zulassung an.",
         "license": "Zulassung oder Regulierungsbehörde",
@@ -1999,9 +2053,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "insurance": "Seguros e Proteção Escolar",
             "telecom": "Telecomunicações e Serviços Digitais",
             "equipment": "Materiais, Editoras e Equipamentos Escolares",
+            "mobility_services": "Mobilidade, Seguros e Serviços escolares",
             "transport": "Transporte Escolar",
         "otherRegulated": "Outra atividade regulamentada (com autorização)",
             "other": "Outro setor de atividade"
+        },
+        "subSector": "Subcategoria de atividade",
+        "selectSubSector": "Selecione a sua atividade",
+        "subSectorOptions": {
+            "transport": "Transporte escolar",
+            "insurance": "Seguro e previdência escolar (Autorização necessária)",
+            "afterSchool": "Serviços extracurriculares e atividades",
+            "otherRegulated": "Outra atividade regulada (Autorização necessária)"
         },
         "regulatedHelp": "Para atividades bancárias, financeiras ou de seguros, especifique a sua autorização regulatória.",
         "license": "Autorização ou autoridade reguladora",
@@ -2257,9 +2320,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "insurance": "校园保险与学生保障",
             "telecom": "电信与数字技术服务",
             "equipment": "教材出版、学习用品与教学设备",
+            "mobility_services": "出行、保险与校园综合服务",
             "transport": "校车与学生交通",
         "otherRegulated": "其他受监管行业（须持牌）",
             "other": "其他行业领域"
+        },
+        "subSector": "业务子类别",
+        "selectSubSector": "请选择具体业务",
+        "subSectorOptions": {
+            "transport": "校车与学生接送交通",
+            "insurance": "校园保险与安全保障（需持牌资质）",
+            "afterSchool": "课后托管与课外综合服务",
+            "otherRegulated": "其他受监管业务（需持牌资质）"
         },
         "regulatedHelp": "若涉及银行、金融或保险业务，请填写监管牌照或主管机构信息。",
         "license": "监管牌照或主管机构",
@@ -2515,9 +2587,18 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "insurance": "Страхование и школьная защита",
             "telecom": "Телекоммуникации и цифровые сервисы",
             "equipment": "Учебные материалы, издательства и оборудование",
+            "mobility_services": "Транспорт, страхование и школьные сервисы",
             "transport": "Школьный транспорт",
         "otherRegulated": "Другая регулируемая деятельность (с лицензией)",
             "other": "Другая сфера деятельности"
+        },
+        "subSector": "Подкатегория деятельности",
+        "selectSubSector": "Выберите направление деятельности",
+        "subSectorOptions": {
+            "transport": "Школьный транспорт",
+            "insurance": "Школьное страхование и защита (требуется лицензия)",
+            "afterSchool": "Внеурочные и школьные сервисы",
+            "otherRegulated": "Другая регулируемая деятельность (требуется лицензия)"
         },
         "regulatedHelp": "Для банковской, финансовой или страховой деятельности укажите лицензию регулятора.",
         "license": "Лицензия или орган регулирования",
