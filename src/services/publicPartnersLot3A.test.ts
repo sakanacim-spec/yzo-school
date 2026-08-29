@@ -63,7 +63,22 @@ test('1. SUPPORTED_PUBLIC_LANGUAGES (9 langues) ont toutes un dictionnaire partn
     // Dons & Mécénat (Lot 3A)
     assert.ok(dict.partners.donations.badge && dict.partners.donations.badge.length > 0);
     assert.ok(dict.partners.donations.title && dict.partners.donations.title.length > 0);
-    assert.ok(dict.partners.donations.noticeLot3B && dict.partners.donations.noticeLot3B.length > 0);
+    const donationNotice = dict.partners.donations.noticeLot3B;
+    // Common assertions for all locales
+    assert.ok(donationNotice && donationNotice.length > 0);
+    assert.ok(
+      !donationNotice.includes('Lot 3A') &&
+      !donationNotice.includes('Lot 3B'),
+      `${lang}: la notice publique ne doit plus contenir Lot 3A ou Lot 3B`
+    );
+    if (lang === 'fr') {
+      // Exact French text
+      assert.strictEqual(
+        donationNotice,
+        "À cette étape, vous transmettez uniquement une proposition de don ou de mécénat. Aucun paiement n’est effectué en ligne. Notre équipe vous contactera afin de définir les modalités, l’affectation et la traçabilité du soutien."
+      );
+    }
+
     assert.ok(dict.partners.donations.cta && dict.partners.donations.cta.length > 0);
 
     // Formulaire
