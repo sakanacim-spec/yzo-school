@@ -450,7 +450,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "title": "Dons & Mécénat",
         "subtitle": "Soutenez des initiatives scolaires et favorisez l'égalité des chances éducatives.",
         "desc": "Vous êtes une fondation, une institution, une entreprise ou un donateur engagé ? Proposez un soutien matériel, financier ou pédagogique pour équiper et accompagner les écoles partenaires.",
-        "noticeLot3B": "Point d’entrée Lot 3A : Aucun encaissement direct n’est réalisé à cette étape. La collecte et la traçabilité comptable des dons seront déployées dans le Lot 3B.",
+        "noticeLot3B": "À cette étape, vous transmettez uniquement une proposition de don ou de mécénat. Aucun paiement n’est effectué en ligne. Notre équipe vous contactera afin de définir les modalités, l’affectation et la traçabilité du soutien.",
         "cta": "Proposer un don ou un mécénat"
     },
     "form": {
@@ -770,7 +770,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "title": "Donations & Philanthropy",
         "subtitle": "Support educational initiatives and promote equal opportunities in schooling.",
         "desc": "Are you a foundation, international institution, corporation, or committed donor? Provide material, financial, or pedagogical support to equip and assist partner schools.",
-        "noticeLot3B": "Lot 3A Entry Point: No direct payment or transaction is performed at this stage. Donation collection and accounting traceability will be deployed in Lot 3B.",
+        "noticeLot3B": "At this stage, you are only submitting a donation or sponsorship proposal. No online payment is made. Our team will contact you to define the arrangements, allocation and traceability of the support.",
         "cta": "Propose a Donation or Sponsorship"
     },
     "form": {
@@ -1090,7 +1090,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "title": "Donaciones y Mecenazgo",
         "subtitle": "Apoye iniciativas escolares y fomente la igualdad de oportunidades educativas.",
         "desc": "¿Es usted una fundación, institución, empresa o donante comprometido? Ofrezca apoyo material, financiero o pedagógico para equipar y respaldar a los centros escolares.",
-        "noticeLot3B": "Punto de entrada Lote 3A: No se realiza ningún cobro directo en esta etapa. La recaudación y trazabilidad contable de las donaciones se implementarán en el Lote 3B.",
+        "noticeLot3B": "En esta etapa, únicamente presenta una propuesta de donación o mecenazgo. No se realiza ningún pago en línea. Nuestro equipo se pondrá en contacto con usted para definir las modalidades, la asignación y la trazabilidad del apoyo.",
         "cta": "Proponer una donación o mecenazgo"
     },
     "form": {
@@ -1410,7 +1410,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "title": "التبرعات والرعاية التعليمية",
         "subtitle": "ادعم المبادرات المدرسية وعزز تكافؤ الفرص في التعليم.",
         "desc": "هل أنتم مؤسسة خيرية أو هيئة دولية أو شركة أو جهة مانحة؟ قدموا دعماً مادياً أو مالياً أو تربوياً لتجهيز ودعم المدارس الشريكة.",
-        "noticeLot3B": "نقطة دخول الحزمة 3A: لا يتم تحصيل أي مبالغ مالية في هذه المرحلة. سيتم نشر آلية التبرعات والتحصيل في الحزمة 3B.",
+        "noticeLot3B": "في هذه المرحلة، يقتصر الإجراء على تقديم مقترح للتبرع أو الرعاية. ولا يتم إجراء أي دفع عبر الإنترنت. سيتواصل معكم فريقنا لتحديد آليات الدعم وأوجه تخصيصه وضمان إمكانية تتبعه.",
         "cta": "تقديم مقترح تبرع أو رعاية"
     },
     "form": {
@@ -1730,7 +1730,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "title": "Donazioni e Mecenatismo",
         "subtitle": "Sostieni iniziative scolastiche e favorisci pari opportunità educative.",
         "desc": "Sei una fondazione, istituzione, azienda o un donatore impegnato? Offri supporto materiale, finanziario o pedagogico per attrezzare e accompagnare le scuole partner.",
-        "noticeLot3B": "Punto di ingresso Lotto 3A: Nessun incasso diretto viene effettuato in questa fase. La raccolta e tracciabilità contabile delle donazioni saranno implementate nel Lotto 3B.",
+        "noticeLot3B": "In questa fase, invii esclusivamente una proposta di donazione o mecenatismo. Non viene effettuato alcun pagamento online. Il nostro team ti contatterà per definire le modalità, la destinazione e la tracciabilità del sostegno.",
         "cta": "Proponi una donazione o mecenatismo"
     },
     "form": {
@@ -2050,7 +2050,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "title": "Spenden & Mäzenatentum",
         "subtitle": "Unterstützen Sie Schulinitiativen und fördern Sie Bildungsgerechtigkeit.",
         "desc": "Sind Sie eine Stiftung, Institution, ein Unternehmen oder engagierter Förderer? Bieten Sie materielle, finanzielle oder pädagogische Unterstützung für Partnerschulen.",
-        "noticeLot3B": "Einstiegspunkt Los 3A: In dieser Phase findet kein direkter Zahlungseinzug statt. Sammlung und buchhalterische Nachverfolgung von Spenden werden in Los 3B umgesetzt.",
+        "noticeLot3B": "In diesem Schritt reichen Sie lediglich einen Vorschlag für eine Spende oder ein Fördervorhaben ein. Es erfolgt keine Online-Zahlung. Unser Team wird Sie kontaktieren, um die Modalitäten, die Zuweisung und die Nachverfolgbarkeit der Unterstützung festzulegen.",
         "cta": "Spende oder Mäzenatentum vorschlagen"
     },
     "form": {
@@ -2370,7 +2370,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "title": "Doações e Mecenato",
         "subtitle": "Apoie iniciativas escolares e promova a igualdade de oportunidades educacionais.",
         "desc": "É uma fundação, instituição, empresa ou doador empenhado? Proponha apoio material, financeiro ou pedagógico para equipar e acompanhar escolas parceiras.",
-        "noticeLot3B": "Ponto de entrada Lote 3A: Nenhuma cobrança direta é realizada nesta etapa. A arrecadação e rastreabilidade contábil de doações serão implementadas no Lote 3B.",
+        "noticeLot3B": "Nesta fase, você apenas envia uma proposta de doação ou mecenato. Nenhum pagamento é realizado online. Nossa equipe entrará em contato para definir as modalidades, a destinação e a rastreabilidade do apoio.",
         "cta": "Propor uma doação ou mecenato"
     },
     "form": {
@@ -2690,7 +2690,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "title": "公益捐赠与教育资助",
         "subtitle": "支持优质校园公益项目，促进教育公平与资源均衡发展。",
         "desc": "如果您是基金会、国际机构、企业或爱心捐助者，欢迎提供物资、资金或教育资源支持，共同赋能合作学校。",
-        "noticeLot3B": "阶段说明（Lot 3A）：本阶段仅为合作意向登记，不设任何在线收款功能。捐赠收款与资金财务追溯将在后续 Lot 3B 中统一推出。",
+        "noticeLot3B": "在此阶段，您仅提交捐赠或赞助提案，不会进行任何在线支付。我们的团队将与您联系，以确定支持的具体方式、用途分配和追踪机制。",
         "cta": "提交公益赞助与捐赠意向"
     },
     "form": {
@@ -3010,7 +3010,7 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
         "title": "Пожертвования и Меценатство",
         "subtitle": "Поддерживайте школьные инициативы и содействуйте качественному образованию для всех.",
         "desc": "Вы представляете фонд, международную организацию, компанию или являетесь частным меценатом? Предложите материальную, финансовую или экспертную поддержку школам.",
-        "noticeLot3B": "Точка входа Лота 3A: На данном этапе прямой приём платежей не осуществляется. Сбор и финансовая отчётность по пожертвованиям будут реализованы в Лоте 3B.",
+        "noticeLot3B": "На этом этапе вы только отправляете предложение о пожертвовании или спонсорской поддержке. Онлайн-платёж не производится. Наша команда свяжется с вами, чтобы определить условия, назначение и порядок отслеживания поддержки.",
         "cta": "Предложить пожертвование или меценатство"
     },
     "form": {
