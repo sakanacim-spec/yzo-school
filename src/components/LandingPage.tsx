@@ -38,10 +38,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegisterSch
   };
 
   const handlePartnerClick = () => {
-    onNavigate('contact', {
-      subject: t.contact.partnershipSubject,
-      message: t.contact.partnershipMessage
-    });
+    onNavigate('partners');
   };
 
   return (
@@ -63,7 +60,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegisterSch
 
           <nav className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm font-bold text-slate-600 hover:text-[#f97316] transition-colors">{t.nav.features}</a>
-            <a href="#sponsors" className="text-sm font-bold text-slate-600 hover:text-[#f97316] transition-colors">{t.nav.partners}</a>
+            <button
+              type="button"
+              onClick={() => onNavigate('partners')}
+              className="text-sm font-bold text-slate-600 hover:text-[#f97316] transition-colors"
+            >
+              {t.nav.partners}
+            </button>
           </nav>
 
           <div className="flex items-center gap-3 sm:gap-6">
@@ -353,9 +356,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegisterSch
               <p className="text-slate-400 text-sm font-medium leading-relaxed mb-4">
                 {t.footer.partner_desc}
               </p>
-              <a href="#sponsors" className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors block mb-6">
+              <button
+                type="button"
+                onClick={() => onNavigate('partners')}
+                className="text-slate-400 hover:text-[#f97316] font-medium text-sm transition-colors block mb-6 text-left"
+              >
                 {t.footer.partner_discover} →
-              </a>
+              </button>
               <button
                 onClick={handlePartnerClick}
                 className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-bold transition-all border border-slate-700 hover:border-slate-600"

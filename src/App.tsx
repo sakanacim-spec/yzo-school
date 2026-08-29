@@ -73,6 +73,7 @@ const CahierTextes = lazy(() => import('./pages/professeur/CahierTextes').then(m
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard })));
 const Blog = lazy(() => import('./pages/public/Blog'));
 const BlogPost = lazy(() => import('./pages/public/BlogPost'));
+const Partners = lazy(() => import('./pages/public/Partners'));
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center p-12">
@@ -338,6 +339,38 @@ export function App() {
     );
   }
 
+  if (publicPage === 'partners') {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <Partners
+          onBack={() => {
+            window.history.pushState({}, '', '/');
+            applyNavState(handleBackToLanding());
+          }}
+          onHome={() => {
+            window.history.pushState({}, '', '/');
+            applyNavState(handleBackToLanding());
+          }}
+          onNavigate={(page) => {
+            if (page === 'landing') {
+              window.history.pushState({}, '', '/');
+              applyNavState(handleBackToLanding());
+            } else if (page === 'blog') {
+              window.history.pushState({}, '', '/blog');
+              applyNavState(handleBlogNavigate());
+            } else if (page === 'partners') {
+              window.history.pushState({}, '', '/partenaires');
+              applyNavState(handlePublicNavigate('partners'));
+            } else {
+              window.history.pushState({}, '', `/${page}`);
+              applyNavState(handlePublicNavigate(page as any));
+            }
+          }}
+        />
+      </Suspense>
+    );
+  }
+
   if (!isAuthenticated) {
     if (publicPage === 'login') {
       return <Login onBackToLanding={() => applyNavState(handleBackToLanding())} />;
@@ -389,6 +422,9 @@ export function App() {
             if (page === 'blog') {
               window.history.pushState({}, '', '/blog');
               applyNavState(handleBlogNavigate());
+            } else if (page === 'partners') {
+              window.history.pushState({}, '', '/partenaires');
+              applyNavState(handlePublicNavigate('partners', extra));
             } else {
               applyNavState(handlePublicNavigate(page, extra));
             }
