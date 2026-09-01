@@ -333,3 +333,236 @@ export function resolvePartnerHttpStatus(status: number): 'success' | 'rate_limi
   if (status === 429) return 'rate_limit';
   return 'error';
 }
+
+// ---------------------------------------------------------------------------
+// Donation proposal & contact submission – fonctions frontend testables
+// ---------------------------------------------------------------------------
+
+/**
+ * Construit le payload pour POST /api/public/donation-proposals.
+ * Exactement 18 clés — aucun champ `intent`, `selectedFormula` ou `structuredMessage`.
+ * Les champs conditionnels non applicables ou optionnels absents sont explicitement null (pas undefined),
+ * même si des valeurs résiduelles obsolètes sont présentes dans l'objet source.
+ * Aucune mutation de `data`.
+ */
+export function buildDonationProposalPayload(
+  data: PartnerApplicationData,
+  language: string
+) {
+  const trim = (s: string): string => s.trim();
+  const optional = (s?: string): string | null => (s && s.trim() ? s.trim() : null);
+
+  const isMobility = data.sector === 'mobility_services';
+  const isOtherSector = data.sector === 'other';
+  const isNgo = data.sector === 'ngo_institutions';
+
+  const sanitizedSubSector = isMobility ? optional(data.subSector) : null;
+  const sanitizedRegDecl = isOtherSector ? optional(data.regulationDeclaration) as RegulationDeclaration | null : null;
+  const sanitizedOtherDetails = isOtherSector ? optional(data.otherSectorDetails) : null;
+  const sanitizedOrgType = isNgo ? optional(data.organizationType) as OrganizationType | null : null;
+
+  const regulated = isRegulatedSector(data.sector, sanitizedSubSector || undefined, sanitizedRegDecl || undefined);
+  const sanitizedLicense = regulated ? optional(data.license) : null;
+
+  return {
+    fullName:              trim(data.fullName),                  // 1
+    role:                  trim(data.role),                      // 2
+    companyName:           trim(data.companyName),               // 3
+    sector:                data.sector,                          // 4
+    subSector:             sanitizedSubSector,                   // 5
+    regulationDeclaration: sanitizedRegDecl,                     // 6
+    otherSectorDetails:    sanitizedOtherDetails,                // 7
+    organizationType:      sanitizedOrgType,                     // 8
+    supportType:           optional(data.supportType) as SupportType | null, // 9
+    license:               sanitizedLicense,                     // 10
+    country:               trim(data.country),                   // 11
+    targetMarkets:         trim(data.targetMarkets),             // 12
+    email:                 trim(data.email),                     // 13
+    phone:                 trim(data.phone),                     // 14
+    website:               optional(data.website),               // 15
+    projectDescription:    trim(data.projectDescription),        // 16
+    language:              trim(language),                       // 17
+    consent:               Boolean(data.consent),                // 18
+  };
+}
+
+/**
+ * Résout l'URL de soumission selon l'intention.
+ * donation_sponsorship → /api/public/donation-proposals
+ * autre               → /api/public/contact
+ */
+export function resolvePartnerSubmissionEndpoint(intent: PartnerApplicationIntent): string {
+  return intent === 'donation_sponsorship'
+    ? '/api/public/donation-proposals'
+    : '/api/public/contact';
+}
+
+// UUID v4 : 8-4-4-4-12 hex, version 4, variante [89ab]
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// Référence : DON-AAAA-XXXXXXXX (AAAA = 4 chiffres, XXXXXXXX = 8 chars base32-like)
+const DONATION_REF_REGEX = /^DON-\d{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/;
+
+/**
+ * Valide strictement la réponse JSON d'un 201 de /api/public/donation-proposals (Politique A stricte).
+ * - body doit être un objet non-null, non-tableau
+ * - Object.keys(body) doit contenir exactement 3 clés : 'id', 'reference', 'status'
+ * - id doit être un UUID v4 valide
+ * - reference doit respecter le pattern DON-AAAA-XXXXXXXX
+ * - status doit être exactement "pending"
+ */
+export function validateDonationProposalSuccessResponse(
+  body: unknown
+): body is { id: string; reference: string; status: 'pending' } {
+  if (
+    body === null ||
+    typeof body !== 'object' ||
+    Array.isArray(body)
+  ) {
+    return false;
+  }
+  const b = body as Record<string, unknown>;
+  const keys = Object.keys(b);
+  if (keys.length !== 3) {
+    return false;
+  }
+  if (!('id' in b && 'reference' in b && 'status' in b)) {
+    return false;
+  }
+  return (
+    typeof b.id === 'string' &&
+    UUID_REGEX.test(b.id) &&
+    typeof b.reference === 'string' &&
+    DONATION_REF_REGEX.test(b.reference) &&
+    b.status === 'pending'
+  );
+}
+
+export type DonationSubmissionResult =
+  | { outcome: 'success'; data: { id: string; reference: string; status: 'pending' } }
+  | { outcome: 'validation_error' }
+  | { outcome: 'rate_limit' }
+  | { outcome: 'error' };
+
+export interface SubmissionOptions {
+  apiUrl?: string;
+  fetchFn?: typeof fetch;
+}
+
+/**
+ * Exécute la soumission d'une proposition de don via l'endpoint dédié.
+ * Reçoit optionnellement une fonction fetch pour les tests.
+ */
+export async function submitDonationProposal(
+  data: PartnerApplicationData,
+  language: string,
+  options?: SubmissionOptions
+): Promise<DonationSubmissionResult> {
+  const fetchFn = options?.fetchFn || globalThis.fetch;
+  const baseUrl = options?.apiUrl ?? (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL ? import.meta.env.VITE_API_URL : '');
+  const endpoint = resolvePartnerSubmissionEndpoint('donation_sponsorship');
+  const payload = buildDonationProposalPayload(data, language);
+
+  try {
+    const response = await fetchFn(`${baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.status === 400) {
+      return { outcome: 'validation_error' };
+    }
+
+    if (response.status === 429) {
+      return { outcome: 'rate_limit' };
+    }
+
+    if (response.status !== 201 || !response.ok) {
+      return { outcome: 'error' };
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      return { outcome: 'error' };
+    }
+
+    if (!validateDonationProposalSuccessResponse(body)) {
+      return { outcome: 'error' };
+    }
+
+    return { outcome: 'success', data: body };
+  } catch {
+    return { outcome: 'error' };
+  }
+}
+
+export interface PartnerMessageLabels {
+  formulaName?: string;
+  sectorLabel: string;
+  subSectorLabel?: string;
+  organizationTypeLabel?: string;
+  intentLabel?: string;
+  supportTypeLabel?: string;
+  regulationDeclarationLabel?: string;
+}
+
+export type ContactSubmissionResult =
+  | { outcome: 'success' }
+  | { outcome: 'payload_too_long' }
+  | { outcome: 'rate_limit' }
+  | { outcome: 'error' };
+
+/**
+ * Exécute la soumission d'une demande de partenariat commercial via l'endpoint historique /api/public/contact.
+ */
+export async function submitPartnerContact(
+  data: PartnerApplicationData,
+  labels: PartnerMessageLabels,
+  options?: SubmissionOptions
+): Promise<ContactSubmissionResult> {
+  const fetchFn = options?.fetchFn || globalThis.fetch;
+  const baseUrl = options?.apiUrl ?? (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL ? import.meta.env.VITE_API_URL : '');
+
+  const structuredMessage = buildPartnerStructuredMessage(data, labels);
+  if (!isPayloadWithinLimit(structuredMessage)) {
+    return { outcome: 'payload_too_long' };
+  }
+
+  const payloadName = `${data.fullName.trim()} - ${data.companyName.trim()}`.slice(0, 150);
+  const payloadCountry = data.country.trim().slice(0, 100);
+  const payloadEmail = data.email.trim().slice(0, 200);
+
+  try {
+    const response = await fetchFn(`${baseUrl}/api/public/contact`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: payloadName,
+        country: payloadCountry,
+        email: payloadEmail,
+        message: structuredMessage,
+      }),
+    });
+
+    const statusOutcome = resolvePartnerHttpStatus(response.status);
+    if (statusOutcome === 'rate_limit') {
+      return { outcome: 'rate_limit' };
+    }
+
+    if (statusOutcome !== 'success' || !response.ok) {
+      return { outcome: 'error' };
+    }
+
+    return { outcome: 'success' };
+  } catch {
+    return { outcome: 'error' };
+  }
+}
