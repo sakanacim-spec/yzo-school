@@ -53,17 +53,43 @@ test.beforeEach(() => {
   };
 });
 
+const openServers = new Set();
+
 test.afterEach(async () => {
     // Restore console.error
     console.error = originalConsoleError;
-    // Ensure any server started is closed and awaited
+    // Ensure all servers started are closed and awaited
+    for (const server of openServers) {
+        if (server && server.listening) {
+            if (typeof server.closeAllConnections === 'function') {
+                server.closeAllConnections();
+            }
+            await new Promise((resolve) => {
+                server.close(resolve);
+            });
+        }
+    }
+    openServers.clear();
+
     if (currentServer && currentServer.listening) {
+        if (typeof currentServer.closeAllConnections === 'function') {
+            currentServer.closeAllConnections();
+        }
         await new Promise((resolve) => {
-            currentServer.on('close', resolve);
-            currentServer.close();
+            currentServer.close(resolve);
         });
     }
     currentServer = null;
+
+    if (global.__currentServer && global.__currentServer.listening) {
+        if (typeof global.__currentServer.closeAllConnections === 'function') {
+            global.__currentServer.closeAllConnections();
+        }
+        await new Promise((resolve) => {
+            global.__currentServer.close(resolve);
+        });
+    }
+    global.__currentServer = null;
 });
 
 // Helper to require a fresh router (clears cache)
@@ -80,6 +106,7 @@ async function startServer() {
   const router = getFreshRouter();
   app.use(router);
   const server = http.createServer(app);
+  openServers.add(server);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   const baseUrl = `http://127.0.0.1:${port}`;
