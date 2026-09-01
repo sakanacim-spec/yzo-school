@@ -32,9 +32,8 @@ import {
   isRegulatedSector,
   mapCategoryToSector,
   validatePartnerForm,
-  buildPartnerStructuredMessage,
-  isPayloadWithinLimit,
-  resolvePartnerHttpStatus
+  submitDonationProposal,
+  submitPartnerContact
 } from '../../utils/partnerApplication';
 
 interface PartnersProps {
@@ -86,6 +85,7 @@ export const Partners: React.FC<PartnersProps> = ({
   const [consent, setConsent] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionInFlightRef = useRef(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'rate_limit'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
@@ -203,9 +203,31 @@ export const Partners: React.FC<PartnersProps> = ({
 
   const isCurrentSectorRegulated = isRegulatedSector(sector, subSector, regulationDeclaration);
 
+  const resetFormFields = () => {
+    setApplicationIntent('commercial_partnership');
+    setFullName('');
+    setRole('');
+    setCompanyName('');
+    setSector('');
+    setSubSector('');
+    setOtherSectorDetails('');
+    setRegulationDeclaration('');
+    setOrganizationType('');
+    setSupportType('');
+    setLicense('');
+    setCountry('');
+    setTargetMarkets('');
+    setEmail('');
+    setPhone('');
+    setWebsite('');
+    setSelectedFormula('');
+    setProjectDescription('');
+    setConsent(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (submissionInFlightRef.current || isSubmitting) return;
 
     const formData = {
       fullName,
@@ -247,126 +269,106 @@ export const Partners: React.FC<PartnersProps> = ({
       return;
     }
 
-    const formulaName =
-      selectedFormula === 'presence'
-        ? tp.formulas.presence.name
-        : selectedFormula === 'visibility'
-        ? tp.formulas.visibility.name
-        : selectedFormula === 'strategic'
-        ? tp.formulas.strategic.name
-        : undefined;
-
-    const sectorLabel = tp.form.sectorOptions[sector as keyof typeof tp.form.sectorOptions] || sector;
-    const subSectorLabel =
-      sector === 'mobility_services' && subSector
-        ? tp.form.subSectorOptions[subSector as keyof typeof tp.form.subSectorOptions] || subSector
-        : undefined;
-
-    const organizationTypeLabel =
-      sector === 'ngo_institutions' && organizationType
-        ? tp.form.organizationTypeOptions[organizationType as keyof typeof tp.form.organizationTypeOptions] || organizationType
-        : undefined;
-
-    const supportTypeLabel =
-      applicationIntent === 'donation_sponsorship' && supportType
-        ? tp.form.supportTypeOptions[supportType as keyof typeof tp.form.supportTypeOptions] || supportType
-        : undefined;
-
-    const regulationDeclarationLabel =
-      sector === 'other' && regulationDeclaration
-        ? regulationDeclaration === 'yes'
-          ? tp.form.otherRegulatedYes
-          : tp.form.otherRegulatedNo
-        : undefined;
-
-    const intentLabel =
-      applicationIntent === 'donation_sponsorship'
-        ? tp.donations.title
-        : tp.title;
-
-    // 2. Construction structurée du message via module de production partagé
-    const structuredMessage = buildPartnerStructuredMessage(formData, {
-      formulaName,
-      sectorLabel,
-      subSectorLabel,
-      organizationTypeLabel,
-      intentLabel,
-      supportTypeLabel,
-      regulationDeclarationLabel
-    });
-
-    // 3. Vérification stricte de la longueur (<= 5 000 car) avant tout appel réseau
-    if (!isPayloadWithinLimit(structuredMessage)) {
-      setSubmitStatus('error');
-      setStatusMessage(tp.form.payloadTooLongError);
-      return;
-    }
-
+    // 2. Pose du verrou synchrone et initialisation d'état immédiatement avant l'asynchrone
+    submissionInFlightRef.current = true;
     setIsSubmitting(true);
     setSubmitStatus('idle');
     setStatusMessage('');
 
-    const payloadName = `${fullName.trim()} - ${companyName.trim()}`.slice(0, 150);
-    const payloadCountry = country.trim().slice(0, 100);
-    const payloadEmail = email.trim().slice(0, 200);
+    const isDonation = applicationIntent === 'donation_sponsorship';
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(`${apiUrl}/api/public/contact`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: payloadName,
-          country: payloadCountry,
-          email: payloadEmail,
-          message: structuredMessage
-        })
-      });
+      if (isDonation) {
+        // ── FLUX DONATION : POST /api/public/donation-proposals ──────────────
+        const result = await submitDonationProposal(formData, language);
 
-      const outcome = resolvePartnerHttpStatus(response.status);
+        if (result.outcome === 'success') {
+          setSubmitStatus('success');
+          setStatusMessage(tp.form.successMessage);
+          resetFormFields();
+        } else if (result.outcome === 'validation_error') {
+          setSubmitStatus('error');
+          setStatusMessage(tp.form.validationError);
+        } else if (result.outcome === 'rate_limit') {
+          setSubmitStatus('rate_limit');
+          setStatusMessage(tp.form.rateLimitMessage);
+        } else {
+          setSubmitStatus('error');
+          setStatusMessage(tp.form.errorMessage);
+        }
+      } else {
+        // ── FLUX PARTENARIAT COMMERCIAL : POST /api/public/contact ───────────
+        const formulaName =
+          selectedFormula === 'presence'
+            ? tp.formulas.presence.name
+            : selectedFormula === 'visibility'
+            ? tp.formulas.visibility.name
+            : selectedFormula === 'strategic'
+            ? tp.formulas.strategic.name
+            : undefined;
 
-      if (outcome === 'rate_limit') {
-        setSubmitStatus('rate_limit');
-        setStatusMessage(tp.form.rateLimitMessage);
-        return;
+        const sectorLabel = tp.form.sectorOptions[sector as keyof typeof tp.form.sectorOptions] || sector;
+        const subSectorLabel =
+          sector === 'mobility_services' && subSector
+            ? tp.form.subSectorOptions[subSector as keyof typeof tp.form.subSectorOptions] || subSector
+            : undefined;
+
+        const organizationTypeLabel =
+          sector === 'ngo_institutions' && organizationType
+            ? tp.form.organizationTypeOptions[organizationType as keyof typeof tp.form.organizationTypeOptions] || organizationType
+            : undefined;
+
+        const supportTypeLabel =
+          applicationIntent === 'donation_sponsorship' && supportType
+            ? tp.form.supportTypeOptions[supportType as keyof typeof tp.form.supportTypeOptions] || supportType
+            : undefined;
+
+        const regulationDeclarationLabel =
+          sector === 'other' && regulationDeclaration
+            ? regulationDeclaration === 'yes'
+              ? tp.form.otherRegulatedYes
+              : tp.form.otherRegulatedNo
+            : undefined;
+
+        const intentLabel =
+          applicationIntent === 'donation_sponsorship'
+            ? tp.donations.title
+            : tp.title;
+
+        const result = await submitPartnerContact(formData, {
+          formulaName,
+          sectorLabel,
+          subSectorLabel,
+          organizationTypeLabel,
+          intentLabel,
+          supportTypeLabel,
+          regulationDeclarationLabel
+        });
+
+        if (result.outcome === 'payload_too_long') {
+          setSubmitStatus('error');
+          setStatusMessage(tp.form.payloadTooLongError);
+        } else if (result.outcome === 'success') {
+          setSubmitStatus('success');
+          setStatusMessage(tp.form.successMessage);
+          resetFormFields();
+        } else if (result.outcome === 'rate_limit') {
+          setSubmitStatus('rate_limit');
+          setStatusMessage(tp.form.rateLimitMessage);
+        } else {
+          setSubmitStatus('error');
+          setStatusMessage(tp.form.errorMessage);
+        }
       }
-
-      if (outcome !== 'success' || !response.ok) {
-        throw new Error('Network error');
-      }
-
-      setSubmitStatus('success');
-      setStatusMessage(tp.form.successMessage);
-
-      // Reset form fields
-      setApplicationIntent('commercial_partnership');
-      setFullName('');
-      setRole('');
-      setCompanyName('');
-      setSector('');
-      setSubSector('');
-      setOtherSectorDetails('');
-      setRegulationDeclaration('');
-      setOrganizationType('');
-      setSupportType('');
-      setLicense('');
-      setCountry('');
-      setTargetMarkets('');
-      setEmail('');
-      setPhone('');
-      setWebsite('');
-      setSelectedFormula('');
-      setProjectDescription('');
-      setConsent(false);
     } catch {
       setSubmitStatus('error');
       setStatusMessage(tp.form.errorMessage);
     } finally {
+      submissionInFlightRef.current = false;
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div
