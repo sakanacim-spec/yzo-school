@@ -63,9 +63,9 @@ const baseLabels: PartnerMessageLabels = {
 // 1. buildDonationProposalPayload — structure, clés & exclusions
 // ---------------------------------------------------------------------------
 
-test('buildDonationProposalPayload — exactement 18 clés', () => {
+test('buildDonationProposalPayload — exactement 17 clés hors mobility_services (subSector omis)', () => {
   const payload = buildDonationProposalPayload(baseValidData(), 'fr');
-  assert.strictEqual(Object.keys(payload).length, 18);
+  assert.strictEqual(Object.keys(payload).length, 17);
 });
 
 test('buildDonationProposalPayload — pas de clé intent', () => {
@@ -83,9 +83,9 @@ test('buildDonationProposalPayload — pas de clé structuredMessage', () => {
   assert.equal('structuredMessage' in payload, false);
 });
 
-test('buildDonationProposalPayload — liste exacte des 18 clés attendues', () => {
+test('buildDonationProposalPayload — liste exacte des 17 clés attendues hors mobility_services', () => {
   const EXPECTED_KEYS = [
-    'fullName', 'role', 'companyName', 'sector', 'subSector',
+    'fullName', 'role', 'companyName', 'sector',
     'regulationDeclaration', 'otherSectorDetails', 'organizationType',
     'supportType', 'license', 'country', 'targetMarkets',
     'email', 'phone', 'website', 'projectDescription', 'language', 'consent',
@@ -113,12 +113,13 @@ test('buildDonationProposalPayload — absence de mutation sur l\u0027objet d\u0
 // 2. buildDonationProposalPayload — remise à null conditionnelle des champs obsolètes
 // ---------------------------------------------------------------------------
 
-test('subSector devient null si sector !== mobility_services même avec valeur résiduelle', () => {
+test('subSector est omis si sector !== mobility_services même avec valeur résiduelle', () => {
   const data = baseValidData();
   data.sector = 'telecom';
   data.subSector = 'transport'; // valeur obsolète
   const payload = buildDonationProposalPayload(data, 'fr');
-  assert.strictEqual(payload.subSector, null);
+  assert.strictEqual(payload.subSector, undefined);
+  assert.strictEqual('subSector' in payload, false);
 });
 
 test('subSector conservé et trimmé si sector === mobility_services', () => {
@@ -398,7 +399,8 @@ test('submitDonationProposal — appel URL, méthode, en-têtes et payload 18 cl
   assert.deepStrictEqual(capturedOptions?.headers, { 'Content-Type': 'application/json' });
 
   const sentBody = JSON.parse(String(capturedOptions?.body));
-  assert.strictEqual(Object.keys(sentBody).length, 18);
+  assert.strictEqual(Object.keys(sentBody).length, 17);
+  assert.strictEqual('subSector' in sentBody, false);
   assert.strictEqual(sentBody.fullName, 'Jane Doe');
   assert.strictEqual(sentBody.language, 'fr');
   assert.strictEqual(sentBody.consent, true);

@@ -33,7 +33,8 @@ import {
   mapCategoryToSector,
   validatePartnerForm,
   submitDonationProposal,
-  submitPartnerContact
+  submitPartnerContact,
+  SECTORS_REQUIRING_SUBSECTOR
 } from '../../utils/partnerApplication';
 
 interface PartnersProps {
@@ -125,9 +126,7 @@ export const Partners: React.FC<PartnersProps> = ({
   const handleSelectCategory = (catKey: 'cat1' | 'cat2' | 'cat3' | 'cat4' | 'cat5') => {
     const targetSector = mapCategoryToSector(catKey);
     setSector(targetSector);
-    if (targetSector !== 'mobility_services') {
-      setSubSector('');
-    }
+    setSubSector('');
     if (targetSector !== 'other') {
       setOtherSectorDetails('');
       setRegulationDeclaration('');
@@ -1160,9 +1159,7 @@ export const Partners: React.FC<PartnersProps> = ({
                   onChange={(e) => {
                     const newSector = e.target.value as PartnerSector;
                     setSector(newSector);
-                    if (newSector !== 'mobility_services') {
-                      setSubSector('');
-                    }
+                    setSubSector('');
                     if (newSector !== 'other') {
                       setOtherSectorDetails('');
                       setRegulationDeclaration('');
@@ -1273,14 +1270,15 @@ export const Partners: React.FC<PartnersProps> = ({
               )}
 
               {/* Sous-catégorie obligatoire pour Mobilité, Assurance & Services scolaires */}
-              {sector === 'mobility_services' && (
+              {SECTORS_REQUIRING_SUBSECTOR.has(sector) && (
                 <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-200/80 space-y-2 animate-fade-in">
                   <label htmlFor="partner-subsector" className="block text-xs font-black text-slate-800 uppercase tracking-wide">
                     {tp.form.subSector} <span className="text-orange-500">*</span>
                   </label>
                   <select
                     id="partner-subsector"
-                    required={sector === 'mobility_services'}
+                    data-testid="partner-subsector"
+                    required={SECTORS_REQUIRING_SUBSECTOR.has(sector)}
                     value={subSector}
                     onChange={(e) => {
                       const newSub = e.target.value as MobilitySubSector;

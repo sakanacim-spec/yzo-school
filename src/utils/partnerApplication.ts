@@ -173,6 +173,8 @@ export function isValidWebsite(website: string): boolean {
 /**
  * Valide l'ensemble des champs du formulaire de candidature partenaire.
  */
+export const SECTORS_REQUIRING_SUBSECTOR = new Set(['mobility_services'] as const);
+
 export function validatePartnerForm(data: PartnerApplicationData): PartnerValidationResult {
   const trimmedName = data.fullName.trim();
   const trimmedRole = data.role.trim();
@@ -212,7 +214,7 @@ export function validatePartnerForm(data: PartnerApplicationData): PartnerValida
   }
 
   // 4. Si groupe Mobilité & Services scolaires, la sous-catégorie est obligatoire
-  if (data.sector === 'mobility_services' && !data.subSector) {
+  if (SECTORS_REQUIRING_SUBSECTOR.has(data.sector) && !data.subSector?.trim()) {
     return { valid: false, errorField: 'subSector' };
   }
 
@@ -356,7 +358,7 @@ export function buildDonationProposalPayload(
   const isOtherSector = data.sector === 'other';
   const isNgo = data.sector === 'ngo_institutions';
 
-  const sanitizedSubSector = isMobility ? optional(data.subSector) : null;
+  const sanitizedSubSector = isMobility ? optional(data.subSector) : undefined;
   const sanitizedRegDecl = isOtherSector ? optional(data.regulationDeclaration) as RegulationDeclaration | null : null;
   const sanitizedOtherDetails = isOtherSector ? optional(data.otherSectorDetails) : null;
   const sanitizedOrgType = isNgo ? optional(data.organizationType) as OrganizationType | null : null;
@@ -364,26 +366,31 @@ export function buildDonationProposalPayload(
   const regulated = isRegulatedSector(data.sector, sanitizedSubSector || undefined, sanitizedRegDecl || undefined);
   const sanitizedLicense = regulated ? optional(data.license) : null;
 
-  return {
+  const payload: Record<string, unknown> = {
     fullName:              trim(data.fullName),                  // 1
     role:                  trim(data.role),                      // 2
     companyName:           trim(data.companyName),               // 3
     sector:                data.sector,                          // 4
-    subSector:             sanitizedSubSector,                   // 5
-    regulationDeclaration: sanitizedRegDecl,                     // 6
-    otherSectorDetails:    sanitizedOtherDetails,                // 7
-    organizationType:      sanitizedOrgType,                     // 8
-    supportType:           optional(data.supportType) as SupportType | null, // 9
-    license:               sanitizedLicense,                     // 10
-    country:               trim(data.country),                   // 11
-    targetMarkets:         trim(data.targetMarkets),             // 12
-    email:                 trim(data.email),                     // 13
-    phone:                 trim(data.phone),                     // 14
-    website:               optional(data.website),               // 15
-    projectDescription:    trim(data.projectDescription),        // 16
-    language:              trim(language),                       // 17
-    consent:               Boolean(data.consent),                // 18
+    regulationDeclaration: sanitizedRegDecl,                     // 5
+    otherSectorDetails:    sanitizedOtherDetails,                // 6
+    organizationType:      sanitizedOrgType,                     // 7
+    supportType:           optional(data.supportType) as SupportType | null, // 8
+    license:               sanitizedLicense,                     // 9
+    country:               trim(data.country),                   // 10
+    targetMarkets:         trim(data.targetMarkets),             // 11
+    email:                 trim(data.email),                     // 12
+    phone:                 trim(data.phone),                     // 13
+    website:               optional(data.website),               // 14
+    projectDescription:    trim(data.projectDescription),        // 15
+    language:              trim(language),                       // 16
+    consent:               Boolean(data.consent),                // 17
   };
+
+  if (isMobility && sanitizedSubSector) {
+    payload.subSector = sanitizedSubSector;
+  }
+
+  return payload;
 }
 
 /**
@@ -459,9 +466,14 @@ export async function submitDonationProposal(
   language: string,
   options?: SubmissionOptions
 ): Promise<DonationSubmissionResult> {
+
   const fetchFn = options?.fetchFn || globalThis.fetch;
   const baseUrl = options?.apiUrl ?? (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL ? import.meta.env.VITE_API_URL : '');
   const endpoint = resolvePartnerSubmissionEndpoint('donation_sponsorship');
+  // Validate payload size limit for project description (reuse MAX_STRUCTURED_MESSAGE_LENGTH)
+  if (data.projectDescription && data.projectDescription.length > MAX_STRUCTURED_MESSAGE_LENGTH) {
+    return { outcome: 'payload_too_long' };
+  }
   const payload = buildDonationProposalPayload(data, language);
 
   try {
@@ -492,11 +504,12 @@ export async function submitDonationProposal(
       return { outcome: 'error' };
     }
 
+    // Strict validation of the 201 response body
     if (!validateDonationProposalSuccessResponse(body)) {
       return { outcome: 'error' };
     }
 
-    return { outcome: 'success', data: body };
+    return { outcome: 'success', data: body as { id: string; reference: string; status: 'pending' } };
   } catch {
     return { outcome: 'error' };
   }
