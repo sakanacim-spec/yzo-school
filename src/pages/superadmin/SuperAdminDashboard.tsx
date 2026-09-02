@@ -13,6 +13,7 @@ import { useStore } from '../../store/useStore';
 import { COUNTRIES, getCountryName } from '../../data/countries';
 import { t } from '../../i18n';
 import type { Language } from '../../i18n';
+import { DonationProposalsManagement } from './DonationProposalsManagement';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -331,7 +332,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [pwdError, setPwdError] = useState('');
   const [pwdSuccess, setPwdSuccess] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres' | 'support' | 'retraits_dons' | 'demandes_ecoles'>('ecoles');
+  const [activeTab, setActiveTab] = useState<'ecoles' | 'reversements' | 'ambassadeurs' | 'historique' | 'annonces' | 'parametres' | 'support' | 'retraits_dons' | 'demandes_ecoles' | 'propositions_dons'>('ecoles');
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -920,6 +921,17 @@ export const SuperAdminDashboard: React.FC = () => {
               {withdrawals.filter(w => w.status === 'pending').length}
             </span>
           )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('propositions_dons')}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            activeTab === 'propositions_dons'
+              ? 'bg-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          {t(language as Language, 'superadmin.donationProposalsTab') || 'Propositions de mécénat'}
         </button>
       </div>
 
@@ -1531,6 +1543,11 @@ export const SuperAdminDashboard: React.FC = () => {
           </div>
         </div>
       ) : null}
+
+      {/* Onglet Propositions de mécénat (Lot 3) */}
+      {activeTab === 'propositions_dons' && (
+        <DonationProposalsManagement />
+      )}
 
       {/* Onglet Écoles Demandées par les Parents */}
       {activeTab === 'demandes_ecoles' && (
