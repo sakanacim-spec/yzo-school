@@ -323,4 +323,8 @@ function validateDonationProposal(data) {
   return { valid: true, value };
 }
 
-module.exports = { validateDonationProposal };
+module.exports = {
+  validateDonationProposal,
+  VALID_SECTORS: Object.freeze(Array.from(VALID_SECTORS)),
+  VALID_SUB_SECTORS: Object.freeze(Array.from(VALID_SUB_SECTORS)),
+};

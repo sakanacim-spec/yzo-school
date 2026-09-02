@@ -73,4 +73,17 @@ router.post('/support/read/:schoolId', authenticateToken, requireSuperAdmin, mar
 // Route modification de mot de passe SuperAdmin
 router.post('/change-password', authenticateToken, requireSuperAdmin, changeSuperAdminPassword);
 
+// Routes pour la gestion des propositions de dons et mécénat (Lot 2)
+const {
+    noStore,
+    verifySuperAdminAccount,
+    getDonationProposals,
+    getDonationProposalById,
+    updateDonationProposalStatus
+} = require('../controllers/donationProposalAdminController');
+
+router.get('/donation-proposals', noStore, authenticateToken, requireSuperAdmin, verifySuperAdminAccount, getDonationProposals);
+router.get('/donation-proposals/:id', noStore, authenticateToken, requireSuperAdmin, verifySuperAdminAccount, getDonationProposalById);
+router.patch('/donation-proposals/:id/status', noStore, authenticateToken, requireSuperAdmin, verifySuperAdminAccount, updateDonationProposalStatus);
+
 module.exports = router;
