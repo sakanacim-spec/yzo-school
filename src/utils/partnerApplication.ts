@@ -342,52 +342,72 @@ export function resolvePartnerHttpStatus(status: number): 'success' | 'rate_limi
 
 /**
  * Construit le payload pour POST /api/public/donation-proposals.
- * Exactement 18 clés — aucun champ `intent`, `selectedFormula` ou `structuredMessage`.
- * Les champs conditionnels non applicables ou optionnels absents sont explicitement null (pas undefined),
- * même si des valeurs résiduelles obsolètes sont présentes dans l'objet source.
- * Aucune mutation de `data`.
+/**
+ * Construit le payload JSON pour l'endpoint dédié /api/public/donation-proposals.
+ * - Les propriétés obligatoires sont construites d'abord.
+ * - Les propriétés facultatives ne sont ajoutées que lorsqu'elles possèdent une valeur valide.
+ * - Aucun `null` n'est utilisé comme représentation JSON d'un champ absent (champs omis).
+ * - Aucun champ `intent`, `selectedFormula` ou `structuredMessage`.
+ * - Aucune mutation de `data`.
  */
 export function buildDonationProposalPayload(
   data: PartnerApplicationData,
   language: string
 ) {
   const trim = (s: string): string => s.trim();
-  const optional = (s?: string): string | null => (s && s.trim() ? s.trim() : null);
+  const cleanStr = (s?: string): string | undefined => {
+    if (!s) return undefined;
+    const t = s.trim();
+    return t.length > 0 ? t : undefined;
+  };
 
   const isMobility = data.sector === 'mobility_services';
   const isOtherSector = data.sector === 'other';
   const isNgo = data.sector === 'ngo_institutions';
 
-  const sanitizedSubSector = isMobility ? optional(data.subSector) : undefined;
-  const sanitizedRegDecl = isOtherSector ? optional(data.regulationDeclaration) as RegulationDeclaration | null : null;
-  const sanitizedOtherDetails = isOtherSector ? optional(data.otherSectorDetails) : null;
-  const sanitizedOrgType = isNgo ? optional(data.organizationType) as OrganizationType | null : null;
+  const sanitizedSubSector = isMobility ? cleanStr(data.subSector) : undefined;
+  const sanitizedRegDecl = isOtherSector ? cleanStr(data.regulationDeclaration) as RegulationDeclaration | undefined : undefined;
+  const sanitizedOtherDetails = isOtherSector ? cleanStr(data.otherSectorDetails) : undefined;
+  const sanitizedOrgType = isNgo ? cleanStr(data.organizationType) as OrganizationType | undefined : undefined;
 
-  const regulated = isRegulatedSector(data.sector, sanitizedSubSector || undefined, sanitizedRegDecl || undefined);
-  const sanitizedLicense = regulated ? optional(data.license) : null;
+  const regulated = isRegulatedSector(data.sector, sanitizedSubSector, sanitizedRegDecl);
+  const sanitizedLicense = regulated ? cleanStr(data.license) : undefined;
+  const sanitizedWebsite = cleanStr(data.website);
 
+  // 1. Propriétés obligatoires d'abord
   const payload: Record<string, unknown> = {
-    fullName:              trim(data.fullName),                  // 1
-    role:                  trim(data.role),                      // 2
-    companyName:           trim(data.companyName),               // 3
-    sector:                data.sector,                          // 4
-    regulationDeclaration: sanitizedRegDecl,                     // 5
-    otherSectorDetails:    sanitizedOtherDetails,                // 6
-    organizationType:      sanitizedOrgType,                     // 7
-    supportType:           optional(data.supportType) as SupportType | null, // 8
-    license:               sanitizedLicense,                     // 9
-    country:               trim(data.country),                   // 10
-    targetMarkets:         trim(data.targetMarkets),             // 11
-    email:                 trim(data.email),                     // 12
-    phone:                 trim(data.phone),                     // 13
-    website:               optional(data.website),               // 14
-    projectDescription:    trim(data.projectDescription),        // 15
-    language:              trim(language),                       // 16
-    consent:               Boolean(data.consent),                // 17
+    fullName:           trim(data.fullName),
+    role:               trim(data.role),
+    companyName:        trim(data.companyName),
+    sector:             data.sector,
+    supportType:        trim(data.supportType),
+    country:            trim(data.country),
+    targetMarkets:      trim(data.targetMarkets),
+    email:              trim(data.email),
+    phone:              trim(data.phone),
+    projectDescription: trim(data.projectDescription),
+    language:           trim(language),
+    consent:            Boolean(data.consent),
   };
 
-  if (isMobility && sanitizedSubSector) {
+  // 2. Propriétés facultatives ajoutées conditionnellement uniquement si valeur valide
+  if (sanitizedSubSector !== undefined) {
     payload.subSector = sanitizedSubSector;
+  }
+  if (sanitizedRegDecl !== undefined) {
+    payload.regulationDeclaration = sanitizedRegDecl;
+  }
+  if (sanitizedOtherDetails !== undefined) {
+    payload.otherSectorDetails = sanitizedOtherDetails;
+  }
+  if (sanitizedOrgType !== undefined) {
+    payload.organizationType = sanitizedOrgType;
+  }
+  if (sanitizedLicense !== undefined) {
+    payload.license = sanitizedLicense;
+  }
+  if (sanitizedWebsite !== undefined) {
+    payload.website = sanitizedWebsite;
   }
 
   return payload;

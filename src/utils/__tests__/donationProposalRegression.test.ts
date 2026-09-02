@@ -7,6 +7,10 @@
 import test, { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { validateDonationProposal } = require('../../../backend/utils/donationProposalValidation.js');
+
 import {
   buildDonationProposalPayload,
   validatePartnerForm,
@@ -283,5 +287,104 @@ describe('Régression HTTP 201 — Rejet strict des réponses malformées (Polit
       assert.strictEqual(res.data.reference, VALID_REF);
       assert.strictEqual(res.data.status, 'pending');
     }
+  });
+});
+
+// ============================================================================
+// 3. OMISSION DES PROPRIÉTÉS FACULTATIVES & COMPATIBILITÉ VALIDATEUR BACKEND
+// ============================================================================
+
+describe('Omission des propriétés facultatives & compatibilité validateur backend', () => {
+  it('telecom sans champs optionnels omet strictement subSector, regulationDeclaration, otherSectorDetails, organizationType, license, website', () => {
+    const data = createValidData({
+      sector: 'telecom',
+      subSector: '',
+      regulationDeclaration: '',
+      otherSectorDetails: '',
+      organizationType: '',
+      license: '',
+      website: '',
+    });
+    const payload = buildDonationProposalPayload(data, 'fr');
+    assert.strictEqual('subSector' in payload, false);
+    assert.strictEqual('regulationDeclaration' in payload, false);
+    assert.strictEqual('otherSectorDetails' in payload, false);
+    assert.strictEqual('organizationType' in payload, false);
+    assert.strictEqual('license' in payload, false);
+    assert.strictEqual('website' in payload, false);
+    assert.strictEqual(Object.keys(payload).length, 12);
+  });
+
+  it('Compatibilité backend : payload telecom validé avec succès par validateDonationProposal', () => {
+    const data = createValidData({
+      sector: 'telecom',
+      subSector: '',
+      regulationDeclaration: '',
+      otherSectorDetails: '',
+      organizationType: '',
+      license: '',
+      website: 'https://telecom.example.com',
+    });
+    const payload = buildDonationProposalPayload(data, 'fr');
+    const result = validateDonationProposal(payload);
+    assert.strictEqual(result.valid, true, `Erreur inattendue : ${result.errorField}`);
+    assert.strictEqual(result.value.sector, 'telecom');
+    assert.strictEqual(result.value.subSector, undefined);
+    assert.strictEqual(result.value.regulationDeclaration, undefined);
+  });
+
+  it('Compatibilité backend : payload mobility_services avec transport validé avec succès par validateDonationProposal', () => {
+    const data = createValidData({
+      sector: 'mobility_services',
+      subSector: 'transport',
+      regulationDeclaration: '',
+      otherSectorDetails: '',
+      organizationType: '',
+      license: '',
+      website: '',
+    });
+    const payload = buildDonationProposalPayload(data, 'fr');
+    assert.strictEqual(payload.subSector, 'transport');
+    assert.strictEqual('license' in payload, false);
+    const result = validateDonationProposal(payload);
+    assert.strictEqual(result.valid, true, `Erreur inattendue : ${result.errorField}`);
+    assert.strictEqual(result.value.sector, 'mobility_services');
+    assert.strictEqual(result.value.subSector, 'transport');
+  });
+
+  it('Compatibilité backend : payload secteur other avec ses champs requis validé avec succès par validateDonationProposal', () => {
+    const data = createValidData({
+      sector: 'other',
+      regulationDeclaration: 'yes',
+      otherSectorDetails: 'Fourniture de matériel pédagogique innovant',
+      license: 'LIC-OTHER-777',
+      website: 'https://other-sector.example.com',
+    });
+    const payload = buildDonationProposalPayload(data, 'fr');
+    assert.strictEqual(payload.regulationDeclaration, 'yes');
+    assert.strictEqual(payload.otherSectorDetails, 'Fourniture de matériel pédagogique innovant');
+    assert.strictEqual(payload.license, 'LIC-OTHER-777');
+    const result = validateDonationProposal(payload);
+    assert.strictEqual(result.valid, true, `Erreur inattendue : ${result.errorField}`);
+    assert.strictEqual(result.value.sector, 'other');
+    assert.strictEqual(result.value.regulationDeclaration, 'yes');
+    assert.strictEqual(result.value.otherSectorDetails, 'Fourniture de matériel pédagogique innovant');
+    assert.strictEqual(result.value.license, 'LIC-OTHER-777');
+  });
+
+  it('Compatibilité backend : payload ngo_institutions avec organizationType validé avec succès par validateDonationProposal', () => {
+    const data = createValidData({
+      sector: 'ngo_institutions',
+      organizationType: 'foundation',
+      website: '',
+    });
+    const payload = buildDonationProposalPayload(data, 'fr');
+    assert.strictEqual(payload.organizationType, 'foundation');
+    assert.strictEqual('subSector' in payload, false);
+    assert.strictEqual('license' in payload, false);
+    const result = validateDonationProposal(payload);
+    assert.strictEqual(result.valid, true, `Erreur inattendue : ${result.errorField}`);
+    assert.strictEqual(result.value.sector, 'ngo_institutions');
+    assert.strictEqual(result.value.organizationType, 'foundation');
   });
 });
