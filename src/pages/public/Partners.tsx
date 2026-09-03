@@ -285,6 +285,9 @@ export const Partners: React.FC<PartnersProps> = ({
           setSubmitStatus('success');
           setStatusMessage(tp.form.successMessage);
           resetFormFields();
+        } else if (result.outcome === 'payload_too_long') {
+          setSubmitStatus('error');
+          setStatusMessage(tp.form.payloadTooLongError);
         } else if (result.outcome === 'validation_error') {
           setSubmitStatus('error');
           setStatusMessage(tp.form.validationError);
@@ -317,10 +320,7 @@ export const Partners: React.FC<PartnersProps> = ({
             ? tp.form.organizationTypeOptions[organizationType as keyof typeof tp.form.organizationTypeOptions] || organizationType
             : undefined;
 
-        const supportTypeLabel =
-          applicationIntent === 'donation_sponsorship' && supportType
-            ? tp.form.supportTypeOptions[supportType as keyof typeof tp.form.supportTypeOptions] || supportType
-            : undefined;
+        const supportTypeLabel = undefined;
 
         const regulationDeclarationLabel =
           sector === 'other' && regulationDeclaration
@@ -329,10 +329,7 @@ export const Partners: React.FC<PartnersProps> = ({
               : tp.form.otherRegulatedNo
             : undefined;
 
-        const intentLabel =
-          applicationIntent === 'donation_sponsorship'
-            ? tp.donations.title
-            : tp.title;
+        const intentLabel = tp.title;
 
         const result = await submitPartnerContact(formData, {
           formulaName,

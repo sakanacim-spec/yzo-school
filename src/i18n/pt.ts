@@ -119,7 +119,10 @@ export const pt = {
     "communicateEasily": "Comunique-se facilmente com professores e administração.",
     "bestFollowup": "Porque toda criança merece o melhor apoio para ter sucesso.",
     "loginButton": "Entrar",
-    "loggingIn": "Entrando..."
+    "loggingIn": "Entrando...",
+    "schoolPlaceholder": "Pesquisar ou selecionar uma escola...",
+    "noAccount": "Ainda não tem conta?",
+    "registerSchool": "Inscrever meu estabelecimento"
   },
   "register": {
     "ministryEx": "Ex: Ministério da Educação Nacional",
@@ -631,7 +634,6 @@ export const pt = {
     "logsCleared": "Logs de atividades esvaziados.",
     "purgeLogs": "Limpar registros"
   },
-  "errors": {},
   "support": {
     "title": "Nova discussão",
     "subtitle": "Escolha o serviço a contactar",
@@ -1264,7 +1266,14 @@ export const pt = {
     "markedAsDone": "Marcado como concluído",
     "markAsDone": "Marcar como feito pela criança",
     "perfectAttendance": "Atendimento perfeito!",
-    "noAbsence": "Nenhuma ausência ou atraso registrado."
+    "noAbsence": "Nenhuma ausência ou atraso registrado.",
+    "justify": "Justificar",
+    "justified": "Justificado",
+    "justifyTitle": "Justificação de ausência",
+    "justifyNoticeTitle": "Envio de comprovativos",
+    "justifyNoticeBody1": "O envio online de certificados e motivos de ausência está em fase de disponibilização.",
+    "justifyNoticeBody2": "Para justificar uma ausência ou atraso, contacte diretamente a secretaria da escola do seu educando.",
+    "understoodBtn": "Entendido"
   },
   "parentDashboard": {
     "downloadInvoice": "Baixe a fatura",

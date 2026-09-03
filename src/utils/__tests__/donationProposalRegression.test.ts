@@ -17,7 +17,7 @@ import {
   submitDonationProposal,
   SECTORS_REQUIRING_SUBSECTOR,
 } from '../partnerApplication.ts';
-import type { PartnerApplicationData } from '../partnerApplication.ts';
+import type { PartnerApplicationData, MobilitySubSector } from '../partnerApplication.ts';
 
 const VALID_UUID = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e';
 const VALID_REF = 'DON-2026-TEST9876';
@@ -73,7 +73,8 @@ describe('Régression Sous-Secteur — Validation et émission réseau', () => {
   it('validatePartnerForm — secteur mobility_services avec subSector blanc échoue', () => {
     const data = createValidData({
       sector: 'mobility_services',
-      subSector: '   ',
+      // Valeur blanche intentionnelle pour tester la validation runtime
+      subSector: '   ' as unknown as MobilitySubSector,
     });
     const result = validatePartnerForm(data);
     assert.strictEqual(result.valid, false);
@@ -104,7 +105,8 @@ describe('Régression Sous-Secteur — Validation et émission réseau', () => {
   it('buildDonationProposalPayload — mobility_services inclut le sous-secteur trimmé', () => {
     const data = createValidData({
       sector: 'mobility_services',
-      subSector: '  transport  ',
+      // Valeur intentionnellement non trimmée pour tester la normalisation runtime
+      subSector: '  transport  ' as unknown as MobilitySubSector,
     });
     const payload = buildDonationProposalPayload(data, 'fr');
     assert.strictEqual(payload.subSector, 'transport');
@@ -117,7 +119,7 @@ describe('Régression Sous-Secteur — Validation et émission réseau', () => {
     });
     const payload = buildDonationProposalPayload(data, 'fr');
     assert.strictEqual(
-      Object.hasOwn(payload, 'subSector'),
+      Object.prototype.hasOwnProperty.call(payload, 'subSector'),
       false,
       'La propriété subSector ne doit pas être présente pour telecom'
     );
@@ -130,7 +132,7 @@ describe('Régression Sous-Secteur — Validation et émission réseau', () => {
     });
     const payload = buildDonationProposalPayload(data, 'fr');
     assert.strictEqual(
-      Object.hasOwn(payload, 'subSector'),
+      Object.prototype.hasOwnProperty.call(payload, 'subSector'),
       false,
       'Un résidu de subSector ne doit pas être inclus si le secteur est telecom'
     );
@@ -138,7 +140,7 @@ describe('Régression Sous-Secteur — Validation et émission réseau', () => {
 
   it('submitDonationProposal — secteur telecom : exactement 1 appel fetch et subSector absent du JSON envoyé', async () => {
     let capturedUrl = '';
-    let capturedBody: any = null;
+    let capturedBody: { sector?: string; subSector?: string } | undefined;
 
     const mockFetch: typeof fetch = async (input, init) => {
       capturedUrl = String(input);
@@ -154,10 +156,10 @@ describe('Régression Sous-Secteur — Validation et émission réseau', () => {
 
     assert.strictEqual(res.outcome, 'success');
     assert.strictEqual(capturedUrl.endsWith('/api/public/donation-proposals'), true);
-    assert.ok(capturedBody !== null);
-    assert.strictEqual(capturedBody.sector, 'telecom');
+    assert.ok(capturedBody !== undefined);
+    assert.strictEqual(capturedBody?.sector, 'telecom');
     assert.strictEqual(
-      Object.hasOwn(capturedBody, 'subSector'),
+      Boolean(capturedBody && Object.prototype.hasOwnProperty.call(capturedBody, 'subSector')),
       false,
       'La clé subSector doit être rigoureusement absente du corps JSON envoyé au backend'
     );
@@ -165,7 +167,7 @@ describe('Régression Sous-Secteur — Validation et émission réseau', () => {
 
   it('submitDonationProposal — scénario transition mobility_services → telecom : subSector absent du réseau', async () => {
     let callCount = 0;
-    let sentBody: any = null;
+    let sentBody: { sector?: string; subSector?: string } | undefined;
 
     const mockFetch: typeof fetch = async (_input, init) => {
       callCount++;
@@ -188,8 +190,12 @@ describe('Régression Sous-Secteur — Validation et émission réseau', () => {
     const res = await submitDonationProposal(transitionedData, 'fr', { fetchFn: mockFetch });
     assert.strictEqual(res.outcome, 'success');
     assert.strictEqual(callCount, 1, 'Exactement 1 requête réseau doit être effectuée');
-    assert.strictEqual(sentBody.sector, 'telecom');
-    assert.strictEqual(Object.hasOwn(sentBody, 'subSector'), false, 'subSector doit être absent du payload');
+    assert.strictEqual(sentBody?.sector, 'telecom');
+    assert.strictEqual(
+      Boolean(sentBody && Object.prototype.hasOwnProperty.call(sentBody, 'subSector')),
+      false,
+      'subSector doit être absent du payload'
+    );
   });
 });
 
@@ -198,7 +204,7 @@ describe('Régression Sous-Secteur — Validation et émission réseau', () => {
 // ============================================================================
 
 describe('Régression HTTP 201 — Rejet strict des réponses malformées (Politique A)', () => {
-  async function submitWithMockBody(body: any, status = 201) {
+  async function submitWithMockBody(body: unknown, status = 201) {
     const mockFetch: typeof fetch = async () => {
       return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
         status,

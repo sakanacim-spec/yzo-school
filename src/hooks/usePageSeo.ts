@@ -11,6 +11,7 @@ export interface PageSeoOptions {
   ogImage?: string;
   ogType?: 'website' | 'article';
   noindex?: boolean;
+  lang?: string;
   jsonLd?: Record<string, any>;
 }
 

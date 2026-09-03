@@ -120,7 +120,17 @@ export const en = {
     "communicateEasily": "Communicate easily with teachers and administration.",
     "bestFollowup": "Because every child deserves the best support to succeed.",
     "loginButton": "Sign in",
-    "loggingIn": "Signing in..."
+    "loggingIn": "Signing in...",
+    "schoolPlaceholder": "Search or select a school...",
+    "noAccount": "No account yet?",
+    "registerSchool": "Register my school"
+  },
+  "errors": {
+    "loginFailed": "Incorrect phone number or password.",
+    "termsRequired": "Please accept the terms of service.",
+    "genericError": "An error occurred. Please try again.",
+    "schoolTypeRequired": "Please select the school type.",
+    "countryRequired": "Please select the country."
   },
   "register": {
     "ministryEx": "Ex: Ministry of National Education",
@@ -631,7 +641,6 @@ export const en = {
     "logsCleared": "Activity logs emptied.",
     "purgeLogs": "Purge Logs"
   },
-  "errors": {},
   "support": {
     "title": "New discussion",
     "subtitle": "Choose the service to contact",
@@ -1264,7 +1273,14 @@ export const en = {
     "markedAsDone": "Marked as done",
     "markAsDone": "Mark as done by child",
     "perfectAttendance": "Perfect attendance!",
-    "noAbsence": "No absences or lateness recorded."
+    "noAbsence": "No absences or lateness recorded.",
+    "justify": "Justify",
+    "justified": "Justified",
+    "justifyTitle": "Absence Justification",
+    "justifyNoticeTitle": "Submission of Justifications",
+    "justifyNoticeBody1": "Online submission of certificates and absence reasons is currently being rolled out.",
+    "justifyNoticeBody2": "To justify an absence or delay, please contact your child's school administration directly.",
+    "understoodBtn": "Understood"
   },
   "parentDashboard": {
     "downloadInvoice": "Download the invoice",

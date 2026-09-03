@@ -11,7 +11,7 @@ import { hasPublishedPosts } from '../utils/blogCatalog';
 export interface LandingPageProps {
   onLogin: () => void;
   onRegisterSchool: () => void;
-  onNavigate: (page: 'about' | 'contact' | 'careers' | 'cgu' | 'privacy' | 'legal' | 'guide' | 'blog', extra?: { subject?: string; message?: string }) => void;
+  onNavigate: (page: 'about' | 'contact' | 'careers' | 'cgu' | 'privacy' | 'legal' | 'guide' | 'blog' | 'partners', extra?: { subject?: string; message?: string }) => void;
 }
 
 const LANGUAGES = [

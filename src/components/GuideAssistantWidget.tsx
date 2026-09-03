@@ -159,7 +159,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
             const triggerInfo = async () => {
                 // Optimistic UI: show loading indicator
                 const loadingId = (Date.now() + 2).toString();
-                const optimisticHistory = [...messages,
+                const optimisticHistory: Message[] = [...messages,
                     { id: Date.now().toString(), sender: 'user', text: t.roleInfo },
                     { id: loadingId, sender: 'bot', text: '…' }
                 ];
@@ -198,7 +198,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                     // Replace loading placeholder with actual reply
                     setMessages(prev => {
                         const filtered = prev.filter(m => m.id !== loadingId);
-                        const finalHistory = [...filtered, { id: (Date.now() + 3).toString(), sender: 'bot', text: botReply }];
+                        const finalHistory: Message[] = [...filtered, { id: (Date.now() + 3).toString(), sender: 'bot', text: botReply }];
                         saveStoredAssistantHistory(finalHistory);
                         return finalHistory;
                     });
@@ -206,7 +206,7 @@ export const GuideAssistantWidget: React.FC<GuideAssistantWidgetProps> = ({
                     // On error, show connection error message
                     setMessages(prev => {
                         const filtered = prev.filter(m => m.id !== loadingId);
-                        const finalHistory = [...filtered, { id: (Date.now() + 3).toString(), sender: 'bot', text: t.errorConnection }];
+                        const finalHistory: Message[] = [...filtered, { id: (Date.now() + 3).toString(), sender: 'bot', text: t.errorConnection }];
                         saveStoredAssistantHistory(finalHistory);
                         return finalHistory;
                     });

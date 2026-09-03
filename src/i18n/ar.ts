@@ -119,7 +119,10 @@ export const ar = {
     "communicateEasily": "التواصل بسهولة مع المعلمين والإدارة.",
     "bestFollowup": "لأن كل طفل يستحق أفضل دعم لتحقيق النجاح.",
     "loginButton": "تسجيل الدخول",
-    "loggingIn": "جارٍ تسجيل الدخول..."
+    "loggingIn": "جارٍ تسجيل الدخول...",
+    "schoolPlaceholder": "ابحث عن مدرسة أو اختر واحدة...",
+    "noAccount": "ليس لديك حساب بعد؟",
+    "registerSchool": "تسجيل مؤسستي"
   },
   "register": {
     "ministryEx": "مثل: وزارة التربية الوطنية",
@@ -631,7 +634,6 @@ export const ar = {
     "logsCleared": "تم إفراغ سجلات النشاط.",
     "purgeLogs": "تطهير السجلات"
   },
-  "errors": {},
   "support": {
     "title": "مناقشة جديدة",
     "subtitle": "اختر الخدمة للتواصل",
@@ -1264,7 +1266,14 @@ export const ar = {
     "markedAsDone": "تم وضع علامة \"تم\"",
     "markAsDone": "وضع علامة \"تم\" بواسطة الطفل",
     "perfectAttendance": "الحضور المثالي!",
-    "noAbsence": "لم يتم تسجيل أي غياب أو تأخير."
+    "noAbsence": "لم يتم تسجيل أي غياب أو تأخير.",
+    "justify": "تبرير",
+    "justified": "مبرر",
+    "justifyTitle": "تبرير الغياب",
+    "justifyNoticeTitle": "تقديم المبررات",
+    "justifyNoticeBody1": "يجري حالياً نشر ميزة إرسال الشهادات ومبررات الغياب عبر الإنترنت.",
+    "justifyNoticeBody2": "لتبرير الغياب أو التأخر، يرجى التواصل مباشرة مع أمانة أو إدارة مدرسة طفلك.",
+    "understoodBtn": "مفهوم"
   },
   "parentDashboard": {
     "downloadInvoice": "تحميل الفاتورة",

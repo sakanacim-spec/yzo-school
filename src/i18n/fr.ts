@@ -126,7 +126,17 @@ export const fr = {
     "communicateEasily": "Communiquez facilement avec les enseignants et l'administration.",
     "bestFollowup": "Parce que chaque enfant mérite le meilleur suivi pour réussir.",
     "loginButton": "Se connecter",
-    "loggingIn": "Connexion..."
+    "loggingIn": "Connexion...",
+    "schoolPlaceholder": "Rechercher ou sélectionner une école...",
+    "noAccount": "Pas encore de compte ?",
+    "registerSchool": "Inscrire mon établissement"
+  },
+  "errors": {
+    "loginFailed": "Numéro de téléphone ou mot de passe incorrect.",
+    "termsRequired": "Veuillez accepter les conditions d'utilisation.",
+    "genericError": "Une erreur est survenue. Veuillez réessayer.",
+    "schoolTypeRequired": "Veuillez sélectionner le type d'établissement.",
+    "countryRequired": "Veuillez sélectionner le pays."
   },
   "register": {
     "ministryEx": "Ex: Ministère de l'Éducation Nationale",
@@ -638,7 +648,6 @@ export const fr = {
     "logsCleared": "Logs d'activité vidés.",
     "purgeLogs": "Purger Logs"
   },
-  "errors": {},
   "support": {
     "title": "Nouvelle discussion",
     "subtitle": "Choisissez le service à contacter",
@@ -1272,7 +1281,14 @@ export const fr = {
     "markedAsDone": "Marqué comme fait",
     "markAsDone": "Marquer comme fait par l'enfant",
     "perfectAttendance": "Assiduité parfaite !",
-    "noAbsence": "Aucune absence ni retard enregistré."
+    "noAbsence": "Aucune absence ni retard enregistré.",
+    "justify": "Justifier",
+    "justified": "Justifié",
+    "justifyTitle": "Justification d'absence",
+    "justifyNoticeTitle": "Transmission des justificatifs",
+    "justifyNoticeBody1": "La télétransmission des certificats et motifs d'absence est en cours de déploiement.",
+    "justifyNoticeBody2": "Pour justifier une absence ou un retard, veuillez contacter directement le secrétariat ou la vie scolaire de l'établissement de votre enfant.",
+    "understoodBtn": "Compris"
   },
   "parentDashboard": {
     "downloadInvoice": "Télécharger la facture",

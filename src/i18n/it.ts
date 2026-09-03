@@ -119,7 +119,10 @@ export const it = {
     "communicateEasily": "Comunica facilmente con gli insegnanti e l'amministrazione.",
     "bestFollowup": "Perché ogni bambino merita il miglior sostegno per avere successo.",
     "loginButton": "Accedi",
-    "loggingIn": "Accesso..."
+    "loggingIn": "Accesso...",
+    "schoolPlaceholder": "Cerca o seleziona una scuola...",
+    "noAccount": "Non hai ancora un account?",
+    "registerSchool": "Iscrivi il mio istituto"
   },
   "register": {
     "ministryEx": "Es: Ministero dell'Istruzione Nazionale",
@@ -631,7 +634,6 @@ export const it = {
     "logsCleared": "Registri attività svuotati.",
     "purgeLogs": "Elimina registri"
   },
-  "errors": {},
   "support": {
     "title": "Nuova discussione",
     "subtitle": "Scegli il servizio a cui rivolgerti",
@@ -1264,7 +1266,14 @@ export const it = {
     "markedAsDone": "Contrassegnato come completato",
     "markAsDone": "Segna come fatto dal bambino",
     "perfectAttendance": "Partecipazione perfetta!",
-    "noAbsence": "Non si registrano assenze o ritardi."
+    "noAbsence": "Non si registrano assenze o ritardi.",
+    "justify": "Giustificare",
+    "justified": "Giustificato",
+    "justifyTitle": "Giustificazione dell'assenza",
+    "justifyNoticeTitle": "Invio dei giustificativi",
+    "justifyNoticeBody1": "La trasmissione online dei certificati e dei motivi di assenza è in fase di implementazione.",
+    "justifyNoticeBody2": "Per giustificare un'assenza o un ritardo, si prega di contattare direttamente la segreteria o la presidenza della scuola.",
+    "understoodBtn": "Ho capito"
   },
   "parentDashboard": {
     "downloadInvoice": "Scarica la fattura",

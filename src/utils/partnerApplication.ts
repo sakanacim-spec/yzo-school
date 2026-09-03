@@ -170,10 +170,8 @@ export function isValidWebsite(website: string): boolean {
   return WEBSITE_REGEX.test(trimmed);
 }
 
-/**
- * Valide l'ensemble des champs du formulaire de candidature partenaire.
- */
-export const SECTORS_REQUIRING_SUBSECTOR = new Set(['mobility_services'] as const);
+export const SECTORS_REQUIRING_SUBSECTOR: ReadonlySet<PartnerSector> =
+  new Set<PartnerSector>(['mobility_services']);
 
 export function validatePartnerForm(data: PartnerApplicationData): PartnerValidationResult {
   const trimmedName = data.fullName.trim();
@@ -380,7 +378,7 @@ export function buildDonationProposalPayload(
     role:               trim(data.role),
     companyName:        trim(data.companyName),
     sector:             data.sector,
-    supportType:        trim(data.supportType),
+    supportType:        trim(data.supportType ?? ''),
     country:            trim(data.country),
     targetMarkets:      trim(data.targetMarkets),
     email:              trim(data.email),
@@ -470,6 +468,7 @@ export type DonationSubmissionResult =
   | { outcome: 'success'; data: { id: string; reference: string; status: 'pending' } }
   | { outcome: 'validation_error' }
   | { outcome: 'rate_limit' }
+  | { outcome: 'payload_too_long' }
   | { outcome: 'error' };
 
 export interface SubmissionOptions {

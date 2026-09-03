@@ -16,6 +16,7 @@ import {
 import type {
   PartnerApplicationData,
   PartnerMessageLabels,
+  MobilitySubSector,
 } from '../partnerApplication.ts';
 
 // ---------------------------------------------------------------------------
@@ -124,7 +125,8 @@ test('subSector est omis si sector !== mobility_services même avec valeur rési
 test('subSector conservé et trimmé si sector === mobility_services', () => {
   const data = baseValidData();
   data.sector = 'mobility_services';
-  data.subSector = '  transport  ';
+  // Valeur intentionnellement non trimmée pour tester la normalisation runtime
+  data.subSector = '  transport  ' as unknown as MobilitySubSector;
   const payload = buildDonationProposalPayload(data, 'fr');
   assert.strictEqual(payload.subSector, 'transport');
 });
@@ -499,6 +501,21 @@ test('submitDonationProposal — rejet fetch (Network Error / TypeError) → out
 
   const res = await submitDonationProposal(baseValidData(), 'fr', { fetchFn: mockFetch });
   assert.strictEqual(res.outcome, 'error');
+});
+
+test('submitDonationProposal — projet trop long (>5000 car) → payload_too_long sans appel fetch', async () => {
+  let fetchCalled = false;
+  const mockFetch: typeof fetch = async () => {
+    fetchCalled = true;
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
+  };
+
+  const data = baseValidData();
+  data.projectDescription = 'X'.repeat(5001);
+
+  const res = await submitDonationProposal(data, 'fr', { fetchFn: mockFetch });
+  assert.strictEqual(res.outcome, 'payload_too_long');
+  assert.strictEqual(fetchCalled, false, 'Fetch ne doit pas être appelé si projectDescription > 5000');
 });
 
 // ---------------------------------------------------------------------------

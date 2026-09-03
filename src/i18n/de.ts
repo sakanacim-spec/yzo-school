@@ -119,7 +119,10 @@ export const de = {
     "communicateEasily": "Kommunizieren Sie einfach mit Lehrern und der Verwaltung.",
     "bestFollowup": "Denn jedes Kind verdient die beste Unterstützung, um erfolgreich zu sein.",
     "loginButton": "Anmelden",
-    "loggingIn": "Anmeldung..."
+    "loggingIn": "Anmeldung...",
+    "schoolPlaceholder": "Schule suchen oder auswählen...",
+    "noAccount": "Noch kein Konto?",
+    "registerSchool": "Meine Schule registrieren"
   },
   "register": {
     "ministryEx": "Bsp.: Ministerium für nationale Bildung",
@@ -631,7 +634,6 @@ export const de = {
     "logsCleared": "Aktivitätsprotokolle wurden geleert.",
     "purgeLogs": "Protokolle löschen"
   },
-  "errors": {},
   "support": {
     "title": "Neue Diskussion",
     "subtitle": "Wählen Sie den Dienst aus, mit dem Sie Kontakt aufnehmen möchten",
@@ -1264,7 +1266,14 @@ export const de = {
     "markedAsDone": "Als erledigt markiert",
     "markAsDone": "Als vom Kind erledigt markieren",
     "perfectAttendance": "Perfekte Teilnahme!",
-    "noAbsence": "Keine Abwesenheiten oder Verspätungen verzeichnet."
+    "noAbsence": "Keine Abwesenheiten oder Verspätungen verzeichnet.",
+    "justify": "Entschuldigen",
+    "justified": "Entschuldigt",
+    "justifyTitle": "Abwesenheitsentschuldigung",
+    "justifyNoticeTitle": "Übermittlung von Nachweisen",
+    "justifyNoticeBody1": "Die Online-Übermittlung von Bescheinigungen und Abwesenheitsgründen befindet sich im Rollout.",
+    "justifyNoticeBody2": "Um eine Abwesenheit oder Verspätung zu entschuldigen, wenden Sie sich bitte direkt an das Schulsekretariat.",
+    "understoodBtn": "Verstanden"
   },
   "parentDashboard": {
     "downloadInvoice": "Laden Sie die Rechnung herunter",

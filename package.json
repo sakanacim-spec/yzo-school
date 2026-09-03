@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node validate-i18n.js && vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "start": "node backend/server.js",
     "start-all": "concurrently \"npm run dev\" \"node backend/server.js\""

@@ -40,14 +40,81 @@ const getDueDateLabel = (dateStr: string | undefined, language: Language) => {
 };
 
 export const ParentDevoirsPresence: React.FC = () => {
-    const { user, students, devoirs, presences, updateDevoir, updatePresence, language } = useStore();
+    const { user, students, devoirs, presences, language } = useStore();
     const [activeTab, setActiveTab] = useState<'devoirs' | 'presence'>('devoirs');
     const [selectedChildId, setSelectedChildId] = useState(students[0]?.id || '');
-    
     const [isJustifyModalOpen, setIsJustifyModalOpen] = useState(false);
-    const [selectedPresenceId, setSelectedPresenceId] = useState<string | null>(null);
-    const [motif, setMotif] = useState('');
-    const [pieceJointe, setPieceJointe] = useState<string | null>(null);
+    const triggerBtnRef = React.useRef<HTMLButtonElement | null>(null);
+
+    const handleOpenJustifyModal = (e: React.MouseEvent<HTMLButtonElement>) => {
+        triggerBtnRef.current = e.currentTarget;
+        setIsJustifyModalOpen(true);
+    };
+
+    const handleCloseJustifyModal = () => {
+        setIsJustifyModalOpen(false);
+        triggerBtnRef.current?.focus();
+    };
+
+    const modalRef = React.useRef<HTMLDivElement | null>(null);
+
+    React.useEffect(() => {
+        if (!isJustifyModalOpen) return;
+
+        const focusableElements = modalRef.current?.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements && focusableElements.length > 0) {
+            focusableElements[0].focus();
+        }
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                handleCloseJustifyModal();
+                return;
+            }
+
+            if (e.key === 'Tab' && focusableElements && focusableElements.length > 0) {
+                const firstElement = focusableElements[0];
+                const lastElement = focusableElements[focusableElements.length - 1];
+
+                if (!modalRef.current?.contains(document.activeElement)) {
+                    e.preventDefault();
+                    firstElement.focus();
+                    return;
+                }
+
+                if (e.shiftKey) {
+                    if (document.activeElement === firstElement) {
+                        e.preventDefault();
+                        lastElement.focus();
+                    }
+                } else {
+                    if (document.activeElement === lastElement) {
+                        e.preventDefault();
+                        firstElement.focus();
+                    }
+                }
+            }
+        };
+
+        const handleFocusIn = (e: FocusEvent) => {
+            if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+                e.preventDefault();
+                if (focusableElements && focusableElements.length > 0) {
+                    focusableElements[0].focus();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('focusin', handleFocusIn);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('focusin', handleFocusIn);
+        };
+    }, [isJustifyModalOpen]);
 
     const myChildren = useMemo(() => students, [students]);
 
@@ -252,7 +319,7 @@ export const ParentDevoirsPresence: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
-                                    
+
                                     {/* Actions parent */}
                                     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
                                         <button
@@ -328,14 +395,14 @@ export const ParentDevoirsPresence: React.FC = () => {
                                                 {p.statut !== 'present' && (
                                                     p.justifie ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-xl text-xs font-bold border border-emerald-100 dark:border-emerald-800">
-                                                            <CheckCircle2 className="w-3.5 h-3.5" /> Justifié
+                                                            <CheckCircle2 className="w-3.5 h-3.5" /> {t(language as Language, 'parentDevoirs.justified') || 'Justifié'}
                                                         </span>
                                                     ) : (
                                                         <button
-                                                            onClick={() => { setSelectedPresenceId(p.id); setIsJustifyModalOpen(true); }}
+                                                            onClick={handleOpenJustifyModal}
                                                             className="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold shadow-sm transition-all"
                                                         >
-                                                            Justifier
+                                                            {t(language as Language, 'parentDevoirs.justify') || 'Justifier'}
                                                         </button>
                                                     )
                                                 )}
@@ -355,53 +422,50 @@ export const ParentDevoirsPresence: React.FC = () => {
                 </div>
             )}
 
-            {/* Modal Justification */}
+            {/* Modal Information Justification (Fail-Closed) */}
             {isJustifyModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-[32px] w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="justify-dialog-title"
+                >
+                    <div ref={modalRef} className="bg-white dark:bg-slate-900 rounded-[32px] w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in duration-200">
                         <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
-                            <h3 className="text-xl font-black text-slate-800 dark:text-white">Justifier l'absence</h3>
-                            <button onClick={() => { setIsJustifyModalOpen(false); setPieceJointe(null); setMotif(''); }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500">
+                            <h3 id="justify-dialog-title" className="text-xl font-black text-slate-800 dark:text-white">
+                                {t(language as Language, 'parentDevoirs.justifyTitle') || "Justification d'absence"}
+                            </h3>
+                            <button
+                                onClick={handleCloseJustifyModal}
+                                aria-label="Fermer"
+                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500"
+                            >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <form onSubmit={handleSubmitJustification} className="p-6 space-y-5">
-                            <div>
-                                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Motif de l'absence *</label>
-                                <textarea
-                                    required
-                                    value={motif}
-                                    onChange={e => setMotif(e.target.value)}
-                                    placeholder="Ex: Maladie, Rendez-vous médical..."
-                                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-none"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Pièce jointe (Certificat)</label>
-                                <label className="flex items-center justify-center w-full min-h-[100px] border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl hover:border-indigo-400 dark:hover:border-indigo-500 bg-slate-50 dark:bg-slate-800/50 cursor-pointer transition-colors group">
-                                    <div className="flex flex-col items-center gap-2 p-4">
-                                        <Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                                        <span className="text-sm font-bold text-slate-500 group-hover:text-indigo-600">
-                                            {pieceJointe ? "Fichier sélectionné" : "Cliquer pour uploader (Image)"}
-                                        </span>
-                                    </div>
-                                    <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-                                </label>
-                                {pieceJointe && (
-                                    <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200">
-                                        <img src={pieceJointe} alt="Preview" className="w-full h-full object-cover" />
-                                        <button type="button" onClick={() => setPieceJointe(null)} className="absolute top-2 right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg"><X className="w-3 h-3" /></button>
-                                    </div>
-                                )}
+                        <div className="p-6 space-y-4">
+                            <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-3">
+                                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                <div className="text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                                    <p className="font-bold">
+                                        {t(language as Language, 'parentDevoirs.justifyNoticeTitle') || "Transmission des justificatifs"}
+                                    </p>
+                                    <p>
+                                        {t(language as Language, 'parentDevoirs.justifyNoticeBody1') || "La télétransmission des certificats et motifs d'absence est en cours de déploiement."}
+                                    </p>
+                                    <p>
+                                        {t(language as Language, 'parentDevoirs.justifyNoticeBody2') || "Pour justifier une absence ou un retard, veuillez contacter directement le secrétariat ou la vie scolaire de l'établissement de votre enfant."}
+                                    </p>
+                                </div>
                             </div>
                             <button
-                                type="submit"
-                                disabled={!motif}
-                                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-2xl transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 active:scale-95"
+                                type="button"
+                                onClick={handleCloseJustifyModal}
+                                className="w-full py-3.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white text-sm font-black rounded-2xl transition-all shadow-md active:scale-95"
                             >
-                                Envoyer la justification
+                                {t(language as Language, 'parentDevoirs.understoodBtn') || 'Compris'}
                             </button>
-                        </form>
+                        </div>
                     </div>
                 </div>
             )}

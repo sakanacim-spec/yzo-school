@@ -193,6 +193,10 @@ describe('Partners Component - SubSector Visibility, State Reset & Network Call 
 
     const sentPayload = JSON.parse(fetchCalls[0].options.body);
     assert.strictEqual(sentPayload.sector, 'telecom');
-    assert.strictEqual(Object.hasOwn(sentPayload, 'subSector'), false, 'subSector property must NOT exist in the telecom payload');
+    assert.strictEqual(
+      Object.prototype.hasOwnProperty.call(sentPayload, 'subSector'),
+      false,
+      'subSector property must NOT exist in the telecom payload'
+    );
   });
 });

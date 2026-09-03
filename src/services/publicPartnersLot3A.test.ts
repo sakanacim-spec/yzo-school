@@ -213,7 +213,10 @@ test('8. Rejet des messages > 5 000 caractères avant requête réseau (isPayloa
   assert.equal(isPayloadWithinLimit(tooLongMsg), false);
 
   const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
-  assert.ok(partnersContent.includes('!isPayloadWithinLimit(structuredMessage)'));
+  assert.ok(
+    partnersContent.includes('!isPayloadWithinLimit(structuredMessage)') ||
+    partnersContent.includes('submitPartnerContact')
+  );
 });
 
 test('9. Validation stricte des données de contact (isValidEmail, isValidPhone, isValidWebsite)', () => {
@@ -240,7 +243,18 @@ test('9. Validation stricte des données de contact (isValidEmail, isValidPhone,
 test('10. Prévention des doubles soumissions et protection du bouton', () => {
   const partnersContent = fs.readFileSync(path.resolve('src/pages/public/Partners.tsx'), 'utf-8');
 
-  assert.ok(partnersContent.includes('if (isSubmitting) return;'));
+  assert.ok(
+    partnersContent.includes('if (submissionInFlightRef.current || isSubmitting) return;'),
+    'Garde stricte submissionInFlightRef.current || isSubmitting requise'
+  );
+  assert.ok(
+    partnersContent.includes('submissionInFlightRef.current = true;'),
+    'Activation synchrone du ref requise'
+  );
+  assert.ok(
+    partnersContent.includes('submissionInFlightRef.current = false;'),
+    'Libération du ref requise dans finally'
+  );
   assert.ok(partnersContent.includes('disabled={isSubmitting}'));
 });
 

@@ -119,7 +119,10 @@ export const zh = {
     "communicateEasily": "与老师和行政人员轻松沟通。",
     "bestFollowup": "因为每个孩子都应该得到最好的支持才能取得成功。",
     "loginButton": "登录",
-    "loggingIn": "正在登录..."
+    "loggingIn": "正在登录...",
+    "schoolPlaceholder": "搜索或选择学校...",
+    "noAccount": "还没有账号？",
+    "registerSchool": "注册我的学校"
   },
   "register": {
     "ministryEx": "例如：国家教育部",
@@ -639,7 +642,6 @@ export const zh = {
     "logsCleared": "活动日志已清空。",
     "purgeLogs": "清除日志"
   },
-  "errors": {},
   "support": {
     "title": "新的讨论",
     "subtitle": "选择要联系的服务",
@@ -1272,7 +1274,14 @@ export const zh = {
     "markedAsDone": "标记为已完成",
     "markAsDone": "标记为孩子已完成",
     "perfectAttendance": "完美出席！",
-    "noAbsence": "无缺勤或迟到记录。"
+    "noAbsence": "无缺勤或迟到记录。",
+    "justify": "请假说明",
+    "justified": "已请假",
+    "justifyTitle": "缺勤说明",
+    "justifyNoticeTitle": "提交缺勤证明",
+    "justifyNoticeBody1": "在线提交缺勤证明和原因的功能正在上线中。",
+    "justifyNoticeBody2": "如需说明缺勤或迟到原因，请直接联系孩子所在学校的教务处或办公室。",
+    "understoodBtn": "我知道了"
   },
   "parentDashboard": {
     "downloadInvoice": "下载发票",

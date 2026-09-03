@@ -18,6 +18,7 @@ import type { Language } from '../../i18n';
 import { DonationCampaign } from '../../types';
 import { API_BASE_URL } from '../../config';
 import { parseResponse } from '../../services/apiHelpers';
+import { requestNotificationPermission } from '../../utils/capacitorNotifications';
 
 // ── Types ────────────────────────────────────────────────────
 interface Announcement {
@@ -364,7 +365,7 @@ export const ParentDashboard: React.FC = () => {
                 const data = await parentApi.getAnnouncements();
                 setAnnouncements(data.announcements || []);
             } catch {}
-            
+
             try {
                 const schoolSlug = useStore.getState().user?.schoolSlug;
                 if (schoolSlug) {
@@ -379,6 +380,30 @@ export const ParentDashboard: React.FC = () => {
         pollingRef.current = setInterval(fetchAnn, 10_000);
         return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
     }, [fetchData]);
+
+    const isEnablingNotifsRef = useRef(false);
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
+
+    const [notifStatus, setNotifStatus] = useState<string>(
+        typeof Notification !== 'undefined' ? Notification.permission : 'default'
+    );
+    const handleEnableNotifications = async () => {
+        if (isEnablingNotifsRef.current) return;
+        isEnablingNotifsRef.current = true;
+        try {
+            await requestNotificationPermission();
+            if (isMountedRef.current && typeof Notification !== 'undefined') {
+                setNotifStatus(Notification.permission);
+            }
+        } finally {
+            isEnablingNotifsRef.current = false;
+        }
+    };
 
     const handlePayerEnLigne = async (studentId: string, amount: number) => {
         try {

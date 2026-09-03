@@ -107,7 +107,7 @@ const PageContent: React.FC = () => {
   if (window.location.pathname.startsWith('/d/')) {
     return (
       <Suspense fallback={<LoadingSpinner />}>
-        <DonationPage />
+        <Dons />
       </Suspense>
     );
   }

@@ -35,7 +35,9 @@ import {
   ApiError
 } from '../../../services/donationProposalAdminApi.ts';
 
-import { VALID_SECTORS } from '../../../../backend/utils/donationProposalValidation.js';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { VALID_SECTORS } = require('../../../../backend/utils/donationProposalValidation.js');
 
 // =========================================================================
 // 0. TEST DE COHÉRENCE ENTRE CONSTANTES FRONTEND ET BACKEND

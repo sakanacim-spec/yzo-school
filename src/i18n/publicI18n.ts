@@ -22,6 +22,7 @@ export interface PartnerFormula {
   desc: string;
   features: string[];
   cta: string;
+  selectedCta?: string;
 }
 
 export interface PartnerCategory {
@@ -44,13 +45,24 @@ export interface PartnerTranslations {
     cat2: PartnerCategory;
     cat3: PartnerCategory;
     cat4: PartnerCategory;
+    cat5: PartnerCategory;
   };
   formulasTitle: string;
   formulasSubtitle: string;
   formulas: {
+    selectedBadge: string;
+    recommendedBadge: string;
     presence: PartnerFormula;
     visibility: PartnerFormula;
     strategic: PartnerFormula;
+  };
+  donations: {
+    badge: string;
+    title: string;
+    subtitle: string;
+    desc: string;
+    noticeLot3B: string;
+    cta: string;
   };
   form: {
     title: string;
@@ -61,6 +73,18 @@ export interface PartnerTranslations {
     rolePlaceholder: string;
     companyName: string;
     companyPlaceholder: string;
+    organizationType: string;
+    selectOrganizationType: string;
+    organizationTypeOptions: {
+      ngo: string;
+      foundation: string;
+      association: string;
+      international_institution: string;
+      cooperation_agency: string;
+      public_body: string;
+      sponsor_company: string;
+      other: string;
+    };
     sector: string;
     selectSector: string;
     sectorOptions: {
@@ -68,9 +92,25 @@ export interface PartnerTranslations {
       insurance: string;
       telecom: string;
       equipment: string;
+      mobility_services: string;
+      after_school_services: string;
       transport: string;
+      ngo_institutions: string;
       otherRegulated: string;
       other: string;
+    };
+    otherSectorLabel: string;
+    otherSectorPlaceholder: string;
+    otherRegulatedQuestion: string;
+    otherRegulatedYes: string;
+    otherRegulatedNo: string;
+    subSector: string;
+    selectSubSector: string;
+    subSectorOptions: {
+      transport: string;
+      insurance: string;
+      afterSchool: string;
+      otherRegulated: string;
     };
     regulatedHelp: string;
     license: string;
@@ -87,10 +127,22 @@ export interface PartnerTranslations {
     websitePlaceholder: string;
     formula: string;
     selectFormula: string;
+    supportType: string;
+    selectSupportType: string;
+    supportTypeOptions: {
+      future_financial_donation: string;
+      equipment_donation: string;
+      school_sponsorship: string;
+      educational_project_funding: string;
+      skills_sponsorship: string;
+      other_proposal: string;
+    };
     projectDescription: string;
     projectPlaceholder: string;
+    donationProjectPlaceholder: string;
     consentText: string;
     submit: string;
+    submitDonation: string;
     submitting: string;
     successTitle: string;
     successMessage: string;
@@ -109,6 +161,10 @@ export interface PartnerTranslations {
     p2: string;
     p3: string;
   };
+  placeholderTitle: string;
+  placeholderDesc: string;
+  placeholderAlt: string;
+  modifyChoiceBtn: string;
 }
 
 export interface PublicTranslations {
