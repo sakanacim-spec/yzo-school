@@ -1,4 +1,7 @@
 'use strict';
+const { installSupabaseMock, restoreSupabaseMock } = require('./helpers/mockSupabaseModule');
+installSupabaseMock();
+
 const assert = require('assert');
 const {
     getQuotaHashSecret,
@@ -251,7 +254,11 @@ async function runAllTests() {
     console.log('======================================================');
 }
 
-runAllTests().catch(err => {
-    console.error('❌ Échec des tests de quotas:', err);
-    process.exit(1);
-});
+runAllTests()
+    .finally(() => {
+        restoreSupabaseMock();
+    })
+    .catch(err => {
+        console.error('❌ Échec des tests de quotas:', err);
+        process.exit(1);
+    });

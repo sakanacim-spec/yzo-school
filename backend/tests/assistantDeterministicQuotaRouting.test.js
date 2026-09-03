@@ -4,6 +4,32 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const { installSupabaseMock, restoreSupabaseMock } = require('./helpers/mockSupabaseModule');
+installSupabaseMock();
+
+const { Module } = require('node:module');
+const authPath = require.resolve('../middleware/auth');
+const origAuthCache = require.cache[authPath];
+const mockAuthModule = new Module(authPath);
+mockAuthModule.id = authPath;
+mockAuthModule.filename = authPath;
+mockAuthModule.loaded = true;
+mockAuthModule.exports = {
+    authenticateToken: (req, res, next) => next(),
+    requireSuperAdmin: (req, res, next) => next(),
+    requireSchool: (req, res, next) => next()
+};
+require.cache[authPath] = mockAuthModule;
+
+test.after(() => {
+    restoreSupabaseMock();
+    if (origAuthCache) {
+        require.cache[authPath] = origAuthCache;
+    } else {
+        delete require.cache[authPath];
+    }
+});
+
 const _origQuotaSecret = process.env.AI_QUOTA_HASH_SECRET;
 process.env.AI_QUOTA_HASH_SECRET = 'test_secret_key_for_unit_tests_minimum_32_chars_pad';
 

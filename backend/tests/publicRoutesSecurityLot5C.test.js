@@ -4,6 +4,9 @@
 // Tests 100% déterministes et hors-ligne (sans Supabase/FedaPay distant)
 // ============================================================
 'use strict';
+const { installSupabaseMock, restoreSupabaseMock } = require('./helpers/mockSupabaseModule');
+installSupabaseMock();
+
 const assert = require('assert');
 const crypto = require('crypto');
 const path = require('path');
@@ -490,7 +493,11 @@ async function runAllTests() {
     }
 }
 
-runAllTests().catch((err) => {
-    console.error('Erreur fatale exécution suite Lot 5C:', err);
-    process.exit(1);
-});
+runAllTests()
+    .finally(() => {
+        restoreSupabaseMock();
+    })
+    .catch((err) => {
+        console.error('Erreur fatale exécution suite Lot 5C:', err);
+        process.exit(1);
+    });

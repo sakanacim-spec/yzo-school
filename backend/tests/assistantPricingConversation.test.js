@@ -8,6 +8,12 @@ process.env.AI_QUOTA_HASH_SECRET = 'test_secret_key_for_unit_tests_minimum_32_ch
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const { installSupabaseMock, restoreSupabaseMock } = require('./helpers/mockSupabaseModule');
+installSupabaseMock();
+test.after(() => {
+    restoreSupabaseMock();
+});
+
 const { chatWithAssistant, chatWithPrivateAssistant } = require('../controllers/assistantController');
 
 // Reuse mock supabase logic from existing test file
