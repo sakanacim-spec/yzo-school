@@ -1,4 +1,6 @@
 import assert from 'node:assert';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 import {
     normalizeAssistantLanguage,
     isRtlAssistantLanguage,
@@ -257,28 +259,77 @@ console.log('=== DÉMARRAGE DE LA SUITE DE TESTS COMPLÈTE DU LOT 4 (ASSISTANTS 
 }
 
 // 20, 21, 22 : Quotas préservés (Vérification contractuelle des limites)
-{
-    // Public: 5/h, 10/j | Privé: 30/j | Pédagogique: 60/j | Plafond: 1000/j
-    // @ts-ignore
-    const { getGlobalDailyLimit } = await import('../../backend/utils/aiQuotaService.js');
-    process.env.AI_GLOBAL_DAILY_LIMIT = '1000';
-    assert.strictEqual(getGlobalDailyLimit(), 1000);
-    console.log('✅ Tests 20-22: Quotas public (5/h, 10/j), privé (30/j) et pédagogique (60/j) préservés');
-}
+// Isolation hermétique : injection d'un mock Supabase en cache CJS pour éviter
+// l'évaluation de backend/utils/supabase.js et l'exigence de variables d'environnement en CI.
+const supabasePath = require.resolve('../../backend/utils/supabase.js');
+const aiQuotaPath = require.resolve('../../backend/utils/aiQuotaService.js');
+const originalSupabaseCache = require.cache[supabasePath];
+const originalAiQuotaCache = require.cache[aiQuotaPath];
+const originalDailyLimit = process.env.AI_GLOBAL_DAILY_LIMIT;
 
-// 23, 24, 25 : Aucun appel fournisseur si quota refusé, validation échoue ou auth échoue
-{
-    // @ts-ignore
-    const { validateChatMessages, validatePedagogicalInput } = await import('../../backend/utils/aiQuotaService.js');
+const mockSupabaseClient = {
+    from: () => ({
+        select: () => ({
+            eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null })
+            })
+        })
+    }),
+    rpc: async () => ({ data: null, error: null })
+};
 
-    // Validation invalide
-    const vEmpty = validateChatMessages([]);
-    assert.strictEqual(vEmpty.isValid, false);
+(require.cache as any)[supabasePath] = {
+    id: supabasePath,
+    filename: supabasePath,
+    loaded: true,
+    exports: {
+        supabase: mockSupabaseClient,
+        supabaseAdmin: mockSupabaseClient
+    }
+};
 
-    const vPedBad = validatePedagogicalInput({ studentName: '', matiere: '', notes: [] });
-    assert.strictEqual(vPedBad.isValid, false);
+try {
+    {
+        // Public: 5/h, 10/j | Privé: 30/j | Pédagogique: 60/j | Plafond: 1000/j
+        // @ts-ignore
+        const { getGlobalDailyLimit } = await import('../../backend/utils/aiQuotaService.js');
+        process.env.AI_GLOBAL_DAILY_LIMIT = '1000';
+        assert.strictEqual(getGlobalDailyLimit(), 1000);
+        console.log('✅ Tests 20-22: Quotas public (5/h, 10/j), privé (30/j) et pédagogique (60/j) préservés');
+    }
 
-    console.log('✅ Tests 23-25: Fail-closed strict avant tout appel d’API');
+    // 23, 24, 25 : Aucun appel fournisseur si quota refusé, validation échoue ou auth échoue
+    {
+        // @ts-ignore
+        const { validateChatMessages, validatePedagogicalInput } = await import('../../backend/utils/aiQuotaService.js');
+
+        // Validation invalide
+        const vEmpty = validateChatMessages([]);
+        assert.strictEqual(vEmpty.isValid, false);
+
+        const vPedBad = validatePedagogicalInput({ studentName: '', matiere: '', notes: [] });
+        assert.strictEqual(vPedBad.isValid, false);
+
+        console.log('✅ Tests 23-25: Fail-closed strict avant tout appel d’API');
+    }
+} finally {
+    if (originalAiQuotaCache) {
+        (require.cache as any)[aiQuotaPath] = originalAiQuotaCache;
+    } else {
+        delete (require.cache as any)[aiQuotaPath];
+    }
+
+    if (originalSupabaseCache) {
+        (require.cache as any)[supabasePath] = originalSupabaseCache;
+    } else {
+        delete (require.cache as any)[supabasePath];
+    }
+
+    if (originalDailyLimit !== undefined) {
+        process.env.AI_GLOBAL_DAILY_LIMIT = originalDailyLimit;
+    } else {
+        delete process.env.AI_GLOBAL_DAILY_LIMIT;
+    }
 }
 
 // 26, 27 : Neutralisation des injections dans les prompts système
