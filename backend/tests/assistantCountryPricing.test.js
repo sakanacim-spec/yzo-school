@@ -3,6 +3,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const { installSupabaseMock, restoreSupabaseMock } = require('./helpers/mockSupabaseModule');
+installSupabaseMock();
+test.after(() => {
+    restoreSupabaseMock();
+});
+
 const {
     getAssistantPricingContext,
     extractGuestCountry,
