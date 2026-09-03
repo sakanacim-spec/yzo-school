@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { createRequire } from 'node:module';
+import { createRequire, Module } from 'node:module';
 const require = createRequire(import.meta.url);
 import {
     normalizeAssistantLanguage,
@@ -278,15 +278,15 @@ const mockSupabaseClient = {
     rpc: async () => ({ data: null, error: null })
 };
 
-(require.cache as any)[supabasePath] = {
-    id: supabasePath,
-    filename: supabasePath,
-    loaded: true,
-    exports: {
-        supabase: mockSupabaseClient,
-        supabaseAdmin: mockSupabaseClient
-    }
+const mockedSupabaseModule = new Module(supabasePath);
+mockedSupabaseModule.filename = supabasePath;
+mockedSupabaseModule.loaded = true;
+mockedSupabaseModule.exports = {
+    supabase: mockSupabaseClient,
+    supabaseAdmin: mockSupabaseClient
 };
+
+require.cache[supabasePath] = mockedSupabaseModule;
 
 try {
     {
@@ -314,15 +314,15 @@ try {
     }
 } finally {
     if (originalAiQuotaCache) {
-        (require.cache as any)[aiQuotaPath] = originalAiQuotaCache;
+        require.cache[aiQuotaPath] = originalAiQuotaCache;
     } else {
-        delete (require.cache as any)[aiQuotaPath];
+        delete require.cache[aiQuotaPath];
     }
 
     if (originalSupabaseCache) {
-        (require.cache as any)[supabasePath] = originalSupabaseCache;
+        require.cache[supabasePath] = originalSupabaseCache;
     } else {
-        delete (require.cache as any)[supabasePath];
+        delete require.cache[supabasePath];
     }
 
     if (originalDailyLimit !== undefined) {
