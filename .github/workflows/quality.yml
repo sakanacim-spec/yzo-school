@@ -1,0 +1,58 @@
+name: CI Quality Assurance
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Installation des dépendances
+        run: npm ci
+
+      - name: Vérification TypeScript
+        run: npm run typecheck
+
+      - name: Cohérence des langues (i18n)
+        run: node validate-i18n.js
+
+      - name: Tests de l’infrastructure CI
+        run: npm run test:ci-infrastructure
+
+      - name: Tests frontend
+        run: npm run test:frontend
+
+      - name: Tests backend
+        run: npm run test:backend
+
+      - name: Build Vite de production
+        run: npm run build
