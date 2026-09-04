@@ -233,27 +233,35 @@ test('Lot 6B - DÃ©duction fail-closed des frais sans double dÃ©duction des r
 // ============================================================================
 
 test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async () => {
-    const databaseUrl = process.env.DATABASE_URL;
+    const databaseUrl = (process.env.DATABASE_URL || '').trim();
 
     if (!databaseUrl) {
-        // En l'absence de base de donnÃ©es PostgreSQL 17 isolÃ©e, le test Ã©choue fail-closed
-        // sans skip ni todo, garantissant l'intÃ©gritÃ© de la validation.
-        assert.fail(
-            'POSTGRES17_PROOF_BLOCKED: Aucun conteneur Docker Desktop ou distribution PostgreSQL 17 isolÃ©e ' +
-            'n est accessible en local. Preuve transactionnelle rÃ©elle bloquÃ©e sans modification de production.'
-        );
+        assert.fail('POSTGRES17_PROOF_BLOCKED: Aucun conteneur Docker Desktop ou distribution PostgreSQL 17 isolÃ©e n est accessible en local.');
     }
 
     const pool = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 5000 });
     let client;
 
     try {
+      try {
         client = await pool.connect();
-    } catch (err) {
+      } catch (err) {
         assert.fail(`Connexion PostgreSQL impossible (${err.message}) : preuve bloquÃ©e.`);
-    }
+      }
 
-    try {
+        const roleBootstrapSql = `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    CREATE ROLE anon NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  END IF;
+END $$;`;
+        await client.query(roleBootstrapSql);
         await client.query('BEGIN;');
 
         // 1. Schéma historique minimal requis (auto-suffisant pour base vierge et compatible production)
@@ -569,7 +577,8 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
 
         if (!rollbackTestedOnSeparateDb) {
             // Si la base séparée n'existe pas, exécuter le rollback dans une transaction dédiée sur la base courante
-            await client.query('BEGIN;');
+
+          await client.query('BEGIN;');
             // Recréer le schéma minimal au besoin pour que la migration puisse s'appliquer dans la transaction
             await client.query(`
                 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -611,10 +620,14 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
             await client.query('ROLLBACK;');
         }
     } catch (err) {
-        await client.query('ROLLBACK;').catch(() => {});
+        if (client) {
+            await client.query('ROLLBACK;').catch(() => {});
+        }
         throw err;
     } finally {
-        client.release();
+        if (client) {
+            client.release();
+        }
         await pool.end();
     }
 });
