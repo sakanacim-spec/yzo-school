@@ -37,12 +37,16 @@ test('Workflow quality.yml : conformité structurelle et sécuritaire', () => {
   assert.doesNotMatch(content, /migration/i, 'Aucune étape de migration SQL');
   assert.doesNotMatch(content, /deploy/i, 'Aucune étape de déploiement');
 
-  // 7. Étapes ordonnées et commandes conformes
+  // 7. Service PostgreSQL 17 isolé pour tests Lot 6B
+  assert.match(content, /postgres:\s*\n\s*image:\s*postgres:17-alpine/, 'Service postgres:17-alpine requis');
+
+  // 8. Étapes ordonnées et commandes conformes
   assert.match(content, /run:\s*npm\s+ci/, 'Étape installation via npm ci requise');
   assert.match(content, /run:\s*npm\s+run\s+typecheck/, 'Étape npm run typecheck requise');
   assert.match(content, /run:\s*node\s+validate-i18n\.js/, 'Étape node validate-i18n.js requise');
   assert.match(content, /run:\s*npm\s+run\s+test:ci-infrastructure/, 'Étape npm run test:ci-infrastructure requise');
   assert.match(content, /run:\s*npm\s+run\s+test:frontend/, 'Étape npm run test:frontend requise');
   assert.match(content, /run:\s*npm\s+run\s+test:backend/, 'Étape npm run test:backend requise');
+  assert.match(content, /run:\s*npm\s+run\s+test:integration/, 'Étape npm run test:integration requise');
   assert.match(content, /run:\s*npm\s+run\s+build/, 'Étape npm run build requise');
 });

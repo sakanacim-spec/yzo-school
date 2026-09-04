@@ -13,6 +13,7 @@
     "test:frontend": "node scripts/run-frontend-tests.cjs",
     "test:backend": "node scripts/run-backend-tests.cjs",
     "test:donations-backend": "node --test backend/tests/donationProposalAdminApi.test.js backend/tests/donationProposalAdminMigration.test.js backend/tests/donationProposalValidation.test.js backend/tests/donationProposalRoute.test.js",
+    "test:integration": "node --test backend/integration-tests/*.test.js",
     "test:ci-infrastructure": "node --test scripts/__tests__/runFrontendTests.test.cjs scripts/__tests__/runBackendTests.test.cjs scripts/__tests__/workflowIntegrity.test.cjs",
     "test:ci": "npm run typecheck && node validate-i18n.js && npm run test:ci-infrastructure && npm run test:frontend && npm run test:backend && npm run build"
   },

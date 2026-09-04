@@ -2237,13 +2237,72 @@ async function fedapayWebhook(req, res) {
         return res.status(400).json({ error: 'Devise distante invalide ou non supportée.' });
     }
 
-    // 5. Exécution transactionnelle atomique via la RPC PostgreSQL
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('process_fedapay_webhook_event', {
+    // 5. Extraction certifiée et fail-closed des métadonnées de paiement (Lot 6B)
+    // A. Identifiant d'événement : stable et vérifié, ou clé non certifiée fondée sur l'intention uniquement
+    const hasNominalEventId = Boolean(event.id && typeof event.id === 'string' && event.id.trim());
+    const providerEventId = hasNominalEventId
+        ? event.id.trim()
+        : `uncertified_intent_${intentId}`;
+
+    // B. Horodatage certifié : rejet de tout horodatage inventé
+    let certifiedPaymentAt = null;
+    if (remoteTx.paid_at && typeof remoteTx.paid_at === 'string' && !isNaN(Date.parse(remoteTx.paid_at))) {
+        certifiedPaymentAt = new Date(remoteTx.paid_at).toISOString();
+    } else if (remoteTx.approved_at && typeof remoteTx.approved_at === 'string' && !isNaN(Date.parse(remoteTx.approved_at))) {
+        certifiedPaymentAt = new Date(remoteTx.approved_at).toISOString();
+    }
+
+    // C. Frais FedaPay certifiés : distinction stricte zéro certifié, absent, invalide ou ambigu
+    let certifiedFee = null;
+    let isFeeCertified = false;
+    const hasCommission = remoteTx.commission !== undefined && remoteTx.commission !== null;
+    const hasFixedCommission = remoteTx.fixed_commission !== undefined && remoteTx.fixed_commission !== null;
+
+    if (hasCommission && hasFixedCommission) {
+        // Deux champs de commission présents sans spécification univoque : ambiguïté
+        isFeeCertified = false;
+    } else if (hasCommission) {
+        const parsedComm = Number(remoteTx.commission);
+        if (Number.isFinite(parsedComm) && parsedComm >= 0) {
+            certifiedFee = parsedComm;
+            isFeeCertified = true;
+        }
+    } else if (hasFixedCommission) {
+        const parsedFixed = Number(remoteTx.fixed_commission);
+        if (Number.isFinite(parsedFixed) && parsedFixed >= 0) {
+            certifiedFee = parsedFixed;
+            isFeeCertified = true;
+        }
+    }
+
+    // D. Taxes certifiées : aucune déduction sans valeur certifiée explicite
+    let certifiedTax = null;
+    let isTaxCertified = false;
+    if (remoteTx.tax !== undefined && remoteTx.tax !== null) {
+        const parsedTax = Number(remoteTx.tax);
+        if (Number.isFinite(parsedTax) && parsedTax >= 0) {
+            certifiedTax = parsedTax;
+            isTaxCertified = true;
+        }
+    }
+
+    // Éligibilité nominale stricte : tout manquement ou ambiguïté force la réconciliation
+    const isNominalEligible = hasNominalEventId && Boolean(certifiedPaymentAt) && isFeeCertified && isTaxCertified;
+
+    // 6. Exécution transactionnelle atomique via la RPC PostgreSQL v2
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('process_fedapay_webhook_event_v2', {
+        p_provider: 'fedapay',
+        p_provider_event_id: providerEventId,
+        p_event_type: event.name,
         p_intent_id: intentId,
         p_provider_transaction_id: String(remoteTx.id),
         p_remote_amount: remoteAmount,
         p_remote_currency: rawCurrency,
-        p_remote_status: remoteTx.status
+        p_remote_status: remoteTx.status,
+        p_certified_payment_at: certifiedPaymentAt,
+        p_fedapay_fee: isFeeCertified ? certifiedFee : null,
+        p_tax_amount: isTaxCertified ? certifiedTax : null,
+        p_is_nominal_event: isNominalEligible
     });
 
     if (rpcError) {
