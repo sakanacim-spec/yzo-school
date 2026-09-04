@@ -6,6 +6,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 
+const { installSupabaseMock, restoreSupabaseMock } = require('../tests/helpers/mockSupabaseModule');
+installSupabaseMock();
+
+test.after(() => {
+    restoreSupabaseMock();
+});
+
 const {
     toMinorUnits,
     fromMinorUnits,
