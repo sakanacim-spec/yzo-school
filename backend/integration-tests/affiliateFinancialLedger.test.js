@@ -249,69 +249,125 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
     try {
         await client.query('BEGIN;');
 
-        // 1. SchÃ©ma historique minimal requis
+        // 1. Schéma historique minimal requis (auto-suffisant pour base vierge et compatible production)
         await client.query(`
             CREATE EXTENSION IF NOT EXISTS "pgcrypto";
             CREATE TABLE IF NOT EXISTS public.affiliates (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 nom TEXT NOT NULL,
                 telephone TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL DEFAULT 'mock_hash_for_test',
                 email TEXT,
                 referral_code TEXT NOT NULL UNIQUE,
                 commission_rate NUMERIC DEFAULT 20.00,
                 wallet_balance NUMERIC DEFAULT 0,
                 status VARCHAR(32) NOT NULL DEFAULT 'active'
             );
+            ALTER TABLE public.affiliates ADD COLUMN IF NOT EXISTS password_hash TEXT DEFAULT 'mock_hash_for_test';
+            ALTER TABLE public.affiliates ADD COLUMN IF NOT EXISTS commission_rate NUMERIC DEFAULT 20.00;
+            ALTER TABLE public.affiliates ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC DEFAULT 0;
+            ALTER TABLE public.affiliates ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'active';
+
             CREATE TABLE IF NOT EXISTS public.schools (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '30 days'),
                 affiliate_id UUID REFERENCES public.affiliates(id),
+                status TEXT NOT NULL DEFAULT 'trial',
                 subscription_status TEXT DEFAULT 'trial',
                 first_successful_payment_at TIMESTAMPTZ,
                 created_at TIMESTAMPTZ DEFAULT now(),
                 updated_at TIMESTAMPTZ DEFAULT now()
             );
+            ALTER TABLE public.schools ADD COLUMN IF NOT EXISTS slug TEXT;
+            ALTER TABLE public.schools ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ DEFAULT (now() + interval '30 days');
+            ALTER TABLE public.schools ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'trial';
+            ALTER TABLE public.schools ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial';
+            ALTER TABLE public.schools ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+            ALTER TABLE public.schools ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
             CREATE TABLE IF NOT EXISTS public.payment_intents (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 school_id UUID REFERENCES public.schools(id),
+                school_slug TEXT,
+                target_id TEXT NOT NULL DEFAULT 'target_test_init',
+                expected_amount NUMERIC NOT NULL DEFAULT 50000,
+                expected_currency TEXT NOT NULL DEFAULT 'XOF',
+                expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '1 day'),
                 payment_type VARCHAR(64) NOT NULL,
-                currency VARCHAR(3) NOT NULL,
+                currency VARCHAR(3) NOT NULL DEFAULT 'XOF',
                 payable_amount NUMERIC NOT NULL,
+                pricing_schema_version INTEGER DEFAULT 2,
                 status VARCHAR(32) NOT NULL DEFAULT 'pending',
                 provider_transaction_id TEXT,
                 completed_at TIMESTAMPTZ,
                 created_at TIMESTAMPTZ DEFAULT now(),
                 updated_at TIMESTAMPTZ DEFAULT now()
             );
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS school_id UUID REFERENCES public.schools(id);
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS school_slug TEXT;
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS target_id TEXT DEFAULT 'target_test_init';
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS expected_amount NUMERIC DEFAULT 50000;
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS expected_currency TEXT DEFAULT 'XOF';
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ DEFAULT (now() + interval '1 day');
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS pricing_schema_version INTEGER DEFAULT 2;
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS currency VARCHAR(3) DEFAULT 'XOF';
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS payable_amount NUMERIC;
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS provider_transaction_id TEXT;
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
+            ALTER TABLE public.payment_intents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
+            CREATE OR REPLACE FUNCTION public.trg_sync_payment_intents_processed_at_fn()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                IF NEW.status = 'completed' AND NEW.processed_at IS NULL THEN
+                    NEW.processed_at := COALESCE(NEW.completed_at, clock_timestamp());
+                ELSIF NEW.status <> 'completed' THEN
+                    NEW.processed_at := NULL;
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+
+            DROP TRIGGER IF EXISTS trg_sync_payment_intents_processed_at ON public.payment_intents;
+            CREATE TRIGGER trg_sync_payment_intents_processed_at
+                BEFORE INSERT OR UPDATE ON public.payment_intents
+                FOR EACH ROW
+                EXECUTE FUNCTION public.trg_sync_payment_intents_processed_at_fn();
         `);
 
-        // 2. Migration P13 complÃ¨te
+        // 2. Migration P13 complète
         const migrationSql = fs.readFileSync(migrationSqlPath, 'utf8');
         await client.query(migrationSql);
 
-        // 3. Tests des contraintes d'intÃ©gritÃ© et tables
+        // 3. Tests des contraintes d'intégrité et tables avec fixtures portables et isolées
         const dummyAffiliateRes = await client.query(`
-            INSERT INTO public.affiliates (nom, telephone, referral_code, commission_rate)
-            VALUES ('Ambassadeur Test', '+22990000001', 'AMB-TEST-001', 20.00)
+            INSERT INTO public.affiliates (nom, telephone, referral_code, commission_rate, password_hash)
+            VALUES ('Ambassadeur Test Portabilité', '+22990009999', 'AMB-TEST-PORT-999', 20.00, 'mock_hash_secure_test_fixture')
             RETURNING id;
         `);
         const affiliateId = dummyAffiliateRes.rows[0].id;
 
         const dummySchoolRes = await client.query(`
-            INSERT INTO public.schools (name, affiliate_id)
-            VALUES ('Ã‰cole Test', $1)
+            INSERT INTO public.schools (name, slug, trial_ends_at, affiliate_id, subscription_status)
+            VALUES ('École Test Portabilité', 'ecole_test_portabilite_999', now() + interval '30 days', $1, 'trial')
             RETURNING id;
         `, [affiliateId]);
         const schoolId = dummySchoolRes.rows[0].id;
 
         const dummyIntentRes = await client.query(`
-            INSERT INTO public.payment_intents (school_id, payment_type, currency, payable_amount)
-            VALUES ($1, 'saas_subscription', 'XOF', 50000)
+            INSERT INTO public.payment_intents (
+                school_id, school_slug, payment_type, currency, payable_amount,
+                target_id, expected_amount, expected_currency, expires_at, pricing_schema_version
+            )
+            VALUES ($1, 'ecole_test_portabilite_999', 'tuition', 'XOF', 50000, 'target_test_001', 50000, 'XOF', now() + interval '1 day', 2)
             RETURNING id;
         `, [schoolId]);
         const intentId = dummyIntentRes.rows[0].id;
 
-        // 4. Test de RPC v2 atomique avec horodatage certifiÃ©
+        // 4. Test de RPC v2 atomique avec horodatage certifié
         const certifiedPaymentAt = new Date().toISOString();
         const rpcResult = await client.query(`
             SELECT public.process_fedapay_webhook_event_v2(
@@ -331,10 +387,10 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
         `, [intentId, certifiedPaymentAt]);
 
         const resData = rpcResult.rows[0].res;
-        assert.equal(resData.status, 'completed', 'La RPC v2 doit rÃ©ussir');
-        assert.ok(resData.ledger_id, 'Une entrÃ©e de grand livre doit Ãªtre crÃ©Ã©e');
+        assert.equal(resData.status, 'completed', 'La RPC v2 doit réussir');
+        assert.ok(resData.ledger_id, 'Une entrée de grand livre doit être créée');
 
-        // 5. Tests de concurrence et 6. Idempotence webhook (doublon immÃ©diat)
+        // 5. Tests de concurrence et 6. Idempotence webhook (doublon immédiat)
         const dupResult = await client.query(`
             SELECT public.process_fedapay_webhook_event_v2(
                 'fedapay',
@@ -352,12 +408,15 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
             ) as res;
         `, [intentId, certifiedPaymentAt]);
 
-        assert.equal(dupResult.rows[0].res.status, 'duplicate', 'Ã‰vÃ©nement doublon immÃ©diatement dÃ©tectÃ© sans duplication de commission');
+        assert.equal(dupResult.rows[0].res.status, 'duplicate', 'Événement doublon immédiatement détecté sans duplication de commission');
 
-        // 7. Test de rÃ©conciliation (frais manquants / non certifiÃ©s)
+        // 7. Test de réconciliation (frais manquants / non certifiés)
         const uncertIntentRes = await client.query(`
-            INSERT INTO public.payment_intents (school_id, payment_type, currency, payable_amount)
-            VALUES ($1, 'saas_subscription', 'XOF', 50000)
+            INSERT INTO public.payment_intents (
+                school_id, school_slug, payment_type, currency, payable_amount,
+                target_id, expected_amount, expected_currency, expires_at, pricing_schema_version
+            )
+            VALUES ($1, 'ecole_test_portabilite_999', 'tuition', 'XOF', 50000, 'target_test_002', 50000, 'XOF', now() + interval '1 day', 2)
             RETURNING id;
         `, [schoolId]);
         const uncertIntentId = uncertIntentRes.rows[0].id;
@@ -379,28 +438,28 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
             ) as res;
         `, [uncertIntentId, certifiedPaymentAt]);
 
-        assert.equal(uncertResult.rows[0].res.status, 'reconciliation_required', 'Ã‰vÃ©nement non certifiÃ© routÃ© vers la rÃ©conciliation');
+        assert.equal(uncertResult.rows[0].res.status, 'reconciliation_required', 'Événement non certifié routé vers la réconciliation');
 
-        // 8. Test de libÃ©ration unique
+        // 8. Test de libération unique
         const releaseRes = await client.query(`
             SELECT public.release_matured_commissions_atomic(10) as res;
         `);
-        assert.ok(releaseRes.rows[0].res, 'La fonction de libÃ©ration atomique s exÃ©cute avec succÃ¨s');
+        assert.ok(releaseRes.rows[0].res, 'La fonction de libération atomique s exécute avec succès');
 
         // 9. Remboursements partiels & 10. Gestion de la dette
         const debtTestAffiliateRes = await client.query(`
             SELECT * FROM public.affiliate_balances WHERE affiliate_id = $1 AND currency = 'XOF';
         `, [affiliateId]);
-        assert.ok(debtTestAffiliateRes.rows.length > 0, 'Solde initialisÃ©');
+        assert.ok(debtTestAffiliateRes.rows.length > 0, 'Solde initialisé');
 
-        // 11. Test d'immutabilitÃ© stricte : rejet formel de tout UPDATE ou DELETE sur affiliate_ledger
+        // 11. Test d'immutabilité stricte : rejet formel de tout UPDATE ou DELETE sur affiliate_ledger
         await client.query('SAVEPOINT sp_update;');
         await assert.rejects(
             async () => {
                 await client.query(`UPDATE public.affiliate_ledger SET amount_minor = 99999 WHERE id = $1;`, [resData.ledger_id]);
             },
             /IMMUTABLE_LEDGER_MUTATION_FORBIDDEN/,
-            'Toute mise Ã  jour du grand livre doit Ãªtre strictement rejetÃ©e'
+            'Toute mise à jour du grand livre doit être strictement rejetée'
         );
         await client.query('ROLLBACK TO SAVEPOINT sp_update;');
 
@@ -410,20 +469,23 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
                 await client.query(`DELETE FROM public.affiliate_ledger WHERE id = $1;`, [resData.ledger_id]);
             },
             /IMMUTABLE_LEDGER_MUTATION_FORBIDDEN/,
-            'Toute suppression du grand livre doit Ãªtre strictement rejetÃ©e'
+            'Toute suppression du grand livre doit être strictement rejetée'
         );
         await client.query('ROLLBACK TO SAVEPOINT sp_delete;');
 
-        // 12. Permissions et RLS : RLS activÃ©e
+        // 12. Permissions et RLS : RLS activée
         const rlsCheck = await client.query(`
             SELECT relrowsecurity FROM pg_class WHERE relname = 'affiliate_ledger';
         `);
-        assert.equal(rlsCheck.rows[0].relrowsecurity, true, 'RLS activÃ©e sur affiliate_ledger');
+        assert.equal(rlsCheck.rows[0].relrowsecurity, true, 'RLS activée sur affiliate_ledger');
 
         // 13. Wrapper historique
         const legacyIntentRes = await client.query(`
-            INSERT INTO public.payment_intents (school_id, payment_type, currency, payable_amount)
-            VALUES ($1, 'saas_subscription', 'XOF', 50000)
+            INSERT INTO public.payment_intents (
+                school_id, school_slug, payment_type, currency, payable_amount,
+                target_id, expected_amount, expected_currency, expires_at, pricing_schema_version
+            )
+            VALUES ($1, 'ecole_test_portabilite_999', 'tuition', 'XOF', 50000, 'target_test_003', 50000, 'XOF', now() + interval '1 day', 2)
             RETURNING id;
         `, [schoolId]);
         const legacyIntentId = legacyIntentRes.rows[0].id;
@@ -433,29 +495,33 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
                 $1, 'tx_legacy_001', 50000, 'XOF', 'approved'
             ) as res;
         `, [legacyIntentId]);
-        assert.equal(legacyWrapperRes.rows[0].res.status, 'reconciliation_required', 'Le wrapper historique route vers la rÃ©conciliation sans commission inventÃ©e');
+        assert.equal(legacyWrapperRes.rows[0].res.status, 'reconciliation_required', 'Le wrapper historique route vers la réconciliation sans commission inventée');
 
         // Rollback propre de la transaction de test
         await client.query('ROLLBACK;');
 
-        // 14. Test du rollback prÃ©-trafic sur base sÃ©parÃ©e
+        // 14. Test du rollback pré-trafic sur base séparée ou transaction dédiée
         const rollbackDbUrl = databaseUrl.replace(/\/[^/?]+(\?.*)?$/, '/yzo_test_rollback$1');
         const rollbackPool = new Pool({ connectionString: rollbackDbUrl, connectionTimeoutMillis: 5000 });
+        let rollbackTestedOnSeparateDb = false;
         try {
             const rollbackClient = await rollbackPool.connect();
             try {
-                // SchÃ©ma initial minimal
+                // Schéma initial minimal
                 await rollbackClient.query(`
                     CREATE EXTENSION IF NOT EXISTS "pgcrypto";
                     CREATE TABLE IF NOT EXISTS public.affiliates (
                         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                         nom TEXT NOT NULL,
                         telephone TEXT NOT NULL UNIQUE,
+                        password_hash TEXT NOT NULL DEFAULT 'mock_hash',
                         referral_code TEXT NOT NULL UNIQUE
                     );
                     CREATE TABLE IF NOT EXISTS public.schools (
                         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                         name TEXT NOT NULL,
+                        slug TEXT NOT NULL UNIQUE,
+                        trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '30 days'),
                         affiliate_id UUID REFERENCES public.affiliates(id)
                     );
                     CREATE TABLE IF NOT EXISTS public.payment_intents (
@@ -470,31 +536,71 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
                 // Appliquer la migration P13
                 await rollbackClient.query(migrationSql);
 
-                // VÃ©rifier que la table affiliate_ledger existe
+                // Vérifier que la table affiliate_ledger existe
                 const checkTableRes = await rollbackClient.query(`
                     SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'affiliate_ledger';
                 `);
-                assert.equal(checkTableRes.rows.length, 1, 'affiliate_ledger crÃ©Ã©e par P13');
+                assert.equal(checkTableRes.rows.length, 1, 'affiliate_ledger créée par P13');
 
-                // Appliquer le rollback prÃ©-trafic
+                // Appliquer le rollback pré-trafic
                 const rollbackSql = fs.readFileSync(rollbackSqlPath, 'utf8');
                 await rollbackClient.query(rollbackSql);
 
-                // VÃ©rifier que la table affiliate_ledger a Ã©tÃ© supprimÃ©e proprement sans CASCADE
+                // Vérifier que la table affiliate_ledger a été supprimée proprement sans CASCADE
                 const checkTableAfterRes = await rollbackClient.query(`
                     SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'affiliate_ledger';
                 `);
-                assert.equal(checkTableAfterRes.rows.length, 0, 'affiliate_ledger supprimÃ©e par rollback');
+                assert.equal(checkTableAfterRes.rows.length, 0, 'affiliate_ledger supprimée par rollback');
+                rollbackTestedOnSeparateDb = true;
             } finally {
                 rollbackClient.release();
                 await rollbackPool.end();
             }
         } catch (_rbErr) {
-            // Si la base sÃ©parÃ©e n'existe pas, exÃ©cuter le rollback dans une transaction dÃ©diÃ©e sur la base courante
+            rollbackTestedOnSeparateDb = false;
+        }
+
+        if (!rollbackTestedOnSeparateDb) {
+            // Si la base séparée n'existe pas, exécuter le rollback dans une transaction dédiée sur la base courante
             await client.query('BEGIN;');
+            // Recréer le schéma minimal au besoin pour que la migration puisse s'appliquer dans la transaction
+            await client.query(`
+                CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+                CREATE TABLE IF NOT EXISTS public.affiliates (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    nom TEXT NOT NULL,
+                    telephone TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL DEFAULT 'mock_hash',
+                    referral_code TEXT NOT NULL UNIQUE
+                );
+                CREATE TABLE IF NOT EXISTS public.schools (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    name TEXT NOT NULL,
+                    slug TEXT NOT NULL UNIQUE,
+                    trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '30 days'),
+                    affiliate_id UUID REFERENCES public.affiliates(id)
+                );
+                CREATE TABLE IF NOT EXISTS public.payment_intents (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    school_id UUID REFERENCES public.schools(id),
+                    payment_type VARCHAR(64) NOT NULL,
+                    currency VARCHAR(3) NOT NULL,
+                    payable_amount NUMERIC NOT NULL
+                );
+            `);
             await client.query(migrationSql);
+            const checkTableRes = await client.query(`
+                SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'affiliate_ledger';
+            `);
+            assert.equal(checkTableRes.rows.length, 1, 'affiliate_ledger créée par P13 dans transaction rollback');
+
             const rollbackSql = fs.readFileSync(rollbackSqlPath, 'utf8');
             await client.query(rollbackSql);
+
+            const checkTableAfterRes = await client.query(`
+                SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'affiliate_ledger';
+            `);
+            assert.equal(checkTableAfterRes.rows.length, 0, 'affiliate_ledger supprimée par rollback dans transaction');
             await client.query('ROLLBACK;');
         }
     } catch (err) {
