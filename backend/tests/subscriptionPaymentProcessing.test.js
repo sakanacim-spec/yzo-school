@@ -2462,4 +2462,30 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
         assert.strictEqual(quote.scope_type, 'country');
         assert.strictEqual(quote.scope_code, 'GH');
     });
+
+    it('99: Lot 6B - Migration P13 : Structure financière, immutabilité et déduplication', () => {
+        const p13Path = path.join(__dirname, '../scripts/migration_p13_affiliate_financial_ledger.sql');
+        assert.ok(fs.existsSync(p13Path), 'migration_p13_affiliate_financial_ledger.sql doit exister');
+        const p13Content = fs.readFileSync(p13Path, 'utf8');
+
+        assert.ok(p13Content.includes('CREATE TABLE IF NOT EXISTS public.affiliate_ledger'), 'Grand livre présent');
+        assert.ok(p13Content.includes('fn_prevent_affiliate_ledger_mutation'), 'Trigger immutabilité présent');
+        assert.ok(p13Content.includes('process_fedapay_webhook_event_v2'), 'RPC webhook v2 présente');
+        assert.ok(p13Content.includes('admin_reconcile_affiliate_commission_atomic'), 'RPC réconciliation présente');
+    });
+
+    it('100: Lot 6B - Webhook Controller appelle process_fedapay_webhook_event_v2', () => {
+        const paymentCtrlPath = path.join(__dirname, '../controllers/paymentController.js');
+        const content = fs.readFileSync(paymentCtrlPath, 'utf8');
+        assert.ok(content.includes('process_fedapay_webhook_event_v2'), 'Appel à process_fedapay_webhook_event_v2 requis');
+        assert.ok(content.includes('p_provider_event_id'), 'Passage de provider_event_id requis');
+        assert.ok(content.includes('p_certified_payment_at'), 'Passage de l horodatage certifié requis');
+    });
+
+    it('101: Lot 6B - Wrapper historique process_fedapay_webhook_event place l ambassadeur en réconciliation sans créer de commission non certifiée', () => {
+        const p13Path = path.join(__dirname, '../scripts/migration_p13_affiliate_financial_ledger.sql');
+        const content = fs.readFileSync(p13Path, 'utf8');
+        assert.ok(content.includes('CREATE OR REPLACE FUNCTION public.process_fedapay_webhook_event('), 'Wrapper historique présent');
+        assert.ok(content.includes('HISTORICAL_WRAPPER_MISSING_FEES_OR_TIMESTAMP'), 'Tag réconciliation wrapper historique');
+    });
 });
