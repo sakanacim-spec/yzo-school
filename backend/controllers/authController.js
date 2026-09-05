@@ -620,15 +620,33 @@ async function updatePushToken(req, res) {
     }
 
     try {
-        const { error } = await supabase
+        // Dédoublonner le token au sein du même établissement si push_token est non-nul
+        if (push_token && typeof push_token === 'string') {
+            const { error: dedupError } = await supabase
+                .from(`profiles_${schoolSlug}`)
+                .update({ push_token: null })
+                .eq('push_token', push_token)
+                .neq('id', id);
+
+            if (dedupError) {
+                console.error('Echec du dedoublonnage du token Push.');
+                return res.status(500).json({ error: 'Erreur lors de la mise à jour du token.' });
+            }
+        }
+
+        const { error: assignError } = await supabase
             .from(`profiles_${schoolSlug}`)
-            .update({ push_token })
+            .update({ push_token: push_token || null })
             .eq('id', id);
 
-        if (error) throw error;
+        if (assignError) {
+            console.error('Echec de la mise a jour du token Push.');
+            return res.status(500).json({ error: 'Erreur lors de la mise à jour du token.' });
+        }
+
         return res.json({ success: true, message: 'Token de notification mis à jour.' });
     } catch (err) {
-        console.error('Update Push Token Error:', err.message);
+        console.error('Echec de la mise a jour du token Push.');
         return res.status(500).json({ error: 'Erreur lors de la mise à jour du token.' });
     }
 }

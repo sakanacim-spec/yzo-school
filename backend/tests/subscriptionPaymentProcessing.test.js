@@ -2108,8 +2108,19 @@ describe('🔒 SUITE DE VALIDATION COMPLÈTE — SOUSCRIPTION SAAS ET PAIEMENT (
     it('72: Rechargement authentifié : 0 appel automatique à Notification.requestPermission', () => {
         const appCode = fs.readFileSync(path.join(__dirname, '../../src/App.tsx'), 'utf-8');
         const layoutCode = fs.readFileSync(path.join(__dirname, '../../src/components/Layout.tsx'), 'utf-8');
-        assert.ok(!appCode.includes('webPushService.init'), 'App.tsx ne déclenche pas le service push');
+
+        // Réconciliation automatique autorisée avec promptIfDenied: false sans jamais demander la permission
+        assert.ok(appCode.includes('webPushService.init'), 'App.tsx déclenche webPushService.init pour la réconciliation silencieuse');
+        assert.ok(appCode.includes("Notification.permission !== 'granted'"), "Réconciliation conditionnée strictement à Notification.permission === 'granted'");
+        assert.ok(appCode.includes('promptIfDenied: false'), 'L’appel automatique transmet promptIfDenied: false');
+        assert.ok(!appCode.includes('Notification.requestPermission'), 'App.tsx ne doit jamais appeler Notification.requestPermission');
         assert.ok(!layoutCode.includes('Notification.requestPermission'), 'Layout.tsx ne demande pas de permission');
+
+        // Garde-fous utilisateur, école et exclusion superadmin
+        assert.ok(appCode.includes('!isAuthenticated'), 'Garde-fou utilisateur authentifié présent');
+        assert.ok(appCode.includes('!userId'), 'Garde-fou identifiant utilisateur présent');
+        assert.ok(appCode.includes('!userSchoolSlug'), 'Garde-fou établissement présent');
+        assert.ok(appCode.includes("userRole === 'superadmin'"), 'Garde-fou exclusion superadmin présent');
     });
 
     it('73: Ouverture du Dashboard : 0 appel automatique à Notification.requestPermission', () => {
