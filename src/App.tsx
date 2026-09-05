@@ -173,6 +173,10 @@ export function App() {
   const isAuthenticated = useStore((s) => s.isAuthenticated);
   const fetchAllFromBackend = useStore((s) => s.fetchAllFromBackend);
   const translationVersion = useStore((s) => s.translationVersion);
+  const user = useStore((s) => s.user);
+  const userId = user?.id;
+  const userSchoolSlug = user?.schoolSlug;
+  const userRole = user?.role;
 
   // ── Chargement des paramètres publics (Logo, Nom App) ────────
   React.useEffect(() => {
@@ -199,6 +203,30 @@ export function App() {
       // Nettoyage si nécessaire
     };
   }, [isAuthenticated, fetchAllFromBackend]);
+
+  // ── Réconciliation VAPID silencieuse au démarrage de la session web ──
+  React.useEffect(() => {
+    if (!isAuthenticated || !userId || !userSchoolSlug || userRole === 'superadmin') return;
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const controller = new AbortController();
+    const owner = `${userSchoolSlug}:${userId}`;
+
+    import('./services/webPushService').then(({ webPushService }) => {
+      if (controller.signal.aborted) return;
+      webPushService.init({
+        promptIfDenied: false,
+        signal: controller.signal,
+        owner
+      }).catch(() => {
+        console.warn('[Push] Echec de la reconciliation automatique.');
+      });
+    });
+
+    return () => {
+      controller.abort();
+    };
+  }, [isAuthenticated, userId, userSchoolSlug, userRole]);
 
   // ── Écoute des messages du Service Worker (navigation depuis push) ──
   React.useEffect(() => {
