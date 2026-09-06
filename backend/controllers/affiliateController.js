@@ -72,7 +72,7 @@ async function register(req, res) {
                 photo_url,
                 email
             })
-            .select()
+            .select('id, nom, telephone, referral_code, wallet_balance, country, photo_url')
             .single();
 
         if (error) throw error;
@@ -89,8 +89,8 @@ async function register(req, res) {
             token,
             affiliate: { id: affiliate.id, nom: affiliate.nom, telephone: affiliate.telephone, referral_code: affiliate.referral_code, wallet_balance: affiliate.wallet_balance, country: affiliate.country, photo_url: affiliate.photo_url }
         });
-    } catch (err) {
-        console.error('Affiliate Register Error:', err.message);
+    } catch (_err) {
+        console.error('Affiliate Register Error');
         return res.status(500).json({ error: 'Erreur lors de la création du compte ambassadeur.' });
     }
 }
@@ -106,7 +106,7 @@ async function login(req, res) {
     try {
         const { data: affiliate } = await supabase
             .from('affiliates')
-            .select('*')
+            .select('id, nom, telephone, referral_code, wallet_balance, country, photo_url, status, password_hash')
             .eq('telephone', telephone)
             .single();
 
@@ -134,18 +134,22 @@ async function login(req, res) {
             token,
             affiliate: { id: affiliate.id, nom: affiliate.nom, telephone: affiliate.telephone, referral_code: affiliate.referral_code, wallet_balance: affiliate.wallet_balance, country: affiliate.country, photo_url: affiliate.photo_url }
         });
-    } catch (err) {
-        console.error('Affiliate Login Error:', err.message);
+    } catch (_err) {
+        console.error('Affiliate Login Error');
         return res.status(500).json({ error: 'Erreur lors de la connexion.' });
     }
 }
 
 // Récupérer le tableau de bord de l'ambassadeur
 async function getDashboard(req, res) {
+    if (!req.user || req.user.role !== 'affiliate') {
+        return res.status(403).json({ error: 'Accès réservé aux Ambassadeurs.' });
+    }
+
     const affiliateId = req.user.id;
 
     try {
-        // 1. Informations de l'ambassadeur
+        // 1. Informations de l'ambassadeur (whitelist stricte)
         const { data: affiliate, error: affErr } = await supabase
             .from('affiliates')
             .select('nom, telephone, referral_code, commission_rate, wallet_balance, total_earned, country, photo_url')
@@ -154,28 +158,35 @@ async function getDashboard(req, res) {
 
         if (affErr || !affiliate) return res.status(404).json({ error: 'Ambassadeur non trouvé.' });
 
-        // 2. Écoles parrainées
+        // 2. Écoles parrainées (whitelist stricte)
         const { data: schools } = await supabase
             .from('schools')
             .select('id, name, slug, status, created_at')
             .eq('affiliate_id', affiliateId)
             .order('created_at', { ascending: false });
 
-        // 3. Dernières transactions
+        // 3. Dernières transactions historiques (whitelist stricte)
         const { data: transactions } = await supabase
             .from('affiliate_transactions')
-            .select('*')
+            .select('id, amount, currency, status, created_at')
             .eq('affiliate_id', affiliateId)
             .order('created_at', { ascending: false })
             .limit(20);
 
+        // 4. Soldes multi-devises réels (whitelist stricte, Lot 6B)
+        const { data: balances } = await supabase
+            .from('affiliate_balances')
+            .select('currency, pending_balance_minor, available_balance_minor, reserved_balance_minor, debt_balance_minor, updated_at')
+            .eq('affiliate_id', affiliateId);
+
         return res.json({
             affiliate,
+            balances: balances || [],
             schools: schools || [],
             transactions: transactions || []
         });
-    } catch (err) {
-        console.error('Affiliate Dashboard Error:', err.message);
+    } catch (_err) {
+        console.error('Affiliate Dashboard Error');
         return res.status(500).json({ error: 'Erreur lors de la récupération des données.' });
     }
 }
