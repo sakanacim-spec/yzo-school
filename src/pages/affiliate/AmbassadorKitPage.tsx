@@ -1,40 +1,391 @@
-import React, { useState } from 'react';
-import { 
-  GraduationCap, Printer, ArrowLeft, FileText, 
-  HelpCircle, DollarSign, Award, Users, BookOpen, ShieldCheck, Phone, 
-  Sparkles, QrCode, CreditCard, Building2, Share2, Download
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+  Printer, ArrowLeft, FileText,
+  HelpCircle, DollarSign, Award, Users, BookOpen, ShieldCheck, Phone,
+  Sparkles, QrCode, CreditCard, Building2, Share2, Download, AlertCircle, RefreshCw
 } from 'lucide-react';
+import yziowLogo from '../../assets/yziow-logo.png';
+import { API_BASE_URL } from '../../config';
+import { getSortedCountries, getCountryByCode } from '../../data/countries';
+
+export interface CycleRateInfo {
+  label: string;
+  monthly: number | null;
+}
+
+export interface PublicPricingResponse {
+  country: string;
+  currency: string;
+  currency_symbol: string;
+  currency_minor_unit: number;
+  locale?: string | null;
+  pricing_version: string;
+  effective_from?: string | null;
+  cycles: {
+    maternelle_primaire: CycleRateInfo;
+    college_secondaire: CycleRateInfo;
+    superieur_formation: CycleRateInfo;
+  };
+}
+
+export function formatPublicCycleRate(
+  cycleInfo: CycleRateInfo | undefined,
+  pricing: PublicPricingResponse | null,
+  status: 'idle' | 'loading' | 'success' | 'not_configured' | 'error'
+): string {
+  if (status === 'loading') return 'Chargement...';
+  if (status === 'error') return 'Tarif indisponible';
+  if (status === 'not_configured') return 'Tarification sur devis';
+  if (!pricing || !cycleInfo || typeof cycleInfo.monthly !== 'number' || cycleInfo.monthly <= 0) {
+    return status === 'idle' ? 'Sélectionner un pays' : 'Tarification sur devis';
+  }
+  const minor = pricing.currency_minor_unit || 0;
+  const realAmount = minor > 0 ? cycleInfo.monthly / Math.pow(10, minor) : cycleInfo.monthly;
+  const locale = pricing.locale || 'fr-FR';
+  const numStr = minor === 0
+    ? Math.round(realAmount).toLocaleString(locale)
+    : realAmount.toLocaleString(locale, { minimumFractionDigits: minor, maximumFractionDigits: minor });
+
+  return `${numStr} ${pricing.currency_symbol || pricing.currency}`;
+}
 
 export const AmbassadorKitPage: React.FC = () => {
   const [activeDoc, setActiveDoc] = useState<string>('prospectus');
+  const sortedCountries = useMemo(() => getSortedCountries('fr'), []);
+
+  // 1. Ordre de priorité pour le pays : URL ?country=XX > profil local > aucun fallback silencieux
+  const [selectedCountry, setSelectedCountry] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlCountry = urlParams.get('country');
+      if (urlCountry && /^[A-Za-z]{2}$/.test(urlCountry.trim())) {
+        return urlCountry.trim().toUpperCase();
+      }
+      const stored = localStorage.getItem('affiliate_country');
+      if (stored && /^[A-Za-z]{2}$/.test(stored.trim())) {
+        return stored.trim().toUpperCase();
+      }
+    }
+    return '';
+  });
+
+  const [pricingData, setPricingData] = useState<PublicPricingResponse | null>(null);
+  const [pricingStatus, setPricingStatus] = useState<'idle' | 'loading' | 'success' | 'not_configured' | 'error'>('idle');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
+  const [pdfError, setPdfError] = useState<string>('');
+
+  const requestIdRef = useRef<number>(0);
+
+  // Détection du pays de l'ambassadeur connecté s'il n'est pas déjà choisi
+  useEffect(() => {
+    if (selectedCountry) return;
+    const token = localStorage.getItem('affiliate_token');
+    if (!token) return;
+    fetch(`${API_BASE_URL}/affiliate/dashboard`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.affiliate?.country && /^[A-Za-z]{2}$/.test(data.affiliate.country)) {
+          const c = data.affiliate.country.trim().toUpperCase();
+          localStorage.setItem('affiliate_country', c);
+          setSelectedCountry(c);
+        }
+      })
+      .catch(() => {});
+  }, [selectedCountry]);
+
+  // Chargement autoritaire des tarifs officiels depuis le backend
+  const fetchPricing = useCallback(async (countryCode: string) => {
+    if (!countryCode || !/^[A-Z]{2}$/.test(countryCode)) {
+      setPricingData(null);
+      setPricingStatus('idle');
+      return;
+    }
+
+    const currentRequestId = ++requestIdRef.current;
+    setPricingStatus('loading');
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/pricing/${countryCode}`);
+      if (currentRequestId !== requestIdRef.current) return;
+
+      if (res.status === 200) {
+        const data: PublicPricingResponse = await res.json();
+        if (currentRequestId !== requestIdRef.current) return;
+        setPricingData(data);
+        setPricingStatus('success');
+      } else if (res.status === 404) {
+        if (currentRequestId !== requestIdRef.current) return;
+        setPricingData(null);
+        setPricingStatus('not_configured');
+      } else {
+        if (currentRequestId !== requestIdRef.current) return;
+        setPricingData(null);
+        setPricingStatus('error');
+      }
+    } catch {
+      if (currentRequestId !== requestIdRef.current) return;
+      setPricingData(null);
+      setPricingStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedCountry) {
+      fetchPricing(selectedCountry);
+    } else {
+      setPricingData(null);
+      setPricingStatus('idle');
+    }
+  }, [selectedCountry, fetchPricing]);
+
+  const selectedCountryInfo = selectedCountry ? getCountryByCode(selectedCountry) : undefined;
+
+  // Montants formatés selon les unités mineures
+  const ratePrimaireText = formatPublicCycleRate(pricingData?.cycles?.maternelle_primaire, pricingData, pricingStatus);
+  const rateSecondaireText = formatPublicCycleRate(pricingData?.cycles?.college_secondaire, pricingData, pricingStatus);
+  const rateSuperieurText = formatPublicCycleRate(pricingData?.cycles?.superieur_formation, pricingData, pricingStatus);
+
+  const ratePrimaireHeading = pricingStatus === 'success'
+    ? `À partir de ${ratePrimaireText} / élève / mois`
+    : pricingStatus === 'not_configured'
+      ? 'Tarification sur devis'
+      : pricingStatus === 'loading'
+        ? 'Chargement des tarifs...'
+        : pricingStatus === 'error'
+          ? 'Tarifs temporairement indisponibles'
+          : 'Sélectionnez un pays pour afficher les tarifs';
 
   const handlePrint = () => {
     window.print();
   };
 
-  const handleDownload = () => {
-    const container = document.querySelector('.print-container');
-    if (!container) return;
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html lang="fr">
-      <head>
-        <meta charset="UTF-8">
-        <title>Document Yziow Education - ${activeDoc}</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-      </head>
-      <body class="bg-white text-slate-900 p-8 font-sans">
-        ${container.innerHTML}
-      </body>
-      </html>
-    `;
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `yziow_${activeDoc}_document.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownloadPdf = async () => {
+    if (isGeneratingPdf) return;
+    setPdfError('');
+    setIsGeneratingPdf(true);
+
+    const container = document.querySelector('.print-container') as HTMLElement | null;
+    if (!container) {
+      setIsGeneratingPdf(false);
+      setPdfError('Impossible de trouver le document à exporter.');
+      return;
+    }
+
+    const ALLOWED_DOCS = [
+      'prospectus', 'communique', 'guide', 'scripts', 'courrier_ecole',
+      'courrier_banque', 'courrier_entreprise', 'tarifs_partenaires',
+      'faq', 'tarifs', 'comparatif', 'charte', 'suivi', 'attestation'
+    ];
+    const safeDoc = ALLOWED_DOCS.includes(activeDoc) ? activeDoc : 'document';
+    const safeCountry = /^[A-Z]{2}$/.test(selectedCountry) ? selectedCountry : 'GLOBAL';
+    const dateStr = new Date().toISOString().split('T')[0];
+    const fileName = `${safeDoc}-yziow-${safeCountry}-${dateStr}.pdf`;
+
+    let cloneContainer: HTMLElement | null = null;
+    try {
+      const { jsPDF } = await import('jspdf');
+
+      // Cloner hors écran avec largeur A4 fixe
+      cloneContainer = container.cloneNode(true) as HTMLElement;
+      cloneContainer.style.width = '794px';
+      cloneContainer.style.maxWidth = '794px';
+      cloneContainer.style.position = 'fixed';
+      cloneContainer.style.left = '0';
+      cloneContainer.style.top = '0';
+      cloneContainer.style.zIndex = '-9999';
+      cloneContainer.style.background = '#ffffff';
+      cloneContainer.style.color = '#0f172a';
+      document.body.appendChild(cloneContainer);
+
+      // Attendre le chargement des images du clone
+      const images = Array.from(cloneContainer.querySelectorAll('img'));
+      await Promise.all(
+        images.map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+        })
+      );
+
+      // Fonction robuste de conversion des fonctions modernes de couleur (oklch, oklab, lab, lch, color) -> rgba via pixel canvas 2D
+      const colorCanvas = document.createElement('canvas');
+      colorCanvas.width = 1;
+      colorCanvas.height = 1;
+      const colorCtx = colorCanvas.getContext('2d', { willReadFrequently: true });
+      const colorCache = new Map<string, string>();
+      const MODERN_COLOR_REGEX = /(?:oklch|oklab|lab|lch|color)\([^()]*(?:\([^()]*\)[^()]*)*\)/gi;
+      const hasModernColor = (s: string) => /(?:oklch|oklab|lab|lch|color)\(/i.test(s);
+
+      const convertModernColorToRgba = (colorStr: string): string => {
+        if (!colorStr || typeof colorStr !== 'string' || !hasModernColor(colorStr)) {
+          return colorStr;
+        }
+        return colorStr.replace(MODERN_COLOR_REGEX, (match) => {
+          if (colorCache.has(match)) return colorCache.get(match)!;
+          if (!colorCtx) return '#1e293b';
+          try {
+            colorCtx.clearRect(0, 0, 1, 1);
+            colorCtx.fillStyle = '#000000';
+            colorCtx.fillStyle = match;
+            colorCtx.fillRect(0, 0, 1, 1);
+            const [r, g, b, a] = colorCtx.getImageData(0, 0, 1, 1).data;
+            const rgba = `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`;
+            colorCache.set(match, rgba);
+            return rgba;
+          } catch {
+            return '#1e293b';
+          }
+        });
+      };
+
+      // Pré-conversion de tous les éléments du clone avant export
+      const allElements = [cloneContainer, ...Array.from(cloneContainer.querySelectorAll('*'))] as HTMLElement[];
+      const colorProps = [
+        'color', 'backgroundColor',
+        'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+        'outlineColor', 'fill', 'stroke'
+      ] as const;
+
+      allElements.forEach(el => {
+        if (!el.style) return;
+        const cs = window.getComputedStyle(el);
+        colorProps.forEach(prop => {
+          const val = cs[prop];
+          if (val && typeof val === 'string' && hasModernColor(val)) {
+            el.style[prop] = convertModernColorToRgba(val);
+          }
+        });
+      });
+
+      // Attendre le chargement des polices si disponible
+      if (document.fonts && (document.fonts as any).ready) {
+        try {
+          await (document.fonts as any).ready;
+        } catch {
+          // Continuer si l'API des polices échoue
+        }
+      }
+
+      const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'pt',
+        format: 'a4'
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        try {
+          doc.html(cloneContainer!, {
+            callback: (pdfInstance) => {
+              try {
+                const blob = pdfInstance.output('blob');
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                setTimeout(() => {
+                  if (link.parentNode) {
+                    link.parentNode.removeChild(link);
+                  }
+                  URL.revokeObjectURL(blobUrl);
+                }, 2000);
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            },
+            x: 0,
+            y: 0,
+            width: 595,
+            windowWidth: 794,
+            autoPaging: 'text',
+            html2canvas: {
+              scale: 595 / 794,
+              useCORS: true,
+              logging: false,
+              onclone: (clonedDoc: Document) => {
+                // 1. Remplacer les <link rel="stylesheet"> par une feuille <style> nettoyée sans aucune couleur moderne
+                try {
+                  let combinedCss = '';
+                  Array.from(document.styleSheets).forEach(sheet => {
+                    try {
+                      const rules = Array.from((sheet as CSSStyleSheet).cssRules || []);
+                      rules.forEach(rule => {
+                        combinedCss += rule.cssText + '\n';
+                      });
+                    } catch {
+                      // Feuilles externes ignorées
+                    }
+                  });
+
+                  if (combinedCss) {
+                    const sanitizedCss = convertModernColorToRgba(combinedCss);
+                    const links = clonedDoc.querySelectorAll('link[rel="stylesheet"]');
+                    links.forEach(link => {
+                      if (link.parentNode) link.parentNode.removeChild(link);
+                    });
+
+                    const styleEl = clonedDoc.createElement('style');
+                    styleEl.textContent = sanitizedCss;
+                    clonedDoc.head.appendChild(styleEl);
+                  }
+                } catch (cssErr) {
+                  console.warn('Erreur remplacement feuilles de style:', cssErr);
+                }
+
+                // 2. Remplacer les couleurs modernes dans les balises <style> existantes
+                const styles = clonedDoc.querySelectorAll('style');
+                styles.forEach(st => {
+                  if (st.textContent && hasModernColor(st.textContent)) {
+                    st.textContent = convertModernColorToRgba(st.textContent);
+                  }
+                });
+
+                // Intercepter getComputedStyle pour html2canvas
+                const win = clonedDoc.defaultView || window;
+                const origGetComputedStyle = win.getComputedStyle;
+                win.getComputedStyle = function(this: any, el: Element, pseudo?: string | null) {
+                  const res = origGetComputedStyle.call(this, el, pseudo);
+                  return new Proxy(res, {
+                    get(target: any, prop: string | symbol) {
+                      if (prop === 'getPropertyValue') {
+                        return (key: string) => {
+                          const val = target.getPropertyValue(key);
+                          return typeof val === 'string' && hasModernColor(val) ? convertModernColorToRgba(val) : val;
+                        };
+                      }
+                      const orig = target[prop];
+                      if (typeof orig === 'string' && hasModernColor(orig)) {
+                        return convertModernColorToRgba(orig);
+                      }
+                      if (typeof orig === 'function') {
+                        return orig.bind(target);
+                      }
+                      return orig;
+                    }
+                  });
+                } as any;
+              }
+            }
+          });
+        } catch (callErr) {
+          reject(callErr);
+        }
+      });
+    } catch (err: any) {
+      console.error('Erreur export PDF:', err);
+      setPdfError('Échec de la génération du fichier PDF. Veuillez réessayer ou utiliser "Imprimer en PDF".');
+    } finally {
+      if (cloneContainer && cloneContainer.parentNode) {
+        cloneContainer.parentNode.removeChild(cloneContainer);
+      }
+      setIsGeneratingPdf(false);
+    }
   };
 
   return (
@@ -67,7 +418,7 @@ export const AmbassadorKitPage: React.FC = () => {
       <div className="no-print bg-slate-950 border-b border-slate-800 sticky top-0 z-50 px-4 py-3 shadow-xl">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => window.location.href = '/ambassadeur/dashboard'}
               className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl transition text-slate-300 flex items-center gap-2 text-xs font-bold"
             >
@@ -75,24 +426,51 @@ export const AmbassadorKitPage: React.FC = () => {
               <span>Retour Dashboard</span>
             </button>
             <div className="h-6 w-px bg-slate-800" />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/20">
-                <GraduationCap className="w-5 h-5 text-white" />
-              </div>
+            <div className="flex items-center gap-3">
+              <img src={yziowLogo} alt="Logo Yziow" className="h-8 w-auto object-contain" />
               <div>
-                <h1 className="font-black text-lg text-white leading-none">yziow</h1>
-                <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">Kit Ambassadeur & Prospectus</span>
+                <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider block">Kit Ambassadeur & Prospectus</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* SÉLECTEUR ACCESSIBLE DU PAYS PROSPECTÉ */}
+            <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 shadow-inner">
+              <label htmlFor="prospect-country-select" className="text-xs font-bold text-slate-400 whitespace-nowrap flex items-center gap-1.5">
+                <span>🌍</span>
+                <span className="hidden sm:inline">Pays prospecté :</span>
+              </label>
+              <select
+                id="prospect-country-select"
+                name="prospect_country"
+                value={selectedCountry}
+                onChange={(e) => setSelectedCountry(e.target.value)}
+                className="bg-slate-800 text-white font-bold text-xs rounded-lg px-2.5 py-1 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                aria-label="Pays de l'établissement prospecté"
+              >
+                <option value="">-- Choisir un pays --</option>
+                {sortedCountries.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.name_fr} ({c.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
-              onClick={handleDownload}
-              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs sm:text-sm transition flex items-center gap-2 border border-slate-700"
+              id="download-pdf-btn"
+              data-testid="download-pdf-btn"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className={`px-4 py-2.5 font-bold rounded-xl text-xs sm:text-sm transition flex items-center gap-2 border ${
+                isGeneratingPdf
+                  ? 'bg-slate-800 text-slate-500 border-slate-800 cursor-not-allowed'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+              }`}
             >
-              <Download className="w-4 h-4 text-orange-400" />
-              <span>Télécharger Fichier</span>
+              <Download className={`w-4 h-4 ${isGeneratingPdf ? 'animate-bounce text-slate-500' : 'text-orange-400'}`} />
+              <span>{isGeneratingPdf ? 'Génération du PDF...' : 'Télécharger le PDF'}</span>
             </button>
 
             <button
@@ -105,7 +483,34 @@ export const AmbassadorKitPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Onglets de sélection des documents */}
+        {/* Message d'erreur PDF si échec */}
+        {pdfError && (
+          <div className="max-w-7xl mx-auto mt-2 p-2 bg-red-950/80 border border-red-800 rounded-xl text-xs text-red-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{pdfError}</span>
+            </div>
+            <button onClick={() => setPdfError('')} className="text-red-400 hover:text-white font-bold ml-2">✕</button>
+          </div>
+        )}
+
+        {/* Message statut tarification si erreur réseau/serveur */}
+        {pricingStatus === 'error' && (
+          <div className="max-w-7xl mx-auto mt-2 p-2 bg-amber-950/80 border border-amber-800 rounded-xl text-xs text-amber-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Impossible de charger les tarifs officiels pour ce pays.</span>
+            </div>
+            <button
+              onClick={() => selectedCountry && fetchPricing(selectedCountry)}
+              className="px-2 py-1 bg-amber-800 hover:bg-amber-700 text-white font-bold rounded-lg flex items-center gap-1 text-[11px]"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Réessayer</span>
+            </button>
+          </div>
+        )}
+
         <div className="max-w-7xl mx-auto mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           {[
             { id: 'prospectus', label: '📄 Prospectus Flyer Yziow', icon: Sparkles },
@@ -145,7 +550,36 @@ export const AmbassadorKitPage: React.FC = () => {
 
       {/* ──── CONTENU DES DOCUMENTS ──── */}
       <div className="max-w-5xl mx-auto p-4 sm:p-8 print-container">
-        
+        {/* Bandeau officiel du pays prospecté (inclus dans l'impression et le PDF généré) */}
+        <div className="mb-6 p-4 bg-slate-100 rounded-2xl border border-slate-300 text-xs text-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🌍</span>
+            <span>
+              Tarification applicable aux établissements situés en : <strong>{selectedCountryInfo ? `${selectedCountryInfo.name_fr} (${selectedCountryInfo.code})` : selectedCountry || 'Non spécifié'}</strong>
+            </span>
+          </div>
+          {pricingStatus === 'success' && pricingData && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg font-bold text-[11px]">
+              Devise : {pricingData.currency} ({pricingData.currency_symbol}) • Grille active
+            </span>
+          )}
+          {pricingStatus === 'not_configured' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-100 text-orange-800 rounded-lg font-bold text-[11px]">
+              Tarification sur devis
+            </span>
+          )}
+          {pricingStatus === 'error' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg font-bold text-[11px]">
+              Impossible de charger les tarifs. Réessayez.
+            </span>
+          )}
+          {pricingStatus === 'idle' && (
+            <span className="text-slate-500 italic text-[11px]">
+              Sélectionnez un pays ci-dessus pour afficher les montants
+            </span>
+          )}
+        </div>
+
         {/* ============================================================ */}
         {/* DOCUMENT 1 : PROSPECTUS / FLYER MARKETING HIGH QUALITY       */}
         {/* ============================================================ */}
@@ -181,7 +615,7 @@ export const AmbassadorKitPage: React.FC = () => {
             {/* Pourquoi choisir Yziow ? Grid de fonctionnalités */}
             <div className="space-y-4">
               <h2 className="text-xl font-black text-slate-900 text-center uppercase tracking-wider">
-                Pourquoi plus de <span className="text-orange-600">500+ Écoles</span> choisissent Yziow ?
+                Pourquoi les établissements scolaires choisissent <span className="text-orange-600">Yziow</span> ?
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
@@ -250,17 +684,21 @@ export const AmbassadorKitPage: React.FC = () => {
             <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border-l-4 border-orange-500">
               <div className="space-y-1 text-center md:text-left">
                 <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">Grille Tarifaire Adaptée</span>
-                <h3 className="text-xl font-bold">À partir de 100 FCFA / élève / mois</h3>
-                <p className="text-xs text-slate-400">Aucun coût d'installation. Payez uniquement pour les élèves inscrits.</p>
+                <h3 className="text-xl font-bold">{ratePrimaireHeading}</h3>
+                <p className="text-xs text-slate-400">Aucun frais d'installation. Payez uniquement pour les élèves inscrits.</p>
               </div>
               <div className="flex gap-3 shrink-0">
                 <div className="px-4 py-2 bg-slate-800 rounded-xl text-center border border-slate-700">
                   <div className="text-xs text-slate-400 font-medium">Maternelle/Primaire</div>
-                  <div className="text-sm font-bold text-orange-400">100 FCFA/mois</div>
+                  <div className="text-sm font-bold text-orange-400">
+                    {pricingStatus === 'success' ? `${ratePrimaireText} / mois` : ratePrimaireText}
+                  </div>
                 </div>
                 <div className="px-4 py-2 bg-slate-800 rounded-xl text-center border border-slate-700">
                   <div className="text-xs text-slate-400 font-medium">Collège/Lycée</div>
-                  <div className="text-sm font-bold text-orange-400">150 FCFA/mois</div>
+                  <div className="text-sm font-bold text-orange-400">
+                    {pricingStatus === 'success' ? `${rateSecondaireText} / mois` : rateSecondaireText}
+                  </div>
                 </div>
               </div>
             </div>
@@ -268,12 +706,12 @@ export const AmbassadorKitPage: React.FC = () => {
             {/* Footer Prospectus & Contact */}
             <div className="border-t border-slate-200 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
               <div className="flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-orange-600" />
+                <img src={yziowLogo} alt="Logo Yziow" className="h-5 w-auto object-contain" />
                 <span className="font-bold text-slate-900">Yziow Education Platform</span>
                 <span>— www.yziow.com</span>
               </div>
               <div className="font-bold text-orange-600 bg-orange-50 px-4 py-2 rounded-xl border border-orange-200">
-                📞 Contact Ambassadeur : +229 01 00 00 00 / contact@yziow.com
+                📞 Contact Ambassadeur : +229 01 97 76 99 91 / contact@yziow.com
               </div>
             </div>
           </div>
@@ -332,7 +770,7 @@ export const AmbassadorKitPage: React.FC = () => {
                 <p>🔥 <strong>OPPORTUNITÉ UNIQUE DE REVENUS — RECRUTEMENT AMBASSADEURS YZIOW !</strong> 🎓</p>
                 <p>Tu veux gagner de l'argent régulièrement en aidant les écoles de ta ville à se digitaliser ?</p>
                 <p>Rejoins l'équipe des Ambassadeurs <strong>Yziow Education</strong> !</p>
-                <p>✅ 0 FCFA d'investissement au départ<br/>
+                <p>✅ Aucun frais d'installation<br/>
                 ✅ Offre 14 jours d'essai GRATUIT aux directeurs d'écoles<br/>
                 ✅ Perçois des commissions sur chaque école qui s'abonne<br/>
                 ✅ Retrait direct sur ton compte Mobile Money !</p>
@@ -418,7 +856,9 @@ export const AmbassadorKitPage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl">
                     <strong className="text-red-900">Objection : "C'est trop cher pour notre école."</strong>
-                    <p className="text-xs text-red-800 mt-1">Réponse : "Le tarif est de seulement 100 FCFA par élève et par mois (soit le prix d'un bonbon). L'école gagne 10x plus en temps et en sécurité des reçus."</p>
+                    <p className="text-xs text-red-800 mt-1">
+                      Réponse : "Le tarif est {pricingStatus === 'success' ? `de seulement ${ratePrimaireText} par élève et par mois` : pricingStatus === 'not_configured' ? 'adapté sur devis selon la taille de votre école' : 'très accessible'}. L'école gagne 10x plus en temps et en sécurité des reçus."
+                    </p>
                   </div>
                   <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl">
                     <strong className="text-red-900">Objection : "Nous n'avons pas d'ordinateurs partout."</strong>
@@ -513,7 +953,66 @@ export const AmbassadorKitPage: React.FC = () => {
                 <span className="text-xs font-bold text-orange-600 uppercase tracking-widest">Document Commercial N°1</span>
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900">Grille Tarifaire Internationale Officielle Yziow</h1>
               </div>
-              <GraduationCap className="w-10 h-10 text-orange-500" />
+              <img src={yziowLogo} alt="Logo Yziow" className="h-10 w-auto object-contain" />
+            </div>
+
+            {/* Carte dynamique pour le pays prospecté */}
+            <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 space-y-4 border-l-4 border-orange-500">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">
+                  Tarifs Applicables au Pays Prospecté : {selectedCountryInfo ? `${selectedCountryInfo.flag} ${selectedCountryInfo.name_fr} (${selectedCountryInfo.code})` : selectedCountry || 'Non sélectionné'}
+                </span>
+                {pricingData && (
+                  <span className="text-xs font-mono text-slate-400">
+                    Devise : {pricingData.currency} ({pricingData.currency_symbol}) • v{pricingData.pricing_version}
+                  </span>
+                )}
+              </div>
+
+              {pricingStatus === 'loading' && (
+                <p className="text-sm text-slate-300">Chargement des tarifs officiels...</p>
+              )}
+
+              {pricingStatus === 'idle' && (
+                <p className="text-sm text-slate-400">
+                  Veuillez sélectionner un pays prospecté dans la barre supérieure pour afficher les montants exacts dans sa devise officielle.
+                </p>
+              )}
+
+              {pricingStatus === 'not_configured' && (
+                <div className="space-y-1">
+                  <h4 className="text-base font-black text-orange-400">Tarification sur devis</h4>
+                  <p className="text-xs text-slate-300">
+                    Ce pays n'a pas de grille standard automatique préconfigurée. Les établissements de cette zone bénéficient d'une tarification sur devis sur mesure.
+                  </p>
+                </div>
+              )}
+
+              {pricingStatus === 'error' && (
+                <p className="text-sm text-amber-400">
+                  Impossible de charger les tarifs. Réessayez.
+                </p>
+              )}
+
+              {pricingStatus === 'success' && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                  <div className="p-4 bg-slate-800 rounded-xl border border-slate-700 text-center">
+                    <div className="text-xs text-slate-400 font-medium">Maternelle & Primaire</div>
+                    <div className="text-lg font-black text-orange-400 mt-1">{ratePrimaireText}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">par élève / mois</div>
+                  </div>
+                  <div className="p-4 bg-slate-800 rounded-xl border border-slate-700 text-center">
+                    <div className="text-xs text-slate-400 font-medium">Collège & Secondaire</div>
+                    <div className="text-lg font-black text-orange-400 mt-1">{rateSecondaireText}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">par élève / mois</div>
+                  </div>
+                  <div className="p-4 bg-slate-800 rounded-xl border border-slate-700 text-center">
+                    <div className="text-xs text-slate-400 font-medium">Supérieur & Formation</div>
+                    <div className="text-lg font-black text-orange-400 mt-1">{rateSuperieurText}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">par élève / mois</div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -603,7 +1102,7 @@ export const AmbassadorKitPage: React.FC = () => {
         {activeDoc === 'charte' && (
           <div className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200 space-y-8">
             <div className="border-b border-slate-200 pb-6 text-center space-y-2">
-              <GraduationCap className="w-12 h-12 text-orange-600 mx-auto" />
+              <img src={yziowLogo} alt="Logo Yziow" className="h-12 w-auto object-contain mx-auto mb-2" />
               <h1 className="text-2xl font-black text-slate-900 uppercase tracking-wider">Charte d'Éthique & Déontologie de l'Ambassadeur Yziow</h1>
               <p className="text-xs text-slate-500">Règles officielles régissant l'activité d'ambassadeur agréé Yziow</p>
             </div>
@@ -662,7 +1161,7 @@ export const AmbassadorKitPage: React.FC = () => {
           <div className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200 space-y-8">
             <div className="border-4 border-double border-orange-500 p-8 rounded-2xl text-center space-y-6 bg-orange-50/30">
               <div className="flex items-center justify-center gap-3">
-                <GraduationCap className="w-12 h-12 text-orange-600" />
+                <img src={yziowLogo} alt="Logo Yziow" className="h-12 w-auto object-contain" />
                 <h1 className="text-3xl font-black tracking-tight text-slate-900">YZIOW EDUCATION</h1>
               </div>
 
@@ -691,8 +1190,8 @@ export const AmbassadorKitPage: React.FC = () => {
             {/* Entête Officiel Yziow */}
             <div className="flex justify-between items-start border-b-2 border-orange-500 pb-6 font-sans">
               <div className="space-y-1">
-                <div className="flex items-center gap-2 text-slate-900 font-black text-xl">
-                  <GraduationCap className="w-7 h-7 text-orange-600" />
+                <div className="flex items-center gap-3 text-slate-900 font-black text-xl">
+                  <img src={yziowLogo} alt="Logo Yziow" className="h-8 w-auto object-contain" />
                   <span>YZIOW EDUCATION</span>
                 </div>
                 <p className="text-xs text-slate-500">Plateforme SaaS de Gestion Scolaire & Pédagogique</p>
@@ -770,8 +1269,8 @@ export const AmbassadorKitPage: React.FC = () => {
           <div className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200 space-y-6 font-serif leading-relaxed text-sm">
             <div className="flex justify-between items-start border-b-2 border-orange-500 pb-6 font-sans">
               <div className="space-y-1">
-                <div className="flex items-center gap-2 text-slate-900 font-black text-xl">
-                  <GraduationCap className="w-7 h-7 text-orange-600" />
+                <div className="flex items-center gap-3 text-slate-900 font-black text-xl">
+                  <img src={yziowLogo} alt="Logo Yziow" className="h-8 w-auto object-contain" />
                   <span>YZIOW EDUCATION</span>
                 </div>
                 <p className="text-xs text-slate-500">Direction des Partenariats Financiers & Yziow Pay</p>
@@ -803,7 +1302,7 @@ export const AmbassadorKitPage: React.FC = () => {
               <p>
                 Dans le cadre de l'extension de notre écosystème de services, nous sollicitons un **partenariat institutionnel avec votre établissement bancaire** autour de trois axes stratégiques :
               </p>
-              
+
               <ol className="list-decimal pl-6 space-y-2 font-sans text-xs">
                 <li><strong>Lignes de crédits d'équipement aux écoles :</strong> Proposer des facilités de prêt à taux préférentiel pour l'acquisition de bus scolaires, ordinateurs et constructions d'infrastructures pour les écoles inscrites sur Yziow.</li>
                 <li><strong>Crédits de scolarité pour les parents :</strong> Offrir des micro-crédits de rentrée scolaire aux parents d'élèves gérant leurs paiements via Yziow Pay.</li>
@@ -842,8 +1341,8 @@ export const AmbassadorKitPage: React.FC = () => {
           <div className="bg-white text-slate-900 rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200 space-y-6 font-serif leading-relaxed text-sm">
             <div className="flex justify-between items-start border-b-2 border-orange-500 pb-6 font-sans">
               <div className="space-y-1">
-                <div className="flex items-center gap-2 text-slate-900 font-black text-xl">
-                  <GraduationCap className="w-7 h-7 text-orange-600" />
+                <div className="flex items-center gap-3 text-slate-900 font-black text-xl">
+                  <img src={yziowLogo} alt="Logo Yziow" className="h-8 w-auto object-contain" />
                   <span>YZIOW EDUCATION</span>
                 </div>
                 <p className="text-xs text-slate-500">Direction de l'Impact Social & Mécénat RSE</p>
@@ -988,7 +1487,7 @@ export const AmbassadorKitPage: React.FC = () => {
                   <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4">
                     <li>Visibilité exclusive sur la page d'accueil principale</li>
                     <li>Mise en valeur du service Mobile Money (MTN MoMo / Moov Money / Celtis Cash)</li>
-                    <li>Incitations et promotions auprès de 500+ établissements scolaires</li>
+                    <li>Incitations et promotions auprès des établissements scolaires partenaires</li>
                     <li>Tarif annuel privilégié : 3.000.000 FCFA / an</li>
                   </ul>
                 </div>

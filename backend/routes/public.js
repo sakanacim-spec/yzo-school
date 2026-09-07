@@ -219,4 +219,53 @@ router.post('/donation-proposals', donationProposalLimiter, async (req, res) => 
     }
 });
 
+// Limiteur dédié pour la consultation publique des tarifs (60 req / 15 min / IP)
+const publicPricingLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Trop de requêtes, veuillez réessayer plus tard.' }
+});
+
+const { getPublicPricingForCountry } = require('../services/publicPricingService');
+
+// GET /api/public/pricing/:countryCode
+// Consultation autoritaire en lecture seule des tarifs publics d'abonnement par pays
+router.get('/pricing/:countryCode', publicPricingLimiter, async (req, res) => {
+    const rawCode = req.params.countryCode;
+    const countryCode = String(rawCode || '').trim().toUpperCase();
+
+    if (!/^[A-Z]{2}$/.test(countryCode)) {
+        return res.status(400).json({
+            error: 'Code pays invalide. Format attendu : 2 lettres ISO (ex: BJ, CM, GH, ES).',
+            code: 'INVALID_COUNTRY_CODE'
+        });
+    }
+
+    try {
+        const pricing = await getPublicPricingForCountry(countryCode);
+        return res.status(200).json(pricing);
+    } catch (err) {
+        if (err.code === 'PRICING_GRID_NOT_CONFIGURED') {
+            return res.status(404).json({
+                error: 'Aucune grille tarifaire active n\'est configurée pour ce pays.',
+                code: 'PRICING_GRID_NOT_CONFIGURED',
+                message: 'Tarification sur devis'
+            });
+        }
+        if (err.code === 'INVALID_COUNTRY_CODE') {
+            return res.status(400).json({
+                error: err.message,
+                code: 'INVALID_COUNTRY_CODE'
+            });
+        }
+        console.error('Erreur consultation tarifs publics');
+        return res.status(500).json({
+            error: 'Erreur interne lors de la consultation des tarifs.',
+            code: 'INTERNAL_SERVER_ERROR'
+        });
+    }
+});
+
 module.exports = router;
