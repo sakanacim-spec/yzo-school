@@ -307,8 +307,8 @@ export const PUBLIC_I18N: Record<string, PublicTranslations> = {
     },
     hero: {
       badge: "LA PLATEFORME DE GESTION SCOLAIRE",
-      title1: "L'excellence",
-      title2: "au cœur de l'école.",
+      title1: "l’excellence",
+      title2: "au cœur de l’école.",
       desc: "Une solution complète pour la gestion scolaire, connectant directeurs, enseignants, parents et élèves dans un environnement moderne et intuitif.",
       ctaRegister: "Inscrire mon établissement",
       ctaFeatures: "Découvrir les fonctionnalités",

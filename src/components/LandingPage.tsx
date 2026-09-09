@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { usePageSeo } from '../hooks/usePageSeo';
 import { useStore } from '../store/useStore';
 import {
   GraduationCap, BookOpen, MapPin, ShieldCheck,
@@ -27,6 +28,12 @@ const LANGUAGES = [
 ];
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegisterSchool, onNavigate }) => {
+  usePageSeo({
+    title: 'Yziow - La plateforme moderne de gestion scolaire',
+    description: 'Gérez votre établissement scolaire de bout en bout avec Yziow : administration, suivi académique, e-learning, finances et communication parents/professeurs.',
+    canonical: 'https://www.yziow.com/',
+    ogType: 'website'
+  });
   const { language, setLanguage } = useStore();
   const [langOpen, setLangOpen] = useState(false);
 
@@ -134,7 +141,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegisterSch
             </div>
 
             <h1 className="text-5xl lg:text-7xl font-black text-slate-900 tracking-tight leading-[1.1]">
-              {t.hero.title1}<br />
+              Yziow, {t.hero.title1}<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#f97316] to-[#ea580c]">{t.hero.title2}</span>
             </h1>
 
