@@ -424,7 +424,14 @@ export function App() {
       );
     }
     if (publicPage === 'about') {
-      return <About onBack={() => applyNavState(handleBackToLanding())} />;
+      return (
+        <About
+          onBack={() => {
+            window.history.pushState({}, '', '/');
+            applyNavState(handleBackToLanding());
+          }}
+        />
+      );
     }
     if (publicPage === 'contact') {
       return (
@@ -453,6 +460,9 @@ export function App() {
             } else if (page === 'partners') {
               window.history.pushState({}, '', '/partenaires');
               applyNavState(handlePublicNavigate('partners', extra));
+            } else if (page === 'about') {
+              window.history.pushState({}, '', '/about');
+              applyNavState(handlePublicNavigate('about'));
             } else {
               applyNavState(handlePublicNavigate(page, extra));
             }
