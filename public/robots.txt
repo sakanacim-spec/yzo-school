@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://yziow.com/sitemap.xml
+Sitemap: https://www.yziow.com/sitemap.xml
