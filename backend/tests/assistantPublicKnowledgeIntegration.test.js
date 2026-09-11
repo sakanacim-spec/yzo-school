@@ -1274,7 +1274,7 @@ describe('D. Isolation du tour courant & Robustesse (Phase 2.1)', () => {
 
         // 3. Un fondateur exerçant la direction utilise le profil Directeur
         assert.ok(
-            content.includes('fondateur qui exerce également la direction') || content.includes('fondateur qui assure la direction'),
+            content.includes('fondateur qui exerce la direction') || content.includes('fondateur qui exerce également la direction') || content.includes('fondateur qui assure la direction'),
             'La situation du fondateur exerçant la direction doit être précisée'
         );
 
@@ -1298,6 +1298,9 @@ describe('D. Isolation du tour courant & Robustesse (Phase 2.1)', () => {
         assert.strictEqual(emptyPrompt.includes('maternelle_primaire'), false, 'Pas de clés techniques de grilles dans le prompt');
         assert.strictEqual(emptyPrompt.includes('--- FONCTIONNALITÉS POUR LES DIRECTEURS ---'), false, 'PLATFORM_OVERVIEW ne doit pas figurer dans le prompt public');
         assert.strictEqual(emptyPrompt.includes('=== MANUEL DE PROCÉDURES YZIOW ==='), false, 'PROCEDURES_MANUAL ne doit pas figurer dans le prompt public');
+        assert.strictEqual(emptyPrompt.includes('Commencer gratuitement'), false, 'Commencer gratuitement ne doit pas figurer dans le prompt public nu');
+        assert.strictEqual(emptyPrompt.includes('Rendez-vous sur'), false, 'Rendez-vous ne doit pas figurer dans le prompt public nu');
+        assert.strictEqual(emptyPrompt.includes('renseignez les informations'), false, 'Les étapes d\'inscription ne doivent pas figurer dans le prompt nu');
 
         // 2. Lorsqu'un fait métier apparaît dans le prompt final, il provient du bloc de connaissances sélectionné dans le registre
         const testFact = 'Fait métier vérifié extrait du registre : Module Examen 2026-B';
@@ -1382,5 +1385,60 @@ describe('D. Isolation du tour courant & Robustesse (Phase 2.1)', () => {
         } finally {
             aiQuotaService.enforceQuota = originalEnforce;
         }
+    });
+
+    test('D9. Précision rédactionnelle sur l\'inscription officielle (sans pré-connexion ni sélection manuelle de profil)', () => {
+        const { getFullPublicKnowledge } = require('../data/publicKnowledgeRegistry');
+        const { buildPublicSystemPrompt } = require('../utils/assistantPrompts');
+
+        // 1. Sans contexte du registre, le prompt nu ne contient aucune procédure d'inscription
+        const emptyPrompt = buildPublicSystemPrompt('fr', '');
+        assert.strictEqual(emptyPrompt.includes('Rendez-vous sur'), false, 'Le prompt nu ne doit pas contenir la procédure d\'inscription');
+        assert.strictEqual(emptyPrompt.includes('Commencer gratuitement'), false, 'Le prompt nu ne doit pas contenir "Commencer gratuitement"');
+        assert.strictEqual(emptyPrompt.includes('renseignez les informations'), false, 'Le prompt nu ne doit pas contenir les étapes d\'inscription');
+        assert.strictEqual(emptyPrompt.includes('cliquez sur'), false, 'Le prompt nu ne doit pas contenir "cliquez sur"');
+        assert.strictEqual(emptyPrompt.includes('Le compte responsable sera créé sous le profil Directeur'), false, 'Le prompt nu ne doit pas contenir la création du compte sous le profil Directeur issue de la procédure');
+
+        // 2. La procédure officielle provient de l'entrée /guide du registre
+        const registry = getFullPublicKnowledge();
+        const guideEntry = registry.find(e => e.route === '/guide');
+        assert.ok(guideEntry, 'L\'entrée /guide doit exister dans le registre');
+        const guideContent = guideEntry.contentValidated;
+
+        // Vérification de la formulation officielle exacte dans le registre
+        assert.ok(
+            guideContent.includes('Rendez-vous sur https://www.yziow.com, cliquez sur “Commencer gratuitement”, puis renseignez les informations de l’établissement et celles du Directeur ou de la Directrice. Le compte responsable sera créé sous le profil Directeur. Un fondateur qui exerce la direction utilise ce même profil. Si la direction est confiée à une autre personne, c’est la direction désignée qui effectue l’inscription.'),
+            'La formulation officielle exacte doit figurer dans le registre public'
+        );
+
+        // Pas de fausses contraintes dans le registre
+        assert.strictEqual(guideContent.toLowerCase().includes('connectez-vous avant'), false, 'Le registre ne doit pas demander de se connecter avant');
+        assert.strictEqual(guideContent.toLowerCase().includes('se connecter avant'), false, 'Le registre ne doit pas demander de se connecter avant');
+        assert.strictEqual(guideContent.includes('choisir manuellement'), false, 'Le registre ne doit pas indiquer de choix manuel de profil');
+        assert.strictEqual(guideContent.includes('sélectionnez le profil'), false, 'Le registre ne doit pas demander de sélectionner le profil');
+        assert.strictEqual(guideContent.includes('compte fondateur'), false, 'Aucun compte fondateur dans le registre');
+        assert.strictEqual(guideContent.includes('rôle fondateur'), false, 'Aucun rôle fondateur dans le registre');
+
+        // 3. Lorsqu'on sélectionne les connaissances pour une question d'inscription, la procédure officielle apparaît dans le prompt final
+        const knowledgeRes = assistantKnowledgeService.selectRelevantKnowledge('Comment s\'inscrire sur Yziow ?');
+        assert.strictEqual(knowledgeRes.hasRelevantKnowledge, true, 'Une question d\'inscription doit sélectionner des connaissances');
+        const hasGuide = knowledgeRes.entries.some(e => e.route === '/guide');
+        assert.ok(hasGuide, 'La sélection pour une inscription doit inclure /guide');
+
+        const formattedContext = assistantKnowledgeService.formatKnowledgeContext(knowledgeRes.entries);
+        const finalPrompt = buildPublicSystemPrompt('fr', formattedContext);
+
+        // La procédure officielle apparaît grâce au contexte injecté
+        assert.ok(finalPrompt.includes('Rendez-vous sur https://www.yziow.com'), 'Le prompt final doit contenir la procédure officielle issue du registre');
+        assert.ok(finalPrompt.includes('Commencer gratuitement'), 'Le prompt final doit mentionner Commencer gratuitement');
+        assert.ok(finalPrompt.includes('Le compte responsable sera créé sous le profil Directeur'), 'Le prompt final mentionne le profil Directeur');
+
+        // 4. Aucun rôle d'authentification fondateur n'est proposé
+        assert.strictEqual(finalPrompt.includes('rôle de fondateur'), false, 'Aucun rôle de fondateur dans le prompt final');
+        assert.strictEqual(finalPrompt.includes('compte fondateur'), false, 'Aucun compte fondateur dans le prompt final');
+
+        // 5. L'URL utilisée est https://www.yziow.com
+        assert.ok(finalPrompt.includes('https://www.yziow.com'), 'Le prompt final utilise le domaine canonique https://www.yziow.com');
+        assert.strictEqual(finalPrompt.includes('https://yziow.com/'), false, 'Aucune URL sans www dans le prompt final');
     });
 });
