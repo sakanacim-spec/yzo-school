@@ -11,7 +11,7 @@
  * 2. Aucune route privée, administrative, scolaire ou liée à des données personnelles
  *    ne peut être inscrite dans ce registre.
  * 3. Les contenus sont des données factuelles pures, non exécutables et exemptes de code/script.
- * 4. Les URL canoniques doivent impérativement appartenir au domaine officiel 'https://yziow.com'.
+ * 4. Les URL canoniques doivent impérativement appartenir au domaine officiel 'https://www.yziow.com'.
  * 5. Toute mise à jour nécessite une modification versionnée et un redéploiement d'application.
  */
 
@@ -130,63 +130,55 @@ function validateKnowledgeEntry(entry) {
         throw new Error(`TITRE_REQUIS: Titre manquant pour la route "${route}".`);
     }
 
-    const validLangs = ['fr', 'en', 'es', 'ar', 'de', 'it', 'pt', 'ru', 'zh'];
-    if (!language || !validLangs.includes(language)) {
-        throw new Error(`LANGUE_INVALIDE: "${language}" pour la route "${route}".`);
+    if (!language || language !== 'fr') {
+        throw new Error(`LANGUE_INVALIDE: Seul le français ("fr") est autorisé en V1 (reçu: "${language}").`);
     }
 
-    if (!summary || typeof summary !== 'string' || summary.trim().length < 10) {
-        throw new Error(`RÉSUMÉ_REQUIS: Le résumé doit comporter au moins 10 caractères pour "${route}".`);
+    if (!summary || typeof summary !== 'string' || summary.trim().length === 0) {
+        throw new Error(`RÉSUMÉ_REQUIS: Résumé manquant pour la route "${route}".`);
     }
 
-    if (!contentValidated || typeof contentValidated !== 'string' || contentValidated.trim().length < 10) {
-        throw new Error(`CONTENU_REQUIS: Le contenu validé doit comporter au moins 10 caractères pour "${route}".`);
+    if (!contentValidated || typeof contentValidated !== 'string' || contentValidated.trim().length === 0) {
+        throw new Error(`CONTENU_REQUIS: Contenu validé manquant pour la route "${route}".`);
     }
 
     if (!Array.isArray(keywords) || keywords.length === 0) {
-        throw new Error(`MOTS_CLÉS_REQUIS: Au moins un mot-clé requis pour "${route}".`);
+        throw new Error(`MOTS_CLÉS_REQUIS: Au moins un mot-clé requis pour la route "${route}".`);
     }
 
-    if (!canonicalUrl || typeof canonicalUrl !== 'string') {
-        throw new Error(`URL_CANONIQUE_REQUISE: URL canonique manquante pour "${route}".`);
+    // Contrôle strict de l'URL canonique (fail-closed)
+    const expectedCanonicalUrl = `${CANONICAL_DOMAIN}${route === '/' ? '/' : route}`;
+    if (canonicalUrl !== expectedCanonicalUrl) {
+        throw new Error(`URL_CANONIQUE_INVALIDE: "${canonicalUrl}" ne correspond pas à l'URL attendue "${expectedCanonicalUrl}".`);
     }
 
-    if (!canonicalUrl.startsWith(`${CANONICAL_DOMAIN}/`)) {
-        throw new Error(`DOMAINE_CANONIQUE_INVALIDE: L'URL "${canonicalUrl}" doit débuter par le domaine officiel "${CANONICAL_DOMAIN}/".`);
+    if (publicationStatus !== 'published') {
+        throw new Error(`STATUT_PUBLICATION_INVALIDE: Seul le statut "published" est autorisé en V1 (reçu: "${publicationStatus}").`);
     }
 
-    const expectedCanonical = `${CANONICAL_DOMAIN}${route === '/' ? '/' : route}`;
-    if (canonicalUrl !== expectedCanonical) {
-        throw new Error(`URL_CANONIQUE_INVALIDE: Reçu "${canonicalUrl}", attendu "${expectedCanonical}".`);
-    }
-
-    if (publicationStatus !== 'published' && publicationStatus !== 'draft' && publicationStatus !== 'archived') {
-        throw new Error(`STATUT_INVALIDE: Statut "${publicationStatus}" non reconnu pour "${route}".`);
-    }
-
+    // Format de date ISO YYYY-MM-DD
     if (!updatedAt || !/^\d{4}-\d{2}-\d{2}$/.test(updatedAt)) {
-        throw new Error(`DATE_INVALIDE: "updatedAt" doit respecter le format YYYY-MM-DD pour "${route}".`);
+        throw new Error(`DATE_MISE_A_JOUR_INVALIDE: Format YYYY-MM-DD requis pour "${updatedAt}".`);
     }
 
     if (!version || typeof version !== 'string') {
-        throw new Error(`VERSION_REQUISE: Version manquante pour "${route}".`);
+        throw new Error(`VERSION_REQUISE: Version requise pour la route "${route}".`);
     }
 
-    if (!sitemap || typeof sitemap !== 'object') {
-        throw new Error(`SITEMAP_CONFIG_REQUISE: Configuration sitemap manquante pour "${route}".`);
-    }
-
-    if (typeof sitemap.include !== 'boolean') {
-        throw new Error(`SITEMAP_INCLUDE_REQUIS: "sitemap.include" doit être un booléen pour "${route}".`);
-    }
-
-    if (sitemap.include) {
-        const validFreqs = ['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'];
-        if (!validFreqs.includes(sitemap.changefreq)) {
-            throw new Error(`SITEMAP_CHANGEFREQ_INVALIDE: "${sitemap.changefreq}" pour "${route}".`);
+    // Validation des métadonnées du sitemap
+    if (sitemap) {
+        if (typeof sitemap.include !== 'boolean') {
+            throw new Error(`SITEMAP_INCLUDE_INVALIDE: Booléen requis pour "${route}".`);
         }
-        if (!/^(0\.[0-9]|1\.0)$/.test(String(sitemap.priority))) {
-            throw new Error(`SITEMAP_PRIORITY_INVALIDE: "${sitemap.priority}" pour "${route}" (attendu 0.0 à 1.0).`);
+        if (sitemap.include) {
+            const validFreqs = ['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'];
+            if (!validFreqs.includes(sitemap.changefreq)) {
+                throw new Error(`SITEMAP_CHANGEFREQ_INVALIDE: "${sitemap.changefreq}" non autorisé.`);
+            }
+            const priorityNum = parseFloat(sitemap.priority);
+            if (isNaN(priorityNum) || priorityNum < 0.0 || priorityNum > 1.0) {
+                throw new Error(`SITEMAP_PRIORITY_INVALIDE: La priorité doit être entre 0.0 et 1.0 (reçu: "${sitemap.priority}").`);
+            }
         }
     }
 
@@ -201,12 +193,12 @@ const STATIC_PUBLIC_ENTRIES = Object.freeze([
         route: '/',
         title: 'Yziow - Plateforme moderne de gestion scolaire',
         language: 'fr',
-        summary: 'Plateforme cloud complète de gestion pour établissements scolaires (maternelles, primaires, collèges, lycées et supérieur) : gestion des élèves, bulletins certifiés PDF, présences par QR Code, comptabilité et portail parents.',
-        contentValidated: 'Yziow est un logiciel SaaS complet de gestion scolaire. Il permet l\'administration des inscriptions, la saisie des notes, l\'édition des bulletins PDF, l\'émargement par scanner QR Code, le suivi de la comptabilité et la communication avec les familles.',
-        keywords: ['gestion scolaire', 'logiciel ecole', 'bulletins pdf', 'qr code', 'presence', 'comptabilite', 'portail parents', 'essai gratuit'],
+        summary: 'Plateforme cloud complète de gestion pour établissements scolaires (maternelles, primaires, collèges, lycées et supérieur) : gestion des élèves, bulletins certifiés PDF, présences par QR Code, comptabilité, portail parents et 14 jours d\'essai gratuit sans carte bancaire.',
+        contentValidated: 'Yziow est un logiciel SaaS complet de gestion scolaire pour écoles maternelles, primaires, collèges, lycées et universités. Il permet l\'administration des inscriptions, la saisie des notes, l\'édition des bulletins certifiés PDF, l\'émargement par scanner QR Code, le suivi de la comptabilité, les paiements et la communication avec les familles. L\'inscription d\'un établissement donne accès à 14 jours d\'essai gratuit sans carte bancaire.',
+        keywords: ['gestion scolaire', 'logiciel ecole', 'bulletins pdf', 'qr code', 'presence', 'comptabilite', 'portail parents', 'essai gratuit', '14 jours', 'inscription', 'inscrire'],
         canonicalUrl: 'https://www.yziow.com/',
         publicationStatus: 'published',
-        updatedAt: '2026-08-01',
+        updatedAt: '2026-09-11',
         version: '1.0',
         sitemap: {
             include: true,
@@ -269,12 +261,12 @@ const STATIC_PUBLIC_ENTRIES = Object.freeze([
         route: '/guide',
         title: 'Guide d\'utilisation YZIOW',
         language: 'fr',
-        summary: 'Documentation interactive et repères méthodologiques pour configurer et utiliser les fonctionnalités de gestion scolaire d\'YZIOW.',
-        contentValidated: 'Le Guide d\'utilisation détaille le parcours étape par étape : création d\'année scolaire, inscription des élèves, gestion des classes, émargement QR Code, édition des bulletins et gestion des reçus de scolarité.',
-        keywords: ['guide', 'tutoriel', 'manuel', 'aide', 'faq', 'documentation', 'utilisation'],
+        summary: 'Documentation interactive, repères méthodologiques et procédures pour configurer et utiliser YZIOW : inscription d\'établissement sous le profil Directeur, gestion des classes, élèves, présences, bulletins et comptabilité.',
+        contentValidated: 'Le Guide d\'utilisation détaille les procédures officielles de la plateforme YZIOW : 1. Inscription d\'un établissement : l\'inscription est réalisée exclusivement sous le profil Directeur ou Directrice depuis le site officiel https://www.yziow.com. Un fondateur qui exerce également la direction de l\'établissement s\'inscrit sous ce profil Directeur. Lorsqu\'un fondateur dispose d\'un directeur distinct, c\'est le directeur ou la direction désignée qui effectue l\'inscription. Aucun compte ou rôle d\'authentification spécifique de fondateur n\'existe sur la plateforme. 2. Configuration : création de l\'année scolaire et organisation des classes. 3. Élèves et personnel : gestion des inscriptions et attributions. 4. Présences : émargement par scanner QR Code. 5. Notes et bulletins : saisie des évaluations et génération des bulletins scolaires certifiés au format PDF. 6. Comptabilité : enregistrement des paiements et édition instantanée des reçus. 7. Espace parents : suivi en temps réel de la scolarité.',
+        keywords: ['guide', 'tutoriel', 'manuel', 'aide', 'faq', 'documentation', 'utilisation', 'inscription', 'inscrire', 'directeur', 'fondateur', 'bulletins', 'notes', 'presence', 'qr code', 'comptabilite'],
         canonicalUrl: 'https://www.yziow.com/guide',
         publicationStatus: 'published',
-        updatedAt: '2026-08-01',
+        updatedAt: '2026-09-11',
         version: '1.0',
         sitemap: {
             include: true,
