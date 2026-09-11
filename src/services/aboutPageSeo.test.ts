@@ -70,11 +70,12 @@ test('4. Balise canonique unique et JSON-LD AboutPage bilingue', () => {
   assert.ok(aboutContent.includes("isEn ? 'en' : 'fr'"), "inLanguage dynamique conforme");
 });
 
-test('5. Sitemap contient exactement 5 URLs canoniques sans doublon', () => {
+test('5. Le sitemap contient les URL canoniques SEO requises sans doublon', () => {
   const locMatches = [...sitemapContent.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
-  assert.equal(locMatches.length, 5, 'Le sitemap doit contenir exactement 5 URLs');
+  assert.ok(locMatches.length > 0, 'Le sitemap doit contenir des URLs');
 
-  const expectedUrls = [
+  // 1. Présence de toutes les URLs historiques attendues par ce test
+  const expectedHistoricalUrls = [
     'https://www.yziow.com/',
     'https://www.yziow.com/blog',
     'https://www.yziow.com/blog/comment-preparer-la-gestion-numerique-de-son-etablissement',
@@ -82,12 +83,31 @@ test('5. Sitemap contient exactement 5 URLs canoniques sans doublon', () => {
     'https://www.yziow.com/about'
   ];
 
-  for (const url of expectedUrls) {
+  for (const url of expectedHistoricalUrls) {
     assert.ok(locMatches.includes(url), `Le sitemap doit inclure ${url}`);
   }
 
+  // 2. Unicité de toutes les balises <loc>
   const uniqueLocs = new Set(locMatches);
-  assert.equal(uniqueLocs.size, 5, 'Le sitemap ne doit pas avoir de doublons');
+  assert.equal(uniqueLocs.size, locMatches.length, 'Le sitemap ne doit pas avoir de doublons');
+
+  // 3. Utilisation exclusive de https://www.yziow.com et absence de version sans www
+  for (const loc of locMatches) {
+    assert.ok(loc.startsWith('https://www.yziow.com/'), `Chaque URL du sitemap doit débuter par https://www.yziow.com/ (reçu: ${loc})`);
+    assert.strictEqual(loc.startsWith('https://yziow.com/'), false, `Aucune URL ne doit utiliser le domaine apex sans www (reçu: ${loc})`);
+  }
+
+  // 4. Absence de /login et /register
+  assert.strictEqual(locMatches.some(loc => loc.includes('/login')), false, 'Le sitemap ne doit pas contenir /login');
+  assert.strictEqual(locMatches.some(loc => loc.includes('/register')), false, 'Le sitemap ne doit pas contenir /register');
+
+  // 5. Absence de routes privées
+  const forbiddenPrivatePrefixes = ['/dashboard', '/parent', '/prof', '/superadmin', '/admin', '/api', '/d/'];
+  for (const loc of locMatches) {
+    for (const prefix of forbiddenPrivatePrefixes) {
+      assert.strictEqual(loc.includes(prefix), false, `Le sitemap ne doit pas contenir de route privée (${prefix} trouvé dans ${loc})`);
+    }
+  }
 });
 
 test('6. Navigation centralisée : URL parsing et lien interne vers /about', () => {

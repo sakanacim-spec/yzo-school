@@ -213,7 +213,7 @@ export function DonationPage() {
         </div>
         
         <div className="text-center text-sm font-medium text-slate-400">
-          Propulsé par <a href="https://yziow.com" className="text-indigo-500 hover:underline">Yziow</a> - La plateforme des écoles
+          Propulsé par <a href="https://www.yziow.com" className="text-indigo-500 hover:underline">Yziow</a> - La plateforme des écoles
         </div>
       </div>
     </div>
