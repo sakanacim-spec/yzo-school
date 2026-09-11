@@ -27,6 +27,9 @@ const {
     isFeatureDiscoveryIntent
 } = require('../utils/assistantProductCatalog');
 
+const assistantSecurityGuard = require('../services/assistantSecurityGuard');
+const assistantKnowledgeService = require('../services/assistantKnowledgeService');
+
 let aiClient = null;
 
 const getClient = () => {
@@ -60,7 +63,8 @@ const chatWithAssistant = async (req, res) => {
     const { messages, language } = req.body || {};
     const safeLang = normalizeLanguage(language);
 
-    // Sanitize conversation state strictly from req.body (never infer from historical message text)
+    // 1. Validation de l'action et assainissement de l'état conversationnel (req.body uniquement)
+    const assistantAction = typeof req.body?.assistant_action === 'string' ? req.body.assistant_action.trim() : '';
     const rawState = req.body?.conversation_state;
     const awaiting = (rawState && typeof rawState === 'object' && rawState.awaiting === 'pricing_country')
         ? 'pricing_country'
@@ -68,7 +72,7 @@ const chatWithAssistant = async (req, res) => {
     const conversation_state = awaiting ? { awaiting } : null;
 
     try {
-        // 1. Validation fail-closed des entrées utilisateur
+        // 2. Validation fail-closed structurelle des messages
         const validation = aiQuotaService.validateChatMessages(messages);
         if (!validation.isValid) {
             return res.status(400).json({
@@ -76,7 +80,16 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        // 2. Traitement déterministe des demandes globales de tous les tarifs (0 appel IA, 0 quota)
+        // 3. Filtre de sécurité côté serveur en profondeur (injections, secrets, prompt leaks, PII, etc.)
+        const securityCheck = assistantSecurityGuard.inspectRequest(messages);
+        if (!securityCheck.isSafe) {
+            return res.json({
+                reply: securityCheck.publicRefusalMessage,
+                conversation_state: null
+            });
+        }
+
+        // 4. Traitement déterministe des demandes globales de tous les tarifs (0 appel IA, 0 quota)
         if (detectGlobalPricingRequest(messages)) {
             return res.json({
                 reply: "Les tarifs YZIOW sont adaptés au pays de chaque établissement. Je peux uniquement vous communiquer la grille applicable au pays de votre établissement.",
@@ -84,8 +97,7 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        // 3. Découverte des fonctionnalités & Présentation commerciale (0 appel IA, 0 quota)
-        const assistantAction = typeof req.body?.assistant_action === 'string' ? req.body.assistant_action.trim() : '';
+        // 5. Découverte des fonctionnalités & Présentation commerciale déterministe (0 appel IA, 0 quota)
         if (assistantAction === 'discover_features_and_pricing' || isFeatureDiscoveryIntent(messages)) {
             const presentation = getProductPresentation({ language: safeLang });
             return res.json({
@@ -94,7 +106,7 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        // 4. Traitement déterministe des demandes tarifaires et résolutions de pays (0 appel IA, 0 quota)
+        // 6. Traitement déterministe des demandes tarifaires et résolutions de pays (0 appel IA, 0 quota)
         const countryResult = extractGuestCountry(messages, req.body?.countryCode || req.body?.country, conversation_state);
 
         if (countryResult.status === 'MULTIPLE_COUNTRIES_IN_INPUT') {
@@ -124,16 +136,26 @@ const chatWithAssistant = async (req, res) => {
             }
         }
 
-        // If we are awaiting a country or pricing intent is detected, prompt for country (0 appel IA, 0 quota)
+        // Si nous attendons un pays ou si une intention tarifaire est détectée, demander le pays (0 appel IA, 0 quota)
         if (awaiting === 'pricing_country' || detectPricingIntent(messages, conversation_state)) {
-            // Avoid resetting awaiting if already set and user repeats a generic pricing question
             return res.json({
                 reply: "Veuillez préciser le pays de votre établissement pour obtenir les tarifs.",
                 conversation_state: { awaiting: 'pricing_country' }
             });
         }
 
-        // 5. Contrôle et consommation atomique du quota (5/h, 10/j par IP) UNIQUEMENT pour les requêtes Groq / LLM
+        // 7. Sélection déterministe des connaissances publiques pertinentes depuis le registre officiel
+        const knowledgeResult = assistantKnowledgeService.selectRelevantKnowledge(messages);
+
+        // Si aucune information pertinente ne dépasse le seuil : Réponse déterministe (0 appel IA, 0 quota)
+        if (!knowledgeResult.hasRelevantKnowledge) {
+            return res.json({
+                reply: assistantKnowledgeService.PUBLIC_OUT_OF_SCOPE_RESPONSE,
+                conversation_state: null
+            });
+        }
+
+        // 8. Contrôle et consommation atomique du quota (5/h, 10/j par IP) UNIQUEMENT pour les appels réels au modèle
         const clientIp = aiQuotaService.getClientIp(req);
         const quotaResult = await aiQuotaService.enforceQuota({
             scope: 'public_ip',
@@ -150,7 +172,20 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        // 6. Appel Groq sécurisé pour les requêtes non-tarifaires
+        // 9. Construction du prompt système avec contexte public plafonné à 2 500 caractères
+        const formattedKnowledge = assistantKnowledgeService.formatKnowledgeContext(knowledgeResult.entries);
+        const systemPrompt = buildPublicSystemPrompt(safeLang, formattedKnowledge);
+
+        // 10. Préparation de l'historique conversationnel non fiable (max 3 messages 'user' récents, rôles non forgeables)
+        const recentUserMessages = messages
+            .filter(m => (m.sender === 'user' || m.role === 'user'))
+            .slice(-3)
+            .map(m => ({
+                role: 'user',
+                content: String(m.text !== undefined ? m.text : m.content || '').trim().slice(0, 1000)
+            }));
+
+        // 11. Appel au fournisseur IA
         let groq;
         try {
             groq = getClient();
@@ -160,21 +195,37 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        const history = formatHistory(messages);
-        const systemPrompt = buildPublicSystemPrompt(safeLang);
-
         const response = await groq.chat.completions.create({
             model: GROQ_MODEL,
             messages: [
                 { role: 'system', content: systemPrompt },
-                ...history
+                ...recentUserMessages
             ],
             temperature: 0.5,
             max_tokens: 1024,
         });
 
-        const replyText = response.choices[0]?.message?.content || getLocalizedErrorMessage(500, null, safeLang);
-        return res.json({ reply: replyText });
+        // 12. Validation et assainissement de la sortie avant envoi
+        let rawReply = response.choices[0]?.message?.content;
+        if (typeof rawReply !== 'string' || !rawReply.trim()) {
+            rawReply = getLocalizedErrorMessage(500, null, safeLang);
+        }
+
+        let sanitizedReply = rawReply
+            .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+            .trim();
+
+        if (sanitizedReply.length > 1500) {
+            sanitizedReply = sanitizedReply.slice(0, 1500).trim() + '...';
+        }
+
+        // Rejet de fuite d'identifiants techniques de modèle ou variables internes
+        const FORBIDDEN_LEAK_REGEX = /\b(groq-sdk|gpt-oss-20b|groq_api_key|openai\/gpt-oss|supabase_service_role|ai_quota_hash_secret)\b/i;
+        if (FORBIDDEN_LEAK_REGEX.test(sanitizedReply)) {
+            sanitizedReply = assistantKnowledgeService.PUBLIC_OUT_OF_SCOPE_RESPONSE;
+        }
+
+        return res.json({ reply: sanitizedReply });
 
     } catch (error) {
         console.error("Erreur technique avec l'assistant IA:", error.name || 'AI_ERROR');

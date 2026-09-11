@@ -376,7 +376,7 @@ test('10. Quota épuisé : Nigeria et Découverte fonctionnent toujours, questio
 
     // C. Question libre avec quota épuisé -> 429 Too Many Requests
     const resFree = await runWithSpies({
-        messages: [{ role: 'user', content: 'Quelle est la météo ?' }]
+        messages: [{ role: 'user', content: 'Comment fonctionne la gestion des notes et des bulletins dans Yziow ?' }]
     }, { quotaAllowed: false });
     assert.strictEqual(resFree.statusCode, 429, 'Free question must be rejected with 429');
     assert.strictEqual(resFree.quotaCalls, 1);
