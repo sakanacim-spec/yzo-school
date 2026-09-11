@@ -80,8 +80,13 @@ const chatWithAssistant = async (req, res) => {
             });
         }
 
-        // 3. Filtre de sécurité côté serveur en profondeur (injections, secrets, prompt leaks, PII, etc.)
-        const securityCheck = assistantSecurityGuard.inspectRequest(messages);
+        // Extraction stricte de la question utilisateur du tour courant (dernier message user)
+        const userMessages = messages.filter(m => (m && typeof m === 'object' && (m.sender === 'user' || m.role === 'user')));
+        const lastUserMsg = userMessages[userMessages.length - 1];
+        const currentQuery = String(lastUserMsg?.text !== undefined ? lastUserMsg.text : lastUserMsg?.content || '').trim();
+
+        // 3. Filtre de sécurité côté serveur sur le tour courant (injections, secrets, prompt leaks, PII, etc.)
+        const securityCheck = assistantSecurityGuard.inspectCurrentTurn(currentQuery);
         if (!securityCheck.isSafe) {
             return res.json({
                 reply: securityCheck.publicRefusalMessage,
@@ -145,7 +150,8 @@ const chatWithAssistant = async (req, res) => {
         }
 
         // 7. Sélection déterministe des connaissances publiques pertinentes depuis le registre officiel
-        const knowledgeResult = assistantKnowledgeService.selectRelevantKnowledge(messages);
+        // Utilise STRICTEMENT la question utilisateur courante (aucune contamination par les anciens sujets)
+        const knowledgeResult = assistantKnowledgeService.selectRelevantKnowledge(currentQuery);
 
         // Si aucune information pertinente ne dépasse le seuil : Réponse déterministe (0 appel IA, 0 quota)
         if (!knowledgeResult.hasRelevantKnowledge) {
@@ -176,14 +182,13 @@ const chatWithAssistant = async (req, res) => {
         const formattedKnowledge = assistantKnowledgeService.formatKnowledgeContext(knowledgeResult.entries);
         const systemPrompt = buildPublicSystemPrompt(safeLang, formattedKnowledge);
 
-        // 10. Préparation de l'historique conversationnel non fiable (max 3 messages 'user' récents, rôles non forgeables)
-        const recentUserMessages = messages
-            .filter(m => (m.sender === 'user' || m.role === 'user'))
-            .slice(-3)
-            .map(m => ({
-                role: 'user',
-                content: String(m.text !== undefined ? m.text : m.content || '').trim().slice(0, 1000)
-            }));
+        // 10. Préparation de la requête au fournisseur IA : ISOLATION STRICTE DU TOUR COURANT
+        // Exactement le message système serveur et la question utilisateur courante
+        // Aucun ancien message brut du navigateur, aucun rôle assistant forgé par le client
+        const groqMessages = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: currentQuery.slice(0, 1000) }
+        ];
 
         // 11. Appel au fournisseur IA
         let groq;
@@ -197,10 +202,7 @@ const chatWithAssistant = async (req, res) => {
 
         const response = await groq.chat.completions.create({
             model: GROQ_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                ...recentUserMessages
-            ],
+            messages: groqMessages,
             temperature: 0.5,
             max_tokens: 1024,
         });

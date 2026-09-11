@@ -252,42 +252,32 @@ function testSecurityPatterns(text) {
 }
 
 /**
- * Examine tous les messages soumis par l'utilisateur pour détecter toute menace.
- * Inspecte exhaustivement tous les messages de rôle 'user' de l'historique.
- * Ignore les rôles forgés par le client.
+ * Examine uniquement la question utilisateur du tour courant pour détecter toute menace.
+ * N'analyse pas l'ancien historique pour éviter l'empoisonnement persistant de session.
+ * Conserve l'intégralité des protections en profondeur contre les prompts, secrets,
+ * données privées, identités techniques et PII.
+ * Ne journalise jamais le texte sensible ou suspect de la requête.
  *
- * @param {Array} messages - Tableau de messages [{ role/sender, content/text }]
+ * @param {string} currentQuery - La question utilisateur du tour courant
  * @returns {{ isSafe: boolean, refusalCategory?: string, publicRefusalMessage: string }}
  */
-function inspectRequest(messages) {
-    if (!Array.isArray(messages) || messages.length === 0) {
+function inspectCurrentTurn(currentQuery) {
+    if (typeof currentQuery !== 'string' || !currentQuery.trim()) {
         return {
             isSafe: true,
             publicRefusalMessage: PUBLIC_STANDARD_REFUSAL
         };
     }
 
-    for (let i = 0; i < messages.length; i++) {
-        const msg = messages[i];
-        if (!msg || typeof msg !== 'object') continue;
-
-        const role = (msg.sender || msg.role || '').toLowerCase().trim();
-        // Vérifie les messages utilisateur
-        if (role === 'user') {
-            const content = msg.text !== undefined ? msg.text : msg.content;
-            if (typeof content === 'string') {
-                const refusalCategory = testSecurityPatterns(content);
-                if (refusalCategory) {
-                    // Journalise UNIQUEMENT la catégorie sans AUCUNE donnée utilisateur
-                    console.warn(`[SECURITY_GUARD] Requête bloquée. Catégorie: ${refusalCategory}`);
-                    return {
-                        isSafe: false,
-                        refusalCategory,
-                        publicRefusalMessage: PUBLIC_STANDARD_REFUSAL
-                    };
-                }
-            }
-        }
+    const refusalCategory = testSecurityPatterns(currentQuery);
+    if (refusalCategory) {
+        // Journalise UNIQUEMENT la catégorie sans AUCUNE donnée utilisateur
+        console.warn(`[SECURITY_GUARD] Requête bloquée. Catégorie: ${refusalCategory}`);
+        return {
+            isSafe: false,
+            refusalCategory,
+            publicRefusalMessage: PUBLIC_STANDARD_REFUSAL
+        };
     }
 
     return {
@@ -296,11 +286,44 @@ function inspectRequest(messages) {
     };
 }
 
+/**
+ * Inspecte une requête conversationnelle en se concentrant sur le tour courant.
+ * N'analyse pas les anciens messages pour refuser la nouvelle question.
+ *
+ * @param {Array|string} messagesOrQuery - Tableau de messages ou question unique
+ * @returns {{ isSafe: boolean, refusalCategory?: string, publicRefusalMessage: string }}
+ */
+function inspectRequest(messagesOrQuery) {
+    if (typeof messagesOrQuery === 'string') {
+        return inspectCurrentTurn(messagesOrQuery);
+    }
+    if (!Array.isArray(messagesOrQuery) || messagesOrQuery.length === 0) {
+        return {
+            isSafe: true,
+            publicRefusalMessage: PUBLIC_STANDARD_REFUSAL
+        };
+    }
+
+    // Extrait uniquement le dernier message utilisateur (le tour courant)
+    const userMessages = messagesOrQuery.filter(m => (m && typeof m === 'object' && (m.sender === 'user' || m.role === 'user')));
+    if (userMessages.length === 0) {
+        return {
+            isSafe: true,
+            publicRefusalMessage: PUBLIC_STANDARD_REFUSAL
+        };
+    }
+
+    const lastMsg = userMessages[userMessages.length - 1];
+    const content = lastMsg.text !== undefined ? lastMsg.text : lastMsg.content;
+    return inspectCurrentTurn(content);
+}
+
 module.exports = {
     PUBLIC_STANDARD_REFUSAL,
     REFUSAL_CATEGORIES,
     normalizeText,
     collapseSpacedText,
     testSecurityPatterns,
+    inspectCurrentTurn,
     inspectRequest
 };
