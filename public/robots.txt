@@ -1,4 +1,49 @@
-User-agent: *
-Allow: /
+# ==============================================================================
+# ROBOTS.TXT — Directives d'exploration pour robots coopératifs
+# ==============================================================================
+# RAPPEL DE SÉCURITÉ :
+# robots.txt n'est pas une protection d'accès et ne remplace ni l'authentification
+# backend, ni les autorisations, ni les politiques de sécurité (RLS) de la base de données.
+# ==============================================================================
 
+User-agent: *
+
+# Pages publiques autorisées à l'indexation
+Allow: /
+Allow: /about
+Allow: /contact
+Allow: /careers
+Allow: /guide
+Allow: /partenaires
+Allow: /ambassadeur
+Allow: /blog
+Allow: /cgu
+Allow: /privacy
+Allow: /legal
+
+# Espaces applicatifs privés, administratifs ou authentifiés (Non indexables)
+Disallow: /dashboard
+Disallow: /parent
+Disallow: /prof
+Disallow: /superadmin
+Disallow: /ambassadeur/dashboard
+Disallow: /api/
+Disallow: /d/
+Disallow: /login
+Disallow: /verification_recu
+Disallow: /carte_scolaire
+Disallow: /gestion_academique
+Disallow: /bulletins
+Disallow: /historique_activites
+Disallow: /parents_list
+Disallow: /import_export
+Disallow: /chat
+Disallow: /annonces
+Disallow: /communication
+Disallow: /gestion_personnel
+Disallow: /salaires
+Disallow: /cahier_textes
+Disallow: /support
+
+# Déclaration du Sitemap officiel canonique
 Sitemap: https://www.yziow.com/sitemap.xml
