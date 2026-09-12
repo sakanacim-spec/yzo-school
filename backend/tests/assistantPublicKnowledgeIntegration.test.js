@@ -1441,4 +1441,436 @@ describe('D. Isolation du tour courant & Robustesse (Phase 2.1)', () => {
         assert.ok(finalPrompt.includes('https://www.yziow.com'), 'Le prompt final utilise le domaine canonique https://www.yziow.com');
         assert.strictEqual(finalPrompt.includes('https://yziow.com/'), false, 'Aucune URL sans www dans le prompt final');
     });
+
+    test('D10. Priorisation robuste de /guide pour l\'inscription, budget équitable de contexte et préservation des blocs', () => {
+        const { buildPublicSystemPrompt } = require('../utils/assistantPrompts');
+
+        const registrationQueries = [
+            'Comment puis-je inscrire mon établissement ?',
+            'Comment inscrire mon école ?',
+            'Je veux m’inscrire et je fais comment ?',
+            'Comment s’inscrire sur Yziow ?'
+        ];
+
+        // 1. Pour chacune des questions explicites d'inscription, le contexte final préparé contient la procédure officielle complète
+        for (const query of registrationQueries) {
+            const knowledgeRes = assistantKnowledgeService.selectRelevantKnowledge(query);
+            assert.strictEqual(knowledgeRes.hasRelevantKnowledge, true, `La requête "${query}" doit trouver des connaissances`);
+            assert.strictEqual(
+                knowledgeRes.entries[0].route,
+                '/guide',
+                `Pour la requête "${query}", l'entrée officielle /guide doit être classée en première position`
+            );
+
+            const formattedContext = assistantKnowledgeService.formatKnowledgeContext(knowledgeRes.entries);
+            const finalPrompt = buildPublicSystemPrompt('fr', formattedContext);
+
+            // Vérifications obligatoires sur le CONTEXTE FINAL réellement préparé
+            assert.ok(
+                formattedContext.includes('https://www.yziow.com'),
+                `Le contexte préparé pour "${query}" doit contenir l'URL canonique https://www.yziow.com`
+            );
+            assert.ok(
+                formattedContext.includes('Commencer gratuitement'),
+                `Le contexte préparé pour "${query}" doit contenir “Commencer gratuitement”`
+            );
+            assert.ok(
+                formattedContext.includes('Directeur ou de la Directrice') && (formattedContext.includes('informations de l’établissement') || formattedContext.includes('informations de l\'établissement')),
+                `Le contexte préparé pour "${query}" doit mentionner les informations de l’établissement et de la direction`
+            );
+            assert.ok(
+                formattedContext.includes('Le compte responsable sera créé sous le profil Directeur'),
+                `Le contexte préparé pour "${query}" doit stipuler la création du compte responsable sous le profil Directeur`
+            );
+
+            // Respect strict du budget global et équilibre des balises
+            assert.ok(
+                formattedContext.length <= 2500,
+                `Le contexte pour "${query}" ne doit jamais dépasser 2 500 caractères (actuel: ${formattedContext.length})`
+            );
+            const openTags = (formattedContext.match(/<knowledge_item/g) || []).length;
+            const closeTags = (formattedContext.match(/<\/knowledge_item>/g) || []).length;
+            assert.ok(openTags > 0, 'Au moins un bloc knowledge_item doit être présent');
+            assert.strictEqual(openTags, closeTags, `Les balises knowledge_item doivent être parfaitement équilibrées (${openTags} ouvrantes, ${closeTags} fermantes)`);
+
+            // Cohérence du prompt final
+            assert.ok(finalPrompt.includes('Commencer gratuitement'));
+            assert.ok(finalPrompt.includes('https://www.yziow.com'));
+        }
+    });
+
+    test('D11. Budget dynamique de contexte : 3 entrées longues, gestion des en-têtes longs et règle d\'exclusion explicite', () => {
+        // 1. Trois entrées longues avec en-têtes réguliers qui peuvent toutes être accueillies
+        const entryLong1 = {
+            route: '/blog/long-post-1',
+            canonicalUrl: 'https://www.yziow.com/blog/long-post-1',
+            title: 'Premier article long de test',
+            summary: 'Résumé du premier article long',
+            contentValidated: 'Texte didactique volumineux premier '.repeat(100) // ~3500 car.
+        };
+        const entryLong2 = {
+            route: '/blog/long-post-2',
+            canonicalUrl: 'https://www.yziow.com/blog/long-post-2',
+            title: 'Deuxième article long de test',
+            summary: 'Résumé du deuxième article long',
+            contentValidated: 'Texte didactique volumineux deuxième '.repeat(100) // ~3600 car.
+        };
+        const entryLong3 = {
+            route: '/blog/long-post-3',
+            canonicalUrl: 'https://www.yziow.com/blog/long-post-3',
+            title: 'Troisième article long de test',
+            summary: 'Résumé du troisième article long',
+            contentValidated: 'Texte didactique volumineux troisième '.repeat(100) // ~3700 car.
+        };
+
+        const context3 = assistantKnowledgeService.formatKnowledgeContext([entryLong1, entryLong2, entryLong3]);
+        assert.ok(context3.length <= 2500, `Le contexte ne doit pas excéder 2500 caractères (actuel: ${context3.length})`);
+        const open3 = (context3.match(/<knowledge_item/g) || []).length;
+        const close3 = (context3.match(/<\/knowledge_item>/g) || []).length;
+        assert.strictEqual(open3, 3, 'Les 3 entrées longues doivent être présentes lorsque l\'espace le permet');
+        assert.strictEqual(open3, close3, 'Toutes les balises doivent être fermées');
+        assert.ok(context3.includes('long-post-1') && context3.includes('long-post-2') && context3.includes('long-post-3'));
+
+        // 2. Trois entrées avec en-têtes TRÈS longs qui ne peuvent pas toutes tenir avec au moins MIN_USEFUL_CONTENT (60 car.)
+        const entryHugeHeader1 = {
+            route: '/blog/huge-header-1',
+            canonicalUrl: 'https://www.yziow.com/blog/huge-header-1',
+            title: 'Titre très volumineux '.repeat(25), // ~550 car.
+            summary: 'Résumé très volumineux '.repeat(15), // ~360 car. -> overhead ~950 car.
+            contentValidated: 'Contenu pédagogique '.repeat(50)
+        };
+        const entryHugeHeader2 = {
+            route: '/blog/huge-header-2',
+            canonicalUrl: 'https://www.yziow.com/blog/huge-header-2',
+            title: 'Titre très volumineux '.repeat(25),
+            summary: 'Résumé très volumineux '.repeat(15), // overhead ~950 car.
+            contentValidated: 'Contenu pédagogique '.repeat(50)
+        };
+        const entryHugeHeader3 = {
+            route: '/blog/huge-header-3',
+            canonicalUrl: 'https://www.yziow.com/blog/huge-header-3',
+            title: 'Titre très volumineux '.repeat(25),
+            summary: 'Résumé très volumineux '.repeat(15), // overhead ~950 car.
+            contentValidated: 'Contenu pédagogique '.repeat(50)
+        };
+
+        // Les 3 entrées nécessiteraient 3 * 950 + 4 = 2854 caractères d'overhead seul (> 2500).
+        // Règle explicite : targetCount passe à 2 (2 * 950 + 2 = 1902 car. d'overhead, permettant du contenu utile).
+        const contextHuge = assistantKnowledgeService.formatKnowledgeContext([entryHugeHeader1, entryHugeHeader2, entryHugeHeader3]);
+        assert.ok(contextHuge.length <= 2500, `Le budget de 2500 caractères doit être respecté (actuel: ${contextHuge.length})`);
+        const openHuge = (contextHuge.match(/<knowledge_item/g) || []).length;
+        const closeHuge = (contextHuge.match(/<\/knowledge_item>/g) || []).length;
+        assert.strictEqual(openHuge, 2, 'Règle explicite : seules les 2 premières entrées doivent être conservées');
+        assert.strictEqual(openHuge, closeHuge, 'Toutes les balises conservées doivent être rigoureusement fermées');
+        assert.ok(contextHuge.includes('huge-header-1'));
+        assert.ok(contextHuge.includes('huge-header-2'));
+        assert.strictEqual(contextHuge.includes('huge-header-3'), false, 'La 3e entrée doit être proprement exclue');
+
+        // 3. Redistribution du budget inutilisé par une entrée courte vers une entrée longue
+        const shortEntry = {
+            route: '/short',
+            canonicalUrl: 'https://www.yziow.com/short',
+            title: 'Entrée courte',
+            summary: 'Court résumé',
+            contentValidated: 'Contenu court de 35 caractères.'
+        };
+        const longEntry = {
+            route: '/long',
+            canonicalUrl: 'https://www.yziow.com/long',
+            title: 'Entrée longue',
+            summary: 'Résumé de l\'entrée longue',
+            contentValidated: 'Texte étendu d\'apprentissage '.repeat(100) // ~2800 car.
+        };
+
+        const redistContext = assistantKnowledgeService.formatKnowledgeContext([shortEntry, longEntry]);
+        assert.ok(redistContext.length <= 2500);
+        assert.ok(redistContext.includes('Contenu court de 35 caractères.'), 'L\'entrée courte doit être conservée à 100%');
+        // L'entrée longue a bénéficié du budget inutilisé par l'entrée courte
+        assert.ok(redistContext.length > 2000, `L'entrée longue doit avoir absorbé le budget disponible (longueur: ${redistContext.length})`);
+    });
+
+    test('D12. Scoring robuste : pas d\'amplification par synonymes, radicaux >= 3 car., et cas d\'usage distincts', () => {
+        // 1. « école » ou « établissement » seuls ne déclenchent pas une priorité d'inscription
+        const ecoleRes = assistantKnowledgeService.selectRelevantKnowledge('école');
+        assert.strictEqual(ecoleRes.hasRelevantKnowledge, true);
+        assert.notStrictEqual(ecoleRes.entries[0].route, '/guide', 'Le mot "école" seul ne doit pas prioriser /guide');
+        assert.strictEqual(ecoleRes.entries[0].route, '/', 'Le mot "école" seul doit orienter vers la page d\'accueil');
+
+        const etabRes = assistantKnowledgeService.selectRelevantKnowledge('établissement');
+        assert.strictEqual(etabRes.hasRelevantKnowledge, true);
+        assert.notStrictEqual(etabRes.entries[0].route, '/guide', 'Le mot "établissement" seul ne doit pas prioriser /guide');
+        assert.strictEqual(
+            etabRes.entries[0].route,
+            '/blog/comment-preparer-la-gestion-numerique-de-son-etablissement',
+            'Le mot "établissement" seul doit privilégier l\'article de blog dédié'
+        );
+
+        // 2. Inscription d’un élève
+        const eleveQuery = 'Comment inscrire un élève ?';
+        const eleveRes = assistantKnowledgeService.selectRelevantKnowledge(eleveQuery);
+        assert.strictEqual(eleveRes.hasRelevantKnowledge, true);
+        assert.strictEqual(eleveRes.entries[0].route, '/guide', 'L\'inscription d\'un élève relève du guide d\'utilisation');
+        const eleveCtx = assistantKnowledgeService.formatKnowledgeContext(eleveRes.entries);
+        assert.ok(
+            eleveCtx.includes('gestion des inscriptions et attributions') || eleveCtx.includes('Élèves et personnel'),
+            'Le contexte doit mentionner la gestion des élèves et des inscriptions'
+        );
+
+        // 3. Inscription d’un ambassadeur
+        const ambassadeurQuery = 'Comment s’inscrire au programme ambassadeur ?';
+        const ambassadeurRes = assistantKnowledgeService.selectRelevantKnowledge(ambassadeurQuery);
+        assert.strictEqual(ambassadeurRes.hasRelevantKnowledge, true);
+        assert.strictEqual(
+            ambassadeurRes.entries[0].route,
+            '/ambassadeur',
+            'L\'inscription au programme ambassadeur doit prioriser la route /ambassadeur'
+        );
+        const ambassadeurCtx = assistantKnowledgeService.formatKnowledgeContext(ambassadeurRes.entries);
+        assert.ok(ambassadeurCtx.includes('portail Ambassadeur'), 'Le contexte doit présenter le portail ambassadeur');
+
+        // 4. Fondateur avec direction déléguée
+        const fondateurQuery = 'Je suis le fondateur de l’école mais la direction est déléguée, qui inscrit l’établissement ?';
+        const fondateurRes = assistantKnowledgeService.selectRelevantKnowledge(fondateurQuery);
+        assert.strictEqual(fondateurRes.hasRelevantKnowledge, true);
+        assert.strictEqual(fondateurRes.entries[0].route, '/guide', 'Le cas du fondateur relève du guide');
+        const fondateurCtx = assistantKnowledgeService.formatKnowledgeContext(fondateurRes.entries);
+        assert.ok(
+            fondateurCtx.includes('Si la direction est confiée à une autre personne, c’est la direction désignée qui effectue l’inscription'),
+            'La consigne spécifique de direction déléguée doit être présente dans le contexte'
+        );
+
+        // 5. Notes et bulletins
+        const notesQuery = 'Comment saisir les notes et imprimer les bulletins scolaires ?';
+        const notesRes = assistantKnowledgeService.selectRelevantKnowledge(notesQuery);
+        assert.strictEqual(notesRes.hasRelevantKnowledge, true);
+        const notesCtx = assistantKnowledgeService.formatKnowledgeContext(notesRes.entries);
+        assert.ok(
+            notesCtx.includes('bulletins scolaires certifiés au format PDF') || notesCtx.includes('saisie des notes'),
+            'Le contexte doit mentionner les notes et les bulletins certifiés PDF'
+        );
+
+        // 6. Préparation de la gestion numérique
+        const gestionNumQuery = 'Comment préparer la gestion numérique de son établissement ?';
+        const gestionNumRes = assistantKnowledgeService.selectRelevantKnowledge(gestionNumQuery);
+        assert.strictEqual(gestionNumRes.hasRelevantKnowledge, true);
+        assert.strictEqual(
+            gestionNumRes.entries[0].route,
+            '/blog/comment-preparer-la-gestion-numerique-de-son-etablissement',
+            'La préparation de la gestion numérique doit impérativement classer le blog en première position'
+        );
+    });
+
+    test('D13. Tokenisation des mots à tiret, tokens courts (« QR ») et requêtes spécifiques (QR, présences, Yziow, inscriptions)', () => {
+        // 1. Tokenisation fine des mots avec tirets et conservation de normalizeString
+        const tokensPuisJe = assistantKnowledgeService.extractQueryTokens('puis-je');
+        assert.deepStrictEqual(tokensPuisJe, [], '« puis-je » doit être décomposé en mots vides et éliminé');
+
+        const tokensQuEstCe = assistantKnowledgeService.extractQueryTokens('qu’est-ce');
+        assert.deepStrictEqual(tokensQuEstCe, [], '« qu’est-ce » doit être décomposé et filtré');
+
+        const tokensQrCode = assistantKnowledgeService.extractQueryTokens('QR-code');
+        assert.deepStrictEqual(tokensQrCode, ['qr', 'code'], '« QR-code » doit produire les tokens distincts « qr » et « code »');
+
+        const tokensQrOnly = assistantKnowledgeService.extractQueryTokens('QR');
+        assert.deepStrictEqual(tokensQrOnly, ['qr'], 'Le token court métier « qr » doit être préservé');
+
+        // 2. Requête explicite : « QR »
+        const resQr = assistantKnowledgeService.selectRelevantKnowledge('QR');
+        assert.strictEqual(resQr.hasRelevantKnowledge, true, 'La recherche « QR » doit trouver du contenu');
+        assert.ok(resQr.entries.some(e => e.route === '/' || e.route === '/guide'), '« QR » doit renvoyer / ou /guide');
+        const ctxQr = assistantKnowledgeService.formatKnowledgeContext(resQr.entries);
+        assert.ok(ctxQr.toLowerCase().includes('qr code'), 'Le contexte de « QR » doit mentionner le QR Code');
+
+        // 3. Requête explicite : « Comment fonctionne le QR-code pour les présences ? »
+        const resQrPresences = assistantKnowledgeService.selectRelevantKnowledge('Comment fonctionne le QR-code pour les présences ?');
+        assert.strictEqual(resQrPresences.hasRelevantKnowledge, true);
+        assert.ok(resQrPresences.entries.some(e => e.route === '/' || e.route === '/guide'));
+        const ctxQrPresences = assistantKnowledgeService.formatKnowledgeContext(resQrPresences.entries);
+        assert.ok(ctxQrPresences.toLowerCase().includes('qr code'), 'Le contexte doit mentionner le QR code');
+        assert.ok(ctxQrPresences.toLowerCase().includes('presence') || ctxQrPresences.toLowerCase().includes('émargement'), 'Le contexte doit mentionner présences ou émargement');
+
+        // 4. Requête explicite : « Qu’est-ce que Yziow ? »
+        const resYziow = assistantKnowledgeService.selectRelevantKnowledge('Qu’est-ce que Yziow ?');
+        assert.strictEqual(resYziow.hasRelevantKnowledge, true);
+        assert.ok(resYziow.entries.some(e => e.route === '/about' || e.route === '/'), '« Qu’est-ce que Yziow ? » doit orienter vers /about ou /');
+        const ctxYziow = assistantKnowledgeService.formatKnowledgeContext(resYziow.entries);
+        assert.ok(ctxYziow.toLowerCase().includes('yziow'), 'Le contexte doit détailler la présentation de Yziow');
+
+        // 5. Les quatre questions d'inscription existantes
+        const fourRegistrationQueries = [
+            'Comment puis-je inscrire mon établissement ?',
+            'Comment inscrire mon école ?',
+            'Je veux m’inscrire et je fais comment ?',
+            'Comment s’inscrire sur Yziow ?'
+        ];
+        for (const q of fourRegistrationQueries) {
+            const res = assistantKnowledgeService.selectRelevantKnowledge(q);
+            assert.strictEqual(res.hasRelevantKnowledge, true, `La question "${q}" doit obtenir des connaissances`);
+            assert.strictEqual(res.entries[0].route, '/guide', `La question "${q}" doit prioriser /guide`);
+            const ctx = assistantKnowledgeService.formatKnowledgeContext(res.entries);
+            assert.ok(ctx.includes('Commencer gratuitement'), `"${q}" doit inclure "Commencer gratuitement"`);
+            assert.ok(ctx.includes('Directeur'), `"${q}" doit mentionner le Directeur`);
+            assert.ok(ctx.includes('https://www.yziow.com'), `"${q}" doit contenir l'URL canonique`);
+        }
+    });
+
+    test('D14. Test réel d\'absence d\'amplification par duplication ou synonymie de mots-clés', () => {
+        const baseEntry = {
+            route: '/test-base',
+            title: 'Gestion administrative',
+            summary: 'Plateforme scolaire',
+            contentValidated: 'Description détaillée',
+            keywords: ['inscription']
+        };
+
+        const duplicateKwEntry = {
+            route: '/test-duplicate',
+            title: 'Gestion administrative',
+            summary: 'Plateforme scolaire',
+            contentValidated: 'Description détaillée',
+            keywords: ['inscription', 'inscription', 'inscription', 'inscription']
+        };
+
+        const synonymKwEntry = {
+            route: '/test-synonyms',
+            title: 'Gestion administrative',
+            summary: 'Plateforme scolaire',
+            contentValidated: 'Description détaillée',
+            keywords: ['inscription', 'inscrire', 'inscriptions']
+        };
+
+        const tokensSingle = assistantKnowledgeService.extractQueryTokens('inscription');
+        const rawSingle = assistantKnowledgeService.normalizeString('inscription');
+
+        const scoreBase = assistantKnowledgeService.computeRelevanceScore(baseEntry, tokensSingle, rawSingle);
+        const scoreDuplicate = assistantKnowledgeService.computeRelevanceScore(duplicateKwEntry, tokensSingle, rawSingle);
+        const scoreSynonym = assistantKnowledgeService.computeRelevanceScore(synonymKwEntry, tokensSingle, rawSingle);
+
+        // L'amplification par duplication est strictement impossible : égalité parfaite des scores
+        assert.strictEqual(
+            scoreDuplicate,
+            scoreBase,
+            `Le score avec mots-clés dupliqués (${scoreDuplicate}) doit être rigoureusement identique au score de base (${scoreBase})`
+        );
+        assert.strictEqual(
+            scoreSynonym,
+            scoreBase,
+            `Le score avec synonymes/flexions dupliquées (${scoreSynonym}) doit être rigoureusement identique au score de base (${scoreBase})`
+        );
+
+        // Test multi-termes avec duplication stricte
+        const multiBaseEntry = {
+            route: '/test-multi-base',
+            title: 'Portail',
+            summary: 'Module',
+            contentValidated: 'Texte',
+            keywords: ['inscription', 'ecole']
+        };
+        const multiDupEntry = {
+            route: '/test-multi-dup',
+            title: 'Portail',
+            summary: 'Module',
+            contentValidated: 'Texte',
+            keywords: ['inscription', 'inscription', 'ecole', 'ecole']
+        };
+
+        const tokensMulti = assistantKnowledgeService.extractQueryTokens('inscrire école');
+        const rawMulti = assistantKnowledgeService.normalizeString('inscrire école');
+
+        const scoreMultiBase = assistantKnowledgeService.computeRelevanceScore(multiBaseEntry, tokensMulti, rawMulti);
+        const scoreMultiDup = assistantKnowledgeService.computeRelevanceScore(multiDupEntry, tokensMulti, rawMulti);
+
+        assert.strictEqual(
+            scoreMultiDup,
+            scoreMultiBase,
+            `Multi-termes : le score avec duplication (${scoreMultiDup}) doit être strictement identique au score sans duplication (${scoreMultiBase})`
+        );
+    });
+
+    test('D15. Robustesse formatKnowledgeContext : métadonnées démesurées, 1re entrée exclue, contenu vide/court, délimiteurs et balises fermées', () => {
+        // 1. Une seule entrée avec un en-tête supérieur au budget (> 2500 car.)
+        const singleHugeEntry = {
+            route: '/test/huge',
+            canonicalUrl: 'https://www.yziow.com/test/huge',
+            title: 'T'.repeat(2600),
+            summary: 'Résumé',
+            contentValidated: 'Contenu quelconque'
+        };
+        const ctxSingleHuge = assistantKnowledgeService.formatKnowledgeContext([singleHugeEntry]);
+        assert.strictEqual(ctxSingleHuge, '', 'Une entrée dont les métadonnées seules dépassent 2500 caractères doit être proprement exclue');
+
+        // 2. Première entrée impossible à insérer suivie d'une entrée viable
+        const entryImpossible = {
+            route: '/impossible',
+            canonicalUrl: 'https://www.yziow.com/impossible',
+            title: 'Titre démesuré '.repeat(200), // > 2800 car.
+            summary: 'Résumé',
+            contentValidated: 'Contenu'
+        };
+        const entryPossible = {
+            route: '/possible',
+            canonicalUrl: 'https://www.yziow.com/possible',
+            title: 'Titre normal',
+            summary: 'Résumé normal',
+            contentValidated: 'Contenu normal d’apprentissage'
+        };
+        const ctxFirstImpossible = assistantKnowledgeService.formatKnowledgeContext([entryImpossible, entryPossible]);
+        assert.ok(ctxFirstImpossible.length <= 2500);
+        assert.strictEqual(ctxFirstImpossible.includes('impossible'), false, 'La première entrée impossible doit être proprement exclue');
+        assert.ok(ctxFirstImpossible.includes('possible'), 'La deuxième entrée viable doit être incluse');
+        assert.ok(ctxFirstImpossible.startsWith('<knowledge_item'));
+        assert.ok(ctxFirstImpossible.endsWith('</knowledge_item>'));
+
+        // 3. Contenu vide et contenu très court
+        const emptyContentEntry = {
+            route: '/empty',
+            canonicalUrl: 'https://www.yziow.com/empty',
+            title: 'Page vide',
+            summary: 'Résumé sans contenu',
+            contentValidated: ''
+        };
+        const ctxEmpty = assistantKnowledgeService.formatKnowledgeContext([emptyContentEntry]);
+        assert.ok(ctxEmpty.length <= 2500);
+        assert.ok(ctxEmpty.includes('<knowledge_item route="/empty"'));
+        assert.ok(ctxEmpty.includes('</knowledge_item>'));
+        assert.ok(ctxEmpty.includes('Contenu vérifié: \n</knowledge_item>'), 'Le contenu vide est accepté et fermé');
+
+        const shortContentEntry = {
+            route: '/short',
+            canonicalUrl: 'https://www.yziow.com/short',
+            title: 'Page courte',
+            summary: 'Résumé court',
+            contentValidated: 'Bref'
+        };
+        const ctxShort = assistantKnowledgeService.formatKnowledgeContext([shortContentEntry]);
+        assert.ok(ctxShort.length <= 2500);
+        assert.ok(ctxShort.includes('Bref'));
+        assert.strictEqual(ctxShort.includes('Bref...'), false, 'Le contenu court ne doit pas avoir de points de suspension');
+        assert.ok(ctxShort.endsWith('</knowledge_item>'));
+
+        // 4. Routes/URL contenant des caractères de délimitation
+        const delimiterEntry = {
+            route: '/test" onfocus="alert(1)" <script>',
+            canonicalUrl: 'https://www.yziow.com/test" >\n\r',
+            title: 'Test délimiteurs',
+            summary: 'Résumé',
+            contentValidated: 'Contenu sain'
+        };
+        const ctxDelimiter = assistantKnowledgeService.formatKnowledgeContext([delimiterEntry]);
+        assert.ok(ctxDelimiter.length <= 2500);
+        assert.strictEqual(ctxDelimiter.includes('alert(1)'), true);
+        assert.strictEqual(ctxDelimiter.includes('" onfocus='), false, 'Les guillemets d\'attribut doivent être neutralisés');
+        assert.strictEqual(ctxDelimiter.includes('<script>'), false, 'Les chevrons d\'attribut doivent être neutralisés');
+        assert.ok(ctxDelimiter.startsWith('<knowledge_item route="/test onfocus=alert(1) script"'));
+        assert.ok(ctxDelimiter.endsWith('</knowledge_item>'));
+
+        // 5. Budget global et fermeture de toutes les balises dans tous les cas
+        const allContexts = [ctxSingleHuge, ctxFirstImpossible, ctxEmpty, ctxShort, ctxDelimiter];
+        for (const ctx of allContexts) {
+            assert.ok(ctx.length <= 2500, `Le budget doit être respecté (taille: ${ctx.length})`);
+            const open = (ctx.match(/<knowledge_item/g) || []).length;
+            const close = (ctx.match(/<\/knowledge_item>/g) || []).length;
+            assert.strictEqual(open, close, `Toutes les balises doivent être fermées (${open} === ${close})`);
+        }
+    });
 });
