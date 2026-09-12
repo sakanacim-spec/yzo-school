@@ -27,6 +27,9 @@ const MAX_ENTRIES = 3;
 const MAX_CONTEXT_LENGTH = 2500;
 const MIN_SCORE_THRESHOLD = 5;
 
+// Tokens métier courts autorisés malgré length < 3
+const DOMAIN_SHORT_TOKENS = new Set(['qr', 'ai', 'ia']);
+
 // Mots vides courants à ignorer pour l'extraction de tokens
 const STOP_WORDS = new Set([
     'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'd', 'l',
@@ -40,6 +43,7 @@ const STOP_WORDS = new Set([
     'donne', 'donner', 'parle', 'parlez', 'trouver', 'savoir',
     'je', 'tu', 'il', 'elle', 'on', 'nous', 'vous', 'ils', 'elles',
     'ceci', 'cela', 'ca', 'ici', 'la', 'tres', 'aussi',
+    'puis', 'pouvoir', 'peux', 'peut', 'faire', 'fais', 'fait', 'veux', 'vouloir',
     'the', 'is', 'at', 'which', 'on', 'in', 'to', 'for', 'of', 'and', 'or'
 ]);
 
@@ -47,22 +51,23 @@ const STOP_WORDS = new Set([
  * Racinisation légère (stemming) pour le français afin de relier singulier/pluriel et verbe/nom
  */
 function getStem(word) {
-    if (!word || typeof word !== 'string' || word.length <= 3) return word || '';
-    return word
-        .replace(/(?:ations?|ements?|eries?|eurs?|euses?|ables?|ibilites?)$/, '')
-        .replace(/(?:er|ez|ant|es?|s)$/, '');
+    if (!word || typeof word !== 'string' || word.length < 4) return word || '';
+    const stemmed = word
+        .replace(/(?:ations?|itions?|options?|ptions?|ions?|ements?|eries?|eurs?|euses?|ables?|ibilites?)$/, '')
+        .replace(/(?:er|ez|ant|ir|re|es?|s)$/, '');
+    return stemmed.length >= 3 ? stemmed : word;
 }
 
 /**
  * Normalise une chaîne de caractères pour la recherche lexicale
  */
 function normalizeString(str) {
-    if (typeof str !== 'string') return '';
+    if (!str || typeof str !== 'string') return '';
     return str
+        .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/[^a-z0-9\s/_-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 }
@@ -75,8 +80,9 @@ function extractQueryTokens(query) {
     if (!normalized) return [];
 
     return normalized
-        .split(' ')
-        .filter(token => token.length >= 2 && !STOP_WORDS.has(token));
+        .split(/[\s/_\-]+/)
+        .map(t => t.trim())
+        .filter(token => (token.length >= 3 || DOMAIN_SHORT_TOKENS.has(token)) && !STOP_WORDS.has(token));
 }
 
 /**
@@ -116,7 +122,9 @@ function sanitizeContentData(text) {
 }
 
 /**
- * Calcule un score de pertinence lexical entre une requête et une entrée du registre
+ * Calcule un score de pertinence lexical entre une requête et une entrée du registre.
+ * Évite l'amplification par répétition de mots-clés synonymes et garantit
+ * des radicaux d'au moins 3 caractères non vides.
  */
 function computeRelevanceScore(entry, tokens, rawQueryNormalized) {
     let score = 0;
@@ -132,46 +140,95 @@ function computeRelevanceScore(entry, tokens, rawQueryNormalized) {
         score += 15;
     }
 
-    // 2. Bonus si un mot-clé correspond exactement à l'expression recherchée
-    if (rawQueryNormalized && normalizedKeywords.includes(rawQueryNormalized)) {
-        score += 12;
+    // 2. Bonus si un mot-clé correspond exactement à l'expression recherchée ou expression multi-mots
+    if (rawQueryNormalized) {
+        for (const kw of normalizedKeywords) {
+            if (kw === rawQueryNormalized) {
+                score += 12;
+                break;
+            } else if (kw.includes(' ') && rawQueryNormalized.includes(kw)) {
+                score += 10;
+                break;
+            }
+        }
     }
+
+    let matchedTokenCount = 0;
 
     // 3. Scoring par token significatif avec racinisation
     for (const token of tokens) {
         const tokenStem = getStem(token);
+        let tokenMatchedInEntry = false;
 
-        // Correspondance dans les mots-clés (très représentatifs)
+        // Correspondance dans les mots-clés : AU MAXIMUM une fois par token pour éviter l'amplification par synonymes
+        let bestKwScoreForToken = 0;
         for (const kw of normalizedKeywords) {
             const kwStem = getStem(kw);
+            const kwParts = kw.split(/[\s/_\-–—]+/);
             if (kw === token) {
-                score += 8;
-            } else if (kw.includes(token) || (tokenStem.length >= 3 && (kw.includes(tokenStem) || kwStem === tokenStem))) {
-                score += 5;
+                bestKwScoreForToken = Math.max(bestKwScoreForToken, 8);
+            } else if (kwParts.includes(token)) {
+                bestKwScoreForToken = Math.max(bestKwScoreForToken, 6);
+            } else if (
+                tokenStem.length >= 3 && kwStem.length >= 3 &&
+                (kw === tokenStem || kwStem === tokenStem || token === kwStem ||
+                 kw.includes(token) || (kw.length >= 4 && token.includes(kw)))
+            ) {
+                bestKwScoreForToken = Math.max(bestKwScoreForToken, 5);
             }
+        }
+        if (bestKwScoreForToken > 0) {
+            score += bestKwScoreForToken;
+            tokenMatchedInEntry = true;
         }
 
         // Correspondance dans le titre
-        if (normalizedTitle.split(' ').includes(token)) {
+        const titleParts = normalizedTitle.split(/[\s/_\-–—]+/);
+        if (titleParts.includes(token)) {
             score += 6;
-        } else if (normalizedTitle.includes(token) || (tokenStem.length >= 3 && normalizedTitle.includes(tokenStem))) {
+            tokenMatchedInEntry = true;
+        } else if (tokenStem.length >= 3 && (normalizedTitle.includes(token) || normalizedTitle.includes(tokenStem))) {
             score += 4;
+            tokenMatchedInEntry = true;
         }
 
-        // Correspondance dans la route (ex: 'contact', 'about', 'guide', 'partenaires')
-        if (normalizedRoute.split(' ').includes(token) || normalizedRoute.replace('/', '') === token) {
+        // Correspondance dans la route (segments réels de la route)
+        const routeSegments = (entry.route || '').toLowerCase().split('/').filter(Boolean);
+        if (routeSegments.includes(token) || normalizedRoute.replace('/', '') === token) {
             score += 7;
+            tokenMatchedInEntry = true;
         }
 
         // Correspondance dans le résumé
-        if (normalizedSummary.includes(token) || (tokenStem.length >= 3 && normalizedSummary.includes(tokenStem))) {
+        const summaryParts = normalizedSummary.split(/[\s/_\-–—]+/);
+        if (summaryParts.includes(token)) {
+            score += 4;
+            tokenMatchedInEntry = true;
+        } else if (tokenStem.length >= 3 && (normalizedSummary.includes(token) || normalizedSummary.includes(tokenStem))) {
             score += 3;
+            tokenMatchedInEntry = true;
         }
 
         // Correspondance dans le contenu validé
-        if (normalizedContent.includes(token) || (tokenStem.length >= 3 && normalizedContent.includes(tokenStem))) {
+        const contentParts = normalizedContent.split(/[\s/_\-–—]+/);
+        if (contentParts.includes(token)) {
             score += 3;
+            tokenMatchedInEntry = true;
+        } else if (tokenStem.length >= 3 && (normalizedContent.includes(token) || normalizedContent.includes(tokenStem))) {
+            score += 3;
+            tokenMatchedInEntry = true;
         }
+
+        if (tokenMatchedInEntry) {
+            matchedTokenCount++;
+        }
+    }
+
+    // 4. Bonus de couverture conceptuelle : favorise les entrées répondant à l'ensemble des termes de la question
+    if (tokens.length >= 2 && matchedTokenCount === tokens.length) {
+        score += 15;
+    } else if (tokens.length >= 3 && matchedTokenCount >= 2) {
+        score += 8;
     }
 
     return score;
@@ -239,6 +296,9 @@ function selectRelevantKnowledge(queryOrMessages, customRegistry = null) {
 
 /**
  * Formate les entrées sélectionnées en bloc de contexte structuré plafonné à 2 500 caractères.
+ * Calcule les tailles réelles des en-têtes, pieds et séparateurs, réserve un budget utile
+ * aux entrées suivantes lorsque cela est possible, redistribue le budget inutilisé par les
+ * entrées courtes et garantit des balises parfaitement fermées.
  *
  * @param {Array} entries - Les entrées sélectionnées
  * @returns {string} - Le texte formaté avec délimiteurs constants
@@ -248,40 +308,131 @@ function formatKnowledgeContext(entries) {
         return '';
     }
 
-    const blocks = [];
-    let currentLength = 0;
+    const MIN_USEFUL_CONTENT = 60;
+    const TARGET_USEFUL_RESERVATION = 80;
 
+    // 1. Assainissement rigoureux et élimination des entrées dont les seules métadonnées dépassent le budget total
+    const prepared = [];
     for (const entry of entries) {
+        if (!entry || typeof entry !== 'object') continue;
+
         const title = sanitizeContentData(entry.title || '');
-        const route = sanitizeContentData(entry.route || '');
-        const url = sanitizeContentData(entry.canonicalUrl || '');
+        // Assainir route et canonicalUrl et neutraliser tout caractère de délimitation (guillemets, chevrons, sauts de ligne)
+        const route = sanitizeContentData(entry.route || '').replace(/["<>\r\n]/g, '');
+        const url = sanitizeContentData(entry.canonicalUrl || '').replace(/["<>\r\n]/g, '');
         const summary = sanitizeContentData(entry.summary || '');
         const content = sanitizeContentData(entry.contentValidated || '');
-
         const header = `<knowledge_item route="${route}" url="${url}">\nTitre: ${title}\nRésumé: ${summary}\nContenu vérifié: `;
         const footer = `\n</knowledge_item>`;
-        const fullBlock = `${header}${content}${footer}`;
+        const metaLength = header.length + footer.length;
 
-        // Séparateur \n\n entre blocs
-        const separatorLength = blocks.length > 0 ? 2 : 0;
+        // Exclure immédiatement tout bloc dont l'en-tête et le pied ne peuvent physiquement pas tenir dans le budget global
+        if (metaLength > MAX_CONTEXT_LENGTH) {
+            continue;
+        }
 
-        if (currentLength + separatorLength + fullBlock.length <= MAX_CONTEXT_LENGTH) {
-            blocks.push(fullBlock);
-            currentLength += separatorLength + fullBlock.length;
-        } else {
-            // Calcule l'espace restant pour le contenu tronqué
-            const spaceAvailableForContent = MAX_CONTEXT_LENGTH - currentLength - separatorLength - header.length - footer.length - 3;
-            if (spaceAvailableForContent > 50) {
-                const truncatedContent = content.slice(0, spaceAvailableForContent) + '...';
-                const truncatedBlock = `${header}${truncatedContent}${footer}`;
-                blocks.push(truncatedBlock);
-            }
+        prepared.push({
+            title,
+            route,
+            url,
+            summary,
+            content,
+            header,
+            footer,
+            metaLength,
+            contentLength: content.length
+        });
+    }
+
+    if (prepared.length === 0) {
+        return '';
+    }
+
+    // 2. Sélection du nombre maximal d'entrées pouvant être accueillies avec du contenu utile
+    let targetCount = 0;
+    for (let k = prepared.length; k >= 1; k--) {
+        const subset = prepared.slice(0, k);
+        const totalOverhead = subset.reduce((sum, item, idx) => sum + (idx > 0 ? 2 : 0) + item.metaLength, 0);
+        const minContentRequired = subset.reduce((sum, item) => sum + Math.min(item.contentLength, MIN_USEFUL_CONTENT), 0);
+        if (totalOverhead + minContentRequired <= MAX_CONTEXT_LENGTH) {
+            targetCount = k;
             break;
         }
     }
 
-    const result = blocks.join('\n\n');
-    return result.length > MAX_CONTEXT_LENGTH ? result.slice(0, MAX_CONTEXT_LENGTH) : result;
+    // Si même k=1 avec MIN_USEFUL_CONTENT ne passe pas (par ex. en-tête très lourd mais <= 2500, ou contenu vide),
+    // on autorise k=1 si les métadonnées tiennent dans le budget global
+    if (targetCount === 0) {
+        if (prepared[0].metaLength <= MAX_CONTEXT_LENGTH) {
+            targetCount = 1;
+        } else {
+            return '';
+        }
+    }
+
+    const activeEntries = prepared.slice(0, targetCount);
+    const blocks = [];
+    let currentLength = 0;
+
+    for (let i = 0; i < activeEntries.length; i++) {
+        const item = activeEntries[i];
+        const sep = blocks.length > 0 ? 2 : 0;
+        const remainingGlobal = MAX_CONTEXT_LENGTH - currentLength - sep;
+
+        // Si l'espace restant ne permet même pas d'insérer l'en-tête et le pied du bloc,
+        // exclure proprement ce bloc afin de ne jamais tronquer ou corrompre les balises
+        if (remainingGlobal < item.metaLength) {
+            continue;
+        }
+
+        // Calculer la réservation utile pour les entrées suivantes
+        let reservedForFuture = 0;
+        for (let j = i + 1; j < activeEntries.length; j++) {
+            const nextItem = activeEntries[j];
+            const nextSep = 2;
+            const nextUseful = Math.min(nextItem.contentLength, TARGET_USEFUL_RESERVATION);
+            reservedForFuture += nextSep + nextItem.metaLength + nextUseful;
+        }
+
+        // Si la réservation cible ne laisse pas d'espace suffisant pour l'entrée courante,
+        // rabattre la réservation sur le plancher strict MIN_USEFUL_CONTENT
+        if (remainingGlobal - item.metaLength - reservedForFuture < MIN_USEFUL_CONTENT && activeEntries.length - 1 - i > 0) {
+            reservedForFuture = 0;
+            for (let j = i + 1; j < activeEntries.length; j++) {
+                const nextItem = activeEntries[j];
+                const nextSep = 2;
+                const nextUseful = Math.min(nextItem.contentLength, MIN_USEFUL_CONTENT);
+                reservedForFuture += nextSep + nextItem.metaLength + nextUseful;
+            }
+        }
+
+        const maxAllowed = Math.max(0, remainingGlobal - item.metaLength - reservedForFuture);
+
+        let content = item.content;
+        if (content.length > maxAllowed) {
+            if (maxAllowed <= 3) {
+                content = '';
+            } else {
+                const sliceTarget = maxAllowed - 3;
+                let truncated = content.slice(0, sliceTarget);
+                const lastSpace = truncated.lastIndexOf(' ');
+                if (lastSpace > sliceTarget - 25 && lastSpace > 0) {
+                    truncated = truncated.slice(0, lastSpace);
+                }
+                content = truncated.trim() + '...';
+            }
+        }
+
+        const block = `${item.header}${content}${item.footer}`;
+        // Sécurité absolue : insertion conditionnelle garantissant le respect strict du budget
+        if (currentLength + sep + block.length <= MAX_CONTEXT_LENGTH) {
+            blocks.push(block);
+            currentLength += sep + block.length;
+        }
+    }
+
+    // Aucun result.slice(...) : tous les blocs retournés sont naturellement garantis fermés et conformes au budget
+    return blocks.join('\n\n');
 }
 
 module.exports = {
