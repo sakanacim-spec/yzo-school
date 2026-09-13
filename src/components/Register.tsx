@@ -6,7 +6,7 @@ import React, { useState, useMemo } from 'react';
 import { parentApi } from '../services/parentApi';
 import {
   User, Phone, Lock, AlertCircle, ArrowLeft, CheckCircle,
-  Building2, GraduationCap, Globe, MapPin, Mail, Languages
+  Building2, GraduationCap, Globe, MapPin, Mail, Eye, EyeOff
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { COUNTRIES, getSortedCountries, getCountryByCode } from '../data/countries';
@@ -32,12 +32,10 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
   const [schoolEmail, setSchoolEmail] = useState('');
   const [slogan, setSlogan] = useState('');
   const [ministry, setMinistry] = useState('');
-  const [preferredLanguage, setPreferredLanguage] = useState<Language>(language);
-
-  // Admin States
   const [adminNom, setAdminNom] = useState('');
   const [adminTelephone, setAdminTelephone] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -71,6 +69,13 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
     setLoading(true);
 
     try {
+      const validRegistrationLanguages = ['fr', 'en', 'es', 'ar'] as const;
+      type ValidRegistrationLanguage = (typeof validRegistrationLanguages)[number];
+      const preferredLanguage: ValidRegistrationLanguage =
+        (validRegistrationLanguages as readonly string[]).includes(language)
+          ? (language as ValidRegistrationLanguage)
+          : 'fr';
+
       const result = await parentApi.registerSchool({
         school_name: schoolName,
         school_type: schoolType,
@@ -246,57 +251,6 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
               </div>
             </div>
           </div>
-
-          {/* Langue préférée */}
-          <div>
-            <label className={labelClass}>{T.register.preferredLanguage}</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <button
-                type="button"
-                onClick={() => setPreferredLanguage('fr')}
-                className={`flex-1 py-3 px-4 rounded-xl font-medium border transition-all ${
-                  preferredLanguage === 'fr' 
-                  ? 'bg-blue-600 border-blue-500 text-white' 
-                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-                }`}
-              >
-                🇫🇷 {T.register.langFr || 'Français'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreferredLanguage('en')}
-                className={`flex-1 py-3 px-4 rounded-xl font-medium border transition-all ${
-                  preferredLanguage === 'en' 
-                  ? 'bg-blue-600 border-blue-500 text-white' 
-                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-                }`}
-              >
-                🇬🇧 {T.register.langEn || 'English'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreferredLanguage('es')}
-                className={`flex-1 py-3 px-4 rounded-xl font-medium border transition-all ${
-                  preferredLanguage === 'es' 
-                  ? 'bg-blue-600 border-blue-500 text-white' 
-                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-                }`}
-              >
-                🇪🇸 {T.register.langEs || 'Español'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreferredLanguage('ar')}
-                className={`flex-1 py-3 px-4 rounded-xl font-medium border transition-all ${
-                  preferredLanguage === 'ar' 
-                  ? 'bg-blue-600 border-blue-500 text-white' 
-                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-                }`}
-              >
-                🇸🇦 {T.register.langAr || 'العربية'}
-              </button>
-            </div>
-          </div>
         </div>
 
           {/* Slogan & Ministère */}
@@ -373,16 +327,26 @@ export const Register: React.FC<RegisterProps> = ({ onBack, onSuccess }) => {
             <div>
               <label className={labelClass}>{T.register.directorPassword} <span className="text-red-400">*</span></label>
               <div className="relative">
-                <Lock className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <Lock className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300 pointer-events-none" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
                   placeholder={T.register.directorPasswordPlaceholder}
                   required
                   minLength={6}
-                  className={inputClass}
+                  autoComplete="new-password"
+                  className="w-full ps-10 pe-11 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  aria-pressed={showPassword}
+                  className="absolute end-3 top-1/2 -translate-y-1/2 text-blue-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 rounded-lg p-1 transition-colors flex items-center justify-center cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
           </div>
