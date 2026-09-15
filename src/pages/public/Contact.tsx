@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Phone, MapPin, Send, ArrowLeft } from 'lucide-react';
+import { Mail, MapPin, Send, ArrowLeft } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { t } from '../../i18n';
 import type { Language } from '../../i18n';
@@ -110,17 +110,6 @@ export const Contact: React.FC<ContactProps> = ({ onBack, initialSubject, initia
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 shrink-0">
-                  <Phone className="w-6 h-6 text-[#f97316]" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-black text-slate-900 mb-1">{t(language as Language, 'public.contact.phone') || "Téléphone"}</h4>
-                  <p className="text-sm text-slate-500 font-medium">+34 647 563 748</p>
-                  <p className="text-sm text-slate-500 font-medium">+229 01 97 76 99 91</p>
-                  <p className="text-xs text-slate-400 mt-1">{t(language as Language, 'public.contact.hours') || "Lundi au Vendredi, 8h - 18h"}</p>
-                </div>
-              </div>
 
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 shrink-0">

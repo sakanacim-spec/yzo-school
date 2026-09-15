@@ -1523,7 +1523,6 @@ export const zh = {
       "title": "联系我们",
       "desc": "我们的团队随时倾听您的心声。",
       "email": "contact@yziow.com",
-      "phone": "+33 1 23 45 67 89",
       "hours": "周一至周五：上午 9 点至下午 6 点",
       "offices": "办事处",
       "spain": "西班牙马德里",

@@ -1515,7 +1515,6 @@ export const pt = {
       "title": "Contate-nos",
       "desc": "Nossa equipe está aqui para ouvir você.",
       "email": "contact@yziow.com",
-      "phone": "+33 1 23 45 67 89",
       "hours": "Seg-Sex: 9h - 18h",
       "offices": "Escritórios",
       "spain": "Madri, Espanha",

@@ -1515,7 +1515,6 @@ export const de = {
       "title": "Kontaktieren Sie uns",
       "desc": "Unser Team ist für Sie da.",
       "email": "contact@yziow.com",
-      "phone": "+33 1 23 45 67 89",
       "hours": "Mo-Fr: 9:00 - 18:00 Uhr",
       "offices": "Büros",
       "spain": "Madrid, Spanien",

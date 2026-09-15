@@ -73,7 +73,7 @@ export const LegalPage: React.FC<LegalPageProps> = ({ type, onBack }) => {
       sections: [
         {
           title: t(language as Language, 'public.legal.mentions.sec1.title') || "1. Éditeur de la plateforme",
-          content: t(language as Language, 'public.legal.mentions.sec1.content') || "La plateforme Yziow est éditée par Global Marketing and Technology, une entreprise de technologies éducatives (EdTech).\n\nAdresses : Espagne & Bénin (Cotonou)\nEmail : contact@yziow.com\nTéléphone : +34 647 563 748 / +229 01 97 76 99 91"
+          content: t(language as Language, 'public.legal.mentions.sec1.content') || "La plateforme Yziow est éditée par Global Marketing and Technology, une entreprise de technologies éducatives (EdTech).\n\nAdresses : Espagne & Bénin (Cotonou)\nEmail : contact@yziow.com"
         },
         {
           title: t(language as Language, 'public.legal.mentions.sec2.title') || "2. Hébergement",
