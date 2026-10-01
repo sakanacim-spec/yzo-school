@@ -32,7 +32,7 @@ router.use(authenticateToken);
 router.post('/create-transaction', createTransaction);
 
 // Routes d'abonnement SaaS P8 (Devis et Initialisation)
-router.post('/saas/schools/:slug/quotes', createSubscriptionQuote);
+router.post('/saas/schools/:slug/quotes', (req, res) => res.status(410).json({ error: "SCHOOL_BILLING_RETIRED", message: "La facturation école est retirée, la plateforme est gratuite." }));
 router.get('/saas/schools/:slug/quotes/:quoteId', getSubscriptionQuoteById);
 router.get('/saas/schools/:slug/quote', getSubscriptionQuote);
 router.post('/saas/schools/:slug/pay-init', createSaasTransaction);

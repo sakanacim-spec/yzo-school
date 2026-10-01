@@ -2289,35 +2289,81 @@ async function fedapayWebhook(req, res) {
     // Éligibilité nominale stricte : tout manquement ou ambiguïté force la réconciliation
     const isNominalEligible = hasNominalEventId && Boolean(certifiedPaymentAt) && isFeeCertified && isTaxCertified;
 
-    // 6. Exécution transactionnelle atomique via la RPC PostgreSQL v2
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('process_fedapay_webhook_event_v2', {
-        p_provider: 'fedapay',
-        p_provider_event_id: providerEventId,
-        p_event_type: event.name,
-        p_intent_id: intentId,
-        p_provider_transaction_id: String(remoteTx.id),
-        p_remote_amount: remoteAmount,
-        p_remote_currency: rawCurrency,
-        p_remote_status: remoteTx.status,
-        p_certified_payment_at: certifiedPaymentAt,
-        p_fedapay_fee: isFeeCertified ? certifiedFee : null,
-        p_tax_amount: isTaxCertified ? certifiedTax : null,
-        p_is_nominal_event: isNominalEligible
-    });
+    // 6. Vérification du type d'intention et traitement spécial SaaS
+        const { data: intentRecord, error: intentFetchErr } = await supabase
+            .from('payment_intents')
+            .select('payment_type')
+            .eq('id', intentId)
+            .single();
+        if (intentFetchErr || !intentRecord) {
+            return res.status(500).json({ error: "Erreur lors de la récupération du type d'intention." });
+        }
+        if (intentRecord.payment_type === 'saas_subscription') {
+            // Idempotent insertion into legacy_saas_manual_reviews with required fields only
+            try {
+                const { data: insertData, error: insertError } = await supabase
+                    .from('legacy_saas_manual_reviews')
+                    .insert({
+                        provider: 'fedapay',
+                        provider_event_ref: providerEventId,
+                        payment_intent_id: intentId
+                    });
+                if (!insertError) {
+                    return res.status(200).json({ received: true, status: 'manual_review_queued' });
+                }
+                if (insertError.code === '23505') {
+                    const { data: existing, error: existingErr } = await supabase
+                        .from('legacy_saas_manual_reviews')
+                        .select('id')
+                        .eq('provider', 'fedapay')
+                        .eq('provider_event_ref', providerEventId)
+                        .single();
+                    if (!existingErr && existing) {
+                        return res.status(200).json({ received: true, status: 'manual_review_duplicate' });
+                    }
+                }
+                return res.status(500).json({ error: 'Erreur lors de la persistance P16.' });
+            } catch (e) {
+                if (e && e.code === '23505') {
+                    const { data: existing, error: existingErr } = await supabase
+                        .from('legacy_saas_manual_reviews')
+                        .select('id')
+                        .eq('provider', 'fedapay')
+                        .eq('provider_event_ref', providerEventId)
+                        .single();
+                    if (!existingErr && existing) {
+                        return res.status(200).json({ received: true, status: 'manual_review_duplicate' });
+                    }
+                }
+                return res.status(500).json({ error: 'Erreur lors de la persistance P16.' });
+            }
+        }
 
-    if (rpcError) {
-        return res.status(500).json({ error: 'Erreur lors du traitement transactionnel.' });
-    }
-
-    if (rpcResult?.status === 'completed' || rpcResult?.status === 'duplicate') {
-        return res.status(200).json({ received: true, status: rpcResult.status });
-    }
-
-    if (rpcResult?.status === 'reconciliation_required') {
-        return res.status(200).json({ received: true, status: 'reconciliation_required' });
-    }
-
-    return res.status(400).json({ error: 'Traitement rejeté.' });
+        // 6. Exécution transactionnelle atomique via la RPC PostgreSQL v2 (non SaaS)
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('process_fedapay_webhook_event_v2', {
+            p_provider: 'fedapay',
+            p_provider_event_id: providerEventId,
+            p_event_type: event.name,
+            p_intent_id: intentId,
+            p_provider_transaction_id: String(remoteTx.id),
+            p_remote_amount: remoteAmount,
+            p_remote_currency: rawCurrency,
+            p_remote_status: remoteTx.status,
+            p_certified_payment_at: certifiedPaymentAt,
+            p_fedapay_fee: isFeeCertified ? certifiedFee : null,
+            p_tax_amount: isTaxCertified ? certifiedTax : null,
+            p_is_nominal_event: isNominalEligible
+        });
+        if (rpcError) {
+            return res.status(500).json({ error: 'Erreur lors du traitement transactionnel.' });
+        }
+        if (rpcResult?.status === 'completed' || rpcResult?.status === 'duplicate') {
+            return res.status(200).json({ received: true, status: rpcResult.status });
+        }
+        if (rpcResult?.status === 'reconciliation_required') {
+            return res.status(200).json({ received: true, status: 'reconciliation_required' });
+        }
+        return res.status(400).json({ error: 'Traitement rejeté.' });
 }
 
 module.exports = {
