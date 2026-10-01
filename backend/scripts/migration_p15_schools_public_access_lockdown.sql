@@ -1,6 +1,6 @@
 -- Security hardening: public.schools
--- Staging-ready migration; not yet executed.
--- Requires explicit Staging authorization before execution.
+-- Applied successfully to YZIOW Staging on 2026-10-01.
+-- Requires explicit Production authorization before any Production execution.
 
 BEGIN;
 
