@@ -171,8 +171,8 @@ EXECUTE FUNCTION public.legacy_saas_v1_check_payment_type();
 ALTER TABLE public.legacy_saas_manual_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.legacy_saas_manual_review_actions ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.legacy_saas_manual_reviews FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON public.legacy_saas_manual_review_actions FROM PUBLIC, anon, authenticated;
+REVOKE ALL PRIVILEGES ON public.legacy_saas_manual_reviews FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON public.legacy_saas_manual_review_actions FROM PUBLIC, anon, authenticated, service_role;
 
 -- TODO BLOCKED: Ajouter des politiques pour le futur rôle interne YZIOW si ce rôle n'est pas confirmé dans le dépôt.
 
@@ -180,9 +180,17 @@ REVOKE ALL ON public.legacy_saas_manual_review_actions FROM PUBLIC, anon, authen
 GRANT SELECT, INSERT, UPDATE ON public.legacy_saas_manual_reviews TO service_role;
 GRANT SELECT, INSERT ON public.legacy_saas_manual_review_actions TO service_role;
 
-CREATE POLICY service_role_all_reviews 
+CREATE POLICY service_role_select_reviews 
 ON public.legacy_saas_manual_reviews 
-FOR ALL TO service_role USING (true) WITH CHECK (true);
+FOR SELECT TO service_role USING (true);
+
+CREATE POLICY service_role_insert_reviews 
+ON public.legacy_saas_manual_reviews 
+FOR INSERT TO service_role WITH CHECK (true);
+
+CREATE POLICY service_role_update_reviews 
+ON public.legacy_saas_manual_reviews 
+FOR UPDATE TO service_role USING (true) WITH CHECK (true);
 
 CREATE POLICY service_role_insert_actions 
 ON public.legacy_saas_manual_review_actions 
@@ -222,17 +230,29 @@ BEGIN
         RAISE EXCEPTION 'Post-flight check failed: anon, authenticated, or PUBLIC have privileges.';
     END IF;
 
-    -- Check service_role policies are present
-    IF NOT EXISTS (SELECT FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_reviews' AND roles @> ARRAY['service_role']::name[]) THEN
-        -- Fallback check for single role arrays in older PG versions, or simply ensure policy exists
-        IF NOT EXISTS (SELECT FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_reviews' AND roles::text LIKE '%service_role%') THEN
-            RAISE EXCEPTION 'Post-flight check failed: Missing service_role policy on legacy_saas_manual_reviews.';
-        END IF;
+    -- Check service_role policies are strictly defined for legacy_saas_manual_reviews
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_reviews' AND cmd = 'SELECT' AND roles::text LIKE '%service_role%') THEN
+        RAISE EXCEPTION 'Post-flight check failed: Missing service_role SELECT policy on legacy_saas_manual_reviews.';
     END IF;
-    IF NOT EXISTS (SELECT FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_review_actions' AND roles @> ARRAY['service_role']::name[]) THEN
-        IF NOT EXISTS (SELECT FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_review_actions' AND roles::text LIKE '%service_role%') THEN
-            RAISE EXCEPTION 'Post-flight check failed: Missing service_role policy on legacy_saas_manual_review_actions.';
-        END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_reviews' AND cmd = 'INSERT' AND roles::text LIKE '%service_role%') THEN
+        RAISE EXCEPTION 'Post-flight check failed: Missing service_role INSERT policy on legacy_saas_manual_reviews.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_reviews' AND cmd = 'UPDATE' AND roles::text LIKE '%service_role%') THEN
+        RAISE EXCEPTION 'Post-flight check failed: Missing service_role UPDATE policy on legacy_saas_manual_reviews.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_reviews' AND cmd IN ('ALL', 'DELETE') AND roles::text LIKE '%service_role%') THEN
+        RAISE EXCEPTION 'Post-flight check failed: Forbidden ALL or DELETE policy exists for service_role on legacy_saas_manual_reviews.';
+    END IF;
+
+    -- Check service_role policies are strictly defined for legacy_saas_manual_review_actions
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_review_actions' AND cmd = 'SELECT' AND roles::text LIKE '%service_role%') THEN
+        RAISE EXCEPTION 'Post-flight check failed: Missing service_role SELECT policy on legacy_saas_manual_review_actions.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_review_actions' AND cmd = 'INSERT' AND roles::text LIKE '%service_role%') THEN
+        RAISE EXCEPTION 'Post-flight check failed: Missing service_role INSERT policy on legacy_saas_manual_review_actions.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'legacy_saas_manual_review_actions' AND cmd IN ('ALL', 'DELETE', 'UPDATE') AND roles::text LIKE '%service_role%') THEN
+        RAISE EXCEPTION 'Post-flight check failed: Forbidden ALL, DELETE, or UPDATE policy exists for service_role on legacy_saas_manual_review_actions.';
     END IF;
 
     -- Check idempotency unique constraint
@@ -294,6 +314,9 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants WHERE grantee = 'service_role' AND table_schema = 'public' AND table_name = 'legacy_saas_manual_reviews' AND privilege_type = 'UPDATE') THEN
         RAISE EXCEPTION 'Post-flight check failed: Missing service_role UPDATE privilege on legacy_saas_manual_reviews.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.role_table_grants WHERE grantee = 'service_role' AND table_schema = 'public' AND table_name = 'legacy_saas_manual_reviews' AND privilege_type = 'DELETE') THEN
+        RAISE EXCEPTION 'Post-flight check failed: service_role has forbidden DELETE privilege on legacy_saas_manual_reviews.';
     END IF;
 
     -- Check strict service_role privileges for legacy_saas_manual_review_actions
