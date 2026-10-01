@@ -21,9 +21,9 @@
 | `subscriber_parent_id` | UUID du parent payeur (facturation, remboursement, traçabilité). Relation conceptuelle, vérifiée côté backend dans `profiles_<school_slug>`. |
 | `student_id` | UUID de l’enfant couvert. Relation conceptuelle, vérifiée dans `students_<school_slug>`. |
 | `school_slug` | Slug de l’établissement (référence unique à `public.schools.slug`). |
-| `plan_type` | Enum `MONTHLY`, `ANNUAL`. |
-| `amount_minor` | Montant payé en centimes (BIGINT). |
-| `currency` | Texte, toujours `'XOF'`. |
+| `plan_type` | Enum `MONTHLY` (paiement manuel d’un mois), `ANNUAL` (tranche unique de 10 mois, sans remise supplémentaire). |
+| `amount_minor` | Montant payé en valeur entière FCFA (jamais de flottants ni de centimes). |
+| `currency` | Texte, toujours `'XOF'`. Les montants USD/EUR sont des références futures non actives nécessitant une évolution additive. |
 | `payment_provider_ref` | Référence du prestataire FedaPay. |
 | `start_date` | Date de début de l’abonnement. |
 | `end_date` | Date de fin prévue de l’abonnement. |
@@ -45,9 +45,9 @@
 | `parent_subscription_id` | FK → `parent_subscriptions.id`. |
 | `payer_parent_id` | UUID du parent qui effectue le paiement (facturation, traçabilité). Relation conceptuelle, vérifiée dans les tables dynamiques de l’établissement. |
 | `payment_intent_id` | FK → `public.payment_intents.id`. |
-| `plan_type` | Enum `MONTHLY`, `ANNUAL`. |
-| `amount_minor` | Montant payé en centimes (BIGINT). |
-| `currency` | Texte, toujours `'XOF'`. |
+| `plan_type` | Enum `MONTHLY` (paiement manuel d’un mois), `ANNUAL` (tranche unique de 10 mois, sans remise supplémentaire). |
+| `amount_minor` | Montant payé en valeur entière FCFA (jamais de flottants ni de centimes). |
+| `currency` | Texte, toujours `'XOF'`. Les montants USD/EUR sont des références futures non actives nécessitant une évolution additive. |
 | `status` | Enum `pending_payment`, `scheduled`, `active`, `grace`, `expired`, `canceled`, `refunded`. |
 | `start_date` | Date de début de la période. |
 | `end_date` | Date de fin prévue de la période. |
@@ -87,11 +87,11 @@
 | `school_slug` | Slug de l’établissement (référence `public.schools.slug`). |
 | `period_id` | FK → `parent_subscription_periods.id`. |
 | `month` | CHAR(7) `YYYY‑MM`. |
-| `gross_amount` | Montant brut de l’abonnement (BIGINT, en centimes). |
+| `gross_amount` | Montant brut de l’abonnement (BIGINT, valeur entière FCFA). |
 | `provider_fees` | Frais FedaPay (BIGINT). |
 | `net_amount` | `gross_amount - provider_fees`. |
 | `commission_etablissement` | 20 % du `gross_amount`. |
-| `commission_ambassadeur` | 10 % du `net_amount` après commission établissement. |
+| `commission_ambassadeur` | 10 % du `gross_amount`. |
 | `status` | Enum `PENDING`, `POSTED`, `REVERSED`. |
 | `source_reference` | Référence transaction (`payment_intents.id` ou `payment_provider_ref`). |
 | `reversal_reference` | Nullable FK → même table (entrée de contre‑passation). |
@@ -112,7 +112,7 @@
 | `id` | PK UUID. |
 | `school_slug` | Slug de l’établissement (référence `public.schools.slug`). |
 | `month` | CHAR(7) `YYYY‑MM`. |
-| `payout_amount` | Montant total (BIGINT, en centimes) ≥ 2 000 FCFA. |
+| `payout_amount` | Montant total (BIGINT, valeur entière FCFA) ≥ 2 000 FCFA. |
 | `status` | Enum `DRAFT`, `APPROVED`, `SENDING`, `SENT`, `FAILED`, `CANCELED`. |
 | `provider_reference` | Référence unique du prestataire (FedaPay). |
 | `channel` | Canal actif (ex. `Mobile Money`). |
@@ -161,13 +161,17 @@
 
 ## 7. Frontières financières et confidentialité
 
-- **Montants** : tous les montants sont stockés **en entier** (centimes FCFA/XOF). Aucun champ flottant ne doit être introduit.
+- **Montants** : tous les montants sont stockés **en entier** (valeur entière FCFA/XOF). Aucun champ flottant ni concept de "centimes" ne doit être introduit.
+- **Politique V1 validée (Matrice XOF)** :
+  - Maternelle / Primaire : 100 FCFA par mois ; 1 000 FCFA annuels.
+  - Collège / Secondaire : 150 FCFA par mois ; 1 500 FCFA annuels.
+  - Supérieur / Formation : 200 FCFA par mois ; 2 000 FCFA annuels.
 - **Formule annuelle/mensuelle** :
-  - acquisition : 900 FCFA/mois (ou 10 800 FCFA/an).
-  - commission établissement : 20 % du `gross_amount` → 180 FCFA/mois.
-  - frais prestataire : répartis mensuellement sur le montant brut.
-  - part nette YZIOW = 900 − 180 − (frais prestataire répartis).
-  - commission ambassadeur = 10 % de la part nette YZIOW, si l’ambassadeur est éligible.
+  - acquisition : pour une période annuelle payée d’avance, inscrire chaque mois une acquisition de 1/10 des commissions ; toute annulation, fraude, contestation ou remboursement doit déclencher une contrepassation traçable.
+  - commission établissement : 20 % du `gross_amount`.
+  - frais prestataire : répartis mensuellement sur le montant brut, absorbés par YZIOW.
+  - commission ambassadeur : 10 % du `gross_amount`. L’ambassadeur attribué de manière unique et traçable à un établissement reçoit sa commission sans date d’expiration arbitraire, uniquement sur les acquisitions mensuelles effectivement encaissées. Aucun montant n’est dû pour un paiement annulé, remboursé, contesté ou frauduleux ; une contrepassation traçable est obligatoire. Toute réattribution rétroactive est interdite, sauf procédure interne anti-fraude documentée et auditée.
+  - part nette YZIOW = Brut - commission établissement - commission ambassadeur - (frais prestataire répartis).
 - **Accès pédagogique** : les fonctions Pack Parent (notes, présences, ressources, badges, messagerie, notifications ciblées) sont accessibles à **tout parent lié à l’enfant**, indépendamment du parent payeur.
 - **Facturation / remboursement** : les données de paiement, factures et historiques de remboursement sont **rattachées uniquement au `subscriber_parent_id`** (parent payeur).
 
@@ -181,7 +185,7 @@
     - la table `payment_intents` existe‑t‑elle ?
     - quels champs sont déjà présents ?
   - Si la table existe, envisager d’ajouter une colonne `payment_type` (enum `PACK_PARENT`, `DONATION`, `TUITION`) **après validation** afin de pouvoir filtrer les paiements Pack Parent.
-  - La séparation entre les flux Pack Parent, écolage et dons doit rester stricte ; aucune logique métier existante ne doit être modifiée tant que la vérification du schéma n’est pas confirmée.
+  - La séparation entre les flux Pack Parent, écolage et dons doit rester stricte ; aucune logique métier existante ne doit être modifiée tant que la vérification du schéma n’est pas confirmée. Aucune modification rétroactive de P14 ni de l’historique XOF n'est autorisée. Les noms des colonnes techniques proposés ou présents dans les migrations ne doivent pas être renommés.
 
 ---
 

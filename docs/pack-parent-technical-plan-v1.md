@@ -47,7 +47,7 @@
 
 La logique backend et frontend existante gérant les paiements devra impérativement traiter le Pack Parent comme un flux distinct.
 - Le champ `payment_type` dans `payment_intents` différenciera un paiement de Pack Parent.
-- Les rapports d'écolage et de dons de l'établissement ne devront pas inclure les 1000 FCFA du Pack Parent dans leurs totaux bruts. Seule la commission (20%) apparaîtra dans les revenus école.
+- Les rapports d'écolage et de dons de l'établissement ne devront pas inclure le paiement Pack Parent (ex: 100 FCFA) dans leurs totaux bruts. Seule la commission (20%) apparaîtra dans les revenus école.
 
 ---
 
@@ -89,18 +89,23 @@ Le cycle de paiement sera immuable :
 
 ---
 
-## 8. Commissions, Soldes et Reversements
+## 8. Politique Tarifaire, Commissions et Reversements
 
-### Commissions Etablissement (20%) et Ambassadeur (10% de la part nette)
-- Calculées exclusivement après confirmation par webhook.
-- La part annuelle est acquise **mensuellement au prorata**, interdisant un reversement total anticipé.
-- Un ambassadeur inactif ne reçoit aucune commission.
-- **Modèle annuel** : Un abonnement annuel de 10 800 FCFA active le Pack Parent immédiatement pour l’enfant couvert.
-- Valeur acquise mensuellement : 900 FCFA par mois.
-- Commission établissement : 180 FCFA par mois.
-- Frais prestataire : répartis au prorata mensuel.
-- Commission ambassadeur : calculée mensuellement sur la part nette réellement acquise.
-- Aucun paiement unique n'entraîne l’acquisition ou le versement de commissions ou reversements annuels complets au moment du paiement initial.
+### Matrice Tarifaire et Modalités V1
+- **Tarifs V1 actifs XOF :**
+  - Maternelle / Primaire : 100 FCFA par mois ; 1 000 FCFA annuels.
+  - Collège / Secondaire : 150 FCFA par mois ; 1 500 FCFA annuels.
+  - Supérieur / Formation : 200 FCFA par mois ; 2 000 FCFA annuels.
+- **Formule Annuelle :** Couvre 10 mois scolaires, payée en une seule tranche, sans remise annuelle supplémentaire.
+- **Formule Mensuelle :** Renouvellement par paiement manuel uniquement ; aucune reconduction ou prélèvement automatique en V1.
+- **Paiements et Rapports :** Les paiements sont encaissés d'abord par YZIOW via le prestataire, jamais directement par l'établissement. Les paiements Pack Parent ne doivent pas être assimilés ni agrégés aux rapports d'écolage.
+- **Futures devises :** Les montants USD/EUR sont des références futures non actives ; la V1 reste limitée au XOF.
+
+### Commissions Etablissement et Ambassadeur
+- **Taux :** Commission établissement = 20 % du montant brut payé. Commission ambassadeur = 10 % du montant brut payé.
+- **Acquisition annuelle :** Pour un paiement annuel, les deux commissions sont acquises à raison de 1/10 chaque mois scolaire. Ne jamais verser la totalité dès le paiement initial.
+- **Frais :** YZIOW absorbe les frais de collecte et de reversement, sans réduire les commissions établissement ou ambassadeur.
+- **Ambassadeur à vie :** L’ambassadeur attribué de manière unique et traçable à un établissement reçoit sa commission sans date d’expiration arbitraire, uniquement sur les acquisitions mensuelles effectivement encaissées. Aucun montant n’est dû pour un paiement annulé, remboursé, contesté ou frauduleux ; une contrepassation traçable est obligatoire. Toute réattribution rétroactive est interdite, sauf procédure interne anti-fraude documentée et auditée.
 
 ### Reversement Etablissement (>= 2 000 FCFA)
 - Le reversement mensuel dépend de :

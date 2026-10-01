@@ -42,9 +42,9 @@ Le Pack Parent V1 couvre :
 | **Pack Parent** | Ensemble de services optionnels accessibles aux parents via un abonnement mensuel ou annuel payant. L'absence de souscription ne bloque jamais la gestion de l'établissement. |
 | **Abonnement confirmé** | Abonnement dont le paiement a été confirmé par FedaPay via webhook, dont le statut dans `payment_intents` est `completed`, et qui n'a pas été annulé ni remboursé. |
 | **Exonération** | Décision explicite de l'établissement permettant à un parent de bénéficier du Pack Parent sans payer, pour une période bornée, avec motif enregistré. Une exonération ne génère aucune commission. |
-| **Commission établissement** | 20 % du montant de chaque abonnement confirmé, non annulé et non remboursé, reversé automatiquement à l'établissement chaque mois. |
-| **Commission ambassadeur** | 10 % de la part nette YZIOW calculée après déduction des frais FedaPay et de la commission établissement, versée uniquement si l'école est active et si le statut de l'ambassadeur a été renouvelé. |
-| **Reversement** | Virement automatique mensuel de la commission accumulée vers l'établissement, déclenché après rapprochement. |
+| **Commission établissement** | 20 % du montant brut effectivement payé, reversé automatiquement à l'établissement chaque mois. |
+| **Commission ambassadeur** | 10 % du montant brut effectivement payé. L'attribution de l'ambassadeur à un établissement est à vie, unique et non modifiable rétroactivement. |
+| **Reversement** | Virement automatique mensuel de la commission accumulée vers l'établissement ou l'ambassadeur, déclenché après rapprochement (seuil 2 000 FCFA). |
 
 ---
 
@@ -82,26 +82,23 @@ Dès que la période de grâce expire sans renouvellement pour un enfant, **seul
 
 | Elément | Valeur |
 |:---|:---|
-| Tarif | 1 000 FCFA / enfant actif / mois |
-| Période de facturation | Mensuelle calendaire |
+| Tarif (Primaire/Maternelle) | 100 FCFA / enfant / mois scolaire |
+| Tarif (Collège/Secondaire) | 150 FCFA / enfant / mois scolaire |
+| Tarif (Supérieur/Formation)| 200 FCFA / enfant / mois scolaire |
 | Renouvellement | Manuel en V1 (aucun prélèvement automatique) |
 
 ### 4.2 Formule annuelle (optionnelle)
 
 | Elément | Valeur |
 |:---|:---|
-| Tarif | 10 800 FCFA / enfant actif / an |
-| Réduction | 10 % par rapport au tarif mensuel cumulé (12 000 FCFA) |
-| Période de facturation | Annuelle |
+| Tarif | 10 fois le prix mensuel (soit 1 000, 1 500 ou 2 000 FCFA) |
+| Réduction | Aucune réduction |
+| Période de facturation | Annuelle (10 mois scolaires facturés) |
 | Activation | Immédiate dès confirmation du paiement par FedaPay |
 
-Les commissions sur abonnement annuel sont acquises **mensuellement au prorata**, et non en totalité dès le paiement initial. Base de calcul mensuelle :
-- Base mensuelle annuelle : 900 FCFA (10 800 / 12)
-- Commission établissement acquise par mois : 180 FCFA (900 x 20 %)
-- Frais FedaPay annuels répartis au prorata sur 12 mois pour déterminer la part nette mensuelle YZIOW
-- Commission ambassadeur mensuelle : 10 % de la part nette mensuelle YZIOW
+Les commissions sur abonnement annuel sont acquises **mensuellement au prorata**, à raison de 1/10 par mois scolaire, et non en totalité dès le paiement initial.
 
-> **Règle stricte :** Le versement intégral et définitif des commissions annuelles dès le paiement initial est **interdit**. En cas de remboursement, seules les commissions des mois déjà écoulés et acquis sont contrepassées ; les commissions futures ne sont jamais versées.
+> **Règle stricte :** Le versement intégral et définitif des commissions annuelles dès le paiement initial est **interdit**. En cas de remboursement, seules les commissions des mois déjà écoulés et acquis sont conservées.
 
 ### 4.3 Base de facturation
 La facturation est calculée sur le nombre d'**enfants actifs** au moment de la souscription. Un enfant dont le statut passe à inactif en cours de période ne génère pas de remboursement prorata en V1.
@@ -165,30 +162,28 @@ Séquence principale :
 
 ```
 Parent
-  |  1 000 FCFA / enfant / mois (ou 10 800 FCFA / an)
+  |  Montant payé (ex: 100 FCFA / enfant / mois)
   v
 FedaPay  (prestataire sélectionné pour la V1 — voir section 11)
   |  Déduit ses frais de transaction (F)
   v
 YZIOW  (plateforme)
-  |  Reçoit le montant net N = B - F
-  |--- 20 %  -->  Etablissement (commission acquise mensuellement)
-  |--- 10 % de la part YZIOW nette  -->  Ambassadeur (si éligible)
+  |  Reçoit le montant net = Brut - F
+  |--- 20 % du Brut  -->  Etablissement (commission acquise mensuellement)
+  |--- 10 % du Brut  -->  Ambassadeur (commission acquise mensuellement, à vie)
   +--- Solde  -->  YZIOW (revenus plateforme)
 ```
 
 ### 7.2 Formule de répartition
 
 Notations :
-- `B` = montant brut encaissé
-- `F` = frais FedaPay déduits
-- `N` = montant net YZIOW = `B - F`
+- `B` = montant brut effectivement payé par le parent
+- `F` = frais réels de collecte et reversement supportés par YZIOW
 - `C_etab` = commission établissement = `B x 20 %`
-- `P_yziow` = part nette YZIOW avant commission ambassadeur = `N - C_etab`
-- `C_amb` = commission ambassadeur = `P_yziow x 10 %` (si ambassadeur éligible)
-- `R_yziow` = revenu YZIOW final = `P_yziow - C_amb`
+- `C_amb` = commission ambassadeur = `B x 10 %`
+- `R_yziow` = revenu YZIOW final = `B - C_etab - C_amb - F`
 
-> **Base de calcul ambassadeur :** 10 % de la part nette YZIOW, après déduction des frais FedaPay et de la commission établissement.
+> **Base de calcul :** Les commissions sont calculées sur le montant brut effectivement payé. YZIOW absorbe les frais prestataire, qui ne diminuent jamais les commissions école et ambassadeur.
 
 ### 7.3 Idempotence
 Chaque transaction est associée à une **référence unique** non réutilisable. Aucune commission ne peut être créditée deux fois pour la même transaction.
@@ -211,12 +206,12 @@ Chaque transaction est associée à une **référence unique** non réutilisable
 
 | Règle | Détail |
 |:---|:---|
-| Taux | 10 % de la part nette YZIOW |
-| Déclencheur | Paiement confirmé + école active + ambassadeur éligible |
-| Eligibilité | Statut ambassadeur renouvelé annuellement et actif |
-| Exclusions | Exonérations, remboursements, annulations, ambassadeur inactif ou suspendu |
+| Taux | 10 % du montant brut effectivement payé |
+| Déclencheur | Paiement confirmé + école active |
+| Eligibilité | Ambassadeur attribué à vie pour cet établissement |
+| Exclusions | Exonérations, remboursements, annulations |
 | En cas de remboursement | Commission annulée ou reprise via entrée `refund_reversal` |
-| Durée | Non inconditionnelle — conditionnée au renouvellement annuel du statut |
+| Durée | À vie (sur chaque mois Pack Parent payé pour l'établissement) |
 
 ---
 
@@ -289,8 +284,6 @@ Les frais FedaPay doivent être tracés par transaction pour calculer correcteme
 | Paiement en espèces ou virement manuel | Non traçable, interdit par les règles de la plateforme |
 | Facturation Direction / personnel | Gestion école gratuite à vie |
 | Abonnement famille (tarif groupé multi-enfants) | Non défini en V1 |
-| Remboursement prorata pour enfant devenu inactif | Non applicable en V1 |
-| Commissionnement ambassadeur inconditionnel à vie | Conditionné au renouvellement annuel du statut |
 | Gestion des litiges contractuels FedaPay | Hors périmètre YZIOW |
 | Facturation B2B inter-établissements | Hors périmètre YZIOW |
 
@@ -334,7 +327,7 @@ Le Pack Parent V1 est considéré comme correct si et seulement si :
 7. Un doublon de paiement génère un remboursement, une contrepassation de commission et l'état `REFUNDED`, sans double crédit.
 8. Une exonération n'alimente aucun solde de commission (établissement ou ambassadeur).
 9. Chaque reversement mensuel liste les transactions sources et respecte le seuil minimal défini.
-10. Un ambassadeur dont le statut n'est pas renouvelé ne perçoit aucune commission sur les nouveaux abonnements.
+10. Un ambassadeur attribué reçoit ses commissions à vie ; les commissions annuelles sont acquises mensuellement (1/10 par mois).
 11. Aucune transaction n'est confirmée sans webhook FedaPay signé et rapproché.
 12. Aucun montant n'est reversé si une transaction source est en état `reconciliation_required`.
 
