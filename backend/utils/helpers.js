@@ -31,12 +31,6 @@ function normalizePhone(phone, countryCode) {
     }
 
     let inputToParse = normalizedInput;
-    if (defaultCountry === 'BJ' && !inputToParse.startsWith('+')) {
-        const digitsOnly = inputToParse.replace(/\D/g, '');
-        if (digitsOnly.length === 8) {
-            inputToParse = '01' + digitsOnly;
-        }
-    }
 
     const parsed = parsePhoneNumberFromString(inputToParse, {
         defaultCountry,

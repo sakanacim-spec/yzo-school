@@ -15,7 +15,11 @@ export const parentApi = {
             body: JSON.stringify(data)
         });
         const result = await parseResponse(res);
-        if (!res.ok) throw result;
+        if (!res.ok) {
+            const err: any = new Error(result.error || result.message || 'API Error');
+            Object.assign(err, result);
+            throw err;
+        }
         if (result.token) localStorage.setItem('parent_token', result.token);
         return result;
     },
@@ -27,7 +31,11 @@ export const parentApi = {
             body: JSON.stringify(data)
         });
         const result = await parseResponse(res);
-        if (!res.ok) throw result;
+        if (!res.ok) {
+            const err: any = new Error(result.error || result.message || 'API Error');
+            Object.assign(err, result);
+            throw err;
+        }
         if (result.token) localStorage.setItem('parent_token', result.token); // using the same token storage for all roles
         return result;
     },
@@ -39,7 +47,11 @@ export const parentApi = {
             body: JSON.stringify(data)
         });
         const result = await parseResponse(res);
-        if (!res.ok) throw result;
+        if (!res.ok) {
+            const err: any = new Error(result.error || result.message || 'API Error');
+            Object.assign(err, result);
+            throw err;
+        }
         if (result.token) localStorage.setItem('parent_token', result.token);
         return result;
     },

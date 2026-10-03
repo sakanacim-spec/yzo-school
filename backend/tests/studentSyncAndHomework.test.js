@@ -35,9 +35,10 @@ async function runTests() {
         assert.strictEqual(normalized, '+2290197000000');
     });
 
-    await it('1.2: Numéro Bénin (BJ) 8 chiffres historique (97000000) migré en E.164 (+2290197000000)', () => {
-        const normalized = normalizePhone('97000000', 'BJ');
-        assert.strictEqual(normalized, '+2290197000000');
+    await it('1.2: Numéro Bénin (BJ) historique à 8 chiffres (97000000) rejeté avec INVALID_PHONE', () => {
+        assert.throws(() => {
+            normalizePhone('97000000', 'BJ');
+        }, /INVALID_PHONE/);
     });
 
     await it('1.3: Numéro international Bénin avec +229 conservé sans double indicatif', () => {
