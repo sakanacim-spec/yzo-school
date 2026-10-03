@@ -1211,16 +1211,12 @@ async function runTests() {
         assert.strictEqual(networkError.code, 'NETWORK_ERROR');
     });
 
-    await it('15.7: Absence totale de ReferenceError sur le composant (vérification statique)', () => {
+    await it('15.7: Absence totale de ReferenceError sur le composant (verification statique) - Retrait SaaS', () => {
         const fs = require('fs');
         const path = require('path');
         const widgetFile = path.join(__dirname, '../../src/components/SchoolSubscriptionWidget.tsx');
         const content = fs.readFileSync(widgetFile, 'utf-8');
-
-        // Vérifie que effectiveBreakdown est bien déclaré avant toute utilisation
-        assert.ok(content.includes('const effectiveBreakdown: LevelBreakdown = {'), 'effectiveBreakdown doit être explicitement déclaré');
-        // Vérifie qu\'aucune variable non définie n\'est référencée
-        assert.strictEqual(content.includes('const breakdown: LevelBreakdown'), false, 'Ancienne variable non utilisée supprimée');
+        assert.ok(content.includes('return null;'), 'Le composant doit retourner null car le SaaS est desactive');
     });
 
     await it('15.8: Résilience Dashboard : l\'échec de chargement du devis n\'impacte pas le rendu global', () => {

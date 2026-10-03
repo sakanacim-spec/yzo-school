@@ -73,8 +73,8 @@ export const ASSISTANT_DICTIONARY: Record<AssistantLanguage, AssistantTranslatio
         roleTeacher: '👨‍🏫 Je suis Enseignant ou Élève',
         roleInfo: '❓ Découvrir les fonctionnalités & Tarifs',
 
-        directorResponse: "Excellente démarche ! Avec Yziow, vous pouvez gérer votre école de A à Z (bulletins PDF officiels, gestion des frais, présences QR code).\n\nVous bénéficiez de 14 jours d'essai gratuit sans engagement !",
-        directorActionRegister: '🚀 Créer mon école (14j gratuits)',
+        directorResponse: "Excellente démarche ! Avec Yziow, vous pouvez gérer votre école de A à Z (bulletins PDF officiels, gestion des frais, présences QR code).\n\nL'inscription et la gestion d'établissement sont gratuites et illimitées !",
+        directorActionRegister: '🚀 Créer mon école gratuitement',
         directorActionLogin: '🔑 Se connecter à mon espace',
 
         parentResponse: "Bienvenue ! En tant que parent, Yziow vous permet de suivre en temps réel les notes de votre enfant, ses présences et de recevoir ses bulletins sur votre téléphone.",
@@ -120,8 +120,8 @@ export const ASSISTANT_DICTIONARY: Record<AssistantLanguage, AssistantTranslatio
         roleTeacher: '👨‍🏫 I am a Teacher or Student',
         roleInfo: '❓ Features & Pricing',
 
-        directorResponse: 'Excellent! With Yziow, you can manage your school from A to Z (certified PDF report cards, tuition tracking, QR code attendance).\n\nYou get a 14-day free trial without commitment!',
-        directorActionRegister: '🚀 Create my school (14d free)',
+        directorResponse: 'Excellent! With Yziow, you can manage your school from A to Z (certified PDF report cards, tuition tracking, QR code attendance).\n\nCreation and school management are free and unlimited!',
+        directorActionRegister: '🚀 Create my school for free',
         directorActionLogin: '🔑 Log in to my portal',
 
         parentResponse: "Welcome! As a parent, Yziow allows you to track your child's grades, attendance in real time, and receive report cards directly on your phone.",
@@ -167,8 +167,8 @@ export const ASSISTANT_DICTIONARY: Record<AssistantLanguage, AssistantTranslatio
         roleTeacher: '👨‍🏫 Soy Profesor o Estudiante',
         roleInfo: '❓ Funcionalidades y Tarifas',
 
-        directorResponse: '¡Excelente iniciativa! Con Yziow, puedes gestionar tu colegio de la A a la Z (boletines oficiales en PDF, pagos, asistencias por código QR).\n\n¡Disfruta de 14 días de prueba gratuita sin compromiso!',
-        directorActionRegister: '🚀 Crear mi colegio (14d gratis)',
+        directorResponse: '¡Excelente iniciativa! Con Yziow, puedes gestionar tu colegio de la A a la Z (boletines oficiales en PDF, pagos, asistencias por código QR).\n\n¡La creación y gestión de la escuela son gratuitas e ilimitadas!',
+        directorActionRegister: '🚀 Crear mi colegio gratis',
         directorActionLogin: '🔑 Iniciar sesión en mi espacio',
 
         parentResponse: '¡Bienvenido! Como padre, Yziow te permite seguir las calificaciones de tus hijos en tiempo real, sus asistencias y recibir boletines en tu teléfono.',
@@ -214,8 +214,8 @@ export const ASSISTANT_DICTIONARY: Record<AssistantLanguage, AssistantTranslatio
         roleTeacher: '👨‍🏫 Ich bin Lehrkraft oder Schüler',
         roleInfo: '❓ Funktionen & Preise',
 
-        directorResponse: 'Ausgezeichnet! Mit Yziow verwalten Sie Ihre Schule von A bis Z (zertifizierte PDF-Zeugnisse, Schulgeld, QR-Code-Anwesenheit).\n\nNutzen Sie Ihre kostenlose 14-tägige Testphase unverbindlich!',
-        directorActionRegister: '🚀 Meine Schule erstellen (14 Tage gratis)',
+        directorResponse: 'Ausgezeichnet! Mit Yziow verwalten Sie Ihre Schule von A bis Z (zertifizierte PDF-Zeugnisse, Schulgeld, QR-Code-Anwesenheit).\n\nDie Erstellung und Schulverwaltung sind kostenlos und unbegrenzt!',
+        directorActionRegister: '🚀 Meine Schule kostenlos erstellen',
         directorActionLogin: '🔑 Im Portal anmelden',
 
         parentResponse: 'Herzlich willkommen! Als Elternteil verfolgen Sie Noten und Anwesenheit Ihres Kindes in Echtzeit und erhalten Zeugnisse direkt auf Ihr Smartphone.',
@@ -261,8 +261,8 @@ export const ASSISTANT_DICTIONARY: Record<AssistantLanguage, AssistantTranslatio
         roleTeacher: '👨‍🏫 Sono un Insegnante o Studente',
         roleInfo: '❓ Funzionalità & Tariffe',
 
-        directorResponse: 'Ottima scelta! Con Yziow gestisci la tua scuola da A a Z (pagelle ufficiali in PDF, rette scolastiche, presenze con codice QR).\n\nHai a disposizione 14 giorni di prova gratuita!',
-        directorActionRegister: '🚀 Crea la mia scuola (14g gratis)',
+        directorResponse: 'Ottima scelta! Con Yziow gestisci la tua scuola da A a Z (pagelle ufficiali in PDF, rette scolastiche, presenze con codice QR).\n\nLa creazione e la gestione della scuola sono gratuite e illimitate!',
+        directorActionRegister: '🚀 Crea la mia scuola gratis',
         directorActionLogin: '🔑 Accedi al mio spazio',
 
         parentResponse: 'Benvenuto! Come genitore, Yziow ti consente di seguire i voti e le presenze di tuo figlio in tempo reale e ricevere le pagelle sul telefono.',
@@ -308,8 +308,8 @@ export const ASSISTANT_DICTIONARY: Record<AssistantLanguage, AssistantTranslatio
         roleTeacher: '👨‍🏫 Sou Professor ou Aluno',
         roleInfo: '❓ Recursos e Preços',
 
-        directorResponse: 'Excelente iniciativa! Com o Yziow, você gerencia sua escola de ponta a ponta (boletins em PDF certificados, mensalidades, presença com QR Code).\n\nAproveite 14 dias de teste gratuito sem compromisso!',
-        directorActionRegister: '🚀 Criar minha escola (14d grátis)',
+        directorResponse: 'Excelente iniciativa! Com o Yziow, você gerencia sua escola de ponta a ponta (boletins em PDF certificados, mensalidades, presença com QR Code).\n\nA criação e gestão da escola são gratuitas e ilimitadas!',
+        directorActionRegister: '🚀 Criar minha escola grátis',
         directorActionLogin: '🔑 Entrar no meu painel',
 
         parentResponse: 'Bem-vindo! Como responsável, o Yziow permite acompanhar notas e frequências em tempo real e receber boletins no seu celular.',
@@ -355,8 +355,8 @@ export const ASSISTANT_DICTIONARY: Record<AssistantLanguage, AssistantTranslatio
         roleTeacher: '👨‍🏫 Я Преподаватель или Ученик',
         roleInfo: '❓ Возможности и Тарифы',
 
-        directorResponse: 'Отличный выбор! С Yziow вы можете управлять школой от А до Я (официальные табели в PDF, оплата обучения, учет посещаемости по QR-коду).\n\nВам доступен 14-дневный бесплатный пробный период!',
-        directorActionRegister: '🚀 Создать школу (14 дней бесплатно)',
+        directorResponse: 'Отличный выбор! С Yziow вы можете управлять школой от А до Я (официальные табели в PDF, оплата обучения, учет посещаемости по QR-коду).\n\nСоздание и управление школой бесплатны и не ограничены!',
+        directorActionRegister: '🚀 Создать школу бесплатно',
         directorActionLogin: '🔑 Войти в личный кабинет',
 
         parentResponse: 'Добро пожаловать! Как родитель, в Yziow вы можете в реальном времени отслеживать оценки и посещаемость вашего ребенка, а также получать табели на телефон.',
@@ -402,8 +402,8 @@ export const ASSISTANT_DICTIONARY: Record<AssistantLanguage, AssistantTranslatio
         roleTeacher: '👨‍🏫 أنا أستاذ أو طالب',
         roleInfo: '❓ استكشاف الميزات والأسعار',
 
-        directorResponse: 'خطوة ممتازة! مع Yziow، يمكنك إدارة مؤسستك التعليمية بالكامل من الألف إلى الياء (كشوف درجات PDF معتمدة، تحصيل الرسوم، تسجيل الحضور برمز QR).\n\nاستفد من فترة تجريبية مجانية لمدة 14 يوماً بدون أي التزام!',
-        directorActionRegister: '🚀 إنشاء مدرستي (14 يوماً مجاناً)',
+        directorResponse: 'خطوة ممتازة! مع Yziow، يمكنك إدارة مؤسستك التعليمية بالكامل من الألف إلى الياء (كشوف درجات PDF معتمدة، تحصيل الرسوم، تسجيل الحضور برمز QR).\n\nإنشاء وإدارة المدرسة مجانية 100٪ وغير محدودة!',
+        directorActionRegister: '🚀 إنشاء مدرستي مجاناً',
         directorActionLogin: '🔑 تسجيل الدخول إلى حسابي',
 
         parentResponse: 'أهلاً بك! بصفتك ولي أمر، يتيح لك Yziow متابعة درجات طفلك وحضوره في الوقت الفعلي واستلام كشوف الدرجات مباشرة على هاتفك.',
@@ -449,8 +449,8 @@ export const ASSISTANT_DICTIONARY: Record<AssistantLanguage, AssistantTranslatio
         roleTeacher: '👨‍🏫 我是教师或学生',
         roleInfo: '❓ 了解平台功能与收费方案',
 
-        directorResponse: '非常欢迎！通过 Yziow，您可以全方位管理学校（官方权威 PDF 成绩单、学费管理、二维码考勤签到）。\n\n立即享受 14 天免费试用，无需任何约束！',
-        directorActionRegister: '🚀 立即注册学校（14天免费）',
+        directorResponse: '非常欢迎！通过 Yziow，您可以全方位管理学校（官方权威 PDF 成绩单、学费管理、二维码考勤签到）。\n\n创建和学校管理是免费且无限制的！',
+        directorActionRegister: '🚀 免费创建学校',
         directorActionLogin: '🔑 登录学校管理后台',
 
         parentResponse: '您好！作为家长，Yziow 支持您实时查看孩子的成绩、考勤动态，并在手机上直接接收成绩报告单。',

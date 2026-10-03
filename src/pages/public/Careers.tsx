@@ -199,7 +199,7 @@ export const Careers: React.FC<CareersProps> = ({ onBack }) => {
             <div className="mt-8 bg-orange-50 border border-orange-200 rounded-3xl p-8 md:p-12 text-center text-slate-800 relative overflow-hidden">
               <h3 className="text-2xl font-black mb-4">{t(language as Language, 'public.careers.affiliateTitle') || "Vous préférez le bouche-à-oreille ?"}</h3>
               <p className="text-slate-600 font-medium mb-8 max-w-xl mx-auto">
-                {t(language as Language, 'public.careers.affiliateDesc') || "Devenez partenaire ! Recommandez Yziow autour de vous (écoles, directeurs, connaissances) et gagnez des commissions automatiques sur chaque abonnement. Sans contrainte horaire ni entretien d'embauche."}
+                {t(language as Language, 'public.careers.affiliateDesc') || "Devenez partenaire ! Recommandez Yziow autour de vous (écoles, directeurs, connaissances) et aidez les établissements à se digitaliser gratuitement. Sans contrainte horaire ni entretien d'embauche."}
               </p>
               <a 
                 href="/ambassadeur"

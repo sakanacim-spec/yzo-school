@@ -73,10 +73,7 @@ async function getAllSchools(req, res) {
                     total_revenue_paid: school.total_revenue_paid || 0,
                     platform_collected_amount: school.platform_collected_amount || 0,
                     platform_disbursed_amount: school.platform_disbursed_amount || 0,
-                    platform_commission_rate: school.platform_commission_rate !== undefined ? school.platform_commission_rate : 5.0,
-                    trial_days_left: school.status === 'trial'
-                        ? Math.max(0, Math.ceil((new Date(school.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)))
-                        : 0
+                    platform_commission_rate: school.platform_commission_rate !== undefined ? school.platform_commission_rate : 5.0
                 };
             })
         );
@@ -91,7 +88,6 @@ async function getAllSchools(req, res) {
             summary: {
                 total_schools: schools.length,
                 active_schools: schools.filter(s => s.status === 'active').length,
-                trial_schools: schools.filter(s => s.status === 'trial').length,
                 suspended_schools: schools.filter(s => s.status === 'suspended').length,
                 total_students: totalStudents,
                 total_revenue: totalRevenue,
@@ -201,8 +197,7 @@ async function createSchool(req, res) {
             phone: validatedData.phone || null,
             email: validatedData.email || null,
             preferred_language: validatedData.preferred_language || 'fr',
-            status: 'trial',
-            trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 jours
+            status: 'active',
             affiliate_id: affiliateId
         };
 
@@ -286,13 +281,13 @@ async function createSchool(req, res) {
 }
 
 // ── PATCH /api/superadmin/schools/:id/status ───────────────────
-// Activer, suspendre, ou passer en mode essai une école
+// Activer ou suspendre une école
 async function updateSchoolStatus(req, res) {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!['active', 'suspended', 'trial'].includes(status)) {
-        return res.status(400).json({ error: 'Statut invalide. Valeurs: active, suspended, trial' });
+    if (!['active', 'suspended'].includes(status)) {
+        return res.status(400).json({ error: 'Statut invalide. Valeurs: active, suspended' });
     }
 
     try {
@@ -305,7 +300,7 @@ async function updateSchoolStatus(req, res) {
 
         if (error) throw error;
 
-        const action = status === 'active' ? '✅ activée' : status === 'suspended' ? '🚫 suspendue' : '⏳ en essai';
+        const action = status === 'active' ? '✅ activée' : '🚫 suspendue';
         console.log(`🏫 École "${school.name}" ${action} par le SuperAdmin`);
 
         return res.json({
@@ -322,7 +317,7 @@ async function updateSchoolStatus(req, res) {
 // Modifier les informations d'une école
 async function updateSchool(req, res) {
     const { id } = req.params;
-    const { name, address, phone, email, slogan, ministry, trial_ends_at } = req.body;
+    const { name, address, phone, email, slogan, ministry } = req.body;
 
     try {
         const updates = {};
@@ -332,7 +327,6 @@ async function updateSchool(req, res) {
         if (email !== undefined) updates.email = email;
         if (slogan !== undefined) updates.slogan = slogan;
         if (ministry !== undefined) updates.ministry = ministry;
-        if (trial_ends_at !== undefined) updates.trial_ends_at = trial_ends_at;
 
         const { data: school, error } = await supabase
             .from('schools')
@@ -358,7 +352,7 @@ async function getGlobalStats(req, res) {
             .from('schools').select('*', { count: 'exact', head: true });
 
         const { data: schools } = await supabase
-            .from('schools').select('slug, status, trial_ends_at, total_revenue_paid, platform_collected_amount, platform_disbursed_amount');
+            .from('schools').select('slug, status, total_revenue_paid, platform_collected_amount, platform_disbursed_amount');
 
         let totalStudents = 0;
         let totalUsers = 0;
@@ -389,13 +383,7 @@ async function getGlobalStats(req, res) {
         }
 
         const activeCount = schools?.filter(s => s.status === 'active').length || 0;
-        const trialCount = schools?.filter(s => s.status === 'trial').length || 0;
         const suspendedCount = schools?.filter(s => s.status === 'suspended').length || 0;
-
-        // Écoles dont l'essai est expiré mais pas encore mises à jour
-        const expiredTrials = schools?.filter(s =>
-            s.status === 'trial' && new Date(s.trial_ends_at) < new Date()
-        ).length || 0;
 
         const totalRevenuePaid = schools?.reduce((sum, s) => sum + (Number(s.total_revenue_paid) || 0), 0) || 0;
         const platformCollectedAmount = schools?.reduce((sum, s) => sum + (Number(s.platform_collected_amount) || 0), 0) || 0;
@@ -404,9 +392,7 @@ async function getGlobalStats(req, res) {
         return res.json({
             total_schools: totalSchools || 0,
             active_schools: activeCount,
-            trial_schools: trialCount,
             suspended_schools: suspendedCount,
-            expired_trials: expiredTrials,
             total_students: totalStudents || 0,
             total_users: totalUsers || 0,
             total_revenue: totalRevenue, 
