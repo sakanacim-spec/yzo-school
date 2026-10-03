@@ -112,7 +112,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setTrialExpiredSchool(null);
+    
     setLoading(true);
 
     try {
