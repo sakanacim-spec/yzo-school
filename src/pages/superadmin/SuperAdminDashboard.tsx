@@ -29,14 +29,12 @@ function formatFCFA(n: number) {
 function getStatusBadge(status: School['status'], language: Language) {
   const map = {
     active: { label: t(language, 'superadmin.active') || 'Actif', color: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
-    trial: { label: t(language, 'superadmin.trial') || 'Essai', color: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' },
     suspended: { label: t(language, 'superadmin.suspended') || 'Suspendu', color: 'bg-red-500/20 text-red-400 border border-red-500/30' },
   };
-  const s = map[status];
+  const s = map[status] || map.active;
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${s.color}`}>
       {status === 'active' && <Check className="w-3 h-3" />}
-      {status === 'trial' && <Clock className="w-3 h-3" />}
       {status === 'suspended' && <X className="w-3 h-3" />}
       {s.label}
     </span>
@@ -52,7 +50,7 @@ interface SchoolWithStats extends School {
   platform_collected_amount: number;
   platform_disbursed_amount: number;
   platform_commission_rate: number;
-  trial_days_left: number;
+
   payout_momo_number?: string | null;
   payout_method?: 'momo' | 'rib' | null;
 }
@@ -60,9 +58,8 @@ interface SchoolWithStats extends School {
 interface GlobalStats {
   total_schools: number;
   active_schools: number;
-  trial_schools: number;
+
   suspended_schools: number;
-  expired_trials: number;
   total_students: number;
   total_users: number;
   total_revenue: number;
@@ -127,7 +124,7 @@ const CreateSchoolModal: React.FC<CreateSchoolModalProps> = ({ onClose, onCreate
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <div>
             <h2 className="text-xl font-black text-white">{t(language as Language, 'superadmin.createSchool') || "Créer un nouvel établissement"}</h2>
-            <p className="text-slate-400 text-sm">{t(language as Language, 'superadmin.createSchoolDesc') || "L'école bénéficiera de 2 mois d'essai gratuit"}</p>
+            <p className="text-slate-400 text-sm">{t(language as Language, 'superadmin.createSchoolDesc') || "La gestion de l'école est 100% gratuite et illimitée"}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
@@ -767,8 +764,8 @@ export const SuperAdminDashboard: React.FC = () => {
               color: 'from-amber-500 to-orange-500', sub: `Abonnements réels`
             },
             {
-              label: t(language as Language, 'superadmin.alerts') || 'Alertes', value: (stats.expired_trials || 0) + (stats.suspended_schools || 0), icon: <AlertTriangle className="w-5 h-5" />,
-              color: 'from-red-500 to-rose-500', sub: `${stats.expired_trials || 0} ${t(language as Language, 'superadmin.alertsSub') || 'essais expirés'}`
+              label: t(language as Language, 'superadmin.alerts') || 'Alertes', value: stats.suspended_schools || 0, icon: <AlertTriangle className="w-5 h-5" />,
+              color: 'from-red-500 to-rose-500', sub: `${stats.suspended_schools || 0} écoles suspendues`
             },
           ].map((card) => (
             <div key={card.label} className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
@@ -793,12 +790,10 @@ export const SuperAdminDashboard: React.FC = () => {
               <div className="flex h-4 rounded-full overflow-hidden mb-3 bg-slate-800">
                  <div style={{ width: `${((stats.active_schools || 0) / Math.max(1, stats.total_schools || 1)) * 100}%` }} className="bg-emerald-500"></div>
                  <div style={{ width: `${((stats.suspended_schools || 0) / Math.max(1, stats.total_schools || 1)) * 100}%` }} className="bg-red-500"></div>
-                 <div style={{ width: `${((stats.expired_trials || 0) / Math.max(1, stats.total_schools || 1)) * 100}%` }} className="bg-amber-500"></div>
               </div>
               <div className="flex flex-wrap justify-between text-xs text-slate-400">
                  <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Actives ({stats.active_schools || 0})</div>
                  <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Suspendues ({stats.suspended_schools || 0})</div>
-                 <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Essais expirés ({stats.expired_trials || 0})</div>
               </div>
            </div>
            
@@ -816,17 +811,6 @@ export const SuperAdminDashboard: React.FC = () => {
               </div>
               <p className="text-xs text-slate-500">Objectif: 100% de recouvrement des abonnements</p>
            </div>
-        </div>
-      )}
-
-      {/* Alertes */}
-      {stats && stats.expired_trials > 0 && (
-        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-400">
-          <AlertTriangle className="w-5 h-5 shrink-0" />
-          <div>
-            <p className="font-bold">{stats.expired_trials} {t(language as Language, 'superadmin.expiredTrialsAlertTitle') || "école(s) en essai expiré"}</p>
-            <p className="text-sm text-amber-500/80">{t(language as Language, 'superadmin.expiredTrialsAlertDesc') || "Ces écoles n'ont pas encore réglé leur abonnement. Contactez les directeurs."}</p>
-          </div>
         </div>
       )}
 
@@ -964,9 +948,8 @@ export const SuperAdminDashboard: React.FC = () => {
         ) : (
           <div className="divide-y divide-slate-800">
             {filteredSchools.map((school) => {
-              const isExpired = school.status === 'trial' && school.trial_days_left === 0;
               return (
-                <div key={school.id} className={`p-5 hover:bg-slate-800/30 transition-colors ${isExpired ? 'border-l-4 border-amber-500' : ''}`}>
+                <div key={school.id} className="p-5 hover:bg-slate-800/30 transition-colors">
                   <div className="flex items-start gap-4">
                     {/* Logo / Avatar */}
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-700 to-slate-600 flex items-center justify-center shrink-0 overflow-hidden">
@@ -982,11 +965,7 @@ export const SuperAdminDashboard: React.FC = () => {
                       <div className="flex items-center gap-3 flex-wrap mb-2">
                         <h3 className="text-white font-bold text-base">{school.name}</h3>
                         {getStatusBadge(school.status, language)}
-                        {isExpired && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                            <AlertTriangle className="w-3 h-3" /> {t(language as Language, 'superadmin.expiredTrialBadge') || "Essai expiré"}
-                          </span>
-                        )}
+
                       </div>
 
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400 mb-3">
@@ -1024,14 +1003,7 @@ export const SuperAdminDashboard: React.FC = () => {
                           <p className="text-amber-400 font-bold text-lg">{formatFCFA(school.total_revenue_paid)}</p>
                           <p className="text-slate-500 text-xs">{t(language as Language, 'superadmin.revenuePaid') || "Encaissé"}</p>
                         </div>
-                        {school.status === 'trial' && (
-                          <div className="text-center">
-                            <p className={`font-bold text-lg ${school.trial_days_left > 7 ? 'text-amber-400' : 'text-red-400'}`}>
-                              {school.trial_days_left}j
-                            </p>
-                            <p className="text-slate-500 text-xs">{t(language as Language, 'superadmin.trialLeft') || "Restant essai"}</p>
-                          </div>
-                        )}
+
                       </div>
                     </div>
 
@@ -1298,7 +1270,7 @@ export const SuperAdminDashboard: React.FC = () => {
                     </td>
                     <td className="py-4 px-4 font-bold text-white">{t.schools?.name || 'Inconnue'}</td>
                     <td className="py-4 px-4 text-slate-400">
-                      {t.type === 'subscription' ? 'Abonnement SaaS' : t.type}
+                      {t.type === 'subscription' ? 'Paiement historique — ancien modèle' : t.type}
                     </td>
                     <td className="py-4 px-4 text-slate-400">{t.payment_method || 'Non précisé'}</td>
                     <td className="py-4 px-4 font-bold text-emerald-400">+{formatFCFA(t.amount)}</td>
@@ -1406,7 +1378,7 @@ export const SuperAdminDashboard: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-slate-800 rounded-xl bg-slate-800/20">
               <div>
-                <h4 className="font-bold text-white">Prix Abonnement SaaS (FCFA)</h4>
+                <h4 className="font-bold text-white">Prix historique — ancien modèle (FCFA)</h4>
                 <p className="text-sm text-slate-400">Prix de base affiché pour l'abonnement annuel.</p>
               </div>
               <div className="flex items-center gap-2">

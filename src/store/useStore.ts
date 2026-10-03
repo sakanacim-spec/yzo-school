@@ -569,10 +569,7 @@ export const useStore = create<AppState>()(
             throw new Error('Le serveur backend est en cours de démarrage. Veuillez ré-essayer dans 15 secondes.');
           }
 
-          // Gérer les erreurs spécifiques multi-tenant
-          if (res.status === 402 && result.error === 'trial_expired') {
-            throw new Error(`TRIAL_EXPIRED:${result.school_name || 'votre école'}`);
-          }
+
           if (!res.ok) {
             throw new Error(result.error || 'Erreur du serveur (sans message précis).');
           }
@@ -609,11 +606,7 @@ export const useStore = create<AppState>()(
             else if (loggedUser.role === 'professeur') targetPage = 'prof_dashboard';
             else if (loggedUser.role === 'superviseur' || loggedUser.role === 'surveillant') targetPage = 'scan_presence';
 
-            // Si l'école est en période d'essai, stocker la date de fin
-            if (result.user.trial_ends_at) {
-              localStorage.setItem('trial_ends_at', result.user.trial_ends_at);
-              localStorage.setItem('school_status', result.user.school_status || 'trial');
-            }
+
 
             // ⚠️ CRITIQUE : Vider intégralement le cache local de l'école précédente 
             // pour garantir une architecture SaaS 100% isolée.

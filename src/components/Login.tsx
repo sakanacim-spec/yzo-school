@@ -82,7 +82,6 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [telephone, setTelephone] = useState('');
   const [password, setPassword] = useState('');
-  const [trialExpiredSchool, setTrialExpiredSchool] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
@@ -122,13 +121,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
 
     } catch (err: any) {
         const msg: string = err?.message || err?.error || "Une erreur est survenue.";
-        // Essai expiré
-        if (msg.startsWith('TRIAL_EXPIRED:')) {
-            const schoolName = msg.split(':')[1] || '';
-            setTrialExpiredSchool(schoolName);
-        } else {
-            setError(msg);
-        }
+        setError(msg);
     } finally {
         setLoading(false);
     }
@@ -393,12 +386,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                     <button type="button" onClick={() => setIsPrivacyOpen(true)} className="text-[11px] text-orange-500 font-semibold hover:underline underline-offset-2">{t(language as Language, 'auth.privacyAndData') || 'Confidentialité & Données'}</button>
                 </div>
 
-                {trialExpiredSchool && (
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-start text-xs mb-4">
-                        <p className="text-amber-800 font-bold">{t(language as Language, 'auth.trialExpiredWarning') || "⚠️ Période d'essai expirée"}</p>
-                        <p className="text-amber-700 mt-1">"{trialExpiredSchool}" — {t(language as Language, 'auth.contactAdmin') || "Contactez l'administrateur."}</p>
-                    </div>
-                )}
+
                 {error && <div className="text-rose-500 text-[10px] italic text-center font-bold px-4 pb-2">{error}</div>}
 
                 <button type="submit" disabled={loading} className={`w-full py-4 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl font-bold text-xs tracking-wide shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}>
@@ -661,12 +649,7 @@ export const Login: React.FC<LoginProps> = ({ onBackToLanding }) => {
                         </button>
                       </div>
 
-                    {trialExpiredSchool && (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-start">
-                            <p className="text-amber-800 font-bold text-xs">{t(language as Language, 'auth.trialExpiredWarning') || "⏰ Période d'essai expirée"}</p>
-                            <p className="text-amber-700 text-xs mt-1">"{trialExpiredSchool}" — {t(language as Language, 'auth.contactAdminToPay') || "Contactez l'administrateur pour régler l'abonnement."}</p>
-                        </div>
-                    )}
+
                     {error && <div className="text-rose-500 text-xs italic text-center font-bold px-4">{error}</div>}
 
                     <button type="submit" disabled={loading} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-orange-500/30 active:scale-95 transition-transform flex items-center justify-center gap-2 mt-4">

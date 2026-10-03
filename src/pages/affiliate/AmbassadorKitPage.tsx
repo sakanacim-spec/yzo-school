@@ -602,8 +602,8 @@ export const AmbassadorKitPage: React.FC = () => {
                 </div>
 
                 <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20 text-center shrink-0 w-full md:w-auto">
-                  <div className="text-3xl font-black text-orange-400">14 JOURS</div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-200">Essai 100% Gratuit</div>
+                  <div className="text-3xl font-black text-orange-400">GRATUIT</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-200">Écoles illimitées</div>
                   <div className="text-[10px] text-slate-400 mt-1">Sans carte bancaire</div>
                   <div className="mt-3 px-4 py-2 bg-orange-500 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider shadow-lg">
                     Inscrivez votre école
@@ -746,10 +746,10 @@ export const AmbassadorKitPage: React.FC = () => {
                 <p>La plateforme SaaS <strong>Yziow Education</strong> (solution N°1 de gestion scolaire : bulletins PDF certifiés, présences par QR Code, comptabilité & levée de fonds) lance sa grande campagne de recrutement d'Ambassadeurs Commercials !</p>
                 <p>💼 <strong>Vos Missions :</strong><br/>
                 • Présenter la solution Yziow aux Directeurs d'Écoles, Collèges, Lycées et Universités.<br/>
-                • Offrir aux établissements un accès d'essai 100% GRATUIT de 14 jours.<br/>
+                • Offrir aux établissements un accès 100% GRATUIT.<br/>
                 • Accompagner les écoles dans leur transformation numérique.</p>
                 <p>💰 <strong>Vos Avantages & Rémunération :</strong><br/>
-                • Commissions récurrentes à vie sur chaque abonnement souscrit.<br/>
+                • Commissions sur les futurs services optionnels.<br/>
                 • Retraits instantanés par Mobile Money (MTN, Moov, Orange, Wave) ou Virement bancaire.<br/>
                 • Formation complète, scripts de vente et kit marketing offerts.<br/>
                 • Attestation officielle et badge d'Ambassadeur agréé Yziow.</p>
@@ -771,8 +771,8 @@ export const AmbassadorKitPage: React.FC = () => {
                 <p>Tu veux gagner de l'argent régulièrement en aidant les écoles de ta ville à se digitaliser ?</p>
                 <p>Rejoins l'équipe des Ambassadeurs <strong>Yziow Education</strong> !</p>
                 <p>✅ Aucun frais d'installation<br/>
-                ✅ Offre 14 jours d'essai GRATUIT aux directeurs d'écoles<br/>
-                ✅ Perçois des commissions sur chaque école qui s'abonne<br/>
+                ✅ Offre plateforme GRATUITE aux directeurs d'écoles<br/>
+                ✅ Aide les écoles à se digitaliser sans frais<br/>
                 ✅ Retrait direct sur ton compte Mobile Money !</p>
                 <p>👉 Cliquez ici pour vous inscrire immédiatement :<br/>
                 <strong>https://yziow.com/ambassadeur</strong></p>
@@ -790,7 +790,7 @@ export const AmbassadorKitPage: React.FC = () => {
                 <p><strong>[Visuel : Face caméra dynamique avec le logo Yziow en fond ou sur le téléphone]</strong></p>
                 <p>🎙️ <em>"Si tu cherches une opportunité sérieuse pour gagner des revenus récurrents cette année, écoute ça jusqu'au bout !"</em></p>
                 <p>🎙️ <em>"La plateforme scolaire Yziow recrute des Ambassadeurs dans toutes les villes. Ton rôle ? Présenter la plateforme aux directeurs d'écoles pour qu'ils gèrent leurs bulletins PDF et leurs présences QR Code."</em></p>
-                <p>🎙️ <em>"Tu leur offres 14 jours d'essai 100% gratuits, et dès qu'ils s'abonnent, tu touches une commission chaque mois directement sur ton Mobile Money !"</em></p>
+                <p>🎙️ <em>"Tu leur offres la plateforme gratuitement pour faciliter leur gestion au quotidien !"</em></p>
                 <p>🎙️ <em>"Clique sur le lien dans ma bio ou va sur yziow.com/ambassadeur pour t'inscrire gratuitement !"</em></p>
               </div>
             </div>
@@ -818,14 +818,14 @@ export const AmbassadorKitPage: React.FC = () => {
               <section className="space-y-2">
                 <h2 className="text-base font-bold text-slate-900 uppercase tracking-wider text-orange-600">1. Quel est votre rôle d'Ambassadeur ?</h2>
                 <p>
-                  En tant qu'Ambassadeur Yziow, vous êtes le représentant officiel de notre solution SaaS auprès des établissements scolaires (Maternelles, Primaires, Collèges, Lycées, Universités, Centres de formation). Votre mission consiste à contacter les directeurs d'écoles, leur présenter Yziow et les accompagner dans la création de leur compte d'essai gratuit de 14 jours.
+                  En tant qu'Ambassadeur Yziow, vous êtes le représentant officiel de notre solution SaaS auprès des établissements scolaires (Maternelles, Primaires, Collèges, Lycées, Universités, Centres de formation). Votre mission consiste à contacter les directeurs d'écoles, leur présenter Yziow et les accompagner dans la création de leur compte gratuit.
                 </p>
               </section>
 
               <section className="space-y-2">
-                <h2 className="text-base font-bold text-slate-900 uppercase tracking-wider text-orange-600">2. Comment fonctionnent vos commissions ?</h2>
+                <h2 className="text-base font-bold text-slate-900 uppercase tracking-wider text-orange-600">2. Comment fonctionne le parrainage ?</h2>
                 <p>
-                  Chaque fois qu'une école s'inscrit via votre <strong>lien de parrainage</strong> ou votre code ambassadeur et souscrit à un abonnement Yziow Pay, vous percevez une commission récurrente directement versée sur votre portefeuille virtuel Yziow. Vous pouvez retirer vos gains par Mobile Money ou Virement bancaire.
+                  Chaque fois qu'une école s'inscrit via votre <strong>lien de parrainage</strong> ou votre code ambassadeur, elle bénéficie de la plateforme Yziow gratuitement pour sa gestion. Le programme ambassadeur est actuellement basé sur le bénévolat et l'entraide communautaire.
                 </p>
               </section>
 
@@ -846,7 +846,7 @@ export const AmbassadorKitPage: React.FC = () => {
                   </div>
                   <div className="flex gap-3">
                     <span className="font-bold text-orange-600">Étape 4 :</span>
-                    <span><strong>Offre irrésistible :</strong> "L'inscription prend 2 minutes et vous bénéficiez de 14 jours d'essai 100% gratuit sans aucun engagement."</span>
+                    <span><strong>Offre irrésistible :</strong> "L'inscription prend 2 minutes et vous bénéficiez de la gestion 100% gratuite sans aucun engagement."</span>
                   </div>
                 </div>
               </section>
@@ -887,7 +887,7 @@ export const AmbassadorKitPage: React.FC = () => {
                   <span>Directeur / Fondateur</span>
                 </div>
                 <p className="text-xs leading-relaxed text-slate-300 italic">
-                  "Bonjour Monsieur/Madame le Directeur. Je suis [Votre Nom], Ambassadeur agréé Yziow. Nous accompagnons les écoles pour automatiser les bulletins scolaires, la comptabilité et le suivi des présences par QR Code. Je viens vous offrir un accès gratuit de 14 jours pour tester la plateforme dans votre établissement. Avez-vous 5 minutes pour que je vous montre une démonstration sur mon téléphone ?"
+                  "Bonjour Monsieur/Madame le Directeur. Je suis [Votre Nom], Ambassadeur agréé Yziow. Nous accompagnons les écoles pour automatiser les bulletins scolaires, la comptabilité et le suivi des présences par QR Code. Je viens vous offrir un accès gratuit pour gérer la plateforme dans votre établissement. Avez-vous 5 minutes pour que je vous montre une démonstration sur mon téléphone ?"
                 </p>
               </div>
 
@@ -903,7 +903,7 @@ export const AmbassadorKitPage: React.FC = () => {
                   ✅ Pointage des présences par scanner QR Code<br/>
                   ✅ Gestion de scolarité & reçus imprimables<br/>
                   ✅ Module de levée de fonds & dons pour vos projets<br/><br/>
-                  🎁 Testez gratuitement pendant 14 jours sans engagement :<br/>
+                  🎁 Gestion 100% gratuite sans engagement :<br/>
                   👉 https://yziow.com/school/register<br/><br/>
                   Restant à votre disposition pour vous créer votre compte !
                 </p>
@@ -925,19 +925,19 @@ export const AmbassadorKitPage: React.FC = () => {
             <div className="space-y-4 text-xs text-slate-700">
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
                 <h3 className="font-bold text-sm text-slate-900">Q1 : L'inscription d'une école est-elle payante au départ ?</h3>
-                <p>Non. Chaque école bénéficie de 14 jours d'essai gratuit complet sans carte bancaire ni frais cachés.</p>
+                <p>Non. Chaque école bénéficie d'un accès gratuit complet sans carte bancaire ni frais cachés.</p>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
-                <h3 className="font-bold text-sm text-slate-900">Q2 : Quels sont les modes de paiement acceptés pour l'abonnement ?</h3>
-                <p>Yziow Pay prend en charge Mobile Money (MTN, Moov, Orange, Wave), cartes bancaires Visa/Mastercard et virements.</p>
+                <h3 className="font-bold text-sm text-slate-900">Q2 : La gestion d'une école est-elle vraiment gratuite et illimitée ?</h3>
+                <p>Oui, l'utilisation de la plateforme pour la gestion quotidienne de l'établissement est 100% gratuite et sans aucune limitation de durée.</p>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
                 <h3 className="font-bold text-sm text-slate-900">Q3 : Comment le directeur télécharge-t-il les bulletins ?</h3>
                 <p>Depuis la rubrique "Bulletins", le directeur ou le secrétaire sélectionne la classe et télécharge l'ensemble des bulletins certifiés en format PDF.</p>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
-                <h3 className="font-bold text-sm text-slate-900">Q4 : Comment l'ambassadeur retire-t-il ses commissions ?</h3>
-                <p>Depuis son tableau de bord Ambassadeur Yziow (section Portefeuille), l'ambassadeur clique sur "Demander un retrait" et reçoit ses fonds par Mobile Money ou Virement.</p>
+                <h3 className="font-bold text-sm text-slate-900">Q4 : La gestion est-elle vraiment gratuite ?</h3>
+                <p>Oui, l'inscription et la gestion quotidienne de l'établissement sont 100% gratuites et illimitées dans le temps.</p>
               </div>
             </div>
           </div>
@@ -1051,7 +1051,7 @@ export const AmbassadorKitPage: React.FC = () => {
             <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl text-xs text-orange-900 space-y-1">
               <strong>🎉 Avantages Tarifaires :</strong>
               <p>• 10% de réduction immédiate en cas de paiement annuel comptant.</p>
-              <p>• Période d'essai 100% gratuite de 14 jours disponible pour toutes les écoles.</p>
+              <p>• La plateforme est 100% gratuite et disponible pour toutes les écoles.</p>
             </div>
           </div>
         )}
@@ -1110,7 +1110,7 @@ export const AmbassadorKitPage: React.FC = () => {
             <div className="space-y-4 text-xs text-slate-700 leading-relaxed">
               <p><strong>Article 1 :</strong> L'Ambassadeur s'engage à présenter la plateforme Yziow avec honnêteté, courtoisie et professionnalisme.</p>
               <p><strong>Article 2 :</strong> L'Ambassadeur ne doit percevoir AUCUN argent en espèces de la part du directeur d'école au nom de Yziow. Tout paiement doit s'effectuer exclusivement via la plateforme Yziow Pay.</p>
-              <p><strong>Article 3 :</strong> L'Ambassadeur perçoit une commission légitime sur les abonnements d'écoles qu'il a parrainées.</p>
+              <p><strong>Article 3 :</strong> L'Ambassadeur accompagne les établissements dans la prise en main de l'outil numérique en toute bienveillance.</p>
               <p><strong>Article 4 :</strong> Tout manquement grave aux règles de courtoisie ou tentative de fraude entraînera la désactivation immédiate du compte ambassadeur.</p>
             </div>
           </div>
@@ -1136,7 +1136,7 @@ export const AmbassadorKitPage: React.FC = () => {
                   <th className="border border-slate-300 p-3">Directeur / Contact</th>
                   <th className="border border-slate-300 p-3">Téléphone</th>
                   <th className="border border-slate-300 p-3">Date Visite</th>
-                  <th className="border border-slate-300 p-3">Statut (Essai/Rappel)</th>
+                  <th className="border border-slate-300 p-3">Statut (Rappel)</th>
                 </tr>
               </thead>
               <tbody>
@@ -1214,7 +1214,7 @@ export const AmbassadorKitPage: React.FC = () => {
 
             {/* Objet */}
             <div className="bg-orange-50 border-l-4 border-orange-500 p-3 font-sans rounded-r-xl">
-              <strong className="text-orange-950 font-bold">OBJET :</strong> <span className="text-orange-900">Proposition de modernisation numérique de votre établissement & Offre d'Essai Gratuit 14 Jours</span>
+              <strong className="text-orange-950 font-bold">OBJET :</strong> <span className="text-orange-900">Proposition de modernisation numérique de votre établissement & Offre d'Plateforme Gratuite</span>
             </div>
 
             {/* Corps du courrier */}
@@ -1235,7 +1235,7 @@ export const AmbassadorKitPage: React.FC = () => {
               </ul>
 
               <p>
-                Afin de vous permettre de mesurer concrètement les bénéfices de notre solution, nous avons le plaisir de vous offrir une <strong>période d'essai 100% gratuite de 14 jours</strong>, sans aucun engagement et sans carte bancaire.
+                Afin de vous permettre de mesurer concrètement les bénéfices de notre solution, nous avons le plaisir de vous offrir une <strong>plateforme 100% gratuite</strong>, sans aucun engagement et sans carte bancaire.
               </p>
               <p>
                 Notre Ambassadeur agréé se tient à votre entière disposition pour planifier une démonstration de 15 minutes dans vos locaux ou en visioconférence.
@@ -1445,7 +1445,7 @@ export const AmbassadorKitPage: React.FC = () => {
                     <li>Logo affiché dans la section "Écosystème de Partenaires Premium"</li>
                     <li>Redirection directe vers vos offres de crédit scolaire</li>
                     <li>Statut "Partenaire Financier Officiel Yziow"</li>
-                    <li>Réduction de 20% sur l'abonnement annuel (2.400.000 FCFA / an)</li>
+                    <li>Réduction de 20% sur les services optionnels annuels (2.400.000 FCFA / an)</li>
                   </ul>
                 </div>
 
@@ -1461,7 +1461,7 @@ export const AmbassadorKitPage: React.FC = () => {
                     <li>Bannière ciblée sur l'Espace Comptabilité & Reversements</li>
                     <li>Présence sur l'Espace Parent dans la rubrique Paiements</li>
                     <li>Orientation prioritaire des écoles pour l'ouverture de compte</li>
-                    <li>Abonnement annuel à 1.500.000 FCFA / an</li>
+                    <li>Services optionnels annuels à 1.500.000 FCFA / an</li>
                   </ul>
                 </div>
               </div>
@@ -1503,7 +1503,7 @@ export const AmbassadorKitPage: React.FC = () => {
                   <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4">
                     <li>Logo affiché en priorité lors du règlement de la scolarité par les parents</li>
                     <li>Mentions sur les reçus PDF de paiement de scolarité</li>
-                    <li>Abonnement annuel à 2.000.000 FCFA / an</li>
+                    <li>Services optionnels annuels à 2.000.000 FCFA / an</li>
                   </ul>
                 </div>
               </div>

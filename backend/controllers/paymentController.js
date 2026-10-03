@@ -1035,6 +1035,10 @@ async function computeAndPersistSubscriptionQuote(schoolSlug, userId) {
  * POST /api/payment/saas/schools/:slug/quotes
  */
 async function createSubscriptionQuote(req, res) {
+    return res.status(410).json({
+        error: 'Les établissements YZIOW sont désormais gratuits et illimités à vie. Cet ancien point d\'accès n\'est plus disponible.',
+        code: 'SCHOOL_SUBSCRIPTION_RETIRED'
+    });
     const slug = req.params.slug;
     const diagnosticId = `diag_${crypto.randomBytes(8).toString('hex')}`;
 
@@ -1094,6 +1098,10 @@ async function createSubscriptionQuote(req, res) {
  * GET /api/payment/saas/schools/:slug/quotes/:quoteId
  */
 async function getSubscriptionQuoteById(req, res) {
+    return res.status(410).json({
+        error: 'Les établissements YZIOW sont désormais gratuits et illimités à vie. Cet ancien point d\'accès n\'est plus disponible.',
+        code: 'SCHOOL_SUBSCRIPTION_RETIRED'
+    });
     const { slug, quoteId } = req.params;
     const diagnosticId = `diag_${crypto.randomBytes(8).toString('hex')}`;
 
@@ -1140,6 +1148,10 @@ async function getSubscriptionQuoteById(req, res) {
  * GET /api/payment/saas/schools/:slug/quote
  */
 async function getSubscriptionQuote(req, res) {
+    return res.status(410).json({
+        error: 'Les établissements YZIOW sont désormais gratuits et illimités à vie. Cet ancien point d\'accès n\'est plus disponible.',
+        code: 'SCHOOL_SUBSCRIPTION_RETIRED'
+    });
     const slug = req.params.slug;
     const diagnosticId = `diag_${crypto.randomBytes(8).toString('hex')}`;
 
@@ -1251,6 +1263,10 @@ async function getSubscriptionQuote(req, res) {
  * POST /api/payment/saas/schools/:slug/pay-init
  */
 async function createSaasTransaction(req, res) {
+    return res.status(410).json({
+        error: 'Les établissements YZIOW sont désormais gratuits et illimités à vie. Cet ancien point d\'accès n\'est plus disponible.',
+        code: 'SCHOOL_SUBSCRIPTION_RETIRED'
+    });
     const slug = req.params.slug || req.body.schoolSlug;
     const { quote_id, planType, trancheNumber } = req.body;
     const diagnosticId = `diag_${crypto.randomBytes(8).toString('hex')}`;

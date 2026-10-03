@@ -128,7 +128,7 @@ export const AffiliateDashboard: React.FC = () => {
               Bienvenue, <span className="text-[#f97316]">{data.affiliate.nom.split(' ')[0]}</span> ! 👋
             </h2>
             <p className="text-slate-600 max-w-xl">
-              Votre taux de commission actuel est de <strong className="text-slate-900">{data.affiliate.commission_rate}%</strong> à vie sur tous les abonnements SaaS des écoles que vous apportez.
+              Vous êtes inscrit au programme Ambassadeur Yziow. L'inscription d'une école est gratuite et ne génère aucune commission automatique.
             </p>
           </div>
           
@@ -243,11 +243,9 @@ export const AffiliateDashboard: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`px-3 py-1.5 text-xs font-bold rounded-lg ${
-                        school.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
-                        school.status === 'trial' ? 'bg-amber-100 text-amber-700' :
-                        'bg-red-100 text-red-700'
+                        school.status === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
                       }`}>
-                        {school.status === 'active' ? 'Abonnée' : school.status === 'trial' ? 'En Essai' : 'Suspendue'}
+                        {school.status === 'suspended' ? 'Suspendue' : 'Active'}
                       </span>
                     </div>
                   </div>

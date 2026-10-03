@@ -301,8 +301,7 @@ async function registerSchool(req, res) {
             slogan: validatedData.slogan || null,
             ministry: validatedData.ministry || null,
             preferred_language: validatedData.preferred_language || 'fr',
-            status: 'trial',
-            trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'active',
             affiliate_id: affiliateId
         };
 
@@ -468,7 +467,7 @@ async function login(req, res) {
         // Vérification accès école
         const { data: school, error: schoolErr } = await supabase
             .from('schools')
-            .select('id, name, slug, status, trial_ends_at, country, address, phone, slogan, ministry')
+            .select('id, name, slug, status, country, address, phone, slogan, ministry')
             .eq('slug', schoolSlug)
             .maybeSingle();
 
@@ -478,9 +477,6 @@ async function login(req, res) {
 
         if (school.status === 'suspended') {
             return res.status(403).json({ error: "L'accès à cet établissement est suspendu." });
-        }
-        if (school.status === 'trial' && new Date(school.trial_ends_at) < new Date()) {
-            return res.status(402).json({ error: 'trial_expired', message: "La période d'essai est terminée." });
         }
 
         // 3. Chercher l'utilisateur de manière STRICTE par phone_normalized (AUCUNE colonne password sélectionnée)

@@ -155,7 +155,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                 </div>
                 <h2 className="text-xl font-bold text-white">Demande enregistrée avec succès !</h2>
                 <p className="text-blue-200 text-sm max-w-md leading-relaxed">
-                    Merci <strong>{nom}</strong>. Notre équipe va rapidement contacter l'administration de l'établissement <strong>{requestedSchoolName}</strong> pour lui ouvrir son espace d'essai gratuit et vous permettre d'accéder au suivi de votre enfant.
+                    Merci <strong>{nom}</strong>. Notre équipe va rapidement contacter l'administration de l'établissement <strong>{requestedSchoolName}</strong> pour lui ouvrir son espace de gestion gratuit et vous permettre d'accéder au suivi de votre enfant.
                 </p>
                 <button
                     onClick={onBack}

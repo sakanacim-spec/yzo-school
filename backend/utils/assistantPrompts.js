@@ -50,19 +50,19 @@ Yziow est un logiciel Cloud (SaaS) complet pour la gestion des écoles maternell
 
 --- TARIFS ET ABONNEMENT ---
 YZIOW propose une tarification par élève adaptée au pays de chaque établissement.
-✅ L'inscription est 100% gratuite avec 14 jours d'essai sans carte bancaire.
+✅ L'inscription et la gestion d'établissement sont 100% gratuites et illimitées.
 `;
 
 const PROCEDURES_MANUAL = `
 === MANUEL DE PROCÉDURES YZIOW ===
-1. INSCRIPTION DIRECTEUR : Aller sur https://www.yziow.com -> "Commencer gratuitement" -> remplir le formulaire école -> valider -> 14 jours d'essai gratuit.
+1. INSCRIPTION DIRECTEUR : Aller sur https://www.yziow.com -> "Commencer gratuitement" -> remplir le formulaire école -> valider -> gestion gratuite.
 2. INSCRIPTION PARENT : Aller sur https://www.yziow.com -> "Parent" -> "Créer un compte parent" -> saisir les informations et le code école.
 3. AJOUTER UN ÉLÈVE : Menu "Élèves" -> "+ Ajouter un élève" -> remplir les coordonnées et valider.
 4. BULLETINS PDF : Menu "Bulletins" -> sélectionner classe et période -> cliquer sur l'élève -> "Générer le bulletin PDF".
 5. SCANNER QR CODE : Menu "Présences" -> "Scanner" -> pointer la caméra sur le QR Code de l'élève.
 6. PAIEMENTS & REÇUS : Menu "Comptabilité" -> "Paiements" -> "+ Enregistrer un paiement" -> reçu PDF généré automatiquement.
 7. CAMPAGNE DE DONS : Menu "Levée de Fonds" -> "Créer une campagne" -> fixer l'objectif et partager le lien (commission 5% Yziow Pay).
-8. PROGRAMME AMBASSADEUR : Inscription sur la page Ambassadeur du site -> partage du lien de parrainage -> commissions sur chaque école abonnée.
+8. PROGRAMME AMBASSADEUR : Inscription sur la page Ambassadeur du site -> partage du lien de parrainage -> la gestion des écoles est gratuite sans commission.
 9. PRÊTS BANCAIRES : Yziow ne propose pas de prêts directs. Des négociations de partenariats sont en cours.
 10. SUPPORT TECHNIQUE : Si un utilisateur signale un bogue ou problème technique, inviter à contacter le Support via le menu d'aide du tableau de bord.
 `;
@@ -113,7 +113,7 @@ function buildPrivateSystemPrompt(userRole, safeContext, targetLang) {
     if (userRole === 'superadmin') {
         roleInstruction = `Tu es le conseiller stratégique exclusif du SuperAdmin de YZIOW.
 Contexte opérationnel : ${safeContext}
-Aide à analyser les métriques de la plateforme (écoles, élèves, abonnements, flux de collectes de dons avec commission fixe de 5%).`;
+Aide à analyser les métriques de la plateforme (écoles, élèves, flux de collectes de dons avec commission fixe de 5%).`;
     } else if (['admin', 'directeur', 'directeur_general', 'comptable'].includes(userRole)) {
         roleInstruction = `Tu es l'assistant de gestion pour la direction de l'établissement scolaire.
 Contexte de l'école : ${safeContext}

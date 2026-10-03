@@ -239,8 +239,7 @@ export interface School {
   address?: string;
   phone?: string;
   email?: string;
-  trial_ends_at: string;   // ISO date
-  status: 'active' | 'suspended' | 'trial';
+  status: 'active' | 'suspended';
   country?: string;
   city?: string;
   student_count?: number;  // calculé côté serveur
