@@ -3,6 +3,7 @@ import { User, Phone, Lock, ArrowLeft, ArrowRight, Loader2, Building, CheckCircl
 import { parentApi } from '../services/parentApi';
 import { t, Language, getTranslations } from '../i18n';
 import { useStore } from '../store/useStore';
+import { CountrySelect } from './CountrySelect';
 
 interface ParentRegisterProps {
     schools?: { slug: string; name: string; logo_url: string }[];
@@ -24,7 +25,7 @@ function translateBackendError(msg: string, lang: Language): string {
         };
         return map[lang] || msg;
     }
-    if (lower.includes('numéro de téléphone est déjà') || lower.includes('already registered') || lower.includes('phone') && lower.includes('exist')) {
+    if (msg === 'PHONE_ALREADY_EXISTS' || lower.includes('numéro de téléphone est déjà') || lower.includes('already registered') || lower.includes('phone') && lower.includes('exist')) {
         const map: Partial<Record<Language, string>> = {
             fr: 'Ce numéro de téléphone est déjà enregistré. Connectez-vous.',
             en: 'This phone number is already registered. Please log in.',
@@ -51,6 +52,24 @@ function translateBackendError(msg: string, lang: Language): string {
         };
         return map[lang] || msg;
     }
+    if (msg === 'COUNTRY_REQUIRED') {
+        const map: Partial<Record<Language, string>> = {
+            fr: 'Veuillez sélectionner le pays pour ce numéro.',
+            en: 'Please select the country for this phone number.',
+            es: 'Por favor seleccione el país para este número.',
+            ar: 'يرجى تحديد البلد لهذا الرقم.',
+        };
+        return map[lang] || msg;
+    }
+    if (msg === 'INVALID_PHONE') {
+        const map: Partial<Record<Language, string>> = {
+            fr: 'Numéro de téléphone invalide.',
+            en: 'Invalid phone number.',
+            es: 'Número de teléfono inválido.',
+            ar: 'رقم هاتف غير صالح.',
+        };
+        return map[lang] || msg;
+    }
     return msg;
 }
 
@@ -73,16 +92,18 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
     const [schoolSlug, setSchoolSlug] = useState('');
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [errorMsg, setErrorMsg] = useState('');
+    const [errorField, setErrorField] = useState('');
     const [success, setSuccess] = useState(false);
     const [recommendSuccess, setRecommendSuccess] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        setErrorMsg('');
+        setErrorField('');
         
         if (!acceptedTerms) {
-            setError(T.errors?.termsRequired || "Veuillez accepter les conditions d'utilisation.");
+            setErrorMsg(T.errors?.termsRequired || "Veuillez accepter les conditions d'utilisation.");
             return;
         }
 
@@ -105,7 +126,8 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
         } catch (err: any) {
             console.error('Registration error:', err);
             const rawMsg = err.error || err.message || T.errors?.genericError || "Une erreur s'est produite.";
-            setError(translateBackendError(rawMsg, language as Language));
+            setErrorMsg(translateBackendError(rawMsg, language as Language));
+            setErrorField(err.field || '');
         } finally {
             setLoading(false);
         }
@@ -113,9 +135,10 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
 
     const handleRecommendSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        setErrorMsg('');
+        setErrorField('');
         if (!nom || !telephone || !requestedSchoolName) {
-            setError("Veuillez renseigner votre nom, téléphone et le nom de l'école.");
+            setErrorMsg("Veuillez renseigner votre nom, téléphone et le nom de l'école.");
             return;
         }
         setLoading(true);
@@ -137,7 +160,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
             if (!res.ok) throw new Error(data.error || "Erreur lors de la soumission.");
             setRecommendSuccess(true);
         } catch (err: any) {
-            setError(err.message || "Impossible d'enregistrer la demande.");
+            setErrorMsg(err.message || "Impossible d'enregistrer la demande.");
         } finally {
             setLoading(false);
         }
@@ -204,7 +227,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                 </div>
 
                 <button
-                    onClick={() => { setIsRecommendMode(!isRecommendMode); setError(''); }}
+                    onClick={() => { setIsRecommendMode(!isRecommendMode); setErrorMsg(''); setErrorField(''); }}
                     className="text-xs font-bold text-amber-300 hover:text-amber-200 underline transition"
                 >
                     {isRecommendMode ? "J'ai un code d'école" : "Mon école n'est pas inscrite ?"}
@@ -214,9 +237,9 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
             {isRecommendMode ? (
                 /* FORMULAIRE DE RECOMMANDATION ÉCOLE */
                 <form onSubmit={handleRecommendSubmit} className="space-y-4 max-w-md w-full mx-auto pb-8">
-                    {error && (
+                    {errorMsg && (
                         <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-sm text-rose-200">
-                            <span>{error}</span>
+                            <span>{errorMsg}</span>
                         </div>
                     )}
 
@@ -309,9 +332,9 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
             ) : (
                 /* FORMULAIRE CLASSIQUE AVEC CODE ÉCOLE */
                 <form onSubmit={handleSubmit} className="space-y-4 max-w-md w-full mx-auto pb-8">
-                    {error && (
+                    {errorMsg && errorField !== 'telephone' && (
                         <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-sm text-rose-200 flex items-center gap-2">
-                            <span>{error}</span>
+                            <span>{errorMsg}</span>
                         </div>
                     )}
 
@@ -367,27 +390,11 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                 {t(language as Language, 'auth.phone') || t(language as Language, 'auth.phoneUsedForLogin') || 'Numéro de téléphone'}
                             </label>
                             <div className="flex gap-2">
-                                <select
+                                <CountrySelect
                                     value={countryCode}
-                                    onChange={(e) => setCountryCode(e.target.value)}
-                                    className="bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-400 px-2"
-                                >
-                                    <option value="BJ" className="bg-slate-900 text-white">🇧🇯 BJ</option>
-                                    <option value="TG" className="bg-slate-900 text-white">🇹🇬 TG</option>
-                                    <option value="CI" className="bg-slate-900 text-white">🇨🇮 CI</option>
-                                    <option value="SN" className="bg-slate-900 text-white">🇸🇳 SN</option>
-                                    <option value="BF" className="bg-slate-900 text-white">🇧🇫 BF</option>
-                                    <option value="ML" className="bg-slate-900 text-white">🇲🇱 ML</option>
-                                    <option value="NE" className="bg-slate-900 text-white">🇳🇪 NE</option>
-                                    <option value="CM" className="bg-slate-900 text-white">🇨🇲 CM</option>
-                                    <option value="GA" className="bg-slate-900 text-white">🇬🇦 GA</option>
-                                    <option value="CG" className="bg-slate-900 text-white">🇨🇬 CG</option>
-                                    <option value="CD" className="bg-slate-900 text-white">🇨🇩 CD</option>
-                                    <option value="GN" className="bg-slate-900 text-white">🇬🇳 GN</option>
-                                    <option value="FR" className="bg-slate-900 text-white">🇫🇷 FR</option>
-                                    <option value="US" className="bg-slate-900 text-white">🇺🇸 US</option>
-                                    <option value="CA" className="bg-slate-900 text-white">🇨🇦 CA</option>
-                                </select>
+                                    onChange={setCountryCode}
+                                    short={true}
+                                />
                                 <div className="relative flex-1">
                                     <Phone className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                                     <input
@@ -402,6 +409,11 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                 </div>
                             </div>
                             <p className="text-xs text-blue-200/70 mt-1">{t(language as Language, 'auth.phoneMustMatch') || "Le numéro doit correspondre à celui enregistré par l'école pour vos enfants."}</p>
+                            {errorMsg && errorField === 'telephone' && (
+                                <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/20 rounded-lg text-sm text-rose-200 flex items-center gap-2">
+                                    <span>{errorMsg}</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Password */}

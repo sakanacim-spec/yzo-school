@@ -32,7 +32,8 @@ const parentRegisterSchema = Joi.object({
     }),
     marketing_consent: Joi.boolean().default(false),
     parent_photo_authorization: Joi.boolean().default(false),
-    preferred_language: Joi.string().valid('fr', 'en', 'es', 'ar').default('fr')
+    preferred_language: Joi.string().valid('fr', 'en', 'es', 'ar').default('fr'),
+    phone_normalized: Joi.any().strip()
 });
 
 // Joi validation schema for SaaS School registration
@@ -84,9 +85,9 @@ async function register(req, res) {
         phoneNormalized = normalizePhone(telephone, countryCode);
     } catch (err) {
         if (err.message === 'COUNTRY_REQUIRED') {
-            return res.status(400).json({ error: 'Le code pays est requis pour les numéros au format national.' });
+            return res.status(400).json({ error: 'COUNTRY_REQUIRED', field: 'telephone' });
         }
-        return res.status(400).json({ error: 'Numéro de téléphone invalide.' });
+        return res.status(400).json({ error: 'INVALID_PHONE', field: 'telephone' });
     }
 
     let parentAuthUserId = null;
@@ -113,7 +114,7 @@ async function register(req, res) {
             .maybeSingle();
 
         if (existing) {
-            return res.status(409).json({ error: 'Ce numéro de téléphone est déjà enregistré.' });
+            return res.status(409).json({ error: 'PHONE_ALREADY_EXISTS', field: 'telephone' });
         }
 
         // 1. Créer le compte Supabase Auth pour le Parent avec l'email synthétique déterministe SHA-256
