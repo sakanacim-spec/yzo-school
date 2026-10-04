@@ -756,12 +756,8 @@ export const SuperAdminDashboard: React.FC = () => {
               color: 'from-emerald-500 to-teal-500', sub: `${stats.total_users || 0} ${t(language as Language, 'superadmin.usersSub') || 'utilisateurs'}`
             },
             {
-              label: "Revenus Attendus (Brut)", value: formatFCFA(stats.total_revenue || 0), icon: <Wallet className="w-5 h-5" />,
-              color: 'from-purple-500 to-violet-500', sub: `Avec remise -10%: ${formatFCFA((stats.total_revenue || 0) * 0.9)}`
-            },
-            {
-              label: "Revenus Encaissés", value: formatFCFA(stats.total_revenue_paid || 0), icon: <Wallet className="w-5 h-5" />,
-              color: 'from-amber-500 to-orange-500', sub: `Abonnements réels`
+              label: "Paiement historique", value: formatFCFA(stats.total_revenue_paid || 0), icon: <Wallet className="w-5 h-5" />,
+              color: 'from-amber-500 to-orange-500', sub: `Ancien modèle`
             },
             {
               label: t(language as Language, 'superadmin.alerts') || 'Alertes', value: stats.suspended_schools || 0, icon: <AlertTriangle className="w-5 h-5" />,
@@ -784,7 +780,7 @@ export const SuperAdminDashboard: React.FC = () => {
 
       {/* Analytics visuels */}
       {stats && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-1 gap-6 mt-6">
            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
               <h3 className="text-white font-bold mb-6">Répartition des Écoles</h3>
               <div className="flex h-4 rounded-full overflow-hidden mb-3 bg-slate-800">
@@ -795,21 +791,6 @@ export const SuperAdminDashboard: React.FC = () => {
                  <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Actives ({stats.active_schools || 0})</div>
                  <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Suspendues ({stats.suspended_schools || 0})</div>
               </div>
-           </div>
-           
-           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <h3 className="text-white font-bold mb-6">Taux de recouvrement global</h3>
-              <div className="flex items-center justify-between mb-2">
-                 <span className="text-2xl font-black text-white">{Math.round((stats.total_revenue_paid / Math.max(1, stats.total_revenue)) * 100)}%</span>
-                 <span className="text-sm text-slate-400">des revenus attendus</span>
-              </div>
-              <div className="w-full h-4 bg-slate-800 rounded-full overflow-hidden mb-2">
-                 <div 
-                    style={{ width: `${Math.min(100, (stats.total_revenue_paid / Math.max(1, stats.total_revenue)) * 100)}%` }} 
-                    className="h-full bg-gradient-to-r from-amber-500 to-orange-500"
-                 ></div>
-              </div>
-              <p className="text-xs text-slate-500">Objectif: 100% de recouvrement des abonnements</p>
            </div>
         </div>
       )}
@@ -996,12 +977,8 @@ export const SuperAdminDashboard: React.FC = () => {
                           <p className="text-slate-500 text-xs">{t(language as Language, 'superadmin.currentStudents') || "Élèves actuels"}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-emerald-400 font-bold text-lg">{formatFCFA(school.revenue)}</p>
-                          <p className="text-slate-500 text-xs">{t(language as Language, 'superadmin.revenueExpected') || "Attendu/an"}</p>
-                        </div>
-                        <div className="text-center">
                           <p className="text-amber-400 font-bold text-lg">{formatFCFA(school.total_revenue_paid)}</p>
-                          <p className="text-slate-500 text-xs">{t(language as Language, 'superadmin.revenuePaid') || "Encaissé"}</p>
+                          <p className="text-slate-500 text-xs">Paiement historique — ancien modèle</p>
                         </div>
 
                       </div>
@@ -1374,33 +1351,10 @@ export const SuperAdminDashboard: React.FC = () => {
                   Sauver
                 </button>
               </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-slate-800 rounded-xl bg-slate-800/20">
-              <div>
-                <h4 className="font-bold text-white">Prix historique — ancien modèle (FCFA)</h4>
-                <p className="text-sm text-slate-400">Prix de base affiché pour l'abonnement annuel.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <input 
-                  type="number" 
-                  value={settings.subscription_price_fcfa || ''}
-                  onChange={(e) => setSettings({ ...settings, subscription_price_fcfa: e.target.value })}
-                  className="w-32 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button 
-                  onClick={() => handleUpdateSettings('subscription_price_fcfa', settings.subscription_price_fcfa)}
-                  disabled={actionLoading === 'settings'}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
-                >
-                  Sauver
-                </button>
               </div>
             </div>
-            
           </div>
-        </div>
-      ) : activeTab === 'support' ? (
+        ) : activeTab === 'support' ? (
         <div className="flex h-[800px] bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
           {/* Inbox List (Left) */}
           <div className="w-1/3 border-r border-slate-800 flex flex-col bg-slate-900/50">
