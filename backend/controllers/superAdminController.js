@@ -35,26 +35,9 @@ async function getAllSchools(req, res) {
                 try {
                     const { data: studentsData } = await supabase
                         .from(`students_${school.slug}`)
-                        .select('classe');
+                        .select('id');
                     
                     studentCount = studentsData ? studentsData.length : 0;
-                    
-                    // Calcul par niveau
-                    (studentsData || []).forEach(st => {
-                        const className = (st.classe || '').toLowerCase();
-                        if (className.includes('maternelle') || className.includes('ci') || className.includes('cp') || className.includes('ce1') || className.includes('ce2') || className.includes('cm1') || className.includes('cm2') || className.includes('primaire')) {
-                            estimatedAnnualRevenue += PRICING_RATES_MONTHLY.maternelle_primaire * 10;
-                        } else if (className.includes('licence') || className.includes('master') || className.includes('doctorat') || className.includes('univ') || className.includes('fac') || className.includes('bts') || className.includes('institut')) {
-                            estimatedAnnualRevenue += PRICING_RATES_MONTHLY.superieur_formation * 10;
-                        } else {
-                            estimatedAnnualRevenue += PRICING_RATES_MONTHLY.college_secondaire * 10;
-                        }
-                    });
-
-                    // Si pas encore d'élèves saisis, estimation moyenne (150 FCFA/mois * 10 mois = 1500 FCFA/an/élève)
-                    if (studentCount === 0) {
-                        estimatedAnnualRevenue = 0;
-                    }
                     
                     const { count: uCount } = await supabase
                         .from(`profiles_${school.slug}`)
@@ -68,8 +51,6 @@ async function getAllSchools(req, res) {
                     ...school,
                     student_count: studentCount || 0,
                     user_count: userCount || 0,
-                    revenue: estimatedAnnualRevenue,
-                    revenue: estimatedAnnualRevenue,
                     total_revenue_paid: school.total_revenue_paid || 0,
                     platform_collected_amount: school.platform_collected_amount || 0,
                     platform_disbursed_amount: school.platform_disbursed_amount || 0,
@@ -79,7 +60,6 @@ async function getAllSchools(req, res) {
         );
 
         // Calcul du chiffre d'affaires global
-        const totalRevenue = schoolsWithStats.reduce((sum, s) => sum + s.revenue, 0);
         const totalStudents = schoolsWithStats.reduce((sum, s) => sum + s.student_count, 0);
         const totalRevenuePaid = schoolsWithStats.reduce((sum, s) => sum + s.total_revenue_paid, 0);
 
@@ -90,7 +70,6 @@ async function getAllSchools(req, res) {
                 active_schools: schools.filter(s => s.status === 'active').length,
                 suspended_schools: schools.filter(s => s.status === 'suspended').length,
                 total_students: totalStudents,
-                total_revenue: totalRevenue,
                 total_revenue_paid: totalRevenuePaid
             }
         });
@@ -361,21 +340,11 @@ async function getGlobalStats(req, res) {
         if (schools) {
             for (let s of schools) {
                 try {
-                    const { data: studentsData } = await supabase.from(`students_${s.slug}`).select('classe');
+                    const { data: studentsData } = await supabase.from(`students_${s.slug}`).select('id');
                     const { count: uCount } = await supabase.from(`profiles_${s.slug}`).select('*', { count: 'exact', head: true });
                     
                     if (studentsData) {
                         totalStudents += studentsData.length;
-                        studentsData.forEach(st => {
-                            const className = (st.classe || '').toLowerCase();
-                            if (className.includes('maternelle') || className.includes('ci') || className.includes('cp') || className.includes('ce1') || className.includes('ce2') || className.includes('cm1') || className.includes('cm2') || className.includes('primaire')) {
-                                totalRevenue += PRICING_RATES_MONTHLY.maternelle_primaire * 10;
-                            } else if (className.includes('licence') || className.includes('master') || className.includes('doctorat') || className.includes('univ') || className.includes('fac') || className.includes('bts') || className.includes('institut')) {
-                                totalRevenue += PRICING_RATES_MONTHLY.superieur_formation * 10;
-                            } else {
-                                totalRevenue += PRICING_RATES_MONTHLY.college_secondaire * 10;
-                            }
-                        });
                     }
                     totalUsers += (uCount || 0);
                 } catch(e) {}
@@ -395,7 +364,6 @@ async function getGlobalStats(req, res) {
             suspended_schools: suspendedCount,
             total_students: totalStudents || 0,
             total_users: totalUsers || 0,
-            total_revenue: totalRevenue, 
             total_revenue_paid: totalRevenuePaid,
             platform_collected_amount: platformCollectedAmount,
             platform_disbursed_amount: platformDisbursedAmount,
@@ -638,8 +606,13 @@ async function getSettings(req, res) {
 
 // ── PUT /superadmin/settings ────────────────────
 async function updateSettings(req, res) {
-    const updates = req.body; // e.g. { default_commission_rate: 25, subscription_price_fcfa: 200000 }
+    const updates = req.body;
     try {
+        // Prevent update of old subscription_price_fcfa setting
+        if (updates.subscription_price_fcfa !== undefined) {
+            delete updates.subscription_price_fcfa;
+        }
+
         const promises = Object.keys(updates).map(key => {
             return supabase.from('global_settings')
                 .upsert({ key, value: updates[key] }, { onConflict: 'key' });

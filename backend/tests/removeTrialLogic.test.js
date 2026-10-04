@@ -98,4 +98,17 @@ test('Remove School Trial Logic', async (t) => {
         assert.ok(!contentTr.includes("14 jours d'essai") && !contentTr.includes("14j gratuits"), 'No 14 days promise in translations');
         assert.ok(!contentPr.includes("14 jours d'essai") && !contentPr.includes("abonnement école"), 'No trial or school subscription promise in prompts');
     });
+
+    await t.test('11. Le tableau de bord SuperAdmin ne promeut plus le recouvrement d abonnements', async () => {
+        const fs = require('fs');
+        const content = fs.readFileSync(__dirname + '/../../src/pages/superadmin/SuperAdminDashboard.tsx', 'utf8');
+        assert.ok(!content.includes("recouvrement"), "Le texte recouvrement ne doit plus exister");
+        assert.ok(!content.includes("Revenus Attendus (Brut)"), "Le texte Revenus Attendus (Brut) ne doit plus exister");
+    });
+
+    await t.test('12. L API SuperAdmin refuse la mise à jour de subscription_price_fcfa', async () => {
+        const fs = require('fs');
+        const content = fs.readFileSync(__dirname + '/../controllers/superAdminController.js', 'utf8');
+        assert.ok(content.includes("delete updates.subscription_price_fcfa;"), "L update de subscription_price_fcfa doit être bloqué explicitement");
+    });
 });
