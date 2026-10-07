@@ -232,6 +232,73 @@ async function linkStudentToParent(req, res) {
         const newIdsToLink = validStudentIds.filter(sId => !alreadyLinkedIds.includes(sId));
 
         if (newIdsToLink.length > 0) {
+            // P25-A : Initialisation du lien global (first_linked_at) D'ABORD
+            for (const sId of newIdsToLink) {
+                let globalId;
+                const { data: mapping } = await supabase
+                    .from('student_global_mappings')
+                    .select('student_global_id')
+                    .eq('school_slug', schoolSlug)
+                    .eq('student_local_id', String(sId))
+                    .maybeSingle();
+
+                if (mapping) {
+                    globalId = mapping.student_global_id;
+                } else {
+                    const { data: gs, error: gsErr } = await supabase
+                        .from('global_students')
+                        .insert({})
+                        .select('student_global_id')
+                        .single();
+                    if (gsErr) throw gsErr;
+                    globalId = gs.student_global_id;
+
+                    const { error: mapErr } = await supabase
+                        .from('student_global_mappings')
+                        .insert({
+                            school_slug: schoolSlug,
+                            student_local_id: String(sId),
+                            student_global_id: globalId
+                        });
+
+                    if (mapErr && mapErr.code === '23505') {
+                        const { data: m2 } = await supabase
+                            .from('student_global_mappings')
+                            .select('student_global_id')
+                            .eq('school_slug', schoolSlug)
+                            .eq('student_local_id', String(sId))
+                            .single();
+                        if (m2) globalId = m2.student_global_id;
+                    } else if (mapErr) {
+                        throw mapErr;
+                    }
+                }
+
+                if (globalId) {
+                    const { error: linkErr } = await supabase
+                        .from('parent_child_links')
+                        .insert({
+                            parent_ref: String(targetParentId),
+                            student_global_id: globalId,
+                            first_linked_at: new Date().toISOString(),
+                            current_link_active: true
+                        });
+                    if (linkErr && linkErr.code === '23505') {
+                        const { error: updErr } = await supabase
+                            .from('parent_child_links')
+                            .update({ current_link_active: true })
+                            .eq('parent_ref', String(targetParentId))
+                            .eq('student_global_id', globalId);
+                        if (updErr) throw updErr;
+                    } else if (linkErr) {
+                        throw linkErr;
+                    }
+                } else {
+                    throw new Error('Failed to resolve student_global_id');
+                }
+            }
+
+            // Ensuite, insertion locale
             const rowsToInsert = newIdsToLink.map(sId => ({
                 parent_id: targetParentId,
                 student_id: sId
@@ -330,6 +397,24 @@ async function unlinkStudentFromParent(req, res) {
     const parentId = isSchoolAdmin ? (req.query.parentId || tokenUserId) : tokenUserId;
 
     try {
+        // P25-A : Désactiver le lien global D'ABORD sans toucher à first_linked_at
+        const { data: mapping } = await supabase
+            .from('student_global_mappings')
+            .select('student_global_id')
+            .eq('school_slug', schoolSlug)
+            .eq('student_local_id', String(studentId))
+            .maybeSingle();
+
+        if (mapping) {
+            const { error: updErr } = await supabase
+                .from('parent_child_links')
+                .update({ current_link_active: false })
+                .eq('parent_ref', String(parentId))
+                .eq('student_global_id', mapping.student_global_id);
+            if (updErr) throw updErr;
+        }
+
+        // Ensuite, suppression locale
         const { error } = await supabase
             .from(`parent_student_${schoolSlug}`)
             .delete()
