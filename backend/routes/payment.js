@@ -9,6 +9,7 @@ const {
     getSubscriptionQuoteById,
     createSubscriptionQuote,
     createDonationTransaction,
+    createParentPackTransaction,
     fedapayWebhook
 } = require('../controllers/paymentController');
 
@@ -36,5 +37,8 @@ router.post('/saas/schools/:slug/quotes', createSubscriptionQuote);
 router.get('/saas/schools/:slug/quotes/:quoteId', getSubscriptionQuoteById);
 router.get('/saas/schools/:slug/quote', getSubscriptionQuote);
 router.post('/saas/schools/:slug/pay-init', createSaasTransaction);
+
+// Route Parent Pack
+router.post('/parent-pack/pay-init', createParentPackTransaction);
 
 module.exports = router;

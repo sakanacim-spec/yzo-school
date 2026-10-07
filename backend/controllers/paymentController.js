@@ -2174,6 +2174,184 @@ async function createDonationTransaction(req, res) {
 }
 
 /**
+ * Initialise une transaction Parent Pack (Mensuel ou Annuel)
+ * POST /api/payment/parent-pack/pay-init
+ */
+async function createParentPackTransaction(req, res) {
+    const { schoolSlug, studentId, planType } = req.body;
+
+    if (!schoolSlug || !SLUG_REGEX.test(schoolSlug)) {
+        return res.status(400).json({ error: 'Établissement invalide.' });
+    }
+    if (!studentId || typeof studentId !== 'string' || !studentId.trim()) {
+        return res.status(400).json({ error: 'Identifiant élève requis.' });
+    }
+    if (planType !== 'monthly' && planType !== 'annual') {
+        return res.status(400).json({ error: 'Plan type invalide (monthly ou annual attendu).' });
+    }
+
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(403).json({ error: 'Utilisateur non authentifié.' });
+        }
+
+        // 1. Vérification stricte Ownership dans parent_student_
+        const { data: link, error: linkErr } = await supabase
+            .from(`parent_student_${schoolSlug}`)
+            .select('parent_id')
+            .eq('parent_id', userId)
+            .eq('student_id', studentId.trim())
+            .single();
+
+        if (linkErr || !link) {
+            return res.status(403).json({ error: 'Accès non autorisé à cet élève.' });
+        }
+
+        // 2. Fetch de la classe de l'élève
+        const { data: student, error: studentErr } = await supabase
+            .from(`students_${schoolSlug}`)
+            .select('id, nom, prenom, classe')
+            .eq('id', studentId.trim())
+            .single();
+
+        if (studentErr || !student) {
+            return res.status(404).json({ error: 'Élève introuvable.' });
+        }
+
+        // 3. Détermination du cycle (Backend Auth)
+        const { resolveCycleName } = require('../config/parentPackClassifications');
+        let cycleName;
+        try {
+            cycleName = resolveCycleName(student.classe);
+        } catch (err) {
+            if (err.message && err.message.includes('CLASS_UNKNOWN')) {
+                return res.status(400).json({ error: 'Classe inconnue ou non supportée par le Parent Pack.' });
+            }
+            throw err;
+        }
+
+        // 4. Détermination de l'identité globale
+        const { data: mapping, error: mappingErr } = await supabase
+            .from('student_global_mappings')
+            .select('student_global_id')
+            .eq('school_slug', schoolSlug)
+            .eq('student_local_id', student.id)
+            .single();
+
+        if (mappingErr || !mapping) {
+            return res.status(400).json({ error: "Identité globale introuvable pour cet élève. Veuillez contacter l'administration." });
+        }
+
+        const studentGlobalId = mapping.student_global_id;
+
+        // 5. Recherche Pricing actif pour ce cycle
+        const { data: pricing, error: pricingErr } = await supabase
+            .from('parent_pack_pricing')
+            .select('id, annual_duration_months')
+            .eq('cycle_name', cycleName)
+            .eq('active', true)
+            .single();
+
+        if (pricingErr || !pricing) {
+            return res.status(400).json({ error: 'Aucun tarif Parent Pack actif pour ce cycle.' });
+        }
+
+        const durationMonths = planType === 'monthly' ? 1 : pricing.annual_duration_months;
+
+        // 6. Nettoyage des vieilles intentions
+        await expireStaleIntents('parent_pack', schoolSlug);
+
+        // 7. Appel RPC (Fail Closed Defense en SQL)
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('prepare_parent_pack_checkout', {
+            p_parent_ref: userId,
+            p_student_global_id: studentGlobalId,
+            p_school_slug: schoolSlug,
+            p_student_local_id: student.id,
+            p_pricing_id: pricing.id,
+            p_cycle_name: cycleName,
+            p_duration_months: durationMonths
+        });
+
+        if (rpcError) {
+            if (rpcError.message && rpcError.message.includes('FAIL CLOSED')) {
+                return res.status(400).json({ error: rpcError.message });
+            }
+            return res.status(500).json({ error: 'Erreur lors de la préparation du paiement.' });
+        }
+
+        const { subscription_id, payment_intent_id } = rpcResult;
+
+        // 8. FedaPay Setup
+        const { data: intent } = await supabase.from('payment_intents').select('expected_amount').eq('id', payment_intent_id).single();
+
+        await configureFedaPay();
+
+        let transaction;
+        try {
+            transaction = await Transaction.create({
+                description: `Parent Pack (${planType === 'monthly' ? 'Mensuel' : 'Annuel'}) - ${student.nom} ${student.prenom}`,
+                amount: intent.expected_amount,
+                currency: { iso: 'XOF' },
+                callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/parent/dashboard?payment=success`,
+                custom_metadata: {
+                    intent_id: payment_intent_id
+                }
+            });
+        } catch (_fedaErr) {
+            await transitionIntent(payment_intent_id, 'initializing', {
+                status: 'reconciliation_required',
+                reconciliation_reason: 'PROVIDER_CREATION_OUTCOME_UNKNOWN'
+            });
+            return res.status(500).json({ error: 'Erreur lors du traitement FedaPay.' });
+        }
+
+        if (!transaction || !transaction.id) {
+            await transitionIntent(payment_intent_id, 'initializing', {
+                status: 'reconciliation_required',
+                reconciliation_reason: 'PROVIDER_RESPONSE_INVALID'
+            });
+            return res.status(500).json({ error: 'Erreur FedaPay.' });
+        }
+
+        let token;
+        try {
+            token = await transaction.generateToken();
+        } catch (_err) {
+            await transitionIntent(payment_intent_id, 'initializing', {
+                status: 'reconciliation_required',
+                reconciliation_reason: 'TOKEN_GENERATION_FAILED',
+                provider_transaction_id: String(transaction.id)
+            });
+            return res.status(500).json({ error: 'Erreur génération token.' });
+        }
+
+        try {
+            await transitionIntent(payment_intent_id, 'initializing', {
+                status: 'pending',
+                provider_transaction_id: String(transaction.id)
+            });
+        } catch (_err) {
+            await transitionIntent(payment_intent_id, 'initializing', {
+                status: 'reconciliation_required',
+                reconciliation_reason: 'LOCAL_LINK_FAILED',
+                provider_transaction_id: String(transaction.id)
+            });
+            return res.status(500).json({ error: 'Erreur locale.' });
+        }
+
+        return res.status(200).json({
+            transactionId: transaction.id,
+            token: token.token || token.url,
+            url: token.url
+        });
+
+    } catch (err) {
+        return res.status(500).json({ error: 'Erreur serveur.' });
+    }
+}
+
+/**
  * Webhook appelé par FedaPay avec signature cryptographique
  * POST /api/payment/webhook
  */
@@ -2339,6 +2517,7 @@ async function fedapayWebhook(req, res) {
 module.exports = {
     createTransaction,
     createSaasTransaction,
+    createParentPackTransaction,
     createDonationTransaction,
     getSubscriptionQuote,
     getSubscriptionQuoteById,
