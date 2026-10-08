@@ -228,5 +228,24 @@ export const parentApi = {
 
     logout: () => {
         localStorage.removeItem('parent_token');
+    },
+    // ── Parent Pack Pricing & Payment ────────────────────────
+    getParentPackPricing: async (schoolSlug: string, studentId: string) => {
+        const res = await fetch(`${API_URL}/payment/parent-pack/pricing/${schoolSlug}/${studentId}`, {
+            headers: getHeaders()
+        });
+        const result = await parseResponse(res);
+        if (!res.ok) throw result;
+        return result; // { monthly: {...}, annual: {...} }
+    },
+    initParentPackPayment: async (schoolSlug: string, studentId: string, planType: 'monthly' | 'annual') => {
+        const res = await fetch(`${API_URL}/payment/parent-pack/init/${schoolSlug}/${studentId}`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ planType })
+        });
+        const result = await parseResponse(res);
+        if (!res.ok) throw result;
+        return result; // { url: string }
     }
 };
