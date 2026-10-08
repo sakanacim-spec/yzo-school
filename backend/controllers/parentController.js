@@ -1,4 +1,5 @@
 const { supabase } = require('../utils/supabase');
+const { getAccessStatesForLocalIds } = require('../services/parentPackService');
 
 /**
  * GET /api/parent/dashboard
@@ -105,6 +106,25 @@ async function getBadges(req, res) {
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
     try {
+        const { data: links, error: lErr } = await supabase
+            .from(`parent_student_${schoolSlug}`)
+            .select('student_id')
+            .eq('parent_id', parentId);
+
+        if (lErr) throw lErr;
+
+        const studentIds = (links || []).map(l => l.student_id);
+
+        let activeStudentIds = [];
+        if (studentIds.length > 0) {
+            const packStates = await getAccessStatesForLocalIds(parentId, schoolSlug, studentIds);
+            activeStudentIds = studentIds.filter(id => packStates[id]?.accessAllowed);
+        }
+
+        if (activeStudentIds.length === 0) {
+            return res.json({ badges: [] });
+        }
+
         const { data: badges, error } = await supabase
             .from(`badges_${schoolSlug}`)
             .select(`
@@ -112,6 +132,7 @@ async function getBadges(req, res) {
                 student:student_id (nom, prenom, classe)
             `)
             .eq('parent_id', parentId)
+            .in('student_id', activeStudentIds)
             .order('earned_at', { ascending: false });
 
         if (error) {
@@ -286,6 +307,17 @@ async function getPresences(req, res) {
             }
         }
 
+        if (!isStaff) {
+            const packStates = await getAccessStatesForLocalIds(parentId, schoolSlug, [studentId]);
+            const studentState = packStates[studentId];
+            if (!studentState || !studentState.accessAllowed) {
+                return res.status(403).json({
+                    error: "Accès Parent Pack suspendu pour cet enfant.",
+                    code: "PACK_SUSPENDED"
+                });
+            }
+        }
+
         const { data: presences, error: pErr } = await supabase
             .from(`presences_${schoolSlug}`)
             .select('*')
@@ -318,6 +350,21 @@ async function getParentData(req, res) {
             .eq('parent_id', parentId);
         
         const studentIds = (links || []).map(l => l.student_id);
+
+        let parentPackAccess = {};
+        let activeStudentIds = [];
+        if (studentIds.length > 0) {
+            try {
+                parentPackAccess = await getAccessStatesForLocalIds(parentId, schoolSlug, studentIds);
+                activeStudentIds = studentIds.filter(id => parentPackAccess[id]?.accessAllowed);
+            } catch (err) {
+                console.error('[getParentData] Parent Pack Engine Error:', err);
+                for (const id of studentIds) {
+                    parentPackAccess[id] = { state: 'ACCESS_UNAVAILABLE', accessAllowed: false };
+                }
+                activeStudentIds = [];
+            }
+        }
 
         // 1. Annonces de l'école
         const { data: announcements } = await supabase
@@ -406,10 +453,14 @@ async function getParentData(req, res) {
 
         if (studentIds.length > 0) {
             // Récupérer les notes des enfants
-            const { data: dbNotes } = await supabase
-                .from(`notes_${schoolSlug}`)
-                .select('*')
-                .in('eleve_id', studentIds);
+            let dbNotes = [];
+            if (activeStudentIds.length > 0) {
+                const { data } = await supabase
+                    .from(`notes_${schoolSlug}`)
+                    .select('*')
+                    .in('eleve_id', activeStudentIds);
+                dbNotes = data || [];
+            }
             notes = (dbNotes || []).map(n => ({
                 id: n.id,
                 eleveId: n.eleve_id,
@@ -448,8 +499,9 @@ async function getParentData(req, res) {
         let presences = [];
         
         if (studentIds.length > 0) {
-            // Get classes of children
-            const classesOfChildren = [...new Set(students.map(s => s.classe).filter(Boolean))];
+            // Get classes of ACTIVE children
+            const activeStudents = students.filter(s => activeStudentIds.includes(s.id));
+            const classesOfChildren = [...new Set(activeStudents.map(s => s.classe).filter(Boolean))];
             
             if (classesOfChildren.length > 0) {
                 const { data: dbDevoirs } = await supabase
@@ -469,10 +521,14 @@ async function getParentData(req, res) {
                 }));
             }
             
-            const { data: dbPresences } = await supabase
-                .from(`presences_${schoolSlug}`)
-                .select('*')
-                .in('student_id', studentIds);
+            let dbPresences = [];
+            if (activeStudentIds.length > 0) {
+                const { data } = await supabase
+                    .from(`presences_${schoolSlug}`)
+                    .select('*')
+                    .in('student_id', activeStudentIds);
+                dbPresences = data || [];
+            }
                 
             presences = (dbPresences || []).map(p => ({
                 id: p.id,
@@ -490,14 +546,21 @@ async function getParentData(req, res) {
         // 7. Badges
         let badges = [];
         try {
-            const { data: dbBadges, error: bErr } = await supabase
-                .from(`badges_${schoolSlug}`)
-                .select(`
-                    *,
-                    student:student_id (nom, prenom, classe)
-                `)
-                .eq('parent_id', parentId)
-                .order('earned_at', { ascending: false });
+            let dbBadges = [];
+            let bErr = null;
+            if (activeStudentIds.length > 0) {
+                const result = await supabase
+                    .from(`badges_${schoolSlug}`)
+                    .select(`
+                        *,
+                        student:student_id (nom, prenom, classe)
+                    `)
+                    .eq('parent_id', parentId)
+                    .in('student_id', activeStudentIds)
+                    .order('earned_at', { ascending: false });
+                dbBadges = result.data;
+                bErr = result.error;
+            }
             
             if (bErr && bErr.code !== '42P01') throw bErr;
             
@@ -509,8 +572,8 @@ async function getParentData(req, res) {
             }));
 
             // Proactif : Si le parent a des enfants mais aucun badge, on tente une génération auto
-            if (badges.length === 0 && studentIds.length > 0) {
-                for (const sId of studentIds) {
+            if (badges.length === 0 && activeStudentIds.length > 0) {
+                for (const sId of activeStudentIds) {
                     await _autoAssignBadgesSync(parentId, sId, schoolSlug);
                 }
                 // Optionnel : Re-fetch après génération (ou juste attendre la prochaine sync)
@@ -522,7 +585,8 @@ async function getParentData(req, res) {
         // 9. E-Learning / Ressources pour les parents
         let resources = [];
         try {
-            const studentClasses = Array.from(new Set(students.map(s => s.classe).filter(Boolean)));
+            const activeStudentsForResources = students.filter(s => activeStudentIds.includes(s.id));
+            const studentClasses = Array.from(new Set(activeStudentsForResources.map(s => s.classe).filter(Boolean)));
             if (studentClasses.length > 0) {
                 const { data: dbResources } = await supabase
                     .from(`resources_${schoolSlug}`)
@@ -546,6 +610,7 @@ async function getParentData(req, res) {
         }
 
         return res.json({
+            parentPackAccess,
             announcements: announcements || [],
             announcementReads: (announcementReads || []).map(r => ({
                 announcementId: r.announcement_id,
@@ -641,6 +706,14 @@ async function toggleDevoirComplete(req, res) {
 
         if (linkErr || !link) {
             return res.status(403).json({ error: 'Accès refusé pour cet élève.' });
+        }
+
+        const packStates = await getAccessStatesForLocalIds(parentId, schoolSlug, [studentId]);
+        if (!packStates[studentId] || !packStates[studentId].accessAllowed) {
+            return res.status(403).json({
+                error: 'Accès Parent Pack suspendu pour cet enfant.',
+                code: 'PACK_SUSPENDED'
+            });
         }
 
         // 2. Récupérer le devoir
