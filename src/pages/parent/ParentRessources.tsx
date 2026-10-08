@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { ResourceType } from '../../types';
 import {
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { t } from '../../i18n';
 import type { Language } from '../../i18n';
+import { ParentPackGuard } from '../../components/ParentPackGuard';
 
 // ── Catégorisation des ressources ────────────────────────────
 type ResourceCategory = 'all' | 'cours' | 'exercices' | 'autre';
@@ -50,8 +51,22 @@ export const ParentRessources: React.FC = () => {
     );
 
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterClass, setFilterClass] = useState(studentClasses.length === 1 ? studentClasses[0] : '');
+    const [selectedChildId, setSelectedChildId] = useState<string>(students.length > 0 ? students[0].id : '');
     const [activeCategory, setActiveCategory] = useState<ResourceCategory>('all');
+
+    useEffect(() => {
+        if (students.length === 0) {
+            if (selectedChildId) setSelectedChildId('');
+            return;
+        }
+        const selectedStillExists = students.some(student => student.id === selectedChildId);
+        if (!selectedStillExists) {
+            setSelectedChildId(students[0].id);
+        }
+    }, [students, selectedChildId]);
+
+    const selectedChild = useMemo(() => students.find(s => s.id === selectedChildId), [students, selectedChildId]);
+    const filterClass = selectedChild?.classe || '';
 
     const categoryCounts = useMemo(() => {
         const counts: Record<ResourceCategory, number> = { all: 0, cours: 0, exercices: 0, autre: 0 };
@@ -128,17 +143,16 @@ export const ParentRessources: React.FC = () => {
                         className="w-full pl-11 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none font-medium text-slate-700 dark:text-slate-300"
                     />
                 </div>
-                {/* Filtre classe */}
-                {studentClasses.length > 1 && (
+                {/* Filtre enfant */}
+                {students.length > 1 && (
                     <div className="relative w-full md:w-52">
-                        <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <select
-                            value={filterClass}
-                            onChange={e => setFilterClass(e.target.value)}
+                            value={selectedChildId}
+                            onChange={e => setSelectedChildId(e.target.value)}
                             className="w-full pl-10 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none appearance-none font-bold text-slate-700 dark:text-slate-300"
                         >
-                            <option value="">{t(language as Language, 'parentResources.allClasses') || 'Toutes les classes'}</option>
-                            {studentClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                            {students.map(c => <option key={c.id} value={c.id}>{c.prenom} {c.nom} ({c.classe})</option>)}
                         </select>
                     </div>
                 )}
@@ -170,7 +184,10 @@ export const ParentRessources: React.FC = () => {
                 })}
             </div>
 
-            {/* ── Grille ressources ── */}
+            {/* ── Contenu protégé ── */}
+            {selectedChildId && (
+            <ParentPackGuard studentId={selectedChildId}>
+                {/* ── Grille ressources ── */}
             {filteredResources.length === 0 ? (
                 <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-200 dark:border-slate-700">
                     <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -244,6 +261,8 @@ export const ParentRessources: React.FC = () => {
                         );
                     })}
                 </div>
+            )}
+            </ParentPackGuard>
             )}
         </div>
     );

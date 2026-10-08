@@ -3,7 +3,7 @@
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory, Resource, Payroll, Personnel, EvalConfig, DEFAULT_EVAL_CONFIGS } from '../types';
+import { Student, User, AppPage, Payment, Parent, AppSettings, Presence, ActivityLog, CycleSchedule, Announcement, AnnouncementRead, Matiere, ClasseMatiere, Note, PeriodeType, ClassConfig, Cycle, Devoir, Seance, Expense, ExpenseCategory, Resource, Payroll, Personnel, EvalConfig, DEFAULT_EVAL_CONFIGS, ParentPackAccess } from '../types';
 import { API_BASE_URL } from '../config';
 import { getEcolage, getCycle, getDefaultClasses, CLASS_CONFIG_FR } from '../data/classConfig';
 import { v4 as uuid } from '../utils/uuid';
@@ -53,6 +53,7 @@ export interface AppState {
 
   // Élèves
   students: Student[];
+  parentPackAccess: ParentPackAccess;
   setStudents: (students: Student[]) => void;
   addStudent: (student: Omit<Student, 'id' | 'createdAt' | 'updatedAt' | 'cycle' | 'status' | 'restant' | 'historiquesPaiements'>, skipAutoSync?: boolean) => string | undefined;
   updateStudent: (id: string, updates: Partial<Student>, skipAutoSync?: boolean) => void;
@@ -523,6 +524,7 @@ export const useStore = create<AppState>()(
       connectedParentsCount: 0,
       setConnectedParentsCount: (count) => set({ connectedParentsCount: count }),
       badges: [],
+      parentPackAccess: {},
     unreadMessages: 0,
       setUnreadMessages: (count) => set({ unreadMessages: count }),
 
@@ -1299,6 +1301,11 @@ export const useStore = create<AppState>()(
             if (Array.isArray(data.students)) {
               set({ students: data.students });
               console.log(`✅ [Sync Parent] ${data.students.length} enfant(s) chargé(s).`);
+            }
+            if (data.parentPackAccess) {
+              set({ parentPackAccess: data.parentPackAccess });
+            } else {
+              set({ parentPackAccess: {} });
             }
 
              if (data.announcements) set({ announcements: data.announcements });

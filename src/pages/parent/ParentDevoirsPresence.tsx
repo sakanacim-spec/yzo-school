@@ -8,6 +8,7 @@ import {
 import { format, isValid, parseISO, isPast, isToday, isTomorrow, differenceInDays } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { parentApi } from '../../services/parentApi';
+import { ParentPackGuard } from '../../components/ParentPackGuard';
 import { t } from '../../i18n';
 import type { Language } from '../../i18n';
 
@@ -165,9 +166,13 @@ export const ParentDevoirsPresence: React.FC = () => {
                 const updatedDevoirs = devoirs.map(d => d.id === devoirId ? { ...d, description: res.description } : d);
                 useStore.setState({ devoirs: updatedDevoirs });
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Erreur toggle complete devoir:", err);
-            alert("Impossible de mettre à jour le statut du devoir.");
+            if (err?.code === 'PACK_SUSPENDED') {
+                alert(t(language as Language, 'parentPack.packSuspendedDesc') || 'Les fonctionnalités Premium ne sont actuellement pas accessibles pour cet enfant.');
+            } else {
+                alert("Impossible de mettre à jour le statut du devoir.");
+            }
         }
     };
 
@@ -219,8 +224,11 @@ export const ParentDevoirsPresence: React.FC = () => {
                 </div>
             )}
 
-            {/* Onglets */}
-            <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+            {/* Onglets et Contenu protégé */}
+            {selectedChildId && (
+                <ParentPackGuard studentId={selectedChildId}>
+                    {/* Onglets */}
+                    <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl">
                 <button
                     onClick={() => setActiveTab('devoirs')}
                     className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all ${
@@ -420,6 +428,8 @@ export const ParentDevoirsPresence: React.FC = () => {
                         )}
                     </div>
                 </div>
+            )}
+            </ParentPackGuard>
             )}
 
             {/* Modal Information Justification (Fail-Closed) */}

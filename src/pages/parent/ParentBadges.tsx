@@ -1,12 +1,25 @@
 import React from 'react';
 import { useStore } from '../../store/useStore';
-import { Award, ShieldCheck, Zap, Star, Loader2, AlertCircle, TrendingUp, Clock, Medal } from 'lucide-react';
+import { Award, ShieldCheck, Zap, Star, Loader2, AlertCircle, TrendingUp, Clock, Medal, User } from 'lucide-react';
+import { ParentPackGuard } from '../../components/ParentPackGuard';
 import { t } from '../../i18n';
 import type { Language } from '../../i18n';
 
 export const ParentBadges: React.FC = () => {
-    const { badges } = useStore();
-    const { language } = useStore();
+    const { badges, students, language } = useStore();
+    const [selectedChildId, setSelectedChildId] = React.useState<string>(students.length > 0 ? students[0].id : '');
+
+    React.useEffect(() => {
+        if (students.length === 0) {
+            if (selectedChildId) setSelectedChildId('');
+            return;
+        }
+        const selectedStillExists = students.some(student => student.id === selectedChildId);
+        if (!selectedStillExists) {
+            setSelectedChildId(students[0].id);
+        }
+    }, [students, selectedChildId]);
+
     const loading = false;
     const error = ''; 
 
@@ -68,16 +81,32 @@ export const ParentBadges: React.FC = () => {
                 </div>
             )}
 
-            {/* Badges Grid */}
+            {/* Filtre enfant */}
+            {students.length > 1 && (
+                <div className="relative w-full md:w-52">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <select
+                        value={selectedChildId}
+                        onChange={e => setSelectedChildId(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-teal-500 outline-none appearance-none font-bold text-slate-700 dark:text-slate-300"
+                    >
+                        {students.map(c => <option key={c.id} value={c.id}>{c.prenom} {c.nom} ({c.classe})</option>)}
+                    </select>
+                </div>
+            )}
+
+            {/* Contenu protégé et Badges Grid */}
+            {selectedChildId && (
+            <ParentPackGuard studentId={selectedChildId}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                {badges.length === 0 ? (
+                {badges.filter(b => b.student_id === selectedChildId).length === 0 ? (
                     <div className="col-span-full py-20 flex flex-col items-center justify-center bg-slate-50 border-4 border-dashed border-slate-200 rounded-[40px]">
                         <Award className="w-16 h-16 text-slate-300 mb-4" />
                         <p className="text-slate-400 font-bold text-xl">{t(language as Language, 'parentBadges.emptyTitle') || 'Vos trophées apparaîtront ici.'}</p>
                         <p className="text-slate-400 text-sm">{t(language as Language, 'parentBadges.emptySubtitle') || "Continuez à suivre l'évolution de vos enfants !"}</p>
                     </div>
                 ) : (
-                    badges.map((badge) => (
+                    badges.filter(b => b.student_id === selectedChildId).map((badge) => (
                         <div
                             key={badge.id}
                             className="group relative bg-white rounded-[32px] p-8 flex flex-col items-center text-center transition-all duration-500 hover:-translate-y-2 border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-indigo-500/10"
@@ -117,6 +146,8 @@ export const ParentBadges: React.FC = () => {
                     ))
                 )}
             </div>
+            </ParentPackGuard>
+            )}
 
             {/* Motivational message */}
             <div className="bg-slate-50 rounded-[40px] p-8 text-center border border-slate-100">

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { generateGradeReport } from '../../utils/pdfUtils';
 import { PeriodeType, DEFAULT_EVAL_CONFIGS } from '../../types';
+import { ParentPackGuard } from '../../components/ParentPackGuard';
 import { t } from '../../i18n';
 import type { Language } from '../../i18n';
 
@@ -110,9 +111,10 @@ export const ParentNotes: React.FC = () => {
             </div>
 
             {/* Notes par période */}
-            {selectedChild && (
-                <div className="space-y-12">
-                    {(selectedChild.cycle === 'Lycée'
+            {selectedChild && selectedChildId && (
+                <ParentPackGuard studentId={selectedChildId}>
+                    <div className="space-y-12">
+                        {(selectedChild.cycle === 'Lycée'
                         ? (['SEMESTRE 1', 'SEMESTRE 2'] as PeriodeType[])
                         : (['TRIMESTRE 1', 'TRIMESTRE 2', 'TRIMESTRE 3'] as PeriodeType[])
                     ).map(periode => {
@@ -240,7 +242,8 @@ export const ParentNotes: React.FC = () => {
                             </section>
                         );
                     })}
-                </div>
+                    </div>
+                </ParentPackGuard>
             )}
         </div>
     );
