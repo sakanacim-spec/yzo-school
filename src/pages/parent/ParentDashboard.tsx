@@ -12,6 +12,7 @@ import { generateStudentInvoice } from '../../utils/pdfUtils';
 import { LinkStudentModal } from '../../components/LinkStudentModal';
 import { SupportModal } from '../../components/SupportModal';
 import { ParentPackGuard } from '../../components/ParentPackGuard';
+import { ParentPackPayment } from '../../components/ParentPackPayment';
 import { chatApi } from '../../services/chatApi';
 import { isToday, isTomorrow, isPast, isValid } from 'date-fns';
 import { t } from '../../i18n';
@@ -21,7 +22,7 @@ import { API_BASE_URL } from '../../config';
 import { parseResponse } from '../../services/apiHelpers';
 import { requestNotificationPermission } from '../../utils/capacitorNotifications';
 
-// ── Types ────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface Announcement {
     id: string;
     titre: string;
@@ -32,14 +33,14 @@ interface Announcement {
     createdAt: string;
 }
 
-// ── Styles importance ────────────────────────────────────────
+// â”€â”€ Styles importance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const IMP_STYLES = {
     info:      { dot: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-700 border-blue-200',   label: 'Information', icon: <Info className="w-5 h-5" /> },
     important: { dot: 'bg-amber-500',  badge: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Important',   icon: <AlertCircle className="w-5 h-5" /> },
     urgent:    { dot: 'bg-red-500',    badge: 'bg-red-100 text-red-700 border-red-200',       label: 'URGENT',      icon: <AlertTriangle className="w-5 h-5" /> },
 };
 
-// ── Avatar initiales ─────────────────────────────────────────
+// â”€â”€ Avatar initiales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const Avatar: React.FC<{ name: string; size?: 'xs' | 'sm' | 'md' | 'lg' }> = ({ name, size = 'md' }) => {
     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
     const sizes = { xs: 'w-7 h-7 text-[10px]', sm: 'w-9 h-9 text-xs', md: 'w-12 h-12 text-sm', lg: 'w-16 h-16 text-xl' };
@@ -52,7 +53,7 @@ const Avatar: React.FC<{ name: string; size?: 'xs' | 'sm' | 'md' | 'lg' }> = ({ 
     );
 };
 
-// ── Badge date devoir ────────────────────────────────────────
+// â”€â”€ Badge date devoir â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const DueDateBadge: React.FC<{ dateStr?: string }> = ({ dateStr }) => {
     const { language } = useStore();
     if (!dateStr) return null;
@@ -64,13 +65,14 @@ const DueDateBadge: React.FC<{ dateStr?: string }> = ({ dateStr }) => {
     return <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-semibold">{d.toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' })}</span>;
 };
 
-// ── Carte par enfant ─────────────────────────────────────────
+// â”€â”€ Carte par enfant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface ChildCardProps {
     child: any;
     devoirs: any[];
     presences: any[];
     currency: string;
-    onPay: (childId: string, amount: number) => void;
+    // openPaymentModal replaces onPay for Parent Pack payment flow
+    openPaymentModal: (studentId: string) => void;
     loadingPayment: string | null;
     paymentEnabled: boolean;
     onDownloadInvoice: (child: any) => void;
@@ -79,9 +81,9 @@ interface ChildCardProps {
 }
 
 const ChildCard: React.FC<ChildCardProps> = ({
-    child, devoirs, presences, currency, onPay, loadingPayment, paymentEnabled, onDownloadInvoice, onUnlink, settings
+    child, devoirs, presences, currency, loadingPayment, paymentEnabled, onDownloadInvoice, onUnlink, settings, openPaymentModal
 }) => {
-    const { language } = useStore();
+    const { language, parentPackAccess } = useStore();
     const [expanded, setExpanded] = useState(true);
 
     const childDevoirs = useMemo(() => {
@@ -122,30 +124,30 @@ const ChildCard: React.FC<ChildCardProps> = ({
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-all hover:shadow-lg">
-            {/* ── En-tête enfant ── */}
+            {/* â”€â”€ En-tÃªte enfant â”€â”€ */}
             <div className="p-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Avatar name={`${child.prenom} ${child.nom}`} size="md" />
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="font-black text-slate-900 dark:text-white text-lg">{child.prenom} {child.nom}</h3>
-                            <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black ${child.status === 'Soldé' ? 'bg-emerald-100 text-emerald-700' : child.status === 'Partiel' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                            <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black ${child.status === 'SoldÃ©' ? 'bg-emerald-100 text-emerald-700' : child.status === 'Partiel' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
                                 {child.status}
                             </span>
                             {devoirsUrgents > 0 && (
                                 <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">
-                                    ⚡ {devoirsUrgents} devoir{devoirsUrgents > 1 ? 's' : ''} urgent{devoirsUrgents > 1 ? 's' : ''}
+                                    âš¡ {devoirsUrgents} devoir{devoirsUrgents > 1 ? 's' : ''} urgent{devoirsUrgents > 1 ? 's' : ''}
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-slate-400 font-medium">{child.classe} · {child.cycle}</p>
+                        <p className="text-xs text-slate-400 font-medium">{child.classe} Â· {child.cycle}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={onDownloadInvoice}
                         className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all"
-                        title={t(language as Language, 'parentDashboard.downloadInvoice') || 'Télécharger la facture'}
+                        title={t(language as Language, 'parentDashboard.downloadInvoice') || 'TÃ©lÃ©charger la facture'}
                     >
                         <Download className="w-4 h-4" />
                     </button>
@@ -167,14 +169,14 @@ const ChildCard: React.FC<ChildCardProps> = ({
 
             {expanded && (
                 <div className="px-5 pb-5 space-y-4 border-t border-slate-50 dark:border-slate-800 pt-4">
-                    {/* ── 3 colonnes : Finance | Devoirs | Présence ── */}
+                    {/* â”€â”€ 3 colonnes : Finance | Devoirs | PrÃ©sence â”€â”€ */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-                        {/* 💰 Finance */}
+                        {/* ðŸ’° Finance */}
                         <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-3">
                             <div className="flex items-center gap-2 mb-1">
                                 <Wallet className="w-4 h-4 text-blue-600" />
-                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{t(language as Language, 'parentDashboard.tuition') || 'Scolarité'}</span>
+                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{t(language as Language, 'parentDashboard.tuition') || 'ScolaritÃ©'}</span>
                             </div>
                             <div>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase">{t(language as Language, 'parentDashboard.annualTotal') || 'Total annuel'}</p>
@@ -182,7 +184,7 @@ const ChildCard: React.FC<ChildCardProps> = ({
                             </div>
                             <div>
                                 <div className="flex justify-between items-center mb-1">
-                                    <p className="text-[10px] text-emerald-600 font-bold uppercase">{t(language as Language, 'parentDashboard.paid') || 'Payé'}</p>
+                                    <p className="text-[10px] text-emerald-600 font-bold uppercase">{t(language as Language, 'parentDashboard.paid') || 'PayÃ©'}</p>
                                     <p className="text-[10px] font-black text-emerald-600">{pctPaye}%</p>
                                 </div>
                                 <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -191,14 +193,14 @@ const ChildCard: React.FC<ChildCardProps> = ({
                                 <p className="text-sm font-bold text-emerald-600 mt-1">{dejaPaye.toLocaleString()} {currency}</p>
                             </div>
                             <div>
-                                <p className="text-[10px] text-rose-500 font-bold uppercase">{t(language as Language, 'parentDashboard.remaining') || 'Reste à payer'}</p>
+                                <p className="text-[10px] text-rose-500 font-bold uppercase">{t(language as Language, 'parentDashboard.remaining') || 'Reste Ã  payer'}</p>
                                 <p className={`font-black text-lg ${restant > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                                     {restant > 0 ? restant.toLocaleString() : '0'} {currency}
                                 </p>
                             </div>
-                            {restant > 0 && paymentEnabled && (
+                            {restant > 0 && parentPackAccess[child.id]?.state === 'PACK_SUSPENDED' && (
                                 <button
-                                    onClick={() => onPay(child.id, restant)}
+                                    onClick={() => openPaymentModal(child.id)}
                                     disabled={loadingPayment === child.id}
                                     className="w-full flex items-center justify-center gap-2 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-sm disabled:opacity-50"
                                 >
@@ -206,16 +208,16 @@ const ChildCard: React.FC<ChildCardProps> = ({
                                     {loadingPayment === child.id ? (t(language as Language, 'common.loading') || 'Chargement...') : (t(language as Language, 'parentDashboard.payOnline') || 'Payer par Yziow Pay')}
                                 </button>
                             )}
-                            {restant > 0 && !paymentEnabled && (
-                                <p className="text-[10px] text-slate-400 text-center italic">{t(language as Language, 'parentDashboard.payAtDesk') || 'Paiement à effectuer en caisse'}</p>
+                            {restant > 0 && !(parentPackAccess[child.id]?.state === 'PACK_SUSPENDED') && (
+                                <p className="text-[10px] text-slate-400 text-center italic">{t(language as Language, 'parentDashboard.payAtDesk') || 'Paiement Ã  effectuer en caisse'}</p>
                             )}
                         </div>
 
-                        {/* PREMIUM GUARD POUR DEVOIRS ET PRÉSENCES */}
+                        {/* PREMIUM GUARD POUR DEVOIRS ET PRÃ‰SENCES */}
                         <div className="col-span-1 md:col-span-2">
                             <ParentPackGuard studentId={child.id}>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
-                                    {/* 📚 Devoirs */}
+                                    {/* ðŸ“š Devoirs */}
                                     <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4">
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">
@@ -261,12 +263,12 @@ const ChildCard: React.FC<ChildCardProps> = ({
                                         )}
                                     </div>
 
-                                    {/* ✅ Présence */}
+                                    {/* âœ… PrÃ©sence */}
                                     <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4">
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">
                                                 <UserCheck className="w-4 h-4 text-emerald-600" />
-                                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{t(language as Language, 'common.attendance') || 'Présence'}</span>
+                                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{t(language as Language, 'common.attendance') || 'PrÃ©sence'}</span>
                                             </div>
                                             <button
                                                 onClick={() => useStore.getState().setCurrentPage('parent_devoirs_presence')}
@@ -276,7 +278,7 @@ const ChildCard: React.FC<ChildCardProps> = ({
                                             </button>
                                         </div>
 
-                                        {/* Taux de présence */}
+                                        {/* Taux de prÃ©sence */}
                                         <div className="mb-3">
                                             <div className="flex justify-between items-center mb-1">
                                                 <span className="text-[10px] font-bold text-slate-500 uppercase">{t(language as Language, 'parentDevoirs.attendanceRate') || 'Taux'}</span>
@@ -292,7 +294,7 @@ const ChildCard: React.FC<ChildCardProps> = ({
                                         {/* Stats */}
                                         <div className="grid grid-cols-3 gap-1.5 mb-3">
                                             {[
-                                                { label: t(language as Language, 'parentDevoirs.present') || 'Présent', val: presenceStats.present, color: 'text-emerald-600 bg-emerald-50' },
+                                                { label: t(language as Language, 'parentDevoirs.present') || 'PrÃ©sent', val: presenceStats.present, color: 'text-emerald-600 bg-emerald-50' },
                                                 { label: t(language as Language, 'parentDevoirs.absent') || 'Absent', val: presenceStats.absent, color: 'text-rose-600 bg-rose-50' },
                                                 { label: t(language as Language, 'parentDevoirs.lateStat') || 'Retard', val: presenceStats.retard, color: 'text-amber-600 bg-amber-50' },
                                             ].map(s => (
@@ -303,7 +305,7 @@ const ChildCard: React.FC<ChildCardProps> = ({
                                             ))}
                                         </div>
 
-                                        {/* Dernière présence */}
+                                        {/* DerniÃ¨re prÃ©sence */}
                                         {dernierePresence ? (
                                             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold ${
                                                 dernierePresence.statut === 'present' ? 'bg-emerald-100 text-emerald-700' :
@@ -313,10 +315,10 @@ const ChildCard: React.FC<ChildCardProps> = ({
                                                 {dernierePresence.statut === 'present' ? <CheckCircle2 className="w-3.5 h-3.5" /> :
                                                  dernierePresence.statut === 'absent' ? <XCircle className="w-3.5 h-3.5" /> :
                                                  <Clock className="w-3.5 h-3.5" />}
-                                                {t(language as Language, 'parentDashboard.lastScan') || 'Dernière'} : {dernierePresence.statut} — {new Date(dernierePresence.date).toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' })}
+                                                {t(language as Language, 'parentDashboard.lastScan') || 'DerniÃ¨re'} : {dernierePresence.statut} â€” {new Date(dernierePresence.date).toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' })}
                                             </div>
                                         ) : (
-                                            <p className="text-[11px] text-slate-400 text-center">{t(language as Language, 'parentDashboard.noScan') || 'Aucun scan enregistré'}</p>
+                                            <p className="text-[11px] text-slate-400 text-center">{t(language as Language, 'parentDashboard.noScan') || 'Aucun scan enregistrÃ©'}</p>
                                         )}
                                     </div>
                                 </div>
@@ -329,9 +331,9 @@ const ChildCard: React.FC<ChildCardProps> = ({
     );
 };
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Composant principal
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export const ParentDashboard: React.FC = () => {
     const { language } = useStore();
     const user = useStore((s) => s.user);
@@ -354,6 +356,9 @@ export const ParentDashboard: React.FC = () => {
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const currency = useStore.getState().currency;
     const paymentEnabled = !!(settings?.paymentGateway && settings.paymentGateway !== 'none');
+    // Parent Pack payment modal state
+    const [showParentPackModal, setShowParentPackModal] = useState(false);
+    const [parentPackStudentId, setParentPackStudentId] = useState<string>('');
 
     const fetchData = useCallback(async () => {
         if (children.length > 0) return;
@@ -365,6 +370,51 @@ export const ParentDashboard: React.FC = () => {
             setErrorMsg(err.message || "Erreur de chargement");
         } finally { setLoading(false); }
     }, [children.length]);
+
+    // Handle payment success redirect
+    useEffect(() => {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('payment') === 'success') {
+            const pendingStudentId = sessionStorage.getItem('yziow_parent_pack_pending_student');
+            if (pendingStudentId) {
+                let attempts = 0;
+                const maxAttempts = 5;
+                const interval = setInterval(async () => {
+                    attempts++;
+                    try {
+                        await useStore.getState().fetchAllFromBackend(true);
+                    } catch (e) {
+                        console.error('Polling error', e);
+                    }
+
+                    const freshAccess = useStore.getState().parentPackAccess;
+                    const state = freshAccess[pendingStudentId]?.state;
+
+                    if (state === 'PAID_ACTIVE') {
+                        clearInterval(interval);
+                        alert(t(useStore.getState().language as Language, 'parentPack.paymentSuccess') || 'Paiement confirmÃ© avec succÃ¨s !');
+                        sessionStorage.removeItem('yziow_parent_pack_pending_student');
+
+                        const newUrl = new URL(window.location.href);
+                        newUrl.searchParams.delete('payment');
+                        window.history.replaceState({}, '', newUrl.toString());
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(interval);
+                        alert(t(useStore.getState().language as Language, 'parentPack.paymentPending') || 'Confirmation en cours. Votre pack sera activÃ© sous peu.');
+
+                        const newUrl = new URL(window.location.href);
+                        newUrl.searchParams.delete('payment');
+                        window.history.replaceState({}, '', newUrl.toString());
+                    }
+                }, 3000);
+                return () => clearInterval(interval);
+            } else {
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.delete('payment');
+                window.history.replaceState({}, '', newUrl.toString());
+            }
+        }
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -397,6 +447,20 @@ export const ParentDashboard: React.FC = () => {
         return () => { isMountedRef.current = false; };
     }, []);
 
+    // Pass openPaymentModal to ChildCard
+    const openPaymentModal = (studentId: string) => {
+        setParentPackStudentId(studentId);
+        setShowParentPackModal(true);
+    };
+
+    // Render ParentPackPayment modal when needed
+    const parentPackModal = showParentPackModal && (
+        <ParentPackPayment
+            studentId={parentPackStudentId}
+            onClose={() => setShowParentPackModal(false)}
+        />
+    );
+
     const [notifStatus, setNotifStatus] = useState<string>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
@@ -413,6 +477,7 @@ export const ParentDashboard: React.FC = () => {
         }
     };
 
+    // Legacy payment flow retained for nonâ€‘Parentâ€‘Pack payments
     const handlePayerEnLigne = async (studentId: string, amount: number) => {
         try {
             setLoadingPayment(studentId);
@@ -448,13 +513,13 @@ export const ParentDashboard: React.FC = () => {
         return !read || !read.readAt;
     }).length;
 
-    // ── Totaux globaux ───────────────────────────────────────
+    // â”€â”€ Totaux globaux â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const totalEcolage = children.reduce((acc, s) => acc + Number(s.ecolage || 0), 0);
     const totalDejaPaye = children.reduce((acc, s) => acc + Number(s.dejaPaye || 0), 0);
     const totalRestant = children.reduce((acc, s) => acc + Number(s.restant !== undefined ? s.restant : (Number(s.ecolage || 0) - Number(s.dejaPaye || 0))), 0);
     const totalPctPaye = totalEcolage > 0 ? Math.round((totalDejaPaye / totalEcolage) * 100) : 0;
 
-    // ── Devoirs urgents tous enfants ─────────────────────────
+    // â”€â”€ Devoirs urgents tous enfants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const allUrgentHomework = useMemo(() => {
         return children.flatMap(child => {
             return devoirs
@@ -467,7 +532,7 @@ export const ParentDashboard: React.FC = () => {
         });
     }, [children, devoirs]);
 
-    // ── Absences non justifiées tous enfants ─────────────────
+    // â”€â”€ Absences non justifiÃ©es tous enfants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const allUnjustifiedAbsences = useMemo(() => {
         return children.flatMap(child => {
             return presences
@@ -488,7 +553,7 @@ export const ParentDashboard: React.FC = () => {
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-red-900 mb-2">{t(language as Language, 'parentDashboard.connectionError') || 'Erreur de connexion'}</h3>
             <p className="text-red-700">{errorMsg}</p>
-            <button onClick={fetchData} className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition">{t(language as Language, 'common.retry') || 'Réessayer'}</button>
+            <button onClick={fetchData} className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition">{t(language as Language, 'common.retry') || 'RÃ©essayer'}</button>
         </div>
     );
 
@@ -496,7 +561,7 @@ export const ParentDashboard: React.FC = () => {
         <>
         <div className="space-y-6 pb-20">
 
-            {/* ══ BANDEAU BIENVENUE ══ */}
+            {/* â•â• BANDEAU BIENVENUE â•â• */}
             <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900 rounded-[32px] p-7 text-white overflow-hidden shadow-2xl">
                 <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #60a5fa 0%, transparent 50%), radial-gradient(circle at 80% 20%, #818cf8 0%, transparent 40%)" }} />
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
@@ -504,9 +569,9 @@ export const ParentDashboard: React.FC = () => {
                         <Avatar name={user?.nom || 'P'} size="lg" />
                         <div>
                             <p className="text-blue-300 text-xs font-bold uppercase tracking-widest mb-0.5">{t(language as Language, 'parentDashboard.parentSpace') || 'Espace Parent'}</p>
-                            <h2 className="text-2xl font-black tracking-tight">{t(language as Language, 'parentDashboard.hello') || 'Bonjour'}, {user?.nom} 👋</h2>
+                            <h2 className="text-2xl font-black tracking-tight">{t(language as Language, 'parentDashboard.hello') || 'Bonjour'}, {user?.nom} ðŸ‘‹</h2>
                             <p className="text-blue-200/70 text-sm mt-0.5">
-                                {children.length === 0 ? (t(language as Language, 'parentDashboard.linkChildrenToStart') || "Liez vos enfants pour commencer") : `${children.length} ${(t(language as Language, 'parentDashboard.childTracked') || 'enfant(s) suivi(s)').replace('enfant(s)', 'enfant' + (children.length > 1 ? 's' : '')).replace('suivi(s)', 'suivi' + (children.length > 1 ? 's' : ''))} · ${settings?.schoolName || ''}`}
+                                {children.length === 0 ? (t(language as Language, 'parentDashboard.linkChildrenToStart') || "Liez vos enfants pour commencer") : `${children.length} ${(t(language as Language, 'parentDashboard.childTracked') || 'enfant(s) suivi(s)').replace('enfant(s)', 'enfant' + (children.length > 1 ? 's' : '')).replace('suivi(s)', 'suivi' + (children.length > 1 ? 's' : ''))} Â· ${settings?.schoolName || ''}`}
                             </p>
                         </div>
                     </div>
@@ -534,41 +599,8 @@ export const ParentDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* ══ ANNONCES ══ */}
-            {showAnnouncementList && (
-                <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-blue-100 shadow-2xl overflow-hidden">
-                    <div className="px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <Megaphone className="w-5 h-5 text-white" />
-                            <h3 className="font-black text-white">{t(language as Language, 'parentDashboard.schoolAnnouncements') || "Annonces de l'École"}</h3>
-                            <span className="px-3 py-0.5 bg-white/20 text-white text-[10px] font-black rounded-full">{announcements.length} {t(language as Language, 'common.messages') || 'messages'}</span>
-                        </div>
-                        <button onClick={() => setShowAnnouncementList(false)} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20"><X className="w-4 h-4" /></button>
-                    </div>
-                    <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
-                        {announcements.length === 0 ? (
-                            <div className="py-8 text-center text-slate-400 text-sm">{t(language as Language, 'parentDashboard.noAnnouncements') || 'Aucune annonce pour le moment.'}</div>
-                        ) : announcements.map(a => {
-                            const imp = IMP_STYLES[a.importance] || IMP_STYLES.info;
-                            return (
-                                <div key={a.id} className="px-6 py-3 hover:bg-slate-50 transition cursor-pointer flex items-start gap-3" onClick={() => { if (user?.id) markAnnouncementRead(a.id, user.id); setShowAnnouncementList(false); }}>
-                                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${imp.dot}`} />
-                                    <div>
-                                        <div className="flex gap-2 items-center mb-0.5">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${imp.badge}`}>{imp.label}</span>
-                                            <span className="text-[10px] text-slate-400">{new Date(a.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                                        </div>
-                                        <p className="font-bold text-slate-800 text-sm">{a.titre}</p>
-                                        <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{a.message}</p>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
 
-            {/* 💛 CAMPAGNES DE DONS ACTIVES 💛 */}
+            {/* ðŸ’› CAMPAGNES DE DONS ACTIVES ðŸ’› */}
             {activeCampaigns.length > 0 && (
                 <div className="space-y-4">
                     {activeCampaigns.map(campaign => (
@@ -599,7 +631,7 @@ export const ParentDashboard: React.FC = () => {
                 </div>
             )}
 
-            {/* ══ ALERTE GLOBALE (tous enfants) ══ */}
+            {/* â•â• ALERTE GLOBALE (tous enfants) â•â• */}
             {(allUrgentHomework.length > 0 || allUnjustifiedAbsences.length > 0) && (
                 <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 rounded-[24px] p-5">
                     <div className="flex items-center gap-3 mb-3">
@@ -607,11 +639,11 @@ export const ParentDashboard: React.FC = () => {
                             <AlertTriangle className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <h4 className="font-black text-rose-800 dark:text-rose-300">Alertes importantes à traiter !</h4>
+                            <h4 className="font-black text-rose-800 dark:text-rose-300">Alertes importantes Ã  traiter !</h4>
                             <p className="text-xs text-rose-600 dark:text-rose-400">
                                 {allUrgentHomework.length > 0 && <span>{allUrgentHomework.length} devoir(s) urgent(s)</span>}
-                                {allUrgentHomework.length > 0 && allUnjustifiedAbsences.length > 0 && <span> • </span>}
-                                {allUnjustifiedAbsences.length > 0 && <span>{allUnjustifiedAbsences.length} absence(s) à justifier</span>}
+                                {allUrgentHomework.length > 0 && allUnjustifiedAbsences.length > 0 && <span> â€¢ </span>}
+                                {allUnjustifiedAbsences.length > 0 && <span>{allUnjustifiedAbsences.length} absence(s) Ã  justifier</span>}
                             </p>
                         </div>
                         <button onClick={() => useStore.getState().setCurrentPage('parent_devoirs_presence')} className="ml-auto flex items-center gap-1 text-rose-700 dark:text-rose-400 text-xs font-bold hover:underline shrink-0">
@@ -623,7 +655,7 @@ export const ParentDashboard: React.FC = () => {
                             <div key={`d-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-rose-900/30 rounded-xl border border-rose-200 dark:border-rose-800">
                                 <Avatar name={d.childName} size="xs" />
                                 <div>
-                                    <p className="text-[11px] font-black text-rose-800 dark:text-rose-200">{d.childName} — {d.matiere}</p>
+                                    <p className="text-[11px] font-black text-rose-800 dark:text-rose-200">{d.childName} â€” {d.matiere}</p>
                                     <DueDateBadge dateStr={d.dateRendu} />
                                 </div>
                             </div>
@@ -643,14 +675,14 @@ export const ParentDashboard: React.FC = () => {
                 </div>
             )}
 
-            {/* ══ TOTAUX GLOBAUX ══ */}
+            {/* â•â• TOTAUX GLOBAUX â•â• */}
             {children.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                        { label: t(language as Language, 'parentDashboard.totalTuition') || 'Total Scolarité', val: totalEcolage.toLocaleString() + ' ' + currency, icon: <Wallet className="w-5 h-5" />, color: 'blue' },
-                        { label: t(language as Language, 'parentDashboard.alreadyPaid') || 'Déjà Payé', val: totalDejaPaye.toLocaleString() + ' ' + currency, icon: <TrendingUp className="w-5 h-5" />, color: 'emerald', sub: `${totalPctPaye}% ${t(language as Language, 'parentDashboard.ofTotal') || 'du total'}` },
-                        { label: t(language as Language, 'parentDashboard.remaining') || 'Reste à Payer', val: totalRestant.toLocaleString() + ' ' + currency, icon: <CreditCard className="w-5 h-5" />, color: 'rose' },
-                        { label: t(language as Language, 'common.results') || 'Résultats', val: t(language as Language, 'parentDashboard.seeGrades') || 'Voir les notes', icon: <Star className="w-5 h-5" />, color: 'amber', clickable: 'parent_notes' },
+                        { label: t(language as Language, 'parentDashboard.totalTuition') || 'Total ScolaritÃ©', val: totalEcolage.toLocaleString() + ' ' + currency, icon: <Wallet className="w-5 h-5" />, color: 'blue' },
+                        { label: t(language as Language, 'parentDashboard.alreadyPaid') || 'DÃ©jÃ  PayÃ©', val: totalDejaPaye.toLocaleString() + ' ' + currency, icon: <TrendingUp className="w-5 h-5" />, color: 'emerald', sub: `${totalPctPaye}% ${t(language as Language, 'parentDashboard.ofTotal') || 'du total'}` },
+                        { label: t(language as Language, 'parentDashboard.remaining') || 'Reste Ã  Payer', val: totalRestant.toLocaleString() + ' ' + currency, icon: <CreditCard className="w-5 h-5" />, color: 'rose' },
+                        { label: t(language as Language, 'common.results') || 'RÃ©sultats', val: t(language as Language, 'parentDashboard.seeGrades') || 'Voir les notes', icon: <Star className="w-5 h-5" />, color: 'amber', clickable: 'parent_notes' },
                     ].map(item => (
                         <div
                             key={item.label}
@@ -668,12 +700,12 @@ export const ParentDashboard: React.FC = () => {
                 </div>
             )}
 
-            {/* ══ SECTION PAR ENFANT ══ */}
+            {/* â•â• SECTION PAR ENFANT â•â• */}
             {children.length === 0 ? (
                 <div className="bg-white dark:bg-slate-900 rounded-[32px] p-14 text-center border border-dashed border-slate-200 dark:border-slate-700">
                     <GraduationCap className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                    <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">{t(language as Language, 'parentDashboard.noLinkedChild') || 'Aucun enfant lié'}</h3>
-                    <p className="text-slate-400 text-sm max-w-xs mx-auto mb-6">{t(language as Language, 'parentDashboard.noLinkedChildDesc') || "Liez vos enfants pour voir leur suivi scolaire, financier et d'assiduité."}</p>
+                    <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">{t(language as Language, 'parentDashboard.noLinkedChild') || 'Aucun enfant liÃ©'}</h3>
+                    <p className="text-slate-400 text-sm max-w-xs mx-auto mb-6">{t(language as Language, 'parentDashboard.noLinkedChildDesc') || "Liez vos enfants pour voir leur suivi scolaire, financier et d'assiduitÃ©."}</p>
                     <button onClick={() => setIsLinkModalOpen(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-lg transition-all">
                         <UserPlus className="w-4 h-4 inline mr-2" /> {t(language as Language, 'parentDashboard.linkChildBtn') || 'Lier un enfant'}
                     </button>
@@ -692,7 +724,7 @@ export const ParentDashboard: React.FC = () => {
                             devoirs={devoirs}
                             presences={presences}
                             currency={currency}
-                            onPay={handlePayerEnLigne}
+                            openPaymentModal={openPaymentModal}
                             loadingPayment={loadingPayment}
                             paymentEnabled={paymentEnabled}
                             onDownloadInvoice={() => handleDownloadInvoice(child)}
