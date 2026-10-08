@@ -2513,11 +2513,117 @@ async function fedapayWebhook(req, res) {
 
     return res.status(400).json({ error: 'Traitement rejeté.' });
 }
+/**
+ * Récupère les tarifs Parent Pack applicables pour un élève
+ * GET /api/payment/parent-pack/pricing/:schoolSlug/:studentId
+ */
+async function getParentPackPricing(req, res) {
+    const { schoolSlug, studentId } = req.params;
+
+    if (!schoolSlug || !SLUG_REGEX.test(schoolSlug)) {
+        return res.status(400).json({ error: 'Établissement invalide.' });
+    }
+    if (!studentId || typeof studentId !== 'string' || !studentId.trim()) {
+        return res.status(400).json({ error: 'Identifiant élève requis.' });
+    }
+
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(403).json({ error: 'Utilisateur non authentifié.' });
+        }
+
+        // 1. Vérification stricte Ownership dans parent_student_
+        const { data: link, error: linkErr } = await supabase
+            .from(`parent_student_${schoolSlug}`)
+            .select('parent_id')
+            .eq('parent_id', userId)
+            .eq('student_id', studentId.trim())
+            .maybeSingle();
+
+        if (linkErr) {
+            return res.status(500).json({ error: 'Erreur technique lors de la vérification des droits.' });
+        }
+        if (!link) {
+            return res.status(403).json({ error: 'Accès non autorisé à cet élève.' });
+        }
+
+        // 2. Fetch de la classe de l'élève
+        const { data: student, error: studentErr } = await supabase
+            .from(`students_${schoolSlug}`)
+            .select('id, classe')
+            .eq('id', studentId.trim())
+            .maybeSingle();
+
+        if (studentErr) {
+            return res.status(500).json({ error: 'Erreur technique lors de la récupération des données élève.' });
+        }
+        if (!student) {
+            return res.status(404).json({ error: 'Élève introuvable.' });
+        }
+
+        // 3. Détermination du cycle (Backend Auth)
+        const { resolveCycleName } = require('../config/parentPackClassifications');
+        let cycleName;
+        try {
+            cycleName = resolveCycleName(student.classe);
+        } catch (err) {
+            if (err.message && err.message.includes('CLASS_UNKNOWN')) {
+                return res.status(400).json({ error: 'Classe inconnue ou non supportée par le Parent Pack.' });
+            }
+            throw err;
+        }
+
+        // 4. Recherche Pricing actif pour ce cycle
+        const { data: pricing, error: pricingErr } = await supabase
+            .from('parent_pack_pricing')
+            .select('monthly_price_minor, annual_price_minor, annual_duration_months, currency')
+            .eq('cycle_name', cycleName)
+            .eq('active', true)
+            .maybeSingle();
+
+        if (pricingErr) {
+            return res.status(500).json({ error: 'Erreur technique lors de la récupération des tarifs.' });
+        }
+        if (!pricing) {
+            return res.status(404).json({ error: 'Aucun tarif Parent Pack actif pour ce cycle.' });
+        }
+
+        // 5. Construit la réponse, ne retournant pas les infos internes
+        const plans = [];
+        if (pricing.monthly_price_minor !== null && pricing.monthly_price_minor !== undefined) {
+            plans.push({
+                periodicity: 'monthly',
+                amountMinor: pricing.monthly_price_minor,
+                currency: pricing.currency
+            });
+        }
+        
+        if (pricing.annual_price_minor !== null && pricing.annual_price_minor !== undefined) {
+            plans.push({
+                periodicity: 'annual',
+                amountMinor: pricing.annual_price_minor,
+                currency: pricing.currency,
+                durationMonths: pricing.annual_duration_months
+            });
+        }
+
+        return res.json({
+            studentId: student.id,
+            cycleName,
+            plans
+        });
+
+    } catch (error) {
+        return res.status(500).json({ error: 'Erreur lors de la récupération des tarifs Parent Pack.' });
+    }
+}
 
 module.exports = {
     createTransaction,
     createSaasTransaction,
     createParentPackTransaction,
+    getParentPackPricing,
     createDonationTransaction,
     getSubscriptionQuote,
     getSubscriptionQuoteById,
