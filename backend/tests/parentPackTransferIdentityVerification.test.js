@@ -1,3 +1,7 @@
+process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'http://safe-test-supabase.local';
+process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'safe-test-key';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'safe-test-jwt-secret';
+
 const { describe, it, beforeEach } = require('node:test');
 const assert = require('node:assert');
 const { transferIdentity } = require('../controllers/studentsController');
