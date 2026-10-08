@@ -192,6 +192,52 @@ function verifyFileMagicBytes(buffer, allowedCategories = ['image', 'pdf']) {
     return { valid: false, detectedType: null, error: 'SIGNATURE_BINAIRE_NON_RECONNUE' };
 }
 
+/**
+ * Normalise un texte d'identité (nom, prénom) pour la comparaison déterministe.
+ * @param {string} text
+ * @returns {string|null}
+ */
+function normalizeIdentityText(text) {
+    if (!text || typeof text !== 'string') return null;
+    const t = text.trim();
+    if (!t) return null;
+    return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ');
+}
+
+/**
+ * Normalise une date de naissance pour la comparaison déterministe (YYYY-MM-DD).
+ * @param {string} date
+ * @returns {string|null}
+ */
+function normalizeIdentityDate(date) {
+    if (!date || typeof date !== 'string') return null;
+    const d = date.trim();
+    if (!d) return null;
+
+    // Support YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss.sssZ
+    if (d.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const isoMatch = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+            const y = parseInt(isoMatch[1], 10);
+            const m = parseInt(isoMatch[2], 10);
+            const day = parseInt(isoMatch[3], 10);
+            if (m >= 1 && m <= 12 && day >= 1 && day <= 31 && y > 1900) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+        }
+    }
+
+    // Support DD/MM/YYYY
+    const frMatch = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (frMatch) {
+        const day = parseInt(frMatch[1], 10);
+        const m = parseInt(frMatch[2], 10);
+        const y = parseInt(frMatch[3], 10);
+        if (m >= 1 && m <= 12 && day >= 1 && day <= 31 && y > 1900) {
+            return `${y}-${frMatch[2]}-${frMatch[1]}`;
+        }
+    }
+    return null;
+}
+
 module.exports = {
     normalizePhone,
     buildAuthEmail,
@@ -200,5 +246,7 @@ module.exports = {
     isValidUUID,
     validateBoundedString,
     validatePositiveNumber,
-    verifyFileMagicBytes
+    verifyFileMagicBytes,
+    normalizeIdentityText,
+    normalizeIdentityDate
 };

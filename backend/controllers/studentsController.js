@@ -1,4 +1,5 @@
 const { supabase } = require('../utils/supabase');
+const { validateSlug, normalizeIdentityText, normalizeIdentityDate, normalizePhone, isValidUUID } = require('../utils/helpers');
 
 /**
  * GET /api/students
@@ -430,4 +431,182 @@ async function unlinkStudentFromParent(req, res) {
     }
 }
 
-module.exports = { listStudents, linkStudentToParent, unlinkStudentFromParent, countStudents };
+async function transferIdentity(req, res) {
+    try {
+        const { id: parent_ref, schoolSlug: rawSchoolSlug, telephone: tokenPhone } = req.user;
+        const { studentId, target_student_global_id } = req.body;
+
+        if (!parent_ref || !target_student_global_id || studentId === undefined || !rawSchoolSlug) {
+            return res.status(400).json({ error: 'INVALID_PARAMETER' });
+        }
+
+        if (typeof studentId !== 'string' || studentId.trim() === '') {
+            return res.status(400).json({ error: 'INVALID_PARAMETER' });
+        }
+        const safeStudentId = studentId.trim();
+
+        if (!isValidUUID(target_student_global_id)) {
+            return res.status(400).json({ error: 'INVALID_PARAMETER' });
+        }
+
+        let destination_school_slug;
+        try {
+            destination_school_slug = validateSlug(rawSchoolSlug);
+        } catch (e) {
+            return res.status(400).json({ error: 'INVALID_PARAMETER' });
+        }
+
+        // 3. TARGET GLOBAL STUDENT OWNERSHIP
+        const { data: targetLink, error: targetLinkErr } = await supabase
+            .from('parent_child_links')
+            .select('student_global_id')
+            .eq('parent_ref', String(parent_ref))
+            .eq('student_global_id', target_student_global_id)
+            .maybeSingle();
+
+        if (targetLinkErr || !targetLink) {
+            return res.status(403).json({ error: 'TARGET_NOT_OWNED' });
+        }
+
+        // 4. DESTINATION STUDENT OWNERSHIP
+        const { data: parentProfile, error: pErr } = await supabase
+            .from(`profiles_${destination_school_slug}`)
+            .select('id, telephone, phone_normalized')
+            .eq('id', parent_ref)
+            .maybeSingle();
+
+        if (pErr || !parentProfile) {
+            return res.status(403).json({ error: 'DESTINATION_NOT_OWNED' });
+        }
+
+        const parentPhone = String(parentProfile.phone_normalized || parentProfile.telephone || tokenPhone || '').trim();
+
+        const { data: destStudent, error: sErr } = await supabase
+            .from(`students_${destination_school_slug}`)
+            .select('id, nom, prenom, date_naissance, telephone_parent, telephone_parent_normalized')
+            .eq('id', safeStudentId)
+            .maybeSingle();
+
+        if (sErr || !destStudent) {
+            return res.status(403).json({ error: 'DESTINATION_NOT_OWNED' });
+        }
+
+        const sParentPhone = String(destStudent.telephone_parent_normalized || destStudent.telephone_parent || '').trim();
+
+        let parentOwnsDest = false;
+        if (parentPhone && sParentPhone) {
+            try {
+                if (normalizePhone(parentPhone) === normalizePhone(sParentPhone)) parentOwnsDest = true;
+            } catch (e) {
+                if (parentPhone === sParentPhone) parentOwnsDest = true;
+            }
+        } else if (parentPhone === sParentPhone && parentPhone) {
+            parentOwnsDest = true;
+        }
+
+        if (!parentOwnsDest) {
+            return res.status(403).json({ error: 'DESTINATION_NOT_OWNED' });
+        }
+
+        const destNom = normalizeIdentityText(destStudent.nom);
+        const destPrenom = normalizeIdentityText(destStudent.prenom);
+        const destDob = normalizeIdentityDate(destStudent.date_naissance);
+
+        if (!destNom || !destPrenom || !destDob) {
+            return res.status(422).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
+        }
+
+        // 5 & 6. ENUMERATE ALL HISTORICAL MAPPINGS
+        const { data: mappings, error: mErr } = await supabase
+            .from('student_global_mappings')
+            .select('school_slug, student_local_id')
+            .eq('student_global_id', target_student_global_id);
+
+        if (mErr) {
+            return res.status(500).json({ error: 'INTERNAL_ERROR' });
+        }
+
+        if (!mappings || mappings.length === 0) {
+            return res.status(422).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
+        }
+
+        for (const mapping of mappings) {
+            let histSlug;
+            try {
+                histSlug = validateSlug(mapping.school_slug);
+            } catch (err) {
+                return res.status(503).json({ error: 'IDENTITY_EVIDENCE_UNAVAILABLE' });
+            }
+
+            const { data: histStudent, error: hsErr } = await supabase
+                .from(`students_${histSlug}`)
+                .select('nom, prenom, date_naissance')
+                .eq('id', mapping.student_local_id)
+                .maybeSingle();
+
+            if (hsErr || !histStudent) {
+                return res.status(503).json({ error: 'IDENTITY_EVIDENCE_UNAVAILABLE' });
+            }
+
+            const histNom = normalizeIdentityText(histStudent.nom);
+            const histPrenom = normalizeIdentityText(histStudent.prenom);
+            const histDob = normalizeIdentityDate(histStudent.date_naissance);
+
+            if (!histNom || !histPrenom || !histDob) {
+                return res.status(422).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
+            }
+
+            if (histNom !== destNom || histPrenom !== destPrenom || histDob !== destDob) {
+                return res.status(409).json({ error: 'IDENTITY_CONFLICT' });
+            }
+        }
+
+        // 11. DESTINATION MAPPING PRECHECK (Moved after SAME-CHILD)
+        const { data: existingMap } = await supabase
+            .from('student_global_mappings')
+            .select('student_global_id')
+            .eq('school_slug', destination_school_slug)
+            .eq('student_local_id', safeStudentId)
+            .maybeSingle();
+
+        if (existingMap) {
+            if (existingMap.student_global_id === target_student_global_id) {
+                return res.json({ status: 'already_mapped' });
+            } else {
+                return res.status(409).json({ error: 'MAPPING_CONFLICT' });
+            }
+        }
+
+        // 12. MUTATION
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('apply_parent_student_identity_transfer', {
+            p_parent_ref: String(parent_ref),
+            p_student_global_id: target_student_global_id,
+            p_destination_school_slug: destination_school_slug,
+            p_destination_student_local_id: safeStudentId
+        });
+
+        if (rpcError) {
+            return res.status(500).json({ error: 'INTERNAL_ERROR' });
+        }
+
+        if (rpcResult && rpcResult.status === 'created') {
+            return res.json({ status: 'created' });
+        }
+        if (rpcResult && rpcResult.status === 'already_mapped') {
+            return res.json({ status: 'already_mapped' });
+        }
+        if (rpcResult && rpcResult.status === 'error') {
+            if (rpcResult.message === 'MAPPING_CONFLICT') return res.status(409).json({ error: 'MAPPING_CONFLICT' });
+            if (rpcResult.message === 'TARGET_NOT_OWNED') return res.status(403).json({ error: 'TARGET_NOT_OWNED' });
+            if (rpcResult.message === 'INVALID_PARAMETER') return res.status(400).json({ error: 'INVALID_PARAMETER' });
+            if (rpcResult.message === 'TARGET_NOT_FOUND') return res.status(404).json({ error: 'TARGET_NOT_FOUND' });
+        }
+
+        return res.status(500).json({ error: 'INTERNAL_ERROR' });
+
+    } catch (err) {
+        return res.status(500).json({ error: 'INTERNAL_ERROR' });
+    }
+}
+
+module.exports = { listStudents, linkStudentToParent, unlinkStudentFromParent, countStudents, transferIdentity };
