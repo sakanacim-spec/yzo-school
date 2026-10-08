@@ -11,6 +11,7 @@ import {
 import { generateStudentInvoice } from '../../utils/pdfUtils';
 import { LinkStudentModal } from '../../components/LinkStudentModal';
 import { SupportModal } from '../../components/SupportModal';
+import { ParentPackGuard } from '../../components/ParentPackGuard';
 import { chatApi } from '../../services/chatApi';
 import { isToday, isTomorrow, isPast, isValid } from 'date-fns';
 import { t } from '../../i18n';
@@ -210,109 +211,116 @@ const ChildCard: React.FC<ChildCardProps> = ({
                             )}
                         </div>
 
-                        {/* 📚 Devoirs */}
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                    <BookOpen className="w-4 h-4 text-indigo-600" />
-                                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{t(language as Language, 'common.homeworks') || 'Devoirs'}</span>
-                                </div>
-                                <button
-                                    onClick={() => useStore.getState().setCurrentPage('parent_devoirs_presence')}
-                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                                >
-                                    {t(language as Language, 'common.seeAll') || 'Voir tout'} <ChevronRight className="w-3 h-3" />
-                                </button>
-                            </div>
-                            {childDevoirs.length === 0 ? (
-                                <div className="text-center py-4">
-                                    <CheckCircle2 className="w-8 h-8 text-emerald-300 mx-auto mb-1" />
-                                    <p className="text-[11px] text-slate-400">{t(language as Language, 'parentDevoirs.noHomeworkTitle') || 'Aucun devoir en attente'}</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-2.5">
-                                    {childDevoirs.slice(0, 3).map(d => (
-                                        <div key={d.id} className="flex items-start gap-2">
-                                            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
-                                                d.dateRendu && (isToday(new Date(d.dateRendu)) || isTomorrow(new Date(d.dateRendu)) || isPast(new Date(d.dateRendu)))
-                                                    ? 'bg-rose-500' : 'bg-indigo-400'
-                                            }`} />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{d.matiere}</p>
-                                                <p className="text-[10px] text-slate-400 line-clamp-1">{d.description}</p>
-                                                <DueDateBadge dateStr={d.dateRendu} />
+                        {/* PREMIUM GUARD POUR DEVOIRS ET PRÉSENCES */}
+                        <div className="col-span-1 md:col-span-2">
+                            <ParentPackGuard studentId={child.id}>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                                    {/* 📚 Devoirs */}
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <BookOpen className="w-4 h-4 text-indigo-600" />
+                                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{t(language as Language, 'common.homeworks') || 'Devoirs'}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => useStore.getState().setCurrentPage('parent_devoirs_presence')}
+                                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                                            >
+                                                {t(language as Language, 'common.seeAll') || 'Voir tout'} <ChevronRight className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                        {childDevoirs.length === 0 ? (
+                                            <div className="text-center py-4">
+                                                <CheckCircle2 className="w-8 h-8 text-emerald-300 mx-auto mb-1" />
+                                                <p className="text-[11px] text-slate-400">{t(language as Language, 'parentDevoirs.noHomeworkTitle') || 'Aucun devoir en attente'}</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2.5">
+                                                {childDevoirs.slice(0, 3).map(d => (
+                                                    <div key={d.id} className="flex items-start gap-2">
+                                                        <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                                                            d.dateRendu && (isToday(new Date(d.dateRendu)) || isTomorrow(new Date(d.dateRendu)) || isPast(new Date(d.dateRendu)))
+                                                                ? 'bg-rose-500' : 'bg-indigo-400'
+                                                        }`} />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{d.matiere}</p>
+                                                            <p className="text-[10px] text-slate-400 line-clamp-1">{d.description}</p>
+                                                            <DueDateBadge dateStr={d.dateRendu} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {childDevoirs.length > 3 && (
+                                                    <button
+                                                        onClick={() => useStore.getState().setCurrentPage('parent_devoirs_presence')}
+                                                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800"
+                                                    >
+                                                        + {childDevoirs.length - 3} {(t(language as Language, 'common.others') || 'autre(s)...')}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* ✅ Présence */}
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <UserCheck className="w-4 h-4 text-emerald-600" />
+                                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{t(language as Language, 'common.attendance') || 'Présence'}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => useStore.getState().setCurrentPage('parent_devoirs_presence')}
+                                                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-1"
+                                            >
+                                                {t(language as Language, 'common.seeAll') || 'Voir tout'} <ChevronRight className="w-3 h-3" />
+                                            </button>
+                                        </div>
+
+                                        {/* Taux de présence */}
+                                        <div className="mb-3">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">{t(language as Language, 'parentDevoirs.attendanceRate') || 'Taux'}</span>
+                                                <span className={`text-sm font-black ${tauxPresence >= 80 ? 'text-emerald-600' : tauxPresence >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
+                                                    {tauxPresence}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                <div className={`h-full rounded-full transition-all ${tauxPresence >= 80 ? 'bg-emerald-500' : tauxPresence >= 60 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${tauxPresence}%` }} />
                                             </div>
                                         </div>
-                                    ))}
-                                    {childDevoirs.length > 3 && (
-                                        <button
-                                            onClick={() => useStore.getState().setCurrentPage('parent_devoirs_presence')}
-                                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800"
-                                        >
-                                            + {childDevoirs.length - 3} {(t(language as Language, 'common.others') || 'autre(s)...')}
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
 
-                        {/* ✅ Présence */}
-                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                    <UserCheck className="w-4 h-4 text-emerald-600" />
-                                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{t(language as Language, 'common.attendance') || 'Présence'}</span>
-                                </div>
-                                <button
-                                    onClick={() => useStore.getState().setCurrentPage('parent_devoirs_presence')}
-                                    className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-1"
-                                >
-                                    {t(language as Language, 'common.seeAll') || 'Voir tout'} <ChevronRight className="w-3 h-3" />
-                                </button>
-                            </div>
+                                        {/* Stats */}
+                                        <div className="grid grid-cols-3 gap-1.5 mb-3">
+                                            {[
+                                                { label: t(language as Language, 'parentDevoirs.present') || 'Présent', val: presenceStats.present, color: 'text-emerald-600 bg-emerald-50' },
+                                                { label: t(language as Language, 'parentDevoirs.absent') || 'Absent', val: presenceStats.absent, color: 'text-rose-600 bg-rose-50' },
+                                                { label: t(language as Language, 'parentDevoirs.lateStat') || 'Retard', val: presenceStats.retard, color: 'text-amber-600 bg-amber-50' },
+                                            ].map(s => (
+                                                <div key={s.label} className={`rounded-xl p-2 text-center ${s.color}`}>
+                                                    <p className="text-base font-black">{s.val}</p>
+                                                    <p className="text-[9px] font-bold uppercase">{s.label}</p>
+                                                </div>
+                                            ))}
+                                        </div>
 
-                            {/* Taux de présence */}
-                            <div className="mb-3">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase">{t(language as Language, 'parentDevoirs.attendanceRate') || 'Taux'}</span>
-                                    <span className={`text-sm font-black ${tauxPresence >= 80 ? 'text-emerald-600' : tauxPresence >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
-                                        {tauxPresence}%
-                                    </span>
-                                </div>
-                                <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all ${tauxPresence >= 80 ? 'bg-emerald-500' : tauxPresence >= 60 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${tauxPresence}%` }} />
-                                </div>
-                            </div>
-
-                            {/* Stats */}
-                            <div className="grid grid-cols-3 gap-1.5 mb-3">
-                                {[
-                                    { label: t(language as Language, 'parentDevoirs.present') || 'Présent', val: presenceStats.present, color: 'text-emerald-600 bg-emerald-50' },
-                                    { label: t(language as Language, 'parentDevoirs.absent') || 'Absent', val: presenceStats.absent, color: 'text-rose-600 bg-rose-50' },
-                                    { label: t(language as Language, 'parentDevoirs.lateStat') || 'Retard', val: presenceStats.retard, color: 'text-amber-600 bg-amber-50' },
-                                ].map(s => (
-                                    <div key={s.label} className={`rounded-xl p-2 text-center ${s.color}`}>
-                                        <p className="text-base font-black">{s.val}</p>
-                                        <p className="text-[9px] font-bold uppercase">{s.label}</p>
+                                        {/* Dernière présence */}
+                                        {dernierePresence ? (
+                                            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold ${
+                                                dernierePresence.statut === 'present' ? 'bg-emerald-100 text-emerald-700' :
+                                                dernierePresence.statut === 'absent' ? 'bg-rose-100 text-rose-700' :
+                                                'bg-amber-100 text-amber-700'
+                                            }`}>
+                                                {dernierePresence.statut === 'present' ? <CheckCircle2 className="w-3.5 h-3.5" /> :
+                                                 dernierePresence.statut === 'absent' ? <XCircle className="w-3.5 h-3.5" /> :
+                                                 <Clock className="w-3.5 h-3.5" />}
+                                                {t(language as Language, 'parentDashboard.lastScan') || 'Dernière'} : {dernierePresence.statut} — {new Date(dernierePresence.date).toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' })}
+                                            </div>
+                                        ) : (
+                                            <p className="text-[11px] text-slate-400 text-center">{t(language as Language, 'parentDashboard.noScan') || 'Aucun scan enregistré'}</p>
+                                        )}
                                     </div>
-                                ))}
-                            </div>
-
-                            {/* Dernière présence */}
-                            {dernierePresence ? (
-                                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold ${
-                                    dernierePresence.statut === 'present' ? 'bg-emerald-100 text-emerald-700' :
-                                    dernierePresence.statut === 'absent' ? 'bg-rose-100 text-rose-700' :
-                                    'bg-amber-100 text-amber-700'
-                                }`}>
-                                    {dernierePresence.statut === 'present' ? <CheckCircle2 className="w-3.5 h-3.5" /> :
-                                     dernierePresence.statut === 'absent' ? <XCircle className="w-3.5 h-3.5" /> :
-                                     <Clock className="w-3.5 h-3.5" />}
-                                    {t(language as Language, 'parentDashboard.lastScan') || 'Dernière'} : {dernierePresence.statut} — {new Date(dernierePresence.date).toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' })}
                                 </div>
-                            ) : (
-                                <p className="text-[11px] text-slate-400 text-center">{t(language as Language, 'parentDashboard.noScan') || 'Aucun scan enregistré'}</p>
-                            )}
+                            </ParentPackGuard>
                         </div>
                     </div>
                 </div>

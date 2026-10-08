@@ -479,5 +479,22 @@ export interface Donation {
   created_at: string;
 }
 
+// ============================================================
+// PARENT PACK TYPES
+// ============================================================
+
+export type ParentPackState =
+  | 'PAID_ACTIVE'
+  | 'GRACE_ACTIVE'
+  | 'LEGACY_UNDECIDED'
+  | 'PACK_SUSPENDED'
+  | 'ACCESS_UNAVAILABLE';
+
+export interface ParentPackAccessInfo {
+  state: ParentPackState;
+  accessAllowed: boolean;
+}
+
+export type ParentPackAccess = Record<string, ParentPackAccessInfo>;
 
 
