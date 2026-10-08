@@ -1,7 +1,7 @@
+const { describe, it, before } = require('node:test');
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-
 describe('P25-T.2a Transfer Identity Migration Contract', () => {
     let sqlContent;
 
