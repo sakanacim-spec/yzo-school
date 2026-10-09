@@ -24,8 +24,10 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
             body: {}
         };
         res = {
-            status: () => res,
-            json: () => {}
+            statusCode: null,
+            body: null,
+            status: function(code) { this.statusCode = code; return this; },
+            json: function(data) { this.body = data; return this; }
         };
 
         const createQueryMock = () => {
@@ -53,9 +55,19 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
     });
 
     it('Test 13: FIRST LINK - création globale puis locale', async () => {
-        let globalInsertCalled = false;
+        let rpcCalled = false;
         let localInsertCalled = false;
         let firstLinkedAtVal = null;
+        let rpcPayload = null;
+
+        supabase.rpc = (fn, payload) => {
+            if (fn === 'create_and_link_new_global_student') {
+                rpcCalled = true;
+                rpcPayload = payload;
+                return Promise.resolve({ data: { status: 'created', student_global_id: 'g-123' }, error: null });
+            }
+            return Promise.resolve({ data: null, error: null });
+        };
 
         supabase.from = (table) => {
             const m = {
@@ -65,25 +77,21 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 single: () => Promise.resolve({ data: { student_global_id: 'g-123' } }),
                 maybeSingle: () => {
                     if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
-                    return Promise.resolve({ data: null }); // no mapping
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    return Promise.resolve({ data: null }); // no mapping, empty portfolio
                 },
                 insert: (data) => {
                     let result;
-                    if (table === 'global_students') result = { data: [{ student_global_id: 'g-123' }], error: null };
-                    else if (table === 'student_global_mappings') result = { error: null };
-                    else if (table === 'parent_child_links') {
-                        globalInsertCalled = true;
-                        firstLinkedAtVal = data.first_linked_at;
-                        result = { error: null };
-                    }
-                    else if (table === 'parent_student_demo') {
+                    if (table === 'parent_student_demo') {
                         localInsertCalled = true;
                         result = { error: null };
+                    } else if (table === 'global_students' || table === 'student_global_mappings') {
+                        throw new Error("Direct insert in " + table + " forbidden!");
+                    } else {
+                        result = { error: null };
                     }
-                    else result = { error: null };
-
                     return {
-                        select: () => m, // si un insert est chainé avec select(), cela le redirige vers le mock habituel
+                        select: () => m,
                         single: () => Promise.resolve(result),
                         then: (resolve) => resolve(result)
                     };
@@ -101,9 +109,10 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
         req.body = { studentId: 1 };
         await linkStudentToParent(req, res);
 
-        assert.equal(globalInsertCalled, true);
+        assert.equal(rpcCalled, true);
         assert.equal(localInsertCalled, true);
-        assert.notEqual(firstLinkedAtVal, null);
+        assert.notEqual(rpcPayload, null);
+        assert.equal(res.statusCode, 201);
     });
 
     it('Test 14: UNLINK / RELINK COMPLET', async () => {
@@ -124,11 +133,13 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                         else globalUpdatePayloadRelink = data;
                     }
                     const res = { error: null };
-                    return { eq: () => ({ then: resolve => resolve(res) }) };
+                    const m2 = { eq: () => m2, then: (resolve) => resolve(res) };
+                    return m2;
                 },
                 delete: () => {
                     const res = { error: null };
-                    return { eq: () => ({ then: resolve => resolve(res) }) };
+                    const m2 = { eq: () => m2, then: (resolve) => resolve(res) };
+                    return m2;
                 },
                 insert: (data) => {
                     if (table === 'parent_child_links') {
@@ -165,6 +176,10 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
 
     it('Test 15: LEGACY NULL / RELINK', async () => {
         let globalUpdatePayload = null;
+        let parentChildLinksMaybeSingleCount = 0;
+
+        supabase.rpc = (fn) => Promise.resolve({ data: null, error: null });
+
         supabase.from = (table) => {
             const m = {
                 select: () => m,
@@ -173,7 +188,15 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 single: () => Promise.resolve({ data: { student_global_id: 'g-123' } }),
                 maybeSingle: () => {
                     if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
                     if (table === 'student_global_mappings') return Promise.resolve({ data: { student_global_id: 'g-123' } });
+                    if (table === 'parent_child_links') {
+                        parentChildLinksMaybeSingleCount++;
+                        if (parentChildLinksMaybeSingleCount === 1) {
+                            return Promise.resolve({ data: null }); // First time returning null to simulate missing exact link
+                        }
+                        return Promise.resolve({ data: { student_global_id: 'g-123' } }); // Reload exact pair successful
+                    }
                     return Promise.resolve({ data: null });
                 },
                 insert: (data) => {
@@ -185,7 +208,8 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                         globalUpdatePayload = data;
                     }
                     const res = { error: null };
-                    return { eq: () => ({ then: resolve => resolve(res) }) };
+                    const m2 = { eq: () => m2, then: (resolve) => resolve(res) };
+                    return m2;
                 },
                 then: (resolve) => {
                     if (table === 'students_demo') return resolve({ data: [{ id: 1, telephone_parent: '+22990000000' }] });
@@ -199,11 +223,24 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
         await linkStudentToParent(req, res);
 
         assert.notEqual(globalUpdatePayload, null);
+        assert.equal(globalUpdatePayload.first_linked_at, undefined);
         assert.deepEqual(globalUpdatePayload, { current_link_active: true });
+        assert.equal(res.statusCode, 201);
     });
 
     it('Test 16: CONCURRENCE', async () => {
         let globalUpdateCalled = false;
+        let rpcCalled = false;
+        let studentGlobalMappingsMaybeSingleCount = 0;
+
+        supabase.rpc = (fn) => {
+            if (fn === 'create_and_link_new_global_student') {
+                rpcCalled = true;
+                return Promise.resolve({ data: { status: 'DESTINATION_ALREADY_MAPPED' }, error: null });
+            }
+            return Promise.resolve({ data: null, error: null });
+        };
+
         supabase.from = (table) => {
             const m = {
                 select: () => m,
@@ -212,23 +249,29 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 single: () => Promise.resolve({ data: { student_global_id: 'g-123' } }),
                 maybeSingle: () => {
                     if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
-                    return Promise.resolve({ data: null }); // Simule aucune mapping existante
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    if (table === 'student_global_mappings') {
+                        studentGlobalMappingsMaybeSingleCount++;
+                        if (studentGlobalMappingsMaybeSingleCount === 1) {
+                            return Promise.resolve({ data: null }); // First time empty mapping
+                        }
+                        return Promise.resolve({ data: { student_global_id: 'g-123' } }); // Reload successful
+                    }
+                    if (table === 'parent_child_links') return Promise.resolve({ data: { student_global_id: 'g-123' } });
+                    return Promise.resolve({ data: null });
                 },
                 insert: (data) => {
-                    let result;
-                    if (table === 'global_students') result = { data: [{ student_global_id: 'g-123' }], error: null };
-                    else if (table === 'student_global_mappings') result = { error: { code: '23505' } };
-                    else if (table === 'parent_child_links') result = { error: { code: '23505' } };
-                    else result = { error: null };
-
-                    return { select: () => ({ single: () => Promise.resolve(result) }), then: resolve => resolve(result) };
+                    if (table === 'student_global_mappings') throw new Error("Direct insert in " + table + " forbidden!");
+                    const res = { error: null };
+                    return { select: () => ({ single: () => Promise.resolve(res) }), then: resolve => resolve(res) };
                 },
                 update: (data) => {
                     if (table === 'parent_child_links' && data.current_link_active === true) {
                         globalUpdateCalled = true;
                     }
                     const res = { error: null };
-                    return { eq: () => ({ then: resolve => resolve(res) }) };
+                    const m2 = { eq: () => m2, then: (resolve) => resolve(res) };
+                    return m2;
                 },
                 then: (resolve) => {
                     if (table === 'students_demo') return resolve({ data: [{ id: 1, telephone_parent: '+22990000000' }] });
@@ -240,13 +283,120 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
 
         req.body = { studentId: 1 };
         await linkStudentToParent(req, res);
+
+        assert.equal(rpcCalled, true);
         assert.equal(globalUpdateCalled, true);
+        assert.equal(res.statusCode, 201);
     });
 
-    it('Test 17: CHANGEMENT D\'ÉCOLE (BLOCKED)', async () => {
-        // Le test documente l'incapacité de P24/P25 à dédupliquer automatiquement un élève
-        // qui change d'école sans mapping cross-school existant.
-        let newGlobalStudentCreated = false;
+    it('Test 16b: CONCURRENCE NEGATIF', async () => {
+        let rpcCalled = false;
+
+        supabase.rpc = (fn) => {
+            if (fn === 'create_and_link_new_global_student') {
+                rpcCalled = true;
+                return Promise.resolve({ data: { status: 'DESTINATION_ALREADY_MAPPED' }, error: null });
+            }
+            return Promise.resolve({ data: null, error: null });
+        };
+
+        supabase.from = (table) => {
+            const m = {
+                select: () => m,
+                eq: () => m,
+                in: () => m,
+                single: () => Promise.resolve({ data: { student_global_id: 'g-123' } }),
+                maybeSingle: () => {
+                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    if (table === 'student_global_mappings') return Promise.resolve({ data: null }); // toujours null, même après RPC
+                    return Promise.resolve({ data: null });
+                },
+                insert: (data) => {
+                    const res = { error: null };
+                    return { select: () => ({ single: () => Promise.resolve(res) }), then: resolve => resolve(res) };
+                },
+                update: () => {
+                    const res = { error: null };
+                    const m2 = { eq: () => m2, then: (resolve) => resolve(res) };
+                    return m2;
+                },
+                then: (resolve) => {
+                    if (table === 'students_demo') return resolve({ data: [{ id: 1, telephone_parent: '+22990000000' }] });
+                    return resolve({ data: null, error: null });
+                }
+            };
+            return m;
+        };
+
+        req.body = { studentId: 1 };
+        await linkStudentToParent(req, res);
+
+        assert.equal(rpcCalled, true);
+        assert.equal(res.statusCode, 500);
+        assert.equal(res.body.error, 'INTERNAL_ERROR');
+    });
+
+    it('Test 17A: CHANGEMENT ECOLE - PARENT POSSEDE DEJA L IDENTITE', async () => {
+        let rpcCalled = false;
+
+        supabase.rpc = (fn) => {
+            rpcCalled = true;
+            return Promise.resolve({ data: null, error: null });
+        };
+
+        const originalFrom = supabase.from;
+        supabase.from = (table) => {
+            const m = {
+                select: () => m,
+                eq: () => m,
+                in: () => m,
+                single: () => Promise.resolve({ data: { student_global_id: 'g-123' } }),
+                maybeSingle: () => {
+                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 2, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    if (table === 'student_global_mappings') return Promise.resolve({ data: null }); // Pas de mapping pour le nouveau
+                    return Promise.resolve({ data: null });
+                },
+                insert: (data) => {
+                    const res = { error: null };
+                    return { select: () => ({ single: () => Promise.resolve(res) }), then: resolve => resolve(res) };
+                },
+                update: () => {
+                    const res = { error: null };
+                    const m2 = { eq: () => m2, then: (resolve) => resolve(res) };
+                    return m2;
+                },
+                then: (resolve) => {
+                    if (table === 'students_demo') return resolve({ data: [{ id: 2, telephone_parent: '+22990000000', prenom: 'A', nom: 'B', date_naissance: '2010-01-01' }] });
+                    if (table.startsWith('students_')) return resolve({ data: [{ student_global_id: 'g-old', prenom: 'A', nom: 'B', date_naissance: '2010-01-01' }] });
+                    if (table === 'parent_child_links') return resolve({ data: [{ student_global_id: 'g-old' }] });
+                    if (table === 'student_global_mappings') return resolve({ data: [{ school_slug: 'demo', student_local_id: '1' }] });
+                    return resolve({ data: [], error: null });
+                }
+            };
+            return m;
+        };
+
+        req.body = { studentId: 2 };
+        await linkStudentToParent(req, res);
+
+        assert.equal(rpcCalled, false);
+        assert.equal(res.statusCode, 409);
+        assert.equal(res.body.error, 'TRANSFER_REQUIRED');
+        assert.equal(res.body.target_student_global_id, 'g-old');
+    });
+
+    it('Test 17B: CHANGEMENT ECOLE - PORTFOLIO VIDE', async () => {
+        let rpcCalled = false;
+
+        supabase.rpc = (fn) => {
+            if (fn === 'create_and_link_new_global_student') {
+                rpcCalled = true;
+                return Promise.resolve({ data: { status: 'created', student_global_id: 'g-new' }, error: null });
+            }
+            return Promise.resolve({ data: null, error: null });
+        };
 
         supabase.from = (table) => {
             const m = {
@@ -256,21 +406,23 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 single: () => Promise.resolve({ data: { student_global_id: 'g-new' } }),
                 maybeSingle: () => {
                     if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
-                    // Pas de mapping global trouvé pour le NOUVEAU local_id de la NOUVELLE école
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 2, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
                     if (table === 'student_global_mappings') return Promise.resolve({ data: null });
                     return Promise.resolve({ data: null });
                 },
                 insert: (data) => {
-                    if (table === 'global_students') newGlobalStudentCreated = true;
                     const res = { error: null };
                     return { select: () => ({ single: () => Promise.resolve(res) }), then: resolve => resolve(res) };
                 },
                 update: () => {
                     const res = { error: null };
-                    return { eq: () => ({ then: resolve => resolve(res) }) };
+                    const m2 = { eq: () => m2, then: (resolve) => resolve(res) };
+                    return m2;
                 },
                 then: (resolve) => {
-                    if (table === 'students_demo') return resolve({ data: [{ id: 2, telephone_parent: '+22990000000' }] });
+                    if (table === 'students_demo') return resolve({ data: [{ id: 2, telephone_parent: '+22990000000', prenom: 'A', nom: 'B', date_naissance: '2010-01-01' }] });
+                    if (table === 'global_students') return resolve({ data: [] });
+                    if (table.startsWith('students_')) return resolve({ data: [] }); // PORTFOLIO VIDE
                     return resolve({ data: null, error: null });
                 }
             };
@@ -279,8 +431,8 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
 
         req.body = { studentId: 2 };
         await linkStudentToParent(req, res);
-        // On s'attend à ce qu'un nouveau global_student soit créé, car aucun mécanisme
-        // ne permet de retrouver l'ancien global_id (identifiant bloquant soulevé).
-        assert.equal(newGlobalStudentCreated, true);
+
+        assert.equal(rpcCalled, true);
+        assert.equal(res.statusCode, 201);
     });
 });
