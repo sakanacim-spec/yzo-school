@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-test('LinkStudentModal et LinkStudent - P25-T.4b Transfer Frontend Implementation', () => {
+describe('LinkStudentModal et LinkStudent - P25-T.4b Transfer Frontend Implementation', () => {
     const modalPath = path.resolve(process.cwd(), 'src/components/LinkStudentModal.tsx');
     const linkPath = path.resolve(process.cwd(), 'src/components/LinkStudent.tsx');
 
