@@ -233,84 +233,129 @@ async function linkStudentToParent(req, res) {
         const newIdsToLink = validStudentIds.filter(sId => !alreadyLinkedIds.includes(sId));
 
         if (newIdsToLink.length > 0) {
-            // P25-A : Initialisation du lien global (first_linked_at) D'ABORD
             for (const sId of newIdsToLink) {
-                let globalId;
-                const { data: mapping } = await supabase
-                    .from('student_global_mappings')
-                    .select('student_global_id')
-                    .eq('school_slug', schoolSlug)
-                    .eq('student_local_id', String(sId))
+                const { data: destStudent, error: sErr2 } = await supabase
+                    .from(`students_${schoolSlug}`)
+                    .select('nom, prenom, date_naissance')
+                    .eq('id', sId)
                     .maybeSingle();
 
-                if (mapping) {
-                    globalId = mapping.student_global_id;
-                } else {
-                    const { data: gs, error: gsErr } = await supabase
-                        .from('global_students')
-                        .insert({})
-                        .select('student_global_id')
-                        .single();
-                    if (gsErr) throw gsErr;
-                    globalId = gs.student_global_id;
+                if (sErr2) return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                if (!destStudent) return res.status(500).json({ error: 'INTERNAL_ERROR' });
 
-                    const { error: mapErr } = await supabase
-                        .from('student_global_mappings')
-                        .insert({
-                            school_slug: schoolSlug,
-                            student_local_id: String(sId),
-                            student_global_id: globalId
+                let rpcCalls = 0;
+                let globalId = null;
+                let destMappedReload = false;
+
+                while (true) {
+                    const { data: pLinks, error: pErrLinks } = await supabase.from('parent_child_links').select('student_global_id').eq('parent_ref', String(targetParentId));
+                    if (pErrLinks) return res.status(500).json({ error: 'INTERNAL_ERROR' });
+
+                    const expectedGlobalIds = [...new Set((pLinks || []).map(l => l.student_global_id))];
+
+                    const { data: mData, error: mErrData } = await supabase.from('student_global_mappings').select('student_global_id').eq('school_slug', schoolSlug).eq('student_local_id', String(sId)).maybeSingle();
+                    if (mErrData) return res.status(500).json({ error: 'INTERNAL_ERROR' });
+
+                    if (mData) {
+                        const exGx = mData.student_global_id;
+                        const { data: exLink, error: exLinkErr } = await supabase.from('parent_child_links').select('*').eq('parent_ref', String(targetParentId)).eq('student_global_id', exGx).maybeSingle();
+                        if (exLinkErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
+
+                        if (exLink) {
+                            const { error: updErr } = await supabase.from('parent_child_links').update({ current_link_active: true }).eq('parent_ref', String(targetParentId)).eq('student_global_id', exGx);
+                            if (updErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                            globalId = exGx;
+                            break;
+                        } else {
+                            if (expectedGlobalIds.length > 0) {
+                                const evalRes = await _evaluateSameChild(destStudent, expectedGlobalIds);
+                                if (evalRes.status === 'INTERNAL_ERROR') return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                                if (evalRes.status === 'IDENTITY_EVIDENCE_INSUFFICIENT') return res.status(409).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
+                                if (evalRes.status === 'IDENTITY_EVIDENCE_UNAVAILABLE') return res.status(503).json({ error: 'IDENTITY_EVIDENCE_UNAVAILABLE' });
+                                if (evalRes.status === 'MULTIPLE_IDENTITY_MATCHES') return res.status(409).json({ error: 'MULTIPLE_IDENTITY_MATCHES' });
+                                if (evalRes.status === 'MATCH') {
+                                    if (evalRes.matchedGlobalId !== exGx) {
+                                        return res.status(409).json({ error: 'GLOBAL_IDENTITY_OWNERSHIP_CONFLICT' });
+                                    }
+                                }
+                            }
+
+                            const { error: lErr } = await supabase.from('parent_child_links').insert({
+                                parent_ref: String(targetParentId),
+                                student_global_id: exGx,
+                                first_linked_at: new Date().toISOString(),
+                                current_link_active: true
+                            });
+
+                            if (lErr && lErr.code === '23505') {
+                                const { data: verifyLink, error: verErr } = await supabase.from('parent_child_links').select('*').eq('parent_ref', String(targetParentId)).eq('student_global_id', exGx).maybeSingle();
+                                if (verErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                                if (verifyLink) {
+                                    const { error: rUpdErr } = await supabase.from('parent_child_links').update({ current_link_active: true }).eq('parent_ref', String(targetParentId)).eq('student_global_id', exGx);
+                                    if (rUpdErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                                } else {
+                                    return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                                }
+                            } else if (lErr) {
+                                return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                            }
+                            globalId = exGx;
+                            break;
+                        }
+                    } else {
+                        if (destMappedReload) {
+                            return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                        }
+
+                        if (expectedGlobalIds.length > 0) {
+                            const evalRes = await _evaluateSameChild(destStudent, expectedGlobalIds);
+                            if (evalRes.status === 'INTERNAL_ERROR') return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                            if (evalRes.status === 'IDENTITY_EVIDENCE_INSUFFICIENT') return res.status(409).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
+                            if (evalRes.status === 'IDENTITY_EVIDENCE_UNAVAILABLE') return res.status(503).json({ error: 'IDENTITY_EVIDENCE_UNAVAILABLE' });
+                            if (evalRes.status === 'MULTIPLE_IDENTITY_MATCHES') return res.status(409).json({ error: 'MULTIPLE_IDENTITY_MATCHES' });
+                            if (evalRes.status === 'MATCH') {
+                                return res.status(409).json({ error: 'TRANSFER_REQUIRED', studentId: sId, target_student_global_id: evalRes.matchedGlobalId });
+                            }
+                        }
+
+                        if (rpcCalls >= 3) {
+                            return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                        }
+
+                        rpcCalls++;
+                        const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_and_link_new_global_student', {
+                            p_school_slug: schoolSlug,
+                            p_student_local_id: String(sId),
+                            p_parent_ref: String(targetParentId),
+                            p_expected_global_ids: expectedGlobalIds
                         });
 
-                    if (mapErr && mapErr.code === '23505') {
-                        const { data: m2 } = await supabase
-                            .from('student_global_mappings')
-                            .select('student_global_id')
-                            .eq('school_slug', schoolSlug)
-                            .eq('student_local_id', String(sId))
-                            .single();
-                        if (m2) globalId = m2.student_global_id;
-                    } else if (mapErr) {
-                        throw mapErr;
+                        if (rpcErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                        if (rpcRes && rpcRes.status === 'created') {
+                            globalId = rpcRes.student_global_id;
+                            break;
+                        } else if (rpcRes && rpcRes.status === 'PORTFOLIO_CHANGED') {
+                            continue;
+                        } else if (rpcRes && rpcRes.status === 'DESTINATION_ALREADY_MAPPED') {
+                            destMappedReload = true;
+                            continue;
+                        } else {
+                            return res.status(500).json({ error: 'INTERNAL_ERROR' });
+                        }
                     }
                 }
 
-                if (globalId) {
-                    const { error: linkErr } = await supabase
-                        .from('parent_child_links')
-                        .insert({
-                            parent_ref: String(targetParentId),
-                            student_global_id: globalId,
-                            first_linked_at: new Date().toISOString(),
-                            current_link_active: true
-                        });
-                    if (linkErr && linkErr.code === '23505') {
-                        const { error: updErr } = await supabase
-                            .from('parent_child_links')
-                            .update({ current_link_active: true })
-                            .eq('parent_ref', String(targetParentId))
-                            .eq('student_global_id', globalId);
-                        if (updErr) throw updErr;
-                    } else if (linkErr) {
-                        throw linkErr;
-                    }
-                } else {
-                    throw new Error('Failed to resolve student_global_id');
+                if (!globalId) {
+                    return res.status(500).json({ error: 'INTERNAL_ERROR' });
                 }
-            }
 
-            // Ensuite, insertion locale
-            const rowsToInsert = newIdsToLink.map(sId => ({
-                parent_id: targetParentId,
-                student_id: sId
-            }));
-
-            const { error: insErr } = await supabase
-                .from(`parent_student_${schoolSlug}`)
-                .insert(rowsToInsert);
-
-            if (insErr && insErr.code !== '23505') {
-                throw insErr;
+                const { error: insErr } = await supabase.from(`parent_student_${schoolSlug}`).insert({
+                    parent_id: targetParentId,
+                    student_id: sId
+                });
+                if (insErr && insErr.code !== '23505') {
+                    throw insErr;
+                }
             }
         }
 
@@ -517,57 +562,24 @@ async function transferIdentity(req, res) {
         }
 
         // 5 & 6. ENUMERATE ALL HISTORICAL MAPPINGS
-        const { data: mappings, error: mErr } = await supabase
-            .from('student_global_mappings')
-            .select('school_slug, student_local_id')
-            .eq('student_global_id', target_student_global_id);
-
-        if (mErr) {
-            return res.status(500).json({ error: 'INTERNAL_ERROR' });
+        const evalRes = await _evaluateSameChild(destStudent, [target_student_global_id]);
+        if (evalRes.status === 'INTERNAL_ERROR') return res.status(500).json({ error: 'INTERNAL_ERROR' });
+        if (evalRes.status === 'IDENTITY_EVIDENCE_INSUFFICIENT') return res.status(422).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
+        if (evalRes.status === 'IDENTITY_EVIDENCE_UNAVAILABLE') return res.status(503).json({ error: 'IDENTITY_EVIDENCE_UNAVAILABLE' });
+        if (evalRes.status === 'NO_MATCH' || evalRes.status === 'MULTIPLE_IDENTITY_MATCHES') {
+            return res.status(409).json({ error: 'IDENTITY_CONFLICT' });
         }
 
-        if (!mappings || mappings.length === 0) {
-            return res.status(422).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
-        }
-
-        for (const mapping of mappings) {
-            let histSlug;
-            try {
-                histSlug = validateSlug(mapping.school_slug);
-            } catch (err) {
-                return res.status(503).json({ error: 'IDENTITY_EVIDENCE_UNAVAILABLE' });
-            }
-
-            const { data: histStudent, error: hsErr } = await supabase
-                .from(`students_${histSlug}`)
-                .select('nom, prenom, date_naissance')
-                .eq('id', mapping.student_local_id)
-                .maybeSingle();
-
-            if (hsErr || !histStudent) {
-                return res.status(503).json({ error: 'IDENTITY_EVIDENCE_UNAVAILABLE' });
-            }
-
-            const histNom = normalizeIdentityText(histStudent.nom);
-            const histPrenom = normalizeIdentityText(histStudent.prenom);
-            const histDob = normalizeIdentityDate(histStudent.date_naissance);
-
-            if (!histNom || !histPrenom || !histDob) {
-                return res.status(422).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
-            }
-
-            if (histNom !== destNom || histPrenom !== destPrenom || histDob !== destDob) {
-                return res.status(409).json({ error: 'IDENTITY_CONFLICT' });
-            }
-        }
 
         // 11. DESTINATION MAPPING PRECHECK (Moved after SAME-CHILD)
-        const { data: existingMap } = await supabase
+        const { data: existingMap, error: emErr } = await supabase
             .from('student_global_mappings')
             .select('student_global_id')
             .eq('school_slug', destination_school_slug)
             .eq('student_local_id', safeStudentId)
             .maybeSingle();
+
+        if (emErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
 
         if (existingMap) {
             if (existingMap.student_global_id === target_student_global_id) {
@@ -607,6 +619,70 @@ async function transferIdentity(req, res) {
     } catch (err) {
         return res.status(500).json({ error: 'INTERNAL_ERROR' });
     }
+}
+
+async function _evaluateSameChild(destStudent, candidateGlobalIds) {
+    const destNom = normalizeIdentityText(destStudent.nom);
+    const destPrenom = normalizeIdentityText(destStudent.prenom);
+    const destDob = normalizeIdentityDate(destStudent.date_naissance);
+
+    if (!destNom || !destPrenom || !destDob) {
+        return { status: 'IDENTITY_EVIDENCE_INSUFFICIENT' };
+    }
+
+    const matches = [];
+
+    for (const gid of candidateGlobalIds) {
+        const { data: mappings, error: mErr } = await supabase
+            .from('student_global_mappings')
+            .select('school_slug, student_local_id')
+            .eq('student_global_id', gid);
+
+        if (mErr) return { status: 'INTERNAL_ERROR' };
+        if (!mappings || mappings.length === 0) {
+            return { status: 'IDENTITY_EVIDENCE_INSUFFICIENT' };
+        }
+
+        let isMatch = true;
+        for (const mapping of mappings) {
+            let histSlug;
+            try {
+                histSlug = validateSlug(mapping.school_slug);
+            } catch (err) {
+                return { status: 'IDENTITY_EVIDENCE_UNAVAILABLE' };
+            }
+
+            const { data: histStudent, error: hsErr } = await supabase
+                .from(`students_${histSlug}`)
+                .select('nom, prenom, date_naissance')
+                .eq('id', mapping.student_local_id)
+                .maybeSingle();
+
+            if (hsErr) return { status: 'INTERNAL_ERROR' };
+            if (!histStudent) return { status: 'IDENTITY_EVIDENCE_UNAVAILABLE' };
+
+            const histNom = normalizeIdentityText(histStudent.nom);
+            const histPrenom = normalizeIdentityText(histStudent.prenom);
+            const histDob = normalizeIdentityDate(histStudent.date_naissance);
+
+            if (!histNom || !histPrenom || !histDob) {
+                return { status: 'IDENTITY_EVIDENCE_INSUFFICIENT' };
+            }
+
+            if (histNom !== destNom || histPrenom !== destPrenom || histDob !== destDob) {
+                isMatch = false;
+                break;
+            }
+        }
+
+        if (isMatch) {
+            matches.push(gid);
+        }
+    }
+
+    if (matches.length === 0) return { status: 'NO_MATCH' };
+    if (matches.length === 1) return { status: 'MATCH', matchedGlobalId: matches[0] };
+    return { status: 'MULTIPLE_IDENTITY_MATCHES' };
 }
 
 module.exports = { listStudents, linkStudentToParent, unlinkStudentFromParent, countStudents, transferIdentity };
