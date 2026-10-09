@@ -63,20 +63,20 @@ describe('linkHardening - behavioral tests', () => {
                         if (table === 'profiles_ecole_test') return { data: dbState.parentProfile, error: null };
                         if (table === 'parent_student_ecole_test') return { data: [], error: null };
                         if (table === 'students_ecole_test') return { data: dbState.studentInfo, error: null };
-                        
+
                         if (table === 'student_global_mappings') {
                             if (rpcCount > 0 && dbState.destReloadErr) return { data: null, error: dbState.destReloadErr };
                             if (dbState.destQueryErr) return { data: null, error: dbState.destQueryErr };
                             return { data: dbState.destinationMapped, error: null };
                         }
-                        
+
                         if (table === 'parent_child_links' && qEq['parent_ref']) {
                             if (dbState.exactLinkErr) return { data: null, error: dbState.exactLinkErr };
                             if (dbState.verifyQueryErr) return { data: null, error: dbState.verifyQueryErr };
                             if (dbState.exactLinkExists === qEq['student_global_id']) return { data: { student_global_id: dbState.exactLinkExists }, error: null };
                             return { data: null, error: null };
                         }
-                        
+
                         if (table.startsWith('students_')) {
                             if (dbState.histQueryErr) return { data: null, error: dbState.histQueryErr };
                             const slug = table.replace('students_', '');
@@ -150,7 +150,7 @@ describe('linkHardening - behavioral tests', () => {
             dbState.rpcCallsLog.push({ fn, params });
             let resp = dbState.rpcResponses.shift();
             if (!resp) resp = { status: 'created', student_global_id: 'fallback-g' };
-            
+
             if (resp.hook) {
                 resp.hook();
             }
@@ -219,7 +219,8 @@ describe('linkHardening - behavioral tests', () => {
     it('H8 PORTFOLIO_CHANGED -> reload -> unique match -> TRANSFER_REQUIRED; no second RPC', async () => {
         dbState.portfolio = ['global-nomatch'];
         dbState.rpcResponses = [
-            { 
+            {
+
                 status: 'PORTFOLIO_CHANGED',
                 hook: () => {
                     dbState.portfolio = ['global-nomatch', 'global-1'];
@@ -238,7 +239,8 @@ describe('linkHardening - behavioral tests', () => {
     it('H9 PORTFOLIO_CHANGED -> reload -> complete no-match -> second RPC -> created', async () => {
         dbState.portfolio = [];
         dbState.rpcResponses = [
-            { 
+            {
+
                 status: 'PORTFOLIO_CHANGED',
                 hook: () => {
                     dbState.portfolio = ['global-nomatch'];
@@ -273,7 +275,8 @@ describe('linkHardening - behavioral tests', () => {
     it('H11 DESTINATION_ALREADY_MAPPED -> reload mapping -> secure mapped resolution', async () => {
         dbState.destinationMapped = null;
         dbState.rpcResponses = [
-            { 
+            {
+
                 status: 'DESTINATION_ALREADY_MAPPED',
                 hook: () => {
                     dbState.destinationMapped = { student_global_id: 'global-dest' };
@@ -281,7 +284,7 @@ describe('linkHardening - behavioral tests', () => {
                 }
             }
         ];
-        
+
         const r = await runLink();
         assert.strictEqual(r.status, 201);
         assert.strictEqual(rpcCount, 1);
@@ -294,7 +297,7 @@ describe('linkHardening - behavioral tests', () => {
         const r = await runLink();
         assert.strictEqual(r.status, 201);
         assert.strictEqual(rpcCount, 0);
-        
+
         const linkUpdates = dbState.updatesLog.filter(u => u.table === 'parent_child_links');
         assert.strictEqual(linkUpdates.length, 1);
         assert.strictEqual(linkUpdates[0].data.current_link_active, true);
@@ -320,7 +323,7 @@ describe('linkHardening - behavioral tests', () => {
         const r = await runLink();
         assert.strictEqual(r.status, 201);
         assert.strictEqual(rpcCount, 0);
-        
+
         const linkInserts = dbState.insertsLog.filter(i => i.table === 'parent_child_links');
         assert.strictEqual(linkInserts.length, 1);
         assert.strictEqual(linkInserts[0].data.parent_ref, 'parent-123');
@@ -352,7 +355,7 @@ describe('linkHardening - behavioral tests', () => {
         dbState.exactLinkExists = 'global-dest';
         const r = await runLink();
         assert.strictEqual(r.status, 201);
-        
+
         const linkUpdates = dbState.updatesLog.filter(u => u.table === 'parent_child_links');
         assert.strictEqual(linkUpdates.length, 1);
         assert.strictEqual(linkUpdates[0].data.current_link_active, true);
@@ -373,7 +376,7 @@ describe('linkHardening - behavioral tests', () => {
         dbState.parentProfile.phone_normalized = '+33600000000';
         dbState.studentInfo.telephone_parent_normalized = '+33799999999';
         dbState.studentInfo.telephone_parent = '+33799999999';
-        
+
         const r = await runLink();
         assert.strictEqual(r.status, 403);
         assert.strictEqual(r.body.error, 'Liaison non autorisée : Le numéro de téléphone de votre compte ne correspond pas au dossier de cet élève.');
@@ -494,10 +497,11 @@ describe('linkHardening - behavioral tests', () => {
     });
 
     it('H35 DESTINATION_ALREADY_MAPPED reload query error -> 500', async () => {
-        dbState.portfolio = ['global-nomatch']; 
+        dbState.portfolio = ['global-nomatch'];
+
         dbState.rpcResponses = [{ status: 'DESTINATION_ALREADY_MAPPED' }];
         dbState.destReloadErr = new Error('db error');
-        
+
         const r = await runLink();
         assert.strictEqual(r.status, 500);
         assert.strictEqual(r.body.error, 'INTERNAL_ERROR');
@@ -507,14 +511,16 @@ describe('linkHardening - behavioral tests', () => {
 
     it('H36 DESTINATION_ALREADY_MAPPED reload succeeds but mapping absent -> 500', async () => {
         dbState.destinationMapped = null;
-        dbState.portfolio = ['global-nomatch']; 
-        dbState.rpcResponses = [{ 
+        dbState.portfolio = ['global-nomatch'];
+
+        dbState.rpcResponses = [{
+
             status: 'DESTINATION_ALREADY_MAPPED',
             hook: () => {
                 dbState.destinationMapped = null; // mapping remains absent
             }
         }];
-        
+
         const r = await runLink();
         assert.strictEqual(r.status, 500);
         assert.strictEqual(r.body.error, 'INTERNAL_ERROR');
@@ -524,10 +530,11 @@ describe('linkHardening - behavioral tests', () => {
 
     it('PARENTID SPOOF REAL TEST', async () => {
         req.user.id = 'parent-123';
-        req.body.parentId = 'parent-spoofed'; 
-        
+        req.body.parentId = 'parent-spoofed';
+
+
         const r = await runLink();
-        
+
         for (const log of dbState.rpcCallsLog) {
             assert.strictEqual(log.params.p_parent_ref, 'parent-123');
         }
