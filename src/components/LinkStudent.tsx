@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { t, Language } from '../i18n';
 import { parentApi } from '../services/parentApi';
@@ -17,6 +17,18 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
     const [linking, setLinking] = useState(false);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
+    const [transferPrompt, setTransferPrompt] = useState<{ studentId: string; globalId: string } | null>(null);
+    const [isTransferring, setIsTransferring] = useState(false);
+    const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (successTimerRef.current) {
+                clearTimeout(successTimerRef.current);
+                successTimerRef.current = null;
+            }
+        };
+    }, []);
 
     // Recherche automatique avec debounce
     useEffect(() => {
@@ -60,24 +72,130 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
             await parentApi.linkStudents(selectedIds);
 
             setMessage(`${selectedIds.length} ${t(language as Language, 'parent.linkSuccessSuffix') || 'enfant(s) lié(s) avec succès !'}`);
-            setTimeout(() => {
+            if (successTimerRef.current) clearTimeout(successTimerRef.current);
+            successTimerRef.current = setTimeout(() => {
                 onComplete();
             }, 1500);
         } catch (err: any) {
-            setError(err.error || t(language as Language, 'parent.linkError') || "Impossible de lier les élèves sélectionnés.");
+            if (err.error === 'TRANSFER_REQUIRED' && err.studentId && err.target_student_global_id) {
+                setTransferPrompt({ studentId: err.studentId, globalId: err.target_student_global_id });
+            } else {
+                setError(err.error || t(language as Language, 'parent.linkError') || "Impossible de lier les élèves sélectionnés.");
+            }
         } finally {
             setLinking(false);
         }
     };
 
+    const handleTransferConfirm = async () => {
+        if (!transferPrompt || isTransferring) return;
+        setIsTransferring(true);
+        setError('');
+        try {
+            const res = await parentApi.transferIdentity(transferPrompt.studentId, transferPrompt.globalId);
+            if (res.status === 'created' || res.status === 'already_mapped') {
+                setMessage(t(language as Language, 'parent.linkSuccess') || "Enfant transféré avec succès !");
+                // Remove the transferred student from selectedIds
+                setSelectedIds(prev => prev.filter(id => id !== transferPrompt.studentId));
+                if (successTimerRef.current) clearTimeout(successTimerRef.current);
+                successTimerRef.current = setTimeout(() => {
+                    setTransferPrompt(null);
+                    // Optionally refresh the list or trigger complete if all done
+                    if (selectedIds.length <= 1) onComplete();
+                }, 1500);
+            } else {
+                setError("Erreur inattendue lors du transfert.");
+            }
+        } catch (err: any) {
+            const code = err.error || '';
+            if (code === 'IDENTITY_CONFLICT' || code === 'MAPPING_CONFLICT') {
+                setError("Conflit d'identité. Veuillez recommencer la recherche.");
+                setTransferPrompt(null);
+            } else if (code === 'TARGET_NOT_OWNED' || code === 'DESTINATION_NOT_OWNED') {
+                setError("Vous n'avez pas l'autorisation de transférer cet enfant.");
+                setTransferPrompt(null);
+            } else {
+                setError("Erreur lors du transfert. Veuillez réessayer.");
+            }
+        } finally {
+            setIsTransferring(false);
+        }
+    };
+
+    const handleTransferCancel = () => {
+        if (successTimerRef.current) {
+            clearTimeout(successTimerRef.current);
+            successTimerRef.current = null;
+        }
+        setTransferPrompt(null);
+        setError('');
+    };
+
+    const handleCancelAll = () => {
+        if (successTimerRef.current) {
+            clearTimeout(successTimerRef.current);
+            successTimerRef.current = null;
+        }
+        onComplete();
+    };
+
     return (
         <div className="space-y-6">
-            <div className="text-center">
-                <h2 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter">{t(language as Language, 'parent.registerChildren') || 'Enregistrez vos enfants'}</h2>
-                <p className="text-slate-500 text-sm font-medium">
-                    {t(language as Language, 'parent.registerChildrenDesc') || 'Recherchez vos enfants par leur nom et cochez-les pour les lier à votre compte.'}
-                </p>
-            </div>
+            {transferPrompt ? (
+                <div className="space-y-4">
+                    <div className="p-5 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col items-center text-center gap-3">
+                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-2">
+                            <UserPlus className="w-6 h-6" />
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-lg">Enfant déjà reconnu</h4>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                            Nous avons retrouvé l'identité de cet enfant dans un autre établissement. Vous pouvez confirmer sa liaison à cet établissement tout en conservant son historique et ses droits Parent Pack existants, lorsqu'ils sont applicables.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                        <button
+                            onClick={handleTransferCancel}
+                            disabled={isTransferring}
+                            className="flex-1 py-3 px-4 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl font-bold transition-colors disabled:opacity-50"
+                        >
+                            {t(language as Language, 'common.cancel') || 'Annuler'}
+                        </button>
+                        <button
+                            onClick={handleTransferConfirm}
+                            disabled={isTransferring}
+                            className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isTransferring ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                'Confirmer le transfert'
+                            )}
+                        </button>
+                    </div>
+
+                    {error && (
+                        <div className="flex items-center gap-2 p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm mt-4">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            {error}
+                        </div>
+                    )}
+
+                    {message && (
+                        <div className="flex items-center gap-2 p-3 bg-green-500/20 border border-green-500/30 rounded-xl text-green-300 text-sm mt-4">
+                            <Check className="w-4 h-4 shrink-0" />
+                            {message}
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <>
+                    <div className="text-center">
+                        <h2 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter">{t(language as Language, 'parent.registerChildren') || 'Enregistrez vos enfants'}</h2>
+                        <p className="text-slate-500 text-sm font-medium">
+                            {t(language as Language, 'parent.registerChildrenDesc') || 'Recherchez vos enfants par leur nom et cochez-les pour les lier à votre compte.'}
+                        </p>
+                    </div>
 
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -174,11 +292,13 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
             )}
 
             <button
-                onClick={onComplete}
+                onClick={handleCancelAll}
                 className="w-full text-slate-400 text-xs font-black uppercase tracking-widest hover:text-blue-600 transition-colors py-2"
             >
                 {selectedIds.length > 0 ? (t(language as Language, 'common.cancel') || 'Annuler') : (t(language as Language, 'common.later') || 'Plus tard')}
             </button>
+                </>
+            )}
         </div>
     );
 };
