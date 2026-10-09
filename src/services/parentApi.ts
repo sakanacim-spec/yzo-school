@@ -129,6 +129,17 @@ export const parentApi = {
         return data;
     },
 
+    transferIdentity: async (studentId: string, target_student_global_id: string) => {
+        const res = await fetch(`${API_URL}/students/transfer-identity`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ studentId, target_student_global_id })
+        });
+        const data = await parseResponse(res);
+        if (!res.ok) throw data;
+        return data;
+    },
+
     // ── Historique des paiements ───────────────────────────────
     getPayments: async (studentId: string) => {
         const res = await fetch(`${API_URL}/parent/payments/${studentId}`, {

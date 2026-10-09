@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { t, Language } from '../i18n';
 import { parentApi } from '../services/parentApi';
@@ -20,20 +20,38 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
     const [totalStudents, setTotalStudents] = useState<number | null>(null);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
+    const [transferPrompt, setTransferPrompt] = useState<{ studentId: string; globalId: string } | null>(null);
+    const [isTransferring, setIsTransferring] = useState(false);
+    const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (!isOpen) {
+            if (successTimerRef.current) {
+                clearTimeout(successTimerRef.current);
+                successTimerRef.current = null;
+            }
             setSearch('');
             setStudents([]);
             setError('');
             setMessage('');
             setHasSearched(false);
             setTotalStudents(null);
+            setTransferPrompt(null);
+            setIsTransferring(false);
         } else {
             // Vérifier le nombre total d'élèves disponibles
             checkTotalStudents();
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        return () => {
+            if (successTimerRef.current) {
+                clearTimeout(successTimerRef.current);
+                successTimerRef.current = null;
+            }
+        };
+    }, []);
 
     const checkTotalStudents = async () => {
         try {
@@ -84,15 +102,65 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
         try {
             await parentApi.linkStudent(studentId);
             setMessage(t(language as Language, 'parent.linkSuccess') || "Enfant lié avec succès !");
-            setTimeout(() => {
+            if (successTimerRef.current) clearTimeout(successTimerRef.current);
+            successTimerRef.current = setTimeout(() => {
                 onSuccess();
                 onClose();
             }, 1500);
         } catch (err: any) {
-            setError(err.error || t(language as Language, 'parent.linkError') || "Impossible de lier cet enfant.");
+            if (err.error === 'TRANSFER_REQUIRED' && err.studentId && err.target_student_global_id) {
+                setTransferPrompt({ studentId: err.studentId, globalId: err.target_student_global_id });
+            } else {
+                setError(err.error || t(language as Language, 'parent.linkError') || "Impossible de lier cet enfant.");
+            }
         } finally {
             setLinking(null);
         }
+    };
+
+    const handleTransferConfirm = async () => {
+        if (!transferPrompt || isTransferring) return;
+        setIsTransferring(true);
+        setError('');
+        try {
+            const res = await parentApi.transferIdentity(transferPrompt.studentId, transferPrompt.globalId);
+            if (res.status === 'created' || res.status === 'already_mapped') {
+                setMessage(t(language as Language, 'parent.linkSuccess') || "Enfant lié avec succès !");
+                if (successTimerRef.current) clearTimeout(successTimerRef.current);
+                successTimerRef.current = setTimeout(() => {
+                    onSuccess();
+                    onClose();
+                }, 1500);
+            } else {
+                setError("Erreur inattendue lors du transfert.");
+            }
+        } catch (err: any) {
+            const code = err.error || '';
+            if (code === 'IDENTITY_CONFLICT' || code === 'MAPPING_CONFLICT') {
+                setError("Conflit d'identité. Veuillez recommencer la recherche.");
+                setTransferPrompt(null);
+            } else if (code === 'TARGET_NOT_OWNED' || code === 'DESTINATION_NOT_OWNED') {
+                setError("Vous n'avez pas l'autorisation de transférer cet enfant.");
+                setTransferPrompt(null);
+            } else {
+                setError("Erreur lors du transfert. Veuillez réessayer.");
+            }
+        } finally {
+            setIsTransferring(false);
+        }
+    };
+
+    const handleTransferCancel = () => {
+        setTransferPrompt(null);
+        setError('');
+    };
+
+    const handleCloseModal = () => {
+        if (successTimerRef.current) {
+            clearTimeout(successTimerRef.current);
+            successTimerRef.current = null;
+        }
+        onClose();
     };
 
     if (!isOpen) return null;
@@ -107,15 +175,64 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                         </div>
                         <h3 className="text-xl font-bold text-slate-800">{t(language as Language, 'parent.linkChild') || 'Lier un enfant'}</h3>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                    <button onClick={handleCloseModal} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                         <X className="w-5 h-5 text-slate-400" />
                     </button>
                 </div>
 
                 <div className="p-6 space-y-6">
-                    <p className="text-slate-500 text-sm">
-                        {t(language as Language, 'parent.searchChildDesc') || "Recherchez votre enfant par son nom ou prénom pour l'ajouter à votre espace parent."}
-                    </p>
+                    {transferPrompt ? (
+                        <div className="space-y-4">
+                            <div className="p-5 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col items-center text-center gap-3">
+                                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-2">
+                                    <UserPlus className="w-6 h-6" />
+                                </div>
+                                <h4 className="font-bold text-slate-800 text-lg">Enfant déjà reconnu</h4>
+                                <p className="text-sm text-slate-600 leading-relaxed">
+                                    Nous avons retrouvé l'identité de cet enfant dans un autre établissement. Vous pouvez confirmer sa liaison à cet établissement tout en conservant son historique et ses droits Parent Pack existants, lorsqu'ils sont applicables.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                                <button
+                                    onClick={handleTransferCancel}
+                                    disabled={isTransferring}
+                                    className="flex-1 py-3 px-4 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl font-bold transition-colors disabled:opacity-50"
+                                >
+                                    {t(language as Language, 'common.cancel') || 'Annuler'}
+                                </button>
+                                <button
+                                    onClick={handleTransferConfirm}
+                                    disabled={isTransferring}
+                                    className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isTransferring ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Transfert...</>
+                                    ) : (
+                                        'Confirmer le transfert'
+                                    )}
+                                </button>
+                            </div>
+
+                            {error && (
+                                <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-medium animate-in slide-in-from-top-2 mt-4">
+                                    <AlertCircle className="w-5 h-5 shrink-0" />
+                                    {error}
+                                </div>
+                            )}
+
+                            {message && (
+                                <div className="flex items-center gap-2 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-sm font-bold animate-in slide-in-from-top-2 mt-4">
+                                    <Check className="w-5 h-5 shrink-0" />
+                                    {message}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            <p className="text-slate-500 text-sm">
+                                {t(language as Language, 'parent.searchChildDesc') || "Recherchez votre enfant par son nom ou prénom pour l'ajouter à votre espace parent."}
+                            </p>
 
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -185,7 +302,7 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                                 <p className="text-xs mb-2">{t(language as Language, 'parent.typeAtLeast2Chars') || 'Tapez au moins 2 caractères pour rechercher'}</p>
                                 {totalStudents !== null && (
                                     <p className="text-xs text-slate-400">
-                                        {totalStudents > 0 
+                                        {totalStudents > 0
                                             ? `💡 ${totalStudents} ${t(language as Language, 'parent.studentsAvailable') || 'élève(s) disponible(s) dans la base'}`
                                             : (t(language as Language, 'parent.noStudentsSynced') || '⚠️ Aucun élève synchronisé - Contactez l\'administrateur')
                                         }
@@ -208,11 +325,13 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                             {message}
                         </div>
                     )}
+                        </>
+                    )}
                 </div>
 
                 <div className="px-6 py-4 bg-slate-50 text-center">
                     <button
-                        onClick={onClose}
+                        onClick={handleCloseModal}
                         className="text-slate-500 hover:text-slate-700 font-bold text-sm"
                     >
                         {t(language as Language, 'common.cancel') || 'Annuler'}
