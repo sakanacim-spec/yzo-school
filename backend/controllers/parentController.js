@@ -1,5 +1,6 @@
 const { supabase } = require('../utils/supabase');
 const { getAccessStatesForLocalIds } = require('../services/parentPackService');
+const { validateSlug, normalizeIdentityText, normalizeIdentityDate } = require('../utils/helpers');
 
 /**
  * GET /api/parent/dashboard
@@ -763,6 +764,119 @@ async function toggleDevoirComplete(req, res) {
     }
 }
 
+/**
+ * GET /api/parent/global-children
+ * Returns the global portfolio of children for the authenticated parent.
+ */
+async function getGlobalPortfolio(req, res) {
+    const parentId = req.user?.id;
+    if (!parentId) return res.status(401).json({ error: 'Non authentifié.' });
+
+    res.set('Cache-Control', 'no-store');
+
+    try {
+        const { data: links, error: linksErr } = await supabase
+            .from('parent_child_links')
+            .select('student_global_id')
+            .eq('parent_ref', parentId);
+
+        if (linksErr) {
+            console.error('Erreur récupération portfolio links:', linksErr);
+            return res.status(500).json({ error: 'Erreur serveur.' });
+        }
+
+        if (!links || links.length === 0) {
+            return res.json({ children: [] });
+        }
+
+        const globalIds = [...new Set(links.map(l => l.student_global_id))];
+        const childrenResponse = [];
+
+        for (const globalId of globalIds) {
+            const { data: mappings, error: mErr } = await supabase
+                .from('student_global_mappings')
+                .select('school_slug, student_local_id')
+                .eq('student_global_id', globalId);
+
+            if (mErr) {
+                console.error('Erreur récupération mappings:', mErr);
+                return res.status(500).json({ error: 'Erreur serveur.' });
+            }
+
+            if (!mappings || mappings.length === 0) {
+                continue;
+            }
+
+            let validDisplayName = null;
+            let currentNomNorm = null;
+            let currentPrenomNorm = null;
+            let currentDobNorm = null;
+            let isContradictory = false;
+            let hasMissingHistory = false;
+            let hasInvalidDob = false;
+
+            for (const mapping of mappings) {
+                let histSlug;
+                try {
+                    histSlug = validateSlug(mapping.school_slug);
+                } catch (e) {
+                    hasMissingHistory = true;
+                    break;
+                }
+
+                const { data: histStudent, error: hsErr } = await supabase
+                    .from(`students_${histSlug}`)
+                    .select('nom, prenom, date_naissance')
+                    .eq('id', mapping.student_local_id)
+                    .maybeSingle();
+
+                if (hsErr) {
+                    console.error(`Erreur récupération historique ${histSlug}:`, hsErr);
+                    return res.status(500).json({ error: 'Erreur serveur.' });
+                }
+
+                if (!histStudent) {
+                    hasMissingHistory = true;
+                    break;
+                }
+
+                const histNomNorm = normalizeIdentityText(histStudent.nom);
+                const histPrenomNorm = normalizeIdentityText(histStudent.prenom);
+                const histDobNorm = normalizeIdentityDate(histStudent.date_naissance);
+
+                if (!histNomNorm || !histPrenomNorm || !histDobNorm) {
+                    hasInvalidDob = true;
+                    break;
+                }
+
+                if (!currentNomNorm) {
+                    currentNomNorm = histNomNorm;
+                    currentPrenomNorm = histPrenomNorm;
+                    currentDobNorm = histDobNorm;
+                    validDisplayName = `${histStudent.prenom.trim()} ${histStudent.nom.trim()}`;
+                } else {
+                    if (currentNomNorm !== histNomNorm || currentPrenomNorm !== histPrenomNorm || currentDobNorm !== histDobNorm) {
+                        isContradictory = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!hasMissingHistory && !hasInvalidDob && !isContradictory && validDisplayName) {
+                childrenResponse.push({
+                    student_global_id: globalId,
+                    display_name: validDisplayName
+                });
+            }
+        }
+
+        return res.json({ children: childrenResponse });
+    } catch (err) {
+        console.error('Erreur getGlobalPortfolio:', err);
+        return res.status(500).json({ error: 'Erreur serveur.' });
+    }
+}
+
 module.exports = {
     getDashboard,
     getPayments,
@@ -773,5 +887,6 @@ module.exports = {
     getParentById,
     adminDeleteAccount,
     getParentData,
-    toggleDevoirComplete
+    toggleDevoirComplete,
+    getGlobalPortfolio
 };
