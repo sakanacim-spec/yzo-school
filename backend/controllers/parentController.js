@@ -1,5 +1,6 @@
 const { supabase } = require('../utils/supabase');
-const { getAccessStatesForLocalIds } = require('../services/parentPackService');
+const parentPackService = require('../services/parentPackService');
+const { getAccessStatesForLocalIds, ACCESS_STATES } = parentPackService;
 const { validateSlug, normalizeIdentityText, normalizeIdentityDate } = require('../utils/helpers');
 
 /**
@@ -777,7 +778,7 @@ async function getGlobalPortfolio(req, res) {
     try {
         const { data: links, error: linksErr } = await supabase
             .from('parent_child_links')
-            .select('student_global_id')
+            .select('student_global_id, first_linked_at')
             .eq('parent_ref', parentId);
 
         if (linksErr) {
@@ -789,8 +790,26 @@ async function getGlobalPortfolio(req, res) {
             return res.json({ children: [] });
         }
 
-        const globalIds = [...new Set(links.map(l => l.student_global_id))];
-        const childrenResponse = [];
+        const linksByGlobalId = {};
+        for (const l of links) {
+            if (l && l.student_global_id && !linksByGlobalId[l.student_global_id]) {
+                linksByGlobalId[l.student_global_id] = l;
+            }
+        }
+        const globalIds = Object.keys(linksByGlobalId);
+        if (globalIds.length === 0) {
+            return res.json({ children: [] });
+        }
+
+        let packStates = {};
+        try {
+            packStates = await parentPackService.getAccessStatesForGlobalIds(parentId, globalIds);
+        } catch (packErr) {
+            console.error('Erreur évaluation Parent Pack portfolio:', packErr);
+            return res.status(500).json({ error: 'Erreur serveur.' });
+        }
+
+        const validChildren = [];
 
         for (const globalId of globalIds) {
             const { data: mappings, error: mErr } = await supabase
@@ -863,12 +882,104 @@ async function getGlobalPortfolio(req, res) {
             }
 
             if (!hasMissingHistory && !hasInvalidDob && !isContradictory && validDisplayName) {
-                childrenResponse.push({
-                    student_global_id: globalId,
-                    display_name: validDisplayName
+                validChildren.push({
+                    globalId,
+                    displayName: validDisplayName,
+                    mappings
                 });
             }
         }
+
+        const allSlugsSet = new Set();
+        for (const child of validChildren) {
+            for (const m of child.mappings) {
+                try {
+                    const cleanSlug = validateSlug(m.school_slug);
+                    allSlugsSet.add(cleanSlug);
+                } catch {}
+            }
+        }
+        const allSlugs = [...allSlugsSet];
+
+        const schoolsBySlug = {};
+        if (allSlugs.length > 0) {
+            try {
+                const { data: schoolsData, error: sErr } = await supabase
+                    .from('schools')
+                    .select('slug, name')
+                    .in('slug', allSlugs);
+
+                if (sErr) {
+                    console.error('Erreur récupération schools');
+                    return res.status(500).json({ error: 'Erreur serveur.' });
+                }
+
+                (schoolsData || []).forEach(s => {
+                    if (s && s.slug) schoolsBySlug[s.slug] = s;
+                });
+            } catch (schoolsErr) {
+                console.error('Exception récupération schools');
+                return res.status(500).json({ error: 'Erreur serveur.' });
+            }
+        }
+
+        const VALID_PACK_STATES = new Set([
+            ACCESS_STATES.PAID_ACTIVE,
+            ACCESS_STATES.GRACE_ACTIVE,
+            ACCESS_STATES.LEGACY_UNDECIDED,
+            ACCESS_STATES.PACK_SUSPENDED
+        ]);
+
+        for (const child of validChildren) {
+            const packState = packStates[child.globalId];
+            if (!packState || !VALID_PACK_STATES.has(packState.state) || typeof packState.accessAllowed !== 'boolean') {
+                console.error('État Parent Pack invalide ou absent');
+                return res.status(500).json({ error: 'Erreur serveur.' });
+            }
+        }
+
+        const childrenResponse = validChildren.map(child => {
+            const distinctSlugs = [];
+            const seenSlugs = new Set();
+            for (const m of child.mappings) {
+                try {
+                    const cleanSlug = validateSlug(m.school_slug);
+                    if (!seenSlugs.has(cleanSlug)) {
+                        seenSlugs.add(cleanSlug);
+                        distinctSlugs.push(cleanSlug);
+                    }
+                } catch {}
+            }
+
+            const childSchools = distinctSlugs.map(slug => ({
+                school_slug: slug,
+                school_name: schoolsBySlug[slug]?.name || slug
+            }));
+
+            const packState = packStates[child.globalId];
+
+            const childAccess = {
+                state: packState.state,
+                accessAllowed: packState.accessAllowed
+            };
+
+            const linkInfo = linksByGlobalId[child.globalId];
+            if (packState.state === ACCESS_STATES.GRACE_ACTIVE && linkInfo?.first_linked_at) {
+                try {
+                    const parsedDate = new Date(linkInfo.first_linked_at);
+                    if (!isNaN(parsedDate.getTime())) {
+                        childAccess.grace_expires_at = new Date(parsedDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+                    }
+                } catch {}
+            }
+
+            return {
+                student_global_id: child.globalId,
+                display_name: child.displayName,
+                schools: childSchools,
+                access: childAccess
+            };
+        });
 
         return res.json({ children: childrenResponse });
     } catch (err) {
