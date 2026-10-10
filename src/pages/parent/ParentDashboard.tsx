@@ -13,6 +13,7 @@ import { LinkStudentModal } from '../../components/LinkStudentModal';
 import { SupportModal } from '../../components/SupportModal';
 import { ParentPackGuard } from '../../components/ParentPackGuard';
 import { ParentPackPayment } from '../../components/ParentPackPayment';
+import { ParentGlobalPortfolio } from '../../components/ParentGlobalPortfolio';
 import { chatApi } from '../../services/chatApi';
 import { isToday, isTomorrow, isPast, isValid } from 'date-fns';
 import { t } from '../../i18n';
@@ -674,6 +675,9 @@ export const ParentDashboard: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* ── PORTEFEUILLE DES ENFANTS ASSOCIÉS (P25-T.5b) ── */}
+            <ParentGlobalPortfolio />
 
             {/* â•â• TOTAUX GLOBAUX â•â• */}
             {children.length > 0 && (

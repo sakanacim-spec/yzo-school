@@ -1,10 +1,111 @@
-import { API_BASE_URL } from '../config';
-import { parseResponse, getAuthHeaders } from './apiHelpers';
+import { API_BASE_URL } from '../config.ts';
+import { parseResponse, getAuthHeaders } from './apiHelpers.ts';
 
 const API_URL = API_BASE_URL;
 
 // alias for clarity in this file
 const getHeaders = getAuthHeaders;
+
+// ── Types Portefeuille Global P25-T.5b ─────────────────────────────
+export type ParentPackAccessState =
+    | 'PAID_ACTIVE'
+    | 'GRACE_ACTIVE'
+    | 'LEGACY_UNDECIDED'
+    | 'PACK_SUSPENDED';
+
+export interface GlobalChildSchoolInfo {
+    school_slug: string;
+    school_name: string;
+}
+
+export interface GlobalChildAccessInfo {
+    state: ParentPackAccessState;
+    accessAllowed: boolean;
+    grace_expires_at?: string;
+}
+
+export interface EnrichedGlobalChild {
+    student_global_id: string;
+    display_name: string;
+    schools: GlobalChildSchoolInfo[];
+    access: GlobalChildAccessInfo;
+}
+
+export interface GlobalPortfolioResponse {
+    children: EnrichedGlobalChild[];
+}
+
+const VALID_PACK_STATES = new Set<string>([
+    'PAID_ACTIVE',
+    'GRACE_ACTIVE',
+    'LEGACY_UNDECIDED',
+    'PACK_SUSPENDED'
+]);
+
+export function validateGlobalPortfolioResponse(data: any): GlobalPortfolioResponse {
+    if (!data || typeof data !== 'object' || !Array.isArray(data.children)) {
+        throw new Error('Réponse portefeuille invalide : format attendu non respecté.');
+    }
+
+    const validatedChildren: EnrichedGlobalChild[] = [];
+
+    for (const child of data.children) {
+        if (!child || typeof child !== 'object') {
+            throw new Error('Réponse portefeuille invalide : structure enfant invalide.');
+        }
+        if (typeof child.student_global_id !== 'string' || !child.student_global_id.trim()) {
+            throw new Error('Réponse portefeuille invalide : student_global_id manquant ou invalide.');
+        }
+        if (typeof child.display_name !== 'string' || !child.display_name.trim()) {
+            throw new Error('Réponse portefeuille invalide : display_name manquant ou invalide.');
+        }
+        if (!Array.isArray(child.schools)) {
+            throw new Error('Réponse portefeuille invalide : liste des écoles invalide.');
+        }
+
+        const validatedSchools: GlobalChildSchoolInfo[] = [];
+        for (const s of child.schools) {
+            if (!s || typeof s !== 'object' || typeof s.school_slug !== 'string' || !s.school_slug.trim() || typeof s.school_name !== 'string' || !s.school_name.trim()) {
+                throw new Error('Réponse portefeuille invalide : établissement associé invalide.');
+            }
+            validatedSchools.push({
+                school_slug: s.school_slug.trim(),
+                school_name: s.school_name.trim()
+            });
+        }
+
+        if (!child.access || typeof child.access !== 'object') {
+            throw new Error("Réponse portefeuille invalide : état d'accès manquant.");
+        }
+        if (!VALID_PACK_STATES.has(child.access.state)) {
+            throw new Error('Réponse portefeuille invalide : état Parent Pack inconnu.');
+        }
+        if (typeof child.access.accessAllowed !== 'boolean') {
+            throw new Error('Réponse portefeuille invalide : accessAllowed doit être un booléen.');
+        }
+
+        const validatedAccess: GlobalChildAccessInfo = {
+            state: child.access.state,
+            accessAllowed: child.access.accessAllowed
+        };
+
+        if (child.access.grace_expires_at !== undefined && child.access.grace_expires_at !== null) {
+            if (typeof child.access.grace_expires_at !== 'string' || isNaN(Date.parse(child.access.grace_expires_at))) {
+                throw new Error('Réponse portefeuille invalide : date de fin de grâce invalide.');
+            }
+            validatedAccess.grace_expires_at = child.access.grace_expires_at;
+        }
+
+        validatedChildren.push({
+            student_global_id: child.student_global_id.trim(),
+            display_name: child.display_name.trim(),
+            schools: validatedSchools,
+            access: validatedAccess
+        });
+    }
+
+    return { children: validatedChildren };
+}
 
 export const parentApi = {
     // ── Authentification ────────────────────────────────────────
@@ -258,5 +359,15 @@ export const parentApi = {
         const result = await parseResponse(res);
         if (!res.ok) throw result;
         return result; // { url: string }
+    },
+
+    // ── Portefeuille Global Parent (P25-T.5b) ─────────────────
+    getGlobalChildren: async (): Promise<GlobalPortfolioResponse> => {
+        const res = await fetch(`${API_URL}/parent/global-children`, {
+            headers: getHeaders()
+        });
+        const data = await parseResponse(res);
+        if (!res.ok) throw data;
+        return validateGlobalPortfolioResponse(data);
     }
 };
