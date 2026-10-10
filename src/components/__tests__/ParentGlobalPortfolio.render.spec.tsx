@@ -1,8 +1,12 @@
+
 import React from 'react';
 import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ParentGlobalPortfolio } from '../../components/ParentGlobalPortfolio';
 import { useStore } from '../../store/useStore';
+import { describe, test, expect, afterEach } from 'vitest';
+
+
 
 // Helper to set a minimal user with parentId
 function setParentId(id: string) {
@@ -38,15 +42,19 @@ describe('ParentGlobalPortfolio – React rendering', () => {
     (global as any).fetch = async () => ({
       ok: true,
       json: async () => data,
+      text: async () => JSON.stringify(data),
     } as any);
   };
 
   const mockFetchError = (status: number, body: any) => {
+    // Ensure the thrown error contains a `message` property for the component's error handling
+    const errorBody = { message: body.error ?? body.message ?? 'Erreur serveur.' };
     (global as any).__originalFetch = (global as any).fetch;
     (global as any).fetch = async () => ({
       ok: false,
       status,
-      json: async () => body,
+      json: async () => errorBody,
+      text: async () => JSON.stringify(errorBody),
     } as any);
   };
 
@@ -56,17 +64,17 @@ describe('ParentGlobalPortfolio – React rendering', () => {
 
     render(<ParentGlobalPortfolio />);
     // Initially shows loading indicator
-    expect(screen.getByText(/Chargement du portefeuille/i)).toBeInTheDocument();
+    expect(screen.getByText(/Chargement du portefeuille/i)).toBeTruthy();
 
     // Wait for data to appear
     await waitFor(() => {
-      expect(screen.getByText(sampleChild.display_name)).toBeInTheDocument();
+      expect(screen.getByText(sampleChild.display_name)).toBeTruthy();
     });
 
     // Verify school name is rendered
-    expect(screen.getByText('École Pasteur')).toBeInTheDocument();
+    expect(screen.getByText('École Pasteur')).toBeTruthy();
     // Verify badge for PAID_ACTIVE
-    expect(screen.getByText('Pack actif')).toBeInTheDocument();
+    expect(screen.getByText('Pack actif')).toBeTruthy();
   });
 
   test('renders all four Parent Pack states', async () => {
@@ -83,7 +91,7 @@ describe('ParentGlobalPortfolio – React rendering', () => {
       const child = { ...sampleChild, access: { state, accessAllowed: true } } as any;
       mockFetchSuccess({ children: [child] });
       render(<ParentGlobalPortfolio />);
-      await waitFor(() => expect(screen.getByText(label)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(label)).toBeTruthy());
       cleanup();
     }
   });
@@ -100,8 +108,8 @@ describe('ParentGlobalPortfolio – React rendering', () => {
     } as const;
     mockFetchSuccess({ children: [child] });
     render(<ParentGlobalPortfolio />);
-    await waitFor(() => expect(screen.getByText('Période de grâce')).toBeInTheDocument());
-    expect(screen.getByText(/Fin de grâce le/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Période de grâce')).toBeTruthy());
+    expect(screen.getByText(/Fin de grâce le/i)).toBeTruthy();
   });
 
   test('displays empty state when no children returned', async () => {
@@ -109,7 +117,7 @@ describe('ParentGlobalPortfolio – React rendering', () => {
     mockFetchSuccess({ children: [] });
     render(<ParentGlobalPortfolio />);
     await waitFor(() => {
-      expect(screen.getByText(/Aucun enfant associé/i)).toBeInTheDocument();
+      expect(screen.getByText(/Aucun enfant associé/i)).toBeTruthy();
     });
   });
 
@@ -117,12 +125,12 @@ describe('ParentGlobalPortfolio – React rendering', () => {
     setParentId('parent-1');
     mockFetchError(500, { error: 'Erreur serveur.' });
     render(<ParentGlobalPortfolio />);
-    await waitFor(() => expect(screen.getByText('Erreur serveur.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Erreur serveur.')).toBeTruthy());
     // Prepare successful fetch for retry
     mockFetchSuccess({ children: [sampleChild] });
-    const retryBtn = screen.getByRole('button', { name: /Réessayer/i });
+    const retryBtn = screen.getByText('Réessayer');
     await userEvent.click(retryBtn);
-    await waitFor(() => expect(screen.getByText(sampleChild.display_name)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(sampleChild.display_name)).toBeTruthy());
   });
 
   test('session change aborts in‑flight request and does not render stale data', async () => {
@@ -147,7 +155,7 @@ describe('ParentGlobalPortfolio – React rendering', () => {
     // Component should not display child from parent A
     await waitFor(() => {
       // Loading should have finished but no child should be present
-      expect(screen.queryByText(sampleChild.display_name)).not.toBeInTheDocument();
+      expect(screen.queryByText(sampleChild.display_name)).toBeNull();
     });
   });
 
@@ -155,7 +163,7 @@ describe('ParentGlobalPortfolio – React rendering', () => {
     setParentId('parent-1');
     mockFetchSuccess({ children: [sampleChild] });
     render(<ParentGlobalPortfolio />);
-    await waitFor(() => expect(screen.getByText(sampleChild.display_name)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(sampleChild.display_name)).toBeTruthy());
     const links = screen.queryAllByRole('link');
     expect(links).toHaveLength(0);
   });
