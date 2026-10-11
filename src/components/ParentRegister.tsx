@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { User, Phone, Lock, ArrowLeft, ArrowRight, Loader2, Building, CheckCircle } from 'lucide-react';
-import { parentApi } from '../services/parentApi';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Phone, Lock, ArrowLeft, ArrowRight, Loader2, Building, CheckCircle, Eye, EyeOff, Search } from 'lucide-react';
+import { parentApi, SchoolSearchResult } from '../services/parentApi';
 import { t, Language, getTranslations } from '../i18n';
 import { useStore } from '../store/useStore';
 import { CountrySelect } from './CountrySelect';
@@ -89,7 +89,17 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
     const [countryCode, setCountryCode] = useState('BJ');
     const [telephone, setTelephone] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [schoolSlug, setSchoolSlug] = useState('');
+    const [selectedSchool, setSelectedSchool] = useState<SchoolSearchResult | null>(null);
+    const [schoolSearchTerm, setSchoolSearchTerm] = useState('');
+    const [schoolSuggestions, setSchoolSuggestions] = useState<SchoolSearchResult[]>([]);
+    const [isSearchingSchools, setIsSearchingSchools] = useState(false);
+    const [schoolSearchError, setSchoolSearchError] = useState('');
+    const [hasSearchedSchools, setHasSearchedSchools] = useState(false);
+    const [showSchoolDropdown, setShowSchoolDropdown] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
@@ -97,11 +107,199 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
     const [success, setSuccess] = useState(false);
     const [recommendSuccess, setRecommendSuccess] = useState(false);
 
+    const schoolInputRef = useRef<HTMLInputElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const latestRequestIdRef = useRef<number>(0);
+
+    // Debounced school search
+    useEffect(() => {
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = null;
+        }
+
+        const trimmed = schoolSearchTerm.trim();
+
+        if (trimmed.length < 3) {
+            setSchoolSuggestions([]);
+            setIsSearchingSchools(false);
+            setSchoolSearchError('');
+            setHasSearchedSchools(false);
+            setShowSchoolDropdown(false);
+            setHighlightedIndex(-1);
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                abortControllerRef.current = null;
+            }
+            return;
+        }
+
+        // Si l'utilisateur a déjà sélectionné cette école exacte, pas besoin de réinterroger l'API
+        if (selectedSchool && selectedSchool.name.trim().toLowerCase() === trimmed.toLowerCase()) {
+            return;
+        }
+
+        const requestId = ++latestRequestIdRef.current;
+
+        debounceTimerRef.current = setTimeout(async () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
+            setIsSearchingSchools(true);
+            setSchoolSearchError('');
+            setShowSchoolDropdown(true);
+
+            try {
+                const results = await parentApi.searchSchools(trimmed, controller.signal);
+                // Protection stricte contre les réponses réseau obsolètes
+                if (requestId !== latestRequestIdRef.current) {
+                    return;
+                }
+                setSchoolSuggestions(results);
+                setHasSearchedSchools(true);
+                setHighlightedIndex(-1);
+            } catch (err: any) {
+                if (err.name === 'AbortError' || requestId !== latestRequestIdRef.current) {
+                    // Requête annulée ou dépassée par une saisie plus récente
+                    return;
+                }
+                console.error('Erreur recherche écoles:', err);
+                setSchoolSearchError(err.error || err.message || t(language as Language, 'parent.searchError') || "Erreur de connexion lors de la recherche.");
+                setSchoolSuggestions([]);
+                setHasSearchedSchools(true);
+            } finally {
+                if (requestId === latestRequestIdRef.current) {
+                    setIsSearchingSchools(false);
+                }
+            }
+        }, 350);
+
+        return () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+        };
+    }, [schoolSearchTerm, selectedSchool, language]);
+
+    // Fermeture du dropdown lors d'un clic extérieur
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (
+                dropdownRef.current &&
+                !dropdownRef.current.contains(e.target as Node) &&
+                schoolInputRef.current &&
+                !schoolInputRef.current.contains(e.target as Node)
+            ) {
+                setShowSchoolDropdown(false);
+                setHighlightedIndex(-1);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSelectSchool = (school: SchoolSearchResult) => {
+        // Annuler et invalider explicitement toute recherche en vol ou en attente
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = null;
+        }
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        latestRequestIdRef.current++;
+
+        setSelectedSchool(school);
+        setSchoolSlug(school.slug);
+        setSchoolSearchTerm(school.name);
+        setShowSchoolDropdown(false);
+        setSchoolSuggestions([]);
+        setSchoolSearchError('');
+        setIsSearchingSchools(false);
+        setHasSearchedSchools(false);
+        setHighlightedIndex(-1);
+    };
+
+    const handleSchoolInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        if (val === schoolSearchTerm) {
+            return;
+        }
+
+        // Annulation immédiate de toute recherche en cours dès la frappe, sans attendre le debounce
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        latestRequestIdRef.current++;
+
+        setSchoolSearchTerm(val);
+
+        // Invalidation uniquement si la valeur est différente de l'école sélectionnée
+        if (selectedSchool && val.trim().toLowerCase() !== selectedSchool.name.trim().toLowerCase()) {
+            setSelectedSchool(null);
+            setSchoolSlug('');
+        }
+    };
+
+    const handleSchoolInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            // Empêche la soumission accidentelle du formulaire si le dropdown est ouvert avec un item sélectionné
+            if (showSchoolDropdown && highlightedIndex >= 0 && highlightedIndex < schoolSuggestions.length) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSelectSchool(schoolSuggestions[highlightedIndex]);
+                return;
+            }
+            // Si le dropdown est ouvert mais aucun élément survolé, ou si l'utilisateur appuie sur Entrée pour fermer
+            if (showSchoolDropdown) {
+                e.preventDefault();
+                setShowSchoolDropdown(false);
+                return;
+            }
+        }
+
+        if (!showSchoolDropdown || schoolSuggestions.length === 0) {
+            if (e.key === 'ArrowDown' && schoolSearchTerm.trim().length >= 3) {
+                e.preventDefault();
+                setShowSchoolDropdown(true);
+            }
+            return;
+        }
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev < schoolSuggestions.length - 1 ? prev + 1 : 0));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev > 0 ? prev - 1 : schoolSuggestions.length - 1));
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setShowSchoolDropdown(false);
+            setHighlightedIndex(-1);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMsg('');
         setErrorField('');
         
+        if (!selectedSchool || !schoolSlug) {
+            setErrorMsg(t(language as Language, 'auth.schoolSelectRequired') || "Veuillez sélectionner votre établissement dans la liste des suggestions.");
+            setErrorField('school');
+            if (schoolInputRef.current) {
+                schoolInputRef.current.focus();
+            }
+            return;
+        }
+
         if (!acceptedTerms) {
             setErrorMsg(T.errors?.termsRequired || "Veuillez accepter les conditions d'utilisation.");
             return;
@@ -339,33 +537,144 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                     )}
 
                     <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-4">
-                        {/* School code */}
-                        <div>
+                        {/* School selection with autocomplete (P26-A.2) */}
+                        <div className="relative">
                             <div className="flex items-center justify-between mb-1.5">
-                                <label className={labelClass}>{t(language as Language, 'auth.schoolCode') || "Code Unique de l'Établissement"}</label>
+                                <label className={labelClass} htmlFor="school-search-input">
+                                    {t(language as Language, 'auth.schoolNameLabel') || "Nom de l'établissement scolaire"} *
+                                </label>
+                                {selectedSchool && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                        <CheckCircle className="w-3 h-3 text-emerald-400" />
+                                        {t(language as Language, 'auth.schoolSelectedBadge') || "Établissement sélectionné"}
+                                    </span>
+                                )}
                             </div>
                             <div className="relative">
-                                <Building className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                                <Building className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300 z-10" />
                                 <input
-                                    dir="ltr"
+                                    id="school-search-input"
+                                    ref={schoolInputRef}
                                     type="text"
                                     required
-                                    value={schoolSlug}
-                                    onChange={e => setSchoolSlug(e.target.value.toLowerCase().trim())}
-                                    placeholder="ex: mon_ecole_2025"
-                                    className={inputClass}
+                                    autoComplete="off"
+                                    role="combobox"
+                                    aria-expanded={showSchoolDropdown}
+                                    aria-autocomplete="list"
+                                    aria-controls="school-suggestions-list"
+                                    aria-activedescendant={
+                                        showSchoolDropdown && highlightedIndex >= 0 && schoolSuggestions[highlightedIndex]
+                                            ? `school-opt-${highlightedIndex}`
+                                            : undefined
+                                    }
+                                    value={schoolSearchTerm}
+                                    onChange={handleSchoolInputChange}
+                                    onKeyDown={handleSchoolInputKeyDown}
+                                    onFocus={() => {
+                                        if (!selectedSchool && schoolSearchTerm.trim().length >= 3 && (schoolSuggestions.length > 0 || hasSearchedSchools)) {
+                                            setShowSchoolDropdown(true);
+                                        }
+                                    }}
+                                    placeholder={t(language as Language, 'auth.schoolSearchPlaceholder') || "Tapez au moins 3 lettres (ex: Sainte Félicité)..."}
+                                    className={`${inputClass} !ps-11 pe-10 ${selectedSchool ? 'border-emerald-500/50 bg-emerald-950/20' : ''}`}
                                 />
+                                <div className="absolute end-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                                    {isSearchingSchools ? (
+                                        <Loader2 className="w-4 h-4 text-blue-300 animate-spin" />
+                                    ) : selectedSchool ? (
+                                        <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                    ) : (
+                                        <Search className="w-4 h-4 text-blue-300/50" />
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex items-center justify-between mt-1">
-                                <p className="text-xs text-blue-200/70">{t(language as Language, 'auth.askCodeAdmin') || "Demandez ce code à l'administration de votre école."}</p>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsRecommendMode(true)}
-                                    className="text-xs font-bold text-amber-300 hover:underline"
+
+                            {/* Dropdown Suggestions */}
+                            {!selectedSchool && showSchoolDropdown && schoolSearchTerm.trim().length >= 3 && (
+                                <div
+                                    ref={dropdownRef}
+                                    id="school-suggestions-list"
+                                    role="listbox"
+                                    className="absolute start-0 end-0 mt-1.5 max-h-60 overflow-y-auto bg-slate-900/95 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl z-50 custom-scrollbar divide-y divide-white/5"
                                 >
-                                    Pas de code ?
-                                </button>
+                                    {isSearchingSchools && schoolSuggestions.length === 0 ? (
+                                        <div className="p-4 flex items-center justify-center gap-2 text-sm text-blue-200">
+                                            <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                                            <span>{t(language as Language, 'auth.searchingSchools') || "Recherche des établissements..."}</span>
+                                        </div>
+                                    ) : schoolSearchError ? (
+                                        <div className="p-3 text-xs text-rose-300 bg-rose-500/10">
+                                            {schoolSearchError}
+                                        </div>
+                                    ) : !selectedSchool && schoolSuggestions.length === 0 && hasSearchedSchools ? (
+                                        <div className="p-4 text-center space-y-2">
+                                            <p className="text-xs text-blue-200/80">
+                                                {t(language as Language, 'auth.noSchoolFound') || "Aucun établissement trouvé pour cette recherche."}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsRecommendMode(true);
+                                                    setRequestedSchoolName(schoolSearchTerm);
+                                                }}
+                                                className="text-xs font-bold text-amber-300 hover:text-amber-200 underline transition inline-block"
+                                            >
+                                                Proposer d'inscrire cette école
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        schoolSuggestions.map((school, index) => {
+                                            const isSelected = schoolSlug === school.slug;
+                                            const isHighlighted = highlightedIndex === index;
+                                            return (
+                                                <div
+                                                    key={school.slug}
+                                                    id={`school-opt-${index}`}
+                                                    role="option"
+                                                    aria-selected={isSelected}
+                                                    onClick={() => handleSelectSchool(school)}
+                                                    onMouseEnter={() => setHighlightedIndex(index)}
+                                                    className={`p-3 text-start cursor-pointer transition-colors ${
+                                                        isHighlighted
+                                                            ? 'bg-blue-600/30 text-white'
+                                                            : isSelected
+                                                            ? 'bg-emerald-600/20 text-emerald-100'
+                                                            : 'hover:bg-white/10 text-blue-100'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <div className="font-semibold text-sm text-white">
+                                                            {school.name}
+                                                        </div>
+                                                        {isSelected && (
+                                                            <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-blue-200/70 mt-0.5 flex items-center gap-2">
+                                                        <span>📍 {[school.city, school.country].filter(Boolean).join(', ') || 'Localisation non renseignée'}</span>
+                                                        {school.address && (
+                                                            <span className="text-blue-200/50 truncate max-w-[180px]">• {school.address}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="mt-1">
+                                <p className="text-xs text-blue-200/70">
+                                    {selectedSchool
+                                        ? `✅ ${selectedSchool.name} (${[selectedSchool.city, selectedSchool.country].filter(Boolean).join(', ')})`
+                                        : (t(language as Language, 'auth.askCodeAdmin') || "Sélectionnez votre établissement dans la liste.")}
+                                </p>
                             </div>
+                            {errorMsg && errorField === 'school' && (
+                                <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/20 rounded-lg text-sm text-rose-200 flex items-center gap-2">
+                                    <span>{errorMsg}</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Full name */}
@@ -416,24 +725,37 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                             )}
                         </div>
 
-                        {/* Password */}
+                        {/* Password with toggle (P26-A.2) */}
                         <div>
                             <label className={labelClass}>{t(language as Language, 'auth.password') || 'Mot de passe'}</label>
                             <div className="relative">
                                 <Lock className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
                                 <input
                                     dir="ltr"
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     required
                                     minLength={6}
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     placeholder={t(language as Language, 'auth.min6Chars') || "Minimum 6 caractères"}
-                                    className={inputClass}
+                                    className={`${inputClass} pe-10`}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    aria-label={showPassword ? (t(language as Language, 'auth.hidePassword') || "Masquer le mot de passe") : (t(language as Language, 'auth.showPassword') || "Afficher le mot de passe")}
+                                    className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-blue-300/70 hover:text-white transition-colors focus:outline-none"
+                                >
+                                    {showPassword ? (
+                                        <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                        <Eye className="w-4 h-4" />
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
+
 
                     <div className="flex items-start gap-3 p-4">
                         <input

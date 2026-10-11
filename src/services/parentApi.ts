@@ -13,7 +13,16 @@ export type ParentPackAccessState =
     | 'LEGACY_UNDECIDED'
     | 'PACK_SUSPENDED';
 
+export interface SchoolSearchResult {
+    slug: string;
+    name: string;
+    city: string;
+    country: string;
+    address?: string;
+}
+
 export interface GlobalChildSchoolInfo {
+
     school_slug: string;
     school_name: string;
 }
@@ -359,6 +368,24 @@ export const parentApi = {
         const result = await parseResponse(res);
         if (!res.ok) throw result;
         return result; // { url: string }
+    },
+
+    // ── Recherche publique d'établissements (P26-A.2) ────────
+    searchSchools: async (query: string, signal?: AbortSignal): Promise<SchoolSearchResult[]> => {
+        const trimmed = query.trim();
+        if (trimmed.length < 3) return [];
+        const res = await fetch(`${API_URL}/public/schools/search?q=${encodeURIComponent(trimmed)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            signal
+        });
+        const data = await parseResponse(res);
+        if (!res.ok) {
+            const err: any = new Error(data.error || 'Erreur lors de la recherche des établissements.');
+            Object.assign(err, data);
+            throw err;
+        }
+        return Array.isArray(data.results) ? data.results : [];
     },
 
     // ── Portefeuille Global Parent (P25-T.5b) ─────────────────
