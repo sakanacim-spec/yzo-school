@@ -268,4 +268,54 @@ router.get('/pricing/:countryCode', publicPricingLimiter, async (req, res) => {
     }
 });
 
+// Limiteur dédié à la recherche des écoles (30 req / 15 min / IP)
+const schoolSearchLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Trop de recherches, veuillez patienter un instant.' }
+});
+
+// GET /api/public/schools/search
+// Recherche intelligente d'établissements (fuzzy search)
+router.get('/schools/search', schoolSearchLimiter, async (req, res) => {
+    try {
+        if (typeof req.query.q !== 'string') {
+            return res.status(400).json({ error: 'Format de requête invalide.' });
+        }
+
+        const q = req.query.q.trim();
+
+        if (q.length < 3) {
+            return res.status(400).json({ error: 'La recherche doit comporter au moins 3 caractères.' });
+        }
+
+        if (q.length > 100) {
+            return res.status(400).json({ error: 'La recherche est trop longue.' });
+        }
+
+        const { data, error } = await supabase.rpc('search_active_schools', { search_term: q });
+
+        if (error) {
+            console.error('[API Search] Erreur interne lors de l\'exécution de search_active_schools.');
+            return res.status(500).json({ error: 'Erreur technique lors de la recherche.' });
+        }
+
+        // S'assurer de ne retourner que les champs publics validés
+        const safeResults = (data || []).map(school => ({
+            slug: school.slug,
+            name: school.name,
+            city: school.city,
+            country: school.country,
+            address: school.address
+        }));
+
+        res.json({ results: safeResults });
+    } catch (err) {
+        console.error('[API Search] Exception non gérée lors de la recherche.');
+        res.status(500).json({ error: 'Erreur serveur lors de la recherche.' });
+    }
+});
+
 module.exports = router;
