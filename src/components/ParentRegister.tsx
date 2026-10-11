@@ -222,10 +222,8 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
         setSchoolSuggestions([]);
         setSchoolSearchError('');
         setIsSearchingSchools(false);
+        setHasSearchedSchools(false);
         setHighlightedIndex(-1);
-        if (schoolInputRef.current) {
-            schoolInputRef.current.focus();
-        }
     };
 
     const handleSchoolInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -573,7 +571,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                     onChange={handleSchoolInputChange}
                                     onKeyDown={handleSchoolInputKeyDown}
                                     onFocus={() => {
-                                        if (schoolSearchTerm.trim().length >= 3 && (schoolSuggestions.length > 0 || hasSearchedSchools)) {
+                                        if (!selectedSchool && schoolSearchTerm.trim().length >= 3 && (schoolSuggestions.length > 0 || hasSearchedSchools)) {
                                             setShowSchoolDropdown(true);
                                         }
                                     }}
@@ -592,7 +590,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                             </div>
 
                             {/* Dropdown Suggestions */}
-                            {showSchoolDropdown && schoolSearchTerm.trim().length >= 3 && (
+                            {!selectedSchool && showSchoolDropdown && schoolSearchTerm.trim().length >= 3 && (
                                 <div
                                     ref={dropdownRef}
                                     id="school-suggestions-list"
@@ -608,7 +606,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                         <div className="p-3 text-xs text-rose-300 bg-rose-500/10">
                                             {schoolSearchError}
                                         </div>
-                                    ) : schoolSuggestions.length === 0 && hasSearchedSchools ? (
+                                    ) : !selectedSchool && schoolSuggestions.length === 0 && hasSearchedSchools ? (
                                         <div className="p-4 text-center space-y-2">
                                             <p className="text-xs text-blue-200/80">
                                                 {t(language as Language, 'auth.noSchoolFound') || "Aucun établissement trouvé pour cette recherche."}
@@ -626,7 +624,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                         </div>
                                     ) : (
                                         schoolSuggestions.map((school, index) => {
-                                            const isSelected = selectedSchool?.slug === school.slug;
+                                            const isSelected = schoolSlug === school.slug;
                                             const isHighlighted = highlightedIndex === index;
                                             return (
                                                 <div

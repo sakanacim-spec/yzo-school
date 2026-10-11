@@ -91,6 +91,15 @@ describe('P26-A.2: Autocomplétion Établissements & Visibilité Mot de passe', 
             assert.ok(parentRegisterSource.includes('handleRecommendSubmit'), 'Le handler de recommandation doit être conservé');
             assert.ok(parentRegisterSource.includes("Pas dans la liste ?"), 'Le bouton de bascule vers le mode recommandation doit être présent');
         });
+
+        it('2.11. Non-régression Vercel : Empêche toute réouverture du menu lors du focus si un établissement est déjà sélectionné', () => {
+            assert.ok(parentRegisterSource.includes('!selectedSchool && schoolSearchTerm.trim().length >= 3'), 'onFocus ne doit pas réouvrir le dropdown si selectedSchool existe');
+            assert.ok(parentRegisterSource.includes('!selectedSchool && showSchoolDropdown'), 'Le rendu du dropdown est strictement conditionné par !selectedSchool');
+        });
+
+        it('2.12. Non-régression Vercel : Ne jamais afficher "Aucun établissement trouvé" lorsque selectedSchool est présent', () => {
+            assert.ok(parentRegisterSource.includes('!selectedSchool && schoolSuggestions.length === 0 && hasSearchedSchools'), 'Le message aucun établissement est protégé par !selectedSchool');
+        });
     });
 
     describe('3. Formulaire ParentRegister.tsx - Accessibilité clavier et ARIA', () => {
