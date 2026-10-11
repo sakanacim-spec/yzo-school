@@ -135,13 +135,30 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
             );
         `);
 
+        // Helper : extraction ciblée du corps SQL de la migration
+        // en retirant exclusivement le BEGIN; initial et le COMMIT; final de premier niveau,
+        // afin de préserver l'isolation de la transaction globale du test tout en conservant
+        // 100% des blocs PL/pgSQL internes (qui contiennent leurs propres BEGIN ... END).
+        function extractMigrationBody(sqlText) {
+            const lines = sqlText.split(/\r?\n/);
+            const firstBeginIdx = lines.findIndex(l => l.trim() === 'BEGIN;');
+            let lastCommitIdx = -1;
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (lines[i].trim() === 'COMMIT;') {
+                    lastCommitIdx = i;
+                    break;
+                }
+            }
+            if (firstBeginIdx !== -1 && lastCommitIdx !== -1 && lastCommitIdx > firstBeginIdx) {
+                return lines.slice(firstBeginIdx + 1, lastCommitIdx).join('\n');
+            }
+            return sqlText;
+        }
+
         // A. INSTALLATION DE LA MIGRATION P26-B
         await t.test('A.1. Exécution réelle du DDL de migration P26-B', async () => {
             const migrationSql = fs.readFileSync(migrationSqlPath, 'utf8');
-            // Retirer BEGIN et COMMIT du script pour respecter notre transaction de test
-            const cleanSql = migrationSql
-                .replace(/^BEGIN;/m, '-- BEGIN;')
-                .replace(/^COMMIT;/m, '-- COMMIT;');
+            const cleanSql = extractMigrationBody(migrationSql);
 
             await client.query(cleanSql);
 
@@ -155,9 +172,7 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
 
         await t.test('A.2. Idempotence de la migration (seconde exécution sans erreur)', async () => {
             const migrationSql = fs.readFileSync(migrationSqlPath, 'utf8');
-            const cleanSql = migrationSql
-                .replace(/^BEGIN;/m, '-- BEGIN;')
-                .replace(/^COMMIT;/m, '-- COMMIT;');
+            const cleanSql = extractMigrationBody(migrationSql);
 
             // Doit s'exécuter sans lever d'exception
             await assert.doesNotReject(async () => {
@@ -388,16 +403,24 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
             ];
 
             for (const badSlug of maliciousSlugs) {
-                // Table CHECK
-                await assert.rejects(async () => {
+                // Table CHECK : isolée par un SAVEPOINT pour ne pas corrompre la transaction globale
+                await client.query('SAVEPOINT sp_check_slug;');
+                let checkFailed = false;
+                try {
                     await client.query(`
                         INSERT INTO public.parent_student_link_requests (
                             school_slug, parent_id, student_id, parent_phone_normalized, parent_name
                         ) VALUES ($1, '${parent1Id}', 'STU', '+229000', 'P')
                     `, [badSlug]);
-                }, /chk_school_slug_format/, `Le slug "${badSlug}" doit violer chk_school_slug_format`);
+                } catch (err) {
+                    checkFailed = true;
+                    assert.match(err.message, /chk_school_slug_format/, `Le slug "${badSlug}" doit violer chk_school_slug_format`);
+                } finally {
+                    await client.query('ROLLBACK TO SAVEPOINT sp_check_slug;');
+                }
+                assert.equal(checkFailed, true, `L'insertion avec le slug malformé "${badSlug}" aurait dû échouer`);
 
-                // RPC guard
+                // RPC guard : ne lève pas d'exception SQL mais retourne { success: false, error: 'INVALID_SCHOOL_SLUG' }
                 const rpcRes = await client.query(`
                     SELECT public.approve_parent_student_link(
                         '${parent1Id}'::UUID, $1, '${directorAId}'::UUID
@@ -418,8 +441,10 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                 );
             `);
 
-            // Seconde insertion en pending pour le même couple
-            await assert.rejects(async () => {
+            // Seconde insertion en pending pour le même couple : isolée par un SAVEPOINT
+            await client.query('SAVEPOINT sp_unique_pending;');
+            let duplicateFailed = false;
+            try {
                 await client.query(`
                     INSERT INTO public.parent_student_link_requests (
                         school_slug, parent_id, student_id, parent_phone_normalized, parent_name, status
@@ -427,7 +452,13 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                         'ecole_a', '${parent1Id}', 'STU-CONCURRENCE', '+22997000001', 'Parent Un', 'pending'
                     );
                 `);
-            }, /uq_link_requests_single_pending_review/, 'L\'index partiel doit empêcher 2 demandes simultanées en attente');
+            } catch (err) {
+                duplicateFailed = true;
+                assert.match(err.message, /uq_link_requests_single_pending_review/, 'L\'index partiel doit lever une erreur d\'unicité');
+            } finally {
+                await client.query('ROLLBACK TO SAVEPOINT sp_unique_pending;');
+            }
+            assert.equal(duplicateFailed, true, 'La double demande pending aurait dû être rejetée par l\'index partiel');
         });
 
     } finally {
