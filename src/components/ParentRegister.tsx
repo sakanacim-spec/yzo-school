@@ -576,7 +576,7 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                         }
                                     }}
                                     placeholder={t(language as Language, 'auth.schoolSearchPlaceholder') || "Tapez au moins 3 lettres (ex: Sainte Félicité)..."}
-                                    className={`${inputClass} pe-10 ${selectedSchool ? 'border-emerald-500/50 bg-emerald-950/20' : ''}`}
+                                    className={`${inputClass} !ps-11 pe-10 ${selectedSchool ? 'border-emerald-500/50 bg-emerald-950/20' : ''}`}
                                 />
                                 <div className="absolute end-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
                                     {isSearchingSchools ? (
@@ -663,22 +663,12 @@ export const ParentRegister: React.FC<ParentRegisterProps> = ({ onBack, onSucces
                                 </div>
                             )}
 
-                            <div className="flex items-center justify-between mt-1">
+                            <div className="mt-1">
                                 <p className="text-xs text-blue-200/70">
                                     {selectedSchool
                                         ? `✅ ${selectedSchool.name} (${[selectedSchool.city, selectedSchool.country].filter(Boolean).join(', ')})`
                                         : (t(language as Language, 'auth.askCodeAdmin') || "Sélectionnez votre établissement dans la liste.")}
                                 </p>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsRecommendMode(true);
-                                        if (schoolSearchTerm) setRequestedSchoolName(schoolSearchTerm);
-                                    }}
-                                    className="text-xs font-bold text-amber-300 hover:underline"
-                                >
-                                    Pas dans la liste ?
-                                </button>
                             </div>
                             {errorMsg && errorField === 'school' && (
                                 <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/20 rounded-lg text-sm text-rose-200 flex items-center gap-2">

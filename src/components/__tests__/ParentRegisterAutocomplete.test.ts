@@ -86,10 +86,12 @@ describe('P26-A.2: Autocomplétion Établissements & Visibilité Mot de passe', 
             assert.ok(parentRegisterSource.includes('school_slug: schoolSlug'), 'Transmet le school_slug à parentApi.register');
         });
 
-        it('2.10. Maintien du mode de recommandation d\'école non listée', () => {
+        it('2.10. Maintien du mode de recommandation d\'école non listée (lien principal et proposition recherche vide)', () => {
             assert.ok(parentRegisterSource.includes('isRecommendMode'), 'Le mode recommendation doit être préservé');
             assert.ok(parentRegisterSource.includes('handleRecommendSubmit'), 'Le handler de recommandation doit être conservé');
-            assert.ok(parentRegisterSource.includes("Pas dans la liste ?"), 'Le bouton de bascule vers le mode recommandation doit être présent');
+            assert.ok(parentRegisterSource.includes("Mon école n'est pas inscrite ?"), 'Le lien principal vers le mode recommandation doit être présent');
+            assert.ok(parentRegisterSource.includes("Proposer d'inscrire cette école"), 'Le bouton de proposition dans la liste vide doit être présent');
+            assert.ok(!parentRegisterSource.includes("Pas dans la liste ?"), 'Le lien redondant "Pas dans la liste ?" sous le champ doit être supprimé');
         });
 
         it('2.11. Non-régression Vercel : Empêche toute réouverture du menu lors du focus si un établissement est déjà sélectionné', () => {
