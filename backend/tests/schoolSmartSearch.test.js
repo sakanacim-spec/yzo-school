@@ -111,11 +111,16 @@ describe('P26-A.1: Smart Search /api/public/schools/search', () => {
         const sqlPath = path.join(__dirname, '../scripts/migration_p26_a1_smart_search.sql');
         const sqlContent = fs.readFileSync(sqlPath, 'utf8');
 
-        // Vérifie les droits RPC
-        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.search_active_schools(TEXT) FROM PUBLIC;'), 'PUBLIC révoqué');
-        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.search_active_schools(TEXT) FROM anon;'), 'anon révoqué');
-        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.search_active_schools(TEXT) FROM authenticated;'), 'authenticated révoqué');
-        assert.ok(sqlContent.includes('GRANT EXECUTE ON FUNCTION public.search_active_schools(TEXT) TO service_role;'), 'service_role autorisé');
+        // Vérifie les droits RPC et du wrapper
+        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.search_active_schools(TEXT) FROM PUBLIC;'), 'PUBLIC révoqué RPC');
+        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.search_active_schools(TEXT) FROM anon;'), 'anon révoqué RPC');
+        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.search_active_schools(TEXT) FROM authenticated;'), 'authenticated révoqué RPC');
+        assert.ok(sqlContent.includes('GRANT EXECUTE ON FUNCTION public.search_active_schools(TEXT) TO service_role;'), 'service_role autorisé RPC');
+
+        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.immutable_unaccent_lower(text) FROM PUBLIC;'), 'PUBLIC révoqué wrapper');
+        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.immutable_unaccent_lower(text) FROM anon;'), 'anon révoqué wrapper');
+        assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.immutable_unaccent_lower(text) FROM authenticated;'), 'authenticated révoqué wrapper');
+        assert.ok(sqlContent.includes('GRANT EXECUTE ON FUNCTION public.immutable_unaccent_lower(text) TO service_role;'), 'service_role autorisé wrapper');
 
         // Vérifie l'encapsulation SECURITY DEFINER et le search_path sécurisé
         assert.ok(sqlContent.includes('SECURITY DEFINER'), 'SECURITY DEFINER présent');

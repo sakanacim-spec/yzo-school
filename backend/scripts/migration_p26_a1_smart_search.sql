@@ -22,6 +22,13 @@ AS $$
     SELECT extensions.unaccent('extensions.unaccent'::pg_catalog.regdictionary, pg_catalog.lower($1));
 $$;
 
+-- Restreindre l'exécution directe du wrapper d'indexation
+REVOKE ALL ON FUNCTION public.immutable_unaccent_lower(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.immutable_unaccent_lower(text) FROM anon;
+REVOKE ALL ON FUNCTION public.immutable_unaccent_lower(text) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.immutable_unaccent_lower(text) TO service_role;
+
+
 -- 3. Création de l'index trigramme pour optimiser la recherche floue
 CREATE INDEX IF NOT EXISTS idx_schools_name_trgm 
 ON public.schools USING gin (public.immutable_unaccent_lower(name) extensions.gin_trgm_ops);
