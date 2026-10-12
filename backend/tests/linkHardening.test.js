@@ -1,19 +1,19 @@
 process.env.SUPABASE_URL = 'http://localhost';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test';
 process.env.JWT_SECRET = 'test';
-const { describe, it, beforeEach, afterEach } = require('node:test');
+const { describe, it, beforeEach } = require('node:test');
 const assert = require('node:assert');
 const { linkStudentToParent } = require('../controllers/studentsController');
 const { supabase } = require('../utils/supabase');
 
-describe('linkHardening - behavioral tests', () => {
+describe('linkHardening - behavioral tests (Option A Decoupling)', () => {
     let req, res, statusMock, jsonMock, rpcCount;
     let dbState;
 
     beforeEach(() => {
         rpcCount = 0;
         statusMock = (code) => { res.statusCode = code; return res; };
-        jsonMock = (data) => { res.body = data; if(res.statusCode!==200 && res.statusCode!==201 && res.statusCode!==409 && res.statusCode!==403) console.log(res.statusCode, 'LOG:', data); return res; };
+        jsonMock = (data) => { res.body = data; return res; };
         res = { status: statusMock, json: jsonMock, statusCode: 200, body: null };
         req = {
             user: { id: 'parent-123', role: 'parent', schoolSlug: 'ecole_test', telephone: '+33600000000' },
@@ -21,30 +21,15 @@ describe('linkHardening - behavioral tests', () => {
         };
 
         dbState = {
-            rpcResponses: [{ status: 'created', student_global_id: 'new-g0' }],
-            portfolio: [],
-            destinationMapped: null,
             studentInfo: { id: 'student-456', nom: 'Doe', prenom: 'John', date_naissance: '2015-05-12', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' },
-            parentProfile: { telephone: '+33600000000', phone_normalized: '+33600000000' },
-            historicalMappings: {
-                'global-1': [{ school_slug: 'ecole_other', student_local_id: 'stud-1' }],
-                'global-nomatch': [{ school_slug: 'ecole_other', student_local_id: 'stud-no' }]
-            },
-            historicalStudents: {
-                'ecole_other': {
-                    'stud-1': { nom: 'Doe', prenom: 'John', date_naissance: '2015-05-12' },
-                    'stud-no': { nom: 'Different', prenom: 'Child', date_naissance: '2010-01-01' }
-                }
-            },
-            portfolioQueryErr: null,
-            destQueryErr: null,
-            histQueryErr: null,
-            exactLinkErr: null,
-            relinkUpdateErr: null,
+            parentProfile: { id: 'parent-123', nom: 'Doe', telephone: '+33600000000', phone_normalized: '+33600000000', role: 'parent' },
+            studentQueryErr: null,
+            profileQueryErr: null,
+            existingLinkErr: null,
+            existingLocalLink: null,
+            insertRequestError: null,
+            existingPendingReq: null,
             verifyQueryErr: null,
-            verifyUpdateErr: null,
-            insertClaimError: null,
-            destReloadErr: null,
             localLinkCalled: false,
             rpcCallsLog: [],
             insertsLog: [],
@@ -58,89 +43,72 @@ describe('linkHardening - behavioral tests', () => {
                 const mockBuilder = {
                     eq: (c, v) => { qEq[c] = v; return mockBuilder; },
                     in: (c, v) => { qIn[c] = v; return mockBuilder; },
+                    order: () => mockBuilder,
+                    limit: () => mockBuilder,
                     single: async () => ({ data: null, error: null }),
                     maybeSingle: async () => {
-                        if (table === 'profiles_ecole_test') return { data: dbState.parentProfile, error: null };
-                        if (table === 'parent_student_ecole_test') return { data: [], error: null };
-                        if (table === 'students_ecole_test') return { data: dbState.studentInfo, error: null };
-
-                        if (table === 'student_global_mappings') {
-                            if (rpcCount > 0 && dbState.destReloadErr) return { data: null, error: dbState.destReloadErr };
-                            if (dbState.destQueryErr) return { data: null, error: dbState.destQueryErr };
-                            return { data: dbState.destinationMapped, error: null };
+                        if (table.startsWith('profiles_')) {
+                            if (dbState.profileQueryErr) return { data: null, error: dbState.profileQueryErr };
+                            return { data: dbState.parentProfile, error: null };
                         }
-
-                        if (table === 'parent_child_links' && qEq['parent_ref']) {
-                            if (dbState.exactLinkErr) return { data: null, error: dbState.exactLinkErr };
+                        if (table.startsWith('parent_student_link_requests')) {
                             if (dbState.verifyQueryErr) return { data: null, error: dbState.verifyQueryErr };
-                            if (dbState.exactLinkExists === qEq['student_global_id']) return { data: { student_global_id: dbState.exactLinkExists }, error: null };
-                            return { data: null, error: null };
+                            return { data: dbState.existingPendingReq, error: null };
                         }
-
+                        if (table.startsWith('parent_student_')) {
+                            if (dbState.existingLinkErr) return { data: null, error: dbState.existingLinkErr };
+                            if (typeof dbState.existingLocalLink === 'function') {
+                                return { data: dbState.existingLocalLink(qEq['student_id']), error: null };
+                            }
+                            return { data: dbState.existingLocalLink, error: null };
+                        }
                         if (table.startsWith('students_')) {
-                            if (dbState.histQueryErr) return { data: null, error: dbState.histQueryErr };
-                            const slug = table.replace('students_', '');
-                            const stud = dbState.historicalStudents[slug] ? dbState.historicalStudents[slug][qEq['id']] : null;
-                            return { data: stud, error: null };
+                            if (dbState.studentQueryErr) return { data: null, error: dbState.studentQueryErr };
+                            return { data: dbState.studentInfo, error: null };
                         }
                         return { data: null, error: null };
                     },
                     then: (resolve) => {
-                        if (table === 'parent_student_ecole_test') return resolve({ data: [], error: null });
                         if (table.startsWith('students_')) {
-                            if (dbState.histQueryErr && table !== 'students_ecole_test') return resolve({ data: null, error: dbState.histQueryErr });
-                            if (table === 'students_ecole_test') return resolve({ data: [dbState.studentInfo], error: null });
-                            const slug = table.replace('students_', '');
-                            const stud = dbState.historicalStudents[slug] ? dbState.historicalStudents[slug][qEq['id']] : null;
-                            return resolve({ data: stud ? [stud] : [], error: null });
-                        }
-                        if (table === 'parent_child_links') {
-                            if (qEq['student_global_id']) {
-                                if (dbState.exactLinkErr) return resolve({ data: null, error: dbState.exactLinkErr });
-                                if (dbState.verifyQueryErr) return resolve({ data: null, error: dbState.verifyQueryErr });
-                                if (dbState.exactLinkExists === qEq['student_global_id']) return resolve({ data: [{ student_global_id: dbState.exactLinkExists }], error: null });
-                                return resolve({ data: [], error: null });
+                            if (dbState.studentQueryErr) return resolve({ data: null, error: dbState.studentQueryErr });
+                            if (Array.isArray(dbState.studentsList)) {
+                                return resolve({ data: dbState.studentsList, error: null });
                             }
-                            if (dbState.portfolioQueryErr) return resolve({ data: null, error: dbState.portfolioQueryErr });
-                            return resolve({ data: dbState.portfolio.map(g => ({student_global_id: g})), error: null });
+                            return resolve({ data: dbState.studentInfo ? [dbState.studentInfo] : [], error: null });
                         }
-                        if (table === 'student_global_mappings') {
-                            if (rpcCount > 0 && dbState.destReloadErr) return resolve({ data: null, error: dbState.destReloadErr });
-                            if (dbState.destQueryErr) return resolve({ data: null, error: dbState.destQueryErr });
-                            const maps = qEq['student_global_id'] ? (dbState.historicalMappings[qEq['student_global_id']] || []) : (dbState.destinationMapped ? [dbState.destinationMapped] : []);
-                            return resolve({ data: maps, error: null });
+                        if (table.startsWith('parent_student_link_requests')) {
+                            if (dbState.verifyQueryErr) return resolve({ data: null, error: dbState.verifyQueryErr });
+                            return resolve({ data: dbState.existingPendingReq ? [dbState.existingPendingReq] : [], error: null });
                         }
                         resolve({ data: [], error: null });
                     }
                 };
                 return mockBuilder;
             },
-            insert: async (data) => {
+            insert: (data) => {
                 dbState.insertsLog.push({ table, data });
-                if (table.startsWith('parent_student_')) {
+                if (table.startsWith('parent_student_') && !table.includes('requests')) {
                     dbState.localLinkCalled = true;
-                    return { data: null, error: null };
                 }
-                if (table === 'parent_child_links') {
-                    if (dbState.insertClaimError) return { data: null, error: dbState.insertClaimError };
-                    return { data: null, error: null };
-                }
-                return { data: null, error: null };
+                const err = (table === 'parent_student_link_requests' && dbState.insertRequestError) || null;
+                const resObj = { data: err ? null : { id: 'a0000000-0000-4000-a000-000000000001', ...data }, error: err };
+                return {
+                    ...resObj,
+                    select: () => ({
+                        maybeSingle: async () => resObj,
+                        single: async () => resObj
+                    }),
+                    maybeSingle: async () => resObj,
+                    single: async () => resObj,
+                    then: (resolve) => resolve(resObj)
+                };
             },
             update: (data) => {
                 dbState.updatesLog.push({ table, data });
-                let qEq = {};
-                const builder = {
-                    eq: (c, v) => { qEq[c] = v; return builder; },
-                    then: (resolve) => {
-                        if (table === 'parent_child_links') {
-                            if (dbState.relinkUpdateErr) return resolve({ data: null, error: dbState.relinkUpdateErr });
-                            if (dbState.verifyUpdateErr) return resolve({ data: null, error: dbState.verifyUpdateErr });
-                        }
-                        resolve({ data: null, error: null });
-                    }
+                return {
+                    eq: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
+                    then: (resolve) => resolve({ data: null, error: null })
                 };
-                return builder;
             },
             delete: () => ({ eq: () => ({ eq: async () => ({ error: null }) }) })
         });
@@ -148,13 +116,7 @@ describe('linkHardening - behavioral tests', () => {
         supabase.rpc = async (fn, params) => {
             rpcCount++;
             dbState.rpcCallsLog.push({ fn, params });
-            let resp = dbState.rpcResponses.shift();
-            if (!resp) resp = { status: 'created', student_global_id: 'fallback-g' };
-
-            if (resp.hook) {
-                resp.hook();
-            }
-            return { data: resp, error: null };
+            return { data: { success: true, status: 'approved' }, error: null };
         };
     });
 
@@ -163,11 +125,12 @@ describe('linkHardening - behavioral tests', () => {
         return { status: res.statusCode, body: res.body };
     };
 
-    it('H1 portfolio vide + destination unmapped -> RPC created -> local link', async () => {
+    it('H1 portfolio vide + destination unmapped -> création demande pending sans lien actif ni RPC', async () => {
         const r = await runLink();
-        assert.strictEqual(r.status, 201);
-        assert.strictEqual(rpcCount, 1);
-        assert.ok(dbState.localLinkCalled);
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(rpcCount, 0, 'Aucun appel RPC lors d\'une demande parent');
+        assert.strictEqual(dbState.localLinkCalled, false, 'Aucun lien local direct');
     });
 
     it('H2 targetParentId is correctly resolved for admin', async () => {
@@ -175,201 +138,160 @@ describe('linkHardening - behavioral tests', () => {
         req.body.parentId = 'parent-456';
         dbState.parentProfile.id = 'parent-456';
         const r = await runLink();
-        assert.strictEqual(r.status, 201);
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(rpcCount, 0, 'Aucun appel RPC lors d\'une demande admin');
+        const ins = dbState.insertsLog.find(i => i.table === 'parent_student_link_requests');
+        assert.ok(ins);
+        assert.strictEqual(ins.data.parent_id, 'parent-456');
     });
 
-    it('H3 nonempty + unique match -> TRANSFER_REQUIRED + RPC zero calls', async () => {
-        dbState.portfolio = ['global-1'];
+    it('H3 parent cannot spoof parentId to link another parent -> 403', async () => {
+        req.user.role = 'parent';
+        req.body.parentId = 'parent-hacker';
         const r = await runLink();
-        assert.strictEqual(r.status, 409);
-        assert.strictEqual(r.body.error, 'TRANSFER_REQUIRED');
+        assert.strictEqual(r.status, 403);
         assert.strictEqual(rpcCount, 0);
     });
 
-    it('H4 multiple matches -> MULTIPLE_IDENTITY_MATCHES', async () => {
-        dbState.portfolio = ['global-1', 'global-2'];
-        dbState.historicalMappings['global-2'] = [{ school_slug: 'ecole_other', student_local_id: 'stud-1' }];
+    it('H4 parent cannot spoof targetParentId -> 403', async () => {
+        req.user.role = 'parent';
+        req.body.targetParentId = 'parent-hacker';
         const r = await runLink();
-        assert.strictEqual(r.status, 409);
-        assert.strictEqual(r.body.error, 'MULTIPLE_IDENTITY_MATCHES');
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
     });
 
-    it('H5 DOB missing/invalid -> IDENTITY_EVIDENCE_INSUFFICIENT', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.historicalStudents.ecole_other['stud-1'].date_naissance = null;
+    it('H5 empty studentIds -> 400', async () => {
+        req.body.studentIds = [];
+        delete req.body.studentId;
         const r = await runLink();
-        assert.strictEqual(r.status, 409);
-        assert.strictEqual(r.body.error, 'IDENTITY_EVIDENCE_INSUFFICIENT');
+        assert.strictEqual(r.status, 400);
+        assert.strictEqual(rpcCount, 0);
     });
 
-    it('H6 historical student unavailable -> 503', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.historicalStudents.ecole_other['stud-1'] = null; // simulate absent
+    it('H6 target student absent in school -> 404', async () => {
+        dbState.studentInfo = null;
+        const r = await runLink();
+        assert.strictEqual(r.status, 404);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H7 students query technical DB failure -> 500', async () => {
+        dbState.studentQueryErr = new Error('db error');
+        const r = await runLink();
+        assert.strictEqual(r.status, 500);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H8 parent profile not found -> 404', async () => {
+        dbState.parentProfile = null;
+        const r = await runLink();
+        assert.strictEqual(r.status, 404);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H9 unauthorized role (e.g. comptable) -> 403', async () => {
+        req.user.role = 'comptable';
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H10 missing schoolSlug in token -> 403', async () => {
+        delete req.user.schoolSlug;
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H11 existing local link already active -> 200 alreadyLinked without insert', async () => {
+        dbState.existingLocalLink = { student_id: 'student-456' };
+        const r = await runLink();
+        assert.strictEqual(r.status, 200);
+        assert.strictEqual(r.body.status, 'already_linked');
+        assert.strictEqual(r.body.message, "Les élèves sélectionnés sont déjà rattachés à votre compte.");
+        assert.strictEqual(r.body.alreadyLinked, 1);
+        assert.strictEqual(r.body.alreadyApproved, 1);
+        assert.strictEqual(r.body.created, 0);
+        assert.strictEqual(r.body.alreadyPending, 0);
+        const reqInserts = dbState.insertsLog.filter(i => i.table === 'parent_student_link_requests');
+        assert.strictEqual(reqInserts.length, 0);
+    });
+
+    it('H11bis mixed batch (1 already linked + 1 pending) -> 202 pending', async () => {
+        req.body = { studentIds: ['student-linked', 'student-pending'] };
+        dbState.studentsList = [
+            { id: 'student-linked', nom: 'A', prenom: 'B', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' },
+            { id: 'student-pending', nom: 'C', prenom: 'D', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' }
+        ];
+        dbState.existingLocalLink = (studentId) => {
+            if (studentId === 'student-linked') return { student_id: 'student-linked' };
+            return null;
+        };
+
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(r.body.alreadyLinked, 1);
+        assert.strictEqual(r.body.alreadyApproved, 1);
+        assert.strictEqual(r.body.created, 1);
+        assert.strictEqual(r.body.alreadyPending, 0);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H12 matching normalized phone -> 202 pending created', async () => {
+        dbState.parentProfile.telephone = '+33 6 00 00 00 00';
+        dbState.studentInfo.telephone_parent = '+33600000000';
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H13 phone mismatch -> 403 forbidden', async () => {
+        dbState.parentProfile.phone_normalized = '+33600000001';
+        dbState.studentInfo.telephone_parent_normalized = '+33600000099';
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H14 table parent_student_link_requests missing (42P01) -> 503 fail-closed', async () => {
+        dbState.insertRequestError = { code: '42P01', message: 'table missing' };
         const r = await runLink();
         assert.strictEqual(r.status, 503);
+        assert.strictEqual(r.body.error, 'FEATURE_UNAVAILABLE');
+        assert.strictEqual(rpcCount, 0);
     });
 
-    it('H7 technical DB failure -> 500', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.histQueryErr = new Error('db error');
+    it('H15 DB error checking local link -> 500 fail-closed', async () => {
+        dbState.existingLinkErr = new Error('db failure');
         const r = await runLink();
         assert.strictEqual(r.status, 500);
+        assert.strictEqual(rpcCount, 0);
     });
 
-    it('H8 PORTFOLIO_CHANGED -> reload -> unique match -> TRANSFER_REQUIRED; no second RPC', async () => {
-        dbState.portfolio = ['global-nomatch'];
-        dbState.rpcResponses = [
-            {
-
-                status: 'PORTFOLIO_CHANGED',
-                hook: () => {
-                    dbState.portfolio = ['global-nomatch', 'global-1'];
-                }
-            }
-        ];
-        const r = await runLink();
-        assert.strictEqual(r.status, 409);
-        assert.strictEqual(r.body.error, 'TRANSFER_REQUIRED');
-        assert.strictEqual(r.body.studentId, 'student-456');
-        assert.strictEqual(r.body.target_student_global_id, 'global-1');
-        assert.strictEqual(rpcCount, 1);
-        assert.strictEqual(dbState.localLinkCalled, false);
-    });
-
-    it('H9 PORTFOLIO_CHANGED -> reload -> complete no-match -> second RPC -> created', async () => {
-        dbState.portfolio = [];
-        dbState.rpcResponses = [
-            {
-
-                status: 'PORTFOLIO_CHANGED',
-                hook: () => {
-                    dbState.portfolio = ['global-nomatch'];
-                }
-            },
-            {
-                status: 'created', student_global_id: 'new-g0'
-            }
-        ];
-        const r = await runLink();
-        assert.strictEqual(r.status, 201);
-        assert.strictEqual(rpcCount, 2);
-        assert.strictEqual(dbState.rpcCallsLog[1].fn, 'create_and_link_new_global_student');
-        assert.ok(dbState.rpcCallsLog[1].params.p_expected_global_ids.includes('global-nomatch'));
-        assert.strictEqual(dbState.localLinkCalled, true);
-    });
-
-    it('H10 three total RPC attempts all PORTFOLIO_CHANGED -> 500; exactly 3 calls', async () => {
-        dbState.rpcResponses = [
-            { status: 'PORTFOLIO_CHANGED' },
-            { status: 'PORTFOLIO_CHANGED' },
-            { status: 'PORTFOLIO_CHANGED' },
-            { status: 'PORTFOLIO_CHANGED' }
-        ];
+    it('H16 DB error inserting link request -> 500 fail-closed', async () => {
+        dbState.insertRequestError = new Error('generic insert error');
         const r = await runLink();
         assert.strictEqual(r.status, 500);
-        assert.strictEqual(r.body.error, 'INTERNAL_ERROR');
-        assert.strictEqual(rpcCount, 3);
-        assert.strictEqual(dbState.localLinkCalled, false);
-    });
-
-    it('H11 DESTINATION_ALREADY_MAPPED -> reload mapping -> secure mapped resolution', async () => {
-        dbState.destinationMapped = null;
-        dbState.rpcResponses = [
-            {
-
-                status: 'DESTINATION_ALREADY_MAPPED',
-                hook: () => {
-                    dbState.destinationMapped = { student_global_id: 'global-dest' };
-                    dbState.exactLinkExists = 'global-dest';
-                }
-            }
-        ];
-
-        const r = await runLink();
-        assert.strictEqual(r.status, 201);
-        assert.strictEqual(rpcCount, 1);
-        assert.strictEqual(dbState.localLinkCalled, true);
-    });
-
-    it('H12 mapped + same parent -> safe relink; first_linked_at untouched', async () => {
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.exactLinkExists = 'global-dest';
-        const r = await runLink();
-        assert.strictEqual(r.status, 201);
         assert.strictEqual(rpcCount, 0);
-
-        const linkUpdates = dbState.updatesLog.filter(u => u.table === 'parent_child_links');
-        assert.strictEqual(linkUpdates.length, 1);
-        assert.strictEqual(linkUpdates[0].data.current_link_active, true);
-        assert.ok(linkUpdates[0].data.first_linked_at === undefined);
-        assert.strictEqual(dbState.localLinkCalled, true);
     });
 
-    it('H13 mapped + unowned + empty portfolio -> legitimate second-parent claim', async () => {
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.portfolio = [];
+    it('H17 insert 23505 -> matching pending request found -> 202 idempotent', async () => {
+        dbState.insertRequestError = { code: '23505' };
+        dbState.existingPendingReq = { id: 'req-exist', status: 'pending' };
         const r = await runLink();
-        assert.strictEqual(r.status, 201);
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.alreadyPending, 1);
         assert.strictEqual(rpcCount, 0);
-        const linkInserts = dbState.insertsLog.filter(i => i.table === 'parent_child_links');
-        assert.strictEqual(linkInserts.length, 1);
-        assert.ok(linkInserts[0].data.first_linked_at);
-        assert.strictEqual(dbState.localLinkCalled, true);
     });
 
-    it('H14 mapped + unowned + nonempty complete no-match -> legitimate claim', async () => {
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.portfolio = ['global-nomatch'];
+    it('H18 insert 23505 -> no pending request found -> 400 fail-closed', async () => {
+        dbState.insertRequestError = { code: '23505' };
+        dbState.existingPendingReq = null;
         const r = await runLink();
-        assert.strictEqual(r.status, 201);
+        assert.strictEqual(r.status, 400);
         assert.strictEqual(rpcCount, 0);
-
-        const linkInserts = dbState.insertsLog.filter(i => i.table === 'parent_child_links');
-        assert.strictEqual(linkInserts.length, 1);
-        assert.strictEqual(linkInserts[0].data.parent_ref, 'parent-123');
-        assert.strictEqual(linkInserts[0].data.student_global_id, 'global-dest');
-        assert.strictEqual(linkInserts[0].data.current_link_active, true);
-        assert.ok(linkInserts[0].data.first_linked_at !== undefined);
-        assert.strictEqual(dbState.localLinkCalled, true);
-    });
-
-    it('H15 mapped + unowned + SAME-CHILD conflict with different owned global -> 409 ownership conflict', async () => {
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.portfolio = ['global-1'];
-        const r = await runLink();
-        assert.strictEqual(r.status, 409);
-    });
-
-    it('H16 mapped + unowned + insufficient evidence -> no claim', async () => {
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.portfolio = ['global-1'];
-        dbState.historicalStudents.ecole_other['stud-1'].date_naissance = null;
-        const r = await runLink();
-        assert.strictEqual(r.status, 409);
-    });
-
-    it('H17 claim 23505 -> exact pair reload exists -> safe relink; first_linked_at untouched', async () => {
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.portfolio = ['global-nomatch'];
-        dbState.insertClaimError = { code: '23505' };
-        dbState.exactLinkExists = 'global-dest';
-        const r = await runLink();
-        assert.strictEqual(r.status, 201);
-
-        const linkUpdates = dbState.updatesLog.filter(u => u.table === 'parent_child_links');
-        assert.strictEqual(linkUpdates.length, 1);
-        assert.strictEqual(linkUpdates[0].data.current_link_active, true);
-        assert.ok(linkUpdates[0].data.first_linked_at === undefined);
-        assert.strictEqual(dbState.localLinkCalled, true);
-    });
-
-    it('H18 claim 23505 -> exact pair reload absent -> 500', async () => {
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.insertClaimError = { code: '23505' };
-        dbState.exactLinkExists = null; // on verify query, it's absent
-        const r = await runLink();
-        assert.strictEqual(r.status, 500);
-        assert.ok(!dbState.localLinkCalled);
     });
 
     it('H19 phone ownership failure -> no global/local mutation', async () => {
@@ -386,12 +308,11 @@ describe('linkHardening - behavioral tests', () => {
         assert.strictEqual(dbState.localLinkCalled, false);
     });
 
-    it('H20 local link occurs only after global resolution', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.histQueryErr = new Error();
+    it('H20 local link occurs only after approval, never during pending request', async () => {
         const r = await runLink();
-        assert.strictEqual(r.status, 500);
-        assert.ok(!dbState.localLinkCalled);
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(dbState.localLinkCalled, false);
+        assert.strictEqual(rpcCount, 0);
     });
 
     it('H21 batch A success / B failure / C untouched', async () => {
@@ -409,143 +330,338 @@ describe('linkHardening - behavioral tests', () => {
     });
 
     it('H24 no direct NEW CHILD first_linked_at creation outside existing-mapped legitimate claim', async () => {
-        // Test 1: New child via RPC (H1) -> tested by checking insertsLog.
         let inserts = dbState.insertsLog.filter(i => i.table === 'parent_child_links');
-        assert.strictEqual(inserts.length, 0); // initial
+        assert.strictEqual(inserts.length, 0);
     });
 
     it('H25 client cannot spoof schoolSlug', async () => {
         req.body.schoolSlug = 'spoofed';
         const r = await runLink();
-        assert.strictEqual(r.status, 201);
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(rpcCount, 0);
+        const ins = dbState.insertsLog.find(i => i.table === 'parent_student_link_requests');
+        assert.ok(ins);
+        assert.strictEqual(ins.data.school_slug, 'ecole_test', 'schoolSlug doit provenir du token JWT');
     });
 
     it('H26 client cannot spoof parent_ref / expected_global_ids', async () => {
         req.body.parentId = 'spoofed-id';
         const r = await runLink();
-        assert.strictEqual(r.status, 201);
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
     });
 
-    it('H27 unexpected RPC status -> 500', async () => {
-        dbState.rpcResponses = [{ status: 'bizarre' }];
+    it('H27 technical insert DB error -> 500 fail-closed', async () => {
+        dbState.insertRequestError = new Error('db failure');
         const r = await runLink();
         assert.strictEqual(r.status, 500);
+        assert.strictEqual(rpcCount, 0);
     });
 
-    it('H28 historical student query DB error -> 500', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.histQueryErr = new Error('db error');
+    it('H28 student query DB error -> 500', async () => {
+        dbState.studentQueryErr = new Error('db error');
         const r = await runLink();
         assert.strictEqual(r.status, 500);
+        assert.strictEqual(rpcCount, 0);
         assert.ok(!dbState.localLinkCalled);
     });
 
-    it('H29 portfolio query DB error -> 500', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.portfolioQueryErr = new Error('db error');
+    it('H29 profile query DB error -> 404 / 500 fail-closed', async () => {
+        dbState.profileQueryErr = new Error('db error');
+        const r = await runLink();
+        assert.strictEqual(r.status, 404);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H30 local link check DB error -> 500', async () => {
+        dbState.existingLinkErr = new Error('db error');
         const r = await runLink();
         assert.strictEqual(r.status, 500);
+        assert.strictEqual(rpcCount, 0);
         assert.ok(!dbState.localLinkCalled);
     });
 
-    it('H30 destination mapping query DB error -> 500', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.destQueryErr = new Error('db error');
+    it('H31 request insert generic DB error -> 500', async () => {
+        dbState.insertRequestError = { code: '50000', message: 'write fail' };
         const r = await runLink();
         assert.strictEqual(r.status, 500);
-        assert.ok(!dbState.localLinkCalled);
+        assert.strictEqual(rpcCount, 0);
     });
 
-    it('H31 exact parent-child lookup DB error -> 500', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.exactLinkErr = new Error('db error');
+    it('H32 42P01 table missing -> 503 fail-closed', async () => {
+        dbState.insertRequestError = { code: '42P01' };
         const r = await runLink();
-        assert.strictEqual(r.status, 500);
-        assert.ok(!dbState.localLinkCalled);
-    });
-
-    it('H32 relink update DB error -> 500', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.exactLinkExists = 'global-dest';
-        dbState.relinkUpdateErr = new Error('db error');
-        const r = await runLink();
-        assert.strictEqual(r.status, 500);
-        assert.ok(!dbState.localLinkCalled);
+        assert.strictEqual(r.status, 503);
+        assert.strictEqual(rpcCount, 0);
     });
 
     it('H33 23505 verification query DB error -> 500', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.insertClaimError = { code: '23505' };
-        dbState.verifyQueryErr = new Error('db error');
+        dbState.insertRequestError = { code: '23505' };
+        dbState.verifyQueryErr = new Error('db error during re-read');
         const r = await runLink();
         assert.strictEqual(r.status, 500);
-        assert.ok(!dbState.localLinkCalled);
+        assert.strictEqual(rpcCount, 0);
     });
 
-    it('H34 23505 exact pair exists but reactivation update fails -> 500', async () => {
-        dbState.portfolio = ['global-1'];
-        dbState.destinationMapped = { student_global_id: 'global-dest' };
-        dbState.insertClaimError = { code: '23505' };
-        dbState.exactLinkExists = 'global-dest';
-        dbState.verifyUpdateErr = new Error('db error');
+    it('H34 23505 no matching pending request found -> 400 fail-closed', async () => {
+        dbState.insertRequestError = { code: '23505' };
+        dbState.existingPendingReq = null;
         const r = await runLink();
-        assert.strictEqual(r.status, 500);
-        assert.ok(!dbState.localLinkCalled);
+        assert.strictEqual(r.status, 400);
+        assert.strictEqual(rpcCount, 0);
     });
 
-    it('H35 DESTINATION_ALREADY_MAPPED reload query error -> 500', async () => {
-        dbState.portfolio = ['global-nomatch'];
-
-        dbState.rpcResponses = [{ status: 'DESTINATION_ALREADY_MAPPED' }];
-        dbState.destReloadErr = new Error('db error');
-
+    it('H35 admin flow -> pending request 202 without approval RPC', async () => {
+        req.user.role = 'admin';
+        req.user.id = 'admin-1';
+        req.body.parentId = 'parent-123';
         const r = await runLink();
-        assert.strictEqual(r.status, 500);
-        assert.strictEqual(r.body.error, 'INTERNAL_ERROR');
-        assert.strictEqual(rpcCount, 1);
-        assert.strictEqual(dbState.localLinkCalled, false);
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(rpcCount, 0, 'L\'administrateur ne déclenche pas d\'approbation automatique');
     });
 
-    it('H36 DESTINATION_ALREADY_MAPPED reload succeeds but mapping absent -> 500', async () => {
-        dbState.destinationMapped = null;
-        dbState.portfolio = ['global-nomatch'];
+    it('H36 absence d\'appel à la RPC d\'approbation pour parent ET administrateur', async () => {
+        // Test parent
+        req.user.role = 'parent';
+        const r1 = await runLink();
+        assert.strictEqual(r1.status, 202);
+        assert.strictEqual(rpcCount, 0, 'Aucun appel RPC pour parent');
 
-        dbState.rpcResponses = [{
-
-            status: 'DESTINATION_ALREADY_MAPPED',
-            hook: () => {
-                dbState.destinationMapped = null; // mapping remains absent
-            }
-        }];
-
-        const r = await runLink();
-        assert.strictEqual(r.status, 500);
-        assert.strictEqual(r.body.error, 'INTERNAL_ERROR');
-        assert.strictEqual(rpcCount, 1);
-        assert.strictEqual(dbState.localLinkCalled, false);
+        // Test admin
+        req.user.role = 'admin';
+        req.body.parentId = 'parent-123';
+        const r2 = await runLink();
+        assert.strictEqual(r2.status, 202);
+        assert.strictEqual(rpcCount, 0, 'Aucun appel RPC pour admin');
     });
 
     it('PARENTID SPOOF REAL TEST', async () => {
         req.user.id = 'parent-123';
+        req.user.role = 'parent';
         req.body.parentId = 'parent-spoofed';
 
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+        assert.ok(!dbState.insertsLog.some(ins => ins.data && ins.data.parent_id === 'parent-spoofed'));
+    });
+
+    it('H37 collision internationale de numéros avec même suffixe -> 403 fail-closed', async () => {
+        dbState.parentProfile.telephone = '+33 6 12 34 56 78';
+        dbState.parentProfile.phone_normalized = '+33612345678';
+        dbState.studentInfo.telephone_parent = '+221 6 12 34 56 78';
+        dbState.studentInfo.telephone_parent_normalized = '+221612345678';
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.insertsLog.length, 0);
+    });
+
+    it('H38 numéros E.164 strictement identiques -> 202 pending créé', async () => {
+        dbState.parentProfile.telephone = '+33 6 12 34 56 78';
+        dbState.parentProfile.phone_normalized = '+33612345678';
+        dbState.studentInfo.telephone_parent = '+33 6 12 34 56 78';
+        dbState.studentInfo.telephone_parent_normalized = '+33612345678';
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(r.body.created, 1);
+    });
+
+    it('H39 numéro historique ambigu ou incomplet (local sans indicatif) -> 403 fail-closed', async () => {
+        dbState.parentProfile.telephone = '+2290197000000';
+        dbState.parentProfile.phone_normalized = '+2290197000000';
+        dbState.studentInfo.telephone_parent = '97000000';
+        delete dbState.studentInfo.telephone_parent_normalized;
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H40 confirmation Supabase sans ID (data null) -> 500 fail-closed', async () => {
+        const origFrom = supabase.from;
+        supabase.from = (table) => {
+            const b = origFrom(table);
+            if (table === 'parent_student_link_requests') {
+                return {
+                    insert: () => ({
+                        select: () => ({
+                            maybeSingle: async () => ({ data: null, error: null })
+                        })
+                    })
+                };
+            }
+            return b;
+        };
+        const r = await runLink();
+        assert.strictEqual(r.status, 500);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H41 confirmation Supabase avec ID invalide (non-UUID) -> 500 fail-closed', async () => {
+        const origFrom = supabase.from;
+        supabase.from = (table) => {
+            const b = origFrom(table);
+            if (table === 'parent_student_link_requests') {
+                return {
+                    insert: () => ({
+                        select: () => ({
+                            maybeSingle: async () => ({ data: { id: 'not-a-valid-uuid' }, error: null })
+                        })
+                    })
+                };
+            }
+            return b;
+        };
+        const r = await runLink();
+        assert.strictEqual(r.status, 500);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H42 demande multiple séquentielle avec échec partiel sur le deuxième élève', async () => {
+        req.body = { studentIds: ['s1', 's2'] };
+        dbState.studentsList = [
+            { id: 's1', nom: 'A', prenom: 'B', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' },
+            { id: 's2', nom: 'C', prenom: 'D', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' }
+        ];
+        let insertAttempts = 0;
+        const origFrom = supabase.from;
+        supabase.from = (table) => {
+            const b = origFrom(table);
+            if (table === 'parent_student_link_requests') {
+                return {
+                    insert: (data) => {
+                        insertAttempts++;
+                        if (insertAttempts === 1) {
+                            return {
+                                select: () => ({
+                                    maybeSingle: async () => ({ data: { id: 'a0000000-0000-4000-a000-000000000001', ...data }, error: null })
+                                })
+                            };
+                        }
+                        return {
+                            select: () => ({
+                                maybeSingle: async () => ({ data: null, error: { message: 'db failure on s2' } })
+                            })
+                        };
+                    }
+                };
+            }
+            return b;
+        };
 
         const r = await runLink();
+        assert.strictEqual(r.status, 500);
+        assert.strictEqual(insertAttempts, 2, 'Tentative sur s1 réussie, échec sur s2');
+        assert.strictEqual(rpcCount, 0, 'Aucun lien actif ni RPC créé lors de l\'échec');
+    });
 
-        for (const log of dbState.rpcCallsLog) {
-            assert.strictEqual(log.params.p_parent_ref, 'parent-123');
-        }
-        for (const ins of dbState.insertsLog) {
-            if (ins.table === 'parent_child_links') {
-                assert.strictEqual(ins.data.parent_ref, 'parent-123');
+    it('H43 conflit 23505 avec statut pending_verification -> 200 explicite (pas de 202, pas de lien actif)', async () => {
+        dbState.insertRequestError = { code: '23505', message: 'duplicate key' };
+        dbState.existingPendingReq = { id: 'a0000000-0000-4000-a000-000000000099', status: 'pending_verification' };
+        const r = await runLink();
+        assert.strictEqual(r.status, 200);
+        assert.strictEqual(r.body.status, 'pending_verification');
+        assert.strictEqual(r.body.alreadyPending, 0);
+        assert.strictEqual(r.body.alreadyPendingVerification, 1);
+        assert.strictEqual(r.body.created, 0);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.localLinkCalled, false);
+    });
+
+    it('H43b conflit 23505 avec statut pending exact -> 202 pending confirmé', async () => {
+        dbState.insertRequestError = { code: '23505', message: 'duplicate key' };
+        dbState.existingPendingReq = { id: 'a0000000-0000-4000-a000-000000000099', status: 'pending' };
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(r.body.alreadyPending, 1);
+        assert.strictEqual(r.body.created, 0);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.localLinkCalled, false);
+    });
+
+    it('H44 absence totale de mutation locale, badge ou droit lors d\'une demande pending', async () => {
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.localLinkCalled, false, 'Aucun lien actif créé dans parent_student_');
+        assert.strictEqual(dbState.updatesLog.length, 0, 'Aucune mise à jour de lien');
+    });
+
+    it('H45 numéro de forme E.164 mais invalide selon le validateur (+999...) -> 403 fail-closed sans bypass regex', async () => {
+        // Numéro de forme E.164 (+ suivi de 11 chiffres) mais indicatif pays 999 inexistant
+        dbState.parentProfile.telephone = '+99912345678';
+        delete dbState.parentProfile.phone_normalized;
+        dbState.studentInfo.telephone_parent = '+99912345678';
+        delete dbState.studentInfo.telephone_parent_normalized;
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.insertsLog.length, 0);
+    });
+
+    it('H46 champ phone_normalized de forme E.164 mais invalide selon le validateur -> 403 fail-closed (validation stricte)', async () => {
+        // Champ phone_normalized contient un numéro de forme E.164 invalide
+        dbState.parentProfile.telephone = '+33600000000';
+        dbState.parentProfile.phone_normalized = '+99912345678';
+        dbState.studentInfo.telephone_parent = '+33600000000';
+        dbState.studentInfo.telephone_parent_normalized = '+33600000000';
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.insertsLog.length, 0);
+    });
+
+    it('H47 lot mixte contenant une demande pending et une demande pending_verification -> 202 pending avec compteurs explicites', async () => {
+        req.body = { studentIds: ['s1', 's2'] };
+        dbState.studentsList = [
+            { id: 's1', nom: 'A', prenom: 'B', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' },
+            { id: 's2', nom: 'C', prenom: 'D', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' }
+        ];
+        const origFrom = supabase.from;
+        supabase.from = (table) => {
+            const b = origFrom(table);
+            if (table === 'parent_student_link_requests') {
+                return {
+                    insert: (data) => {
+                        if (data.student_id === 's1') {
+                            return {
+                                select: () => ({
+                                    maybeSingle: async () => ({ data: { id: 'a0000000-0000-4000-a000-000000000001', ...data }, error: null })
+                                })
+                            };
+                        }
+                        // s2 déclenche un conflit 23505
+                        return {
+                            select: () => ({
+                                maybeSingle: async () => ({ data: null, error: { code: '23505', message: 'duplicate key' } })
+                            })
+                        };
+                    },
+                    select: () => ({
+                        eq: () => ({
+                            eq: () => ({
+                                eq: () => ({
+                                    in: () => ({
+                                        maybeSingle: async () => ({ data: { id: 'a0000000-0000-4000-a000-000000000002', status: 'pending_verification' }, error: null })
+                                    })
+                                })
+                            })
+                        })
+                    })
+                };
             }
-            if (ins.table.startsWith('parent_student_')) {
-                assert.strictEqual(ins.data.parent_id, 'parent-123');
-            }
-        }
-        assert.strictEqual(r.status, 201);
+            return b;
+        };
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(r.body.created, 1);
+        assert.strictEqual(r.body.alreadyPending, 0);
+        assert.strictEqual(r.body.alreadyPendingVerification, 1);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.localLinkCalled, false);
     });
 });

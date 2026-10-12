@@ -7,7 +7,7 @@ describe('P25-T.2a Transfer Identity Migration Contract', () => {
 
     before(() => {
         const sqlPath = path.join(__dirname, '../scripts/migration_p25_t2a_parent_pack_transfer_identity.sql');
-        sqlContent = fs.readFileSync(sqlPath, 'utf8');
+        sqlContent = fs.readFileSync(sqlPath, 'utf8').replace(/\r\n/g, '\n');
     });
 
     it('should create the audit table securely', () => {
