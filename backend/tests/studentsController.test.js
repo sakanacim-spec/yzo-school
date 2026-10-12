@@ -20,7 +20,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
 
     beforeEach(() => {
         req = {
-            user: { id: 'parent-123', role: 'parent', telephone: '+22990000000', schoolSlug: 'demo' },
+            user: { id: 'parent-123', role: 'parent', telephone: '+2290190000000', schoolSlug: 'demo' },
             body: {}
         };
         res = {
@@ -72,15 +72,15 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 eq: () => m,
                 in: () => m,
                 maybeSingle: () => {
-                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
-                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+2290190000000' } });
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+2290190000000' } });
                     return Promise.resolve({ data: null }); // no mapping, empty portfolio
                 },
                 insert: (data) => {
                     if (table === 'parent_student_demo') {
                         localInsertCalled = true;
                     }
-                    const resObj = { data: { id: 'req-1' }, error: null };
+                    const resObj = { data: { id: 'a0000000-0000-4000-a000-000000000001' }, error: null };
                     return {
                         select: () => ({
                             maybeSingle: () => Promise.resolve(resObj),
@@ -93,7 +93,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 },
                 then: (resolve) => {
                     if (table === 'students_demo') {
-                        return resolve({ data: [{ id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' }], error: null });
+                        return resolve({ data: [{ id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+2290190000000' }], error: null });
                     }
                     return resolve({ data: null, error: null });
                 }
@@ -122,7 +122,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 order: () => m,
                 limit: () => m,
                 maybeSingle: () => {
-                    if (table === 'profiles_demo') return Promise.resolve({ data: { telephone: '+22990000000' } });
+                    if (table === 'profiles_demo') return Promise.resolve({ data: { telephone: '+2290190000000' } });
                     if (table === 'student_global_mappings') return Promise.resolve({ data: { student_global_id: 'g-123' } });
                     return Promise.resolve({ data: null, error: null });
                 },
@@ -142,7 +142,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                     return m2;
                 },
                 insert: (data) => {
-                    const resObj = { data: { id: 'req-1', status: 'pending' }, error: null };
+                    const resObj = { data: { id: 'a0000000-0000-4000-a000-000000000001', status: 'pending' }, error: null };
                     return {
                         select: () => ({
                             maybeSingle: () => Promise.resolve(resObj),
@@ -154,7 +154,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                     };
                 },
                 then: (resolve) => {
-                    if (table === 'students_demo') return resolve({ data: [{ id: 1, nom: 'A', prenom: 'B', telephone_parent: '+22990000000', telephone_parent_normalized: '+22990000000' }], error: null });
+                    if (table === 'students_demo') return resolve({ data: [{ id: 1, nom: 'A', prenom: 'B', telephone_parent: '+2290190000000', telephone_parent_normalized: '+2290190000000' }], error: null });
                     return resolve({ data: null, error: null });
                 }
             };
@@ -196,12 +196,12 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 limit: () => m,
                 single: () => Promise.resolve({ data: { student_global_id: 'g-123' } }),
                 maybeSingle: () => {
-                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
-                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+2290190000000' } });
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+2290190000000' } });
                     return Promise.resolve({ data: null, error: null });
                 },
                 insert: (data) => {
-                    const resObj = { data: { id: 'req-1', status: 'pending' }, error: null };
+                    const resObj = { data: { id: 'a0000000-0000-4000-a000-000000000001', status: 'pending' }, error: null };
                     return {
                         select: () => ({
                             maybeSingle: () => Promise.resolve(resObj),
@@ -221,7 +221,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                     return m2;
                 },
                 then: (resolve) => {
-                    if (table === 'students_demo') return resolve({ data: [{ id: 1, telephone_parent: '+22990000000', telephone_parent_normalized: '+22990000000' }] });
+                    if (table === 'students_demo') return resolve({ data: [{ id: 1, telephone_parent: '+2290190000000', telephone_parent_normalized: '+2290190000000' }] });
                     return resolve({ data: null, error: null });
                 }
             };
@@ -255,8 +255,8 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 limit: () => m,
                 single: () => Promise.resolve({ data: null }),
                 maybeSingle: () => {
-                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
-                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+2290190000000' } });
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+2290190000000' } });
                     if (table === 'parent_student_link_requests') {
                         return Promise.resolve({ data: { id: 'req-exist', status: 'pending' }, error: null });
                     }
@@ -284,7 +284,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                     return m2;
                 },
                 then: (resolve) => {
-                    if (table === 'students_demo') return resolve({ data: [{ id: 1, telephone_parent: '+22990000000', telephone_parent_normalized: '+22990000000' }] });
+                    if (table === 'students_demo') return resolve({ data: [{ id: 1, telephone_parent: '+2290190000000', telephone_parent_normalized: '+2290190000000' }] });
                     return resolve({ data: null, error: null });
                 }
             };
@@ -318,8 +318,8 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 limit: () => m,
                 single: () => Promise.resolve({ data: null }),
                 maybeSingle: () => {
-                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
-                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+2290190000000' } });
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 1, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+2290190000000' } });
                     if (table === 'parent_student_link_requests') {
                         return Promise.resolve({ data: null, error: null });
                     }
@@ -344,7 +344,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                     return m2;
                 },
                 then: (resolve) => {
-                    if (table === 'students_demo') return resolve({ data: [{ id: 1, telephone_parent: '+22990000000', telephone_parent_normalized: '+22990000000' }] });
+                    if (table === 'students_demo') return resolve({ data: [{ id: 1, telephone_parent: '+2290190000000', telephone_parent_normalized: '+2290190000000' }] });
                     return resolve({ data: null, error: null });
                 }
             };
@@ -376,12 +376,12 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 limit: () => m,
                 single: () => Promise.resolve({ data: null }),
                 maybeSingle: () => {
-                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
-                    if (table === `students_demo`) return Promise.resolve({ data: { id: 2, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+2290190000000' } });
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 2, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+2290190000000' } });
                     return Promise.resolve({ data: null, error: null });
                 },
                 insert: (data) => {
-                    const resObj = { data: { id: 'req-2', status: 'pending' }, error: null };
+                    const resObj = { data: { id: 'a0000000-0000-4000-a000-000000000002', status: 'pending' }, error: null };
                     return {
                         select: () => ({
                             maybeSingle: () => Promise.resolve(resObj),
@@ -398,7 +398,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                     return m2;
                 },
                 then: (resolve) => {
-                    if (table === 'students_demo') return resolve({ data: [{ id: 2, telephone_parent: '+22990000000', telephone_parent_normalized: '+22990000000', prenom: 'A', nom: 'B', date_naissance: '2010-01-01' }] });
+                    if (table === 'students_demo') return resolve({ data: [{ id: 2, telephone_parent: '+2290190000000', telephone_parent_normalized: '+2290190000000', prenom: 'A', nom: 'B', date_naissance: '2010-01-01' }] });
                     return resolve({ data: [], error: null });
                 }
             };
@@ -431,12 +431,12 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 limit: () => m,
                 single: () => Promise.resolve({ data: null }),
                 maybeSingle: () => {
-                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+22990000000' } });
-                    if (table === `students_demo`) return Promise.resolve({ data: { id: 2, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+22990000000' } });
+                    if (table === `profiles_demo`) return Promise.resolve({ data: { telephone: '+2290190000000' } });
+                    if (table === `students_demo`) return Promise.resolve({ data: { id: 2, nom: 'A', prenom: 'B', date_naissance: '2010-01-01', telephone_parent: '+2290190000000' } });
                     return Promise.resolve({ data: null, error: null });
                 },
                 insert: (data) => {
-                    const resObj = { data: { id: 'req-new', status: 'pending' }, error: null };
+                    const resObj = { data: { id: 'a0000000-0000-4000-a000-000000000003', status: 'pending' }, error: null };
                     return {
                         select: () => ({
                             maybeSingle: () => Promise.resolve(resObj),
@@ -453,7 +453,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                     return m2;
                 },
                 then: (resolve) => {
-                    if (table === 'students_demo') return resolve({ data: [{ id: 2, telephone_parent: '+22990000000', telephone_parent_normalized: '+22990000000', prenom: 'A', nom: 'B', date_naissance: '2010-01-01' }] });
+                    if (table === 'students_demo') return resolve({ data: [{ id: 2, telephone_parent: '+2290190000000', telephone_parent_normalized: '+2290190000000', prenom: 'A', nom: 'B', date_naissance: '2010-01-01' }] });
                     return resolve({ data: null, error: null });
                 }
             };

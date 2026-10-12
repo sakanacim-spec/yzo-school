@@ -356,7 +356,7 @@ describe('YZIOW P26-B Lot 2 — Découplage des Rattachements Parent-Élève', (
                                     })
                                 };
                             }
-                            const inserted = { id: 'req-uuid-1', ...payload };
+                            const inserted = { id: 'a0000000-0000-4000-a000-000000000001', ...payload };
                             mockTables.parent_student_link_requests.push(inserted);
                             return {
                                 select: () => ({

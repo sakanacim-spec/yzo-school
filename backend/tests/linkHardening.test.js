@@ -91,7 +91,7 @@ describe('linkHardening - behavioral tests (Option A Decoupling)', () => {
                     dbState.localLinkCalled = true;
                 }
                 const err = (table === 'parent_student_link_requests' && dbState.insertRequestError) || null;
-                const resObj = { data: err ? null : { id: 'req-new-1', ...data }, error: err };
+                const resObj = { data: err ? null : { id: 'a0000000-0000-4000-a000-000000000001', ...data }, error: err };
                 return {
                     ...resObj,
                     select: () => ({
@@ -444,5 +444,224 @@ describe('linkHardening - behavioral tests (Option A Decoupling)', () => {
         assert.strictEqual(r.status, 403);
         assert.strictEqual(rpcCount, 0);
         assert.ok(!dbState.insertsLog.some(ins => ins.data && ins.data.parent_id === 'parent-spoofed'));
+    });
+
+    it('H37 collision internationale de numéros avec même suffixe -> 403 fail-closed', async () => {
+        dbState.parentProfile.telephone = '+33 6 12 34 56 78';
+        dbState.parentProfile.phone_normalized = '+33612345678';
+        dbState.studentInfo.telephone_parent = '+221 6 12 34 56 78';
+        dbState.studentInfo.telephone_parent_normalized = '+221612345678';
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.insertsLog.length, 0);
+    });
+
+    it('H38 numéros E.164 strictement identiques -> 202 pending créé', async () => {
+        dbState.parentProfile.telephone = '+33 6 12 34 56 78';
+        dbState.parentProfile.phone_normalized = '+33612345678';
+        dbState.studentInfo.telephone_parent = '+33 6 12 34 56 78';
+        dbState.studentInfo.telephone_parent_normalized = '+33612345678';
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(r.body.created, 1);
+    });
+
+    it('H39 numéro historique ambigu ou incomplet (local sans indicatif) -> 403 fail-closed', async () => {
+        dbState.parentProfile.telephone = '+2290197000000';
+        dbState.parentProfile.phone_normalized = '+2290197000000';
+        dbState.studentInfo.telephone_parent = '97000000';
+        delete dbState.studentInfo.telephone_parent_normalized;
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H40 confirmation Supabase sans ID (data null) -> 500 fail-closed', async () => {
+        const origFrom = supabase.from;
+        supabase.from = (table) => {
+            const b = origFrom(table);
+            if (table === 'parent_student_link_requests') {
+                return {
+                    insert: () => ({
+                        select: () => ({
+                            maybeSingle: async () => ({ data: null, error: null })
+                        })
+                    })
+                };
+            }
+            return b;
+        };
+        const r = await runLink();
+        assert.strictEqual(r.status, 500);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H41 confirmation Supabase avec ID invalide (non-UUID) -> 500 fail-closed', async () => {
+        const origFrom = supabase.from;
+        supabase.from = (table) => {
+            const b = origFrom(table);
+            if (table === 'parent_student_link_requests') {
+                return {
+                    insert: () => ({
+                        select: () => ({
+                            maybeSingle: async () => ({ data: { id: 'not-a-valid-uuid' }, error: null })
+                        })
+                    })
+                };
+            }
+            return b;
+        };
+        const r = await runLink();
+        assert.strictEqual(r.status, 500);
+        assert.strictEqual(rpcCount, 0);
+    });
+
+    it('H42 demande multiple séquentielle avec échec partiel sur le deuxième élève', async () => {
+        req.body = { studentIds: ['s1', 's2'] };
+        dbState.studentsList = [
+            { id: 's1', nom: 'A', prenom: 'B', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' },
+            { id: 's2', nom: 'C', prenom: 'D', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' }
+        ];
+        let insertAttempts = 0;
+        const origFrom = supabase.from;
+        supabase.from = (table) => {
+            const b = origFrom(table);
+            if (table === 'parent_student_link_requests') {
+                return {
+                    insert: (data) => {
+                        insertAttempts++;
+                        if (insertAttempts === 1) {
+                            return {
+                                select: () => ({
+                                    maybeSingle: async () => ({ data: { id: 'a0000000-0000-4000-a000-000000000001', ...data }, error: null })
+                                })
+                            };
+                        }
+                        return {
+                            select: () => ({
+                                maybeSingle: async () => ({ data: null, error: { message: 'db failure on s2' } })
+                            })
+                        };
+                    }
+                };
+            }
+            return b;
+        };
+
+        const r = await runLink();
+        assert.strictEqual(r.status, 500);
+        assert.strictEqual(insertAttempts, 2, 'Tentative sur s1 réussie, échec sur s2');
+        assert.strictEqual(rpcCount, 0, 'Aucun lien actif ni RPC créé lors de l\'échec');
+    });
+
+    it('H43 conflit 23505 avec statut pending_verification -> 200 explicite (pas de 202, pas de lien actif)', async () => {
+        dbState.insertRequestError = { code: '23505', message: 'duplicate key' };
+        dbState.existingPendingReq = { id: 'a0000000-0000-4000-a000-000000000099', status: 'pending_verification' };
+        const r = await runLink();
+        assert.strictEqual(r.status, 200);
+        assert.strictEqual(r.body.status, 'pending_verification');
+        assert.strictEqual(r.body.alreadyPending, 0);
+        assert.strictEqual(r.body.alreadyPendingVerification, 1);
+        assert.strictEqual(r.body.created, 0);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.localLinkCalled, false);
+    });
+
+    it('H43b conflit 23505 avec statut pending exact -> 202 pending confirmé', async () => {
+        dbState.insertRequestError = { code: '23505', message: 'duplicate key' };
+        dbState.existingPendingReq = { id: 'a0000000-0000-4000-a000-000000000099', status: 'pending' };
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(r.body.alreadyPending, 1);
+        assert.strictEqual(r.body.created, 0);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.localLinkCalled, false);
+    });
+
+    it('H44 absence totale de mutation locale, badge ou droit lors d\'une demande pending', async () => {
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.localLinkCalled, false, 'Aucun lien actif créé dans parent_student_');
+        assert.strictEqual(dbState.updatesLog.length, 0, 'Aucune mise à jour de lien');
+    });
+
+    it('H45 numéro de forme E.164 mais invalide selon le validateur (+999...) -> 403 fail-closed sans bypass regex', async () => {
+        // Numéro de forme E.164 (+ suivi de 11 chiffres) mais indicatif pays 999 inexistant
+        dbState.parentProfile.telephone = '+99912345678';
+        delete dbState.parentProfile.phone_normalized;
+        dbState.studentInfo.telephone_parent = '+99912345678';
+        delete dbState.studentInfo.telephone_parent_normalized;
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.insertsLog.length, 0);
+    });
+
+    it('H46 champ phone_normalized de forme E.164 mais invalide selon le validateur -> 403 fail-closed (validation stricte)', async () => {
+        // Champ phone_normalized contient un numéro de forme E.164 invalide
+        dbState.parentProfile.telephone = '+33600000000';
+        dbState.parentProfile.phone_normalized = '+99912345678';
+        dbState.studentInfo.telephone_parent = '+33600000000';
+        dbState.studentInfo.telephone_parent_normalized = '+33600000000';
+        const r = await runLink();
+        assert.strictEqual(r.status, 403);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.insertsLog.length, 0);
+    });
+
+    it('H47 lot mixte contenant une demande pending et une demande pending_verification -> 202 pending avec compteurs explicites', async () => {
+        req.body = { studentIds: ['s1', 's2'] };
+        dbState.studentsList = [
+            { id: 's1', nom: 'A', prenom: 'B', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' },
+            { id: 's2', nom: 'C', prenom: 'D', telephone_parent: '+33600000000', telephone_parent_normalized: '+33600000000' }
+        ];
+        const origFrom = supabase.from;
+        supabase.from = (table) => {
+            const b = origFrom(table);
+            if (table === 'parent_student_link_requests') {
+                return {
+                    insert: (data) => {
+                        if (data.student_id === 's1') {
+                            return {
+                                select: () => ({
+                                    maybeSingle: async () => ({ data: { id: 'a0000000-0000-4000-a000-000000000001', ...data }, error: null })
+                                })
+                            };
+                        }
+                        // s2 déclenche un conflit 23505
+                        return {
+                            select: () => ({
+                                maybeSingle: async () => ({ data: null, error: { code: '23505', message: 'duplicate key' } })
+                            })
+                        };
+                    },
+                    select: () => ({
+                        eq: () => ({
+                            eq: () => ({
+                                eq: () => ({
+                                    in: () => ({
+                                        maybeSingle: async () => ({ data: { id: 'a0000000-0000-4000-a000-000000000002', status: 'pending_verification' }, error: null })
+                                    })
+                                })
+                            })
+                        })
+                    })
+                };
+            }
+            return b;
+        };
+        const r = await runLink();
+        assert.strictEqual(r.status, 202);
+        assert.strictEqual(r.body.status, 'pending');
+        assert.strictEqual(r.body.created, 1);
+        assert.strictEqual(r.body.alreadyPending, 0);
+        assert.strictEqual(r.body.alreadyPendingVerification, 1);
+        assert.strictEqual(rpcCount, 0);
+        assert.strictEqual(dbState.localLinkCalled, false);
     });
 });

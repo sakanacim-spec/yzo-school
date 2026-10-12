@@ -214,23 +214,39 @@ async function linkStudentToParent(req, res) {
             return res.status(404).json({ error: 'Élève(s) introuvable(s) dans cet établissement.' });
         }
 
-        if (sErr || !targetStudents || targetStudents.length === 0) {
-            return res.status(404).json({ error: 'Élève(s) introuvable(s) dans cet établissement.' });
-        }
+        // Fonction locale de normalisation E.164 stricte sans déduction arbitraire de pays ni contournement regex
+        const toStrictE164 = (phone, normalizedField) => {
+            const norm = String(normalizedField || '').trim();
+            if (norm) {
+                try {
+                    return normalizePhone(norm);
+                } catch {
+                    return null;
+                }
+            }
+            const raw = String(phone || '').trim();
+            if (!raw) return null;
+            try {
+                return normalizePhone(raw);
+            } catch {
+                return null;
+            }
+        };
+
+        const parentE164 = toStrictE164(parentProfile.telephone || tokenPhone, parentProfile.phone_normalized);
 
         // Pour un utilisateur parent : vérification obligatoire de concordance téléphonique
         if (!isSchoolAdmin) {
-            const normParent = parentPhone.replace(/\D/g, '');
+            if (!parentE164) {
+                return res.status(403).json({
+                    error: "Liaison non autorisée : Le numéro de téléphone de votre compte est incomplet ou invalide."
+                });
+            }
 
             for (const student of targetStudents) {
-                const sParentPhone = String(student.telephone_parent_normalized || student.telephone_parent || '').trim();
-                const normStudentParent = sParentPhone.replace(/\D/g, '');
-
-                const isPhoneMatch = normParent && normStudentParent && (
-                    normParent === normStudentParent ||
-                    normParent.endsWith(normStudentParent) ||
-                    normStudentParent.endsWith(normParent)
-                );
+                const studentE164 = toStrictE164(student.telephone_parent, student.telephone_parent_normalized);
+                // Concordance automatique uniquement si les deux numéros sont normalisés et strictement égaux
+                const isPhoneMatch = !!(studentE164 && parentE164 === studentE164);
 
                 if (!isPhoneMatch) {
                     return res.status(403).json({
@@ -245,19 +261,14 @@ async function linkStudentToParent(req, res) {
         // Aucune création directe de lien local ou global
         // Aucune approbation automatique via RPC
         // ====================================================================
-        const normParent = parentPhone.replace(/\D/g, '');
         let createdCount = 0;
         let alreadyPendingCount = 0;
+        let alreadyPendingVerificationCount = 0;
         let alreadyLinkedCount = 0;
 
         for (const student of targetStudents) {
-            const sParentPhone = String(student.telephone_parent_normalized || student.telephone_parent || '').trim();
-            const normStudentParent = sParentPhone.replace(/\D/g, '');
-            const isPhoneMatch = !!(normParent && normStudentParent && (
-                normParent === normStudentParent ||
-                normParent.endsWith(normStudentParent) ||
-                normStudentParent.endsWith(normParent)
-            ));
+            const studentE164 = toStrictE164(student.telephone_parent, student.telephone_parent_normalized);
+            const isPhoneMatch = !!(parentE164 && studentE164 && parentE164 === studentE164);
 
             // Vérifier l'existence d'un lien actif ou historique déjà présent dans parent_student_<schoolSlug>
             const { data: existingLocalLink, error: existingLinkErr } = await supabase
@@ -284,13 +295,13 @@ async function linkStudentToParent(req, res) {
                     school_slug: schoolSlug,
                     parent_id: targetParentId,
                     student_id: String(student.id),
-                    parent_phone_normalized: normParent,
+                    parent_phone_normalized: parentE164 || String(parentPhone).replace(/\D/g, ''),
                     parent_name: parentName,
                     student_name: `${student.prenom || ''} ${student.nom || ''}`.trim(),
                     student_class: student.classe || null,
                     phone_matched: isPhoneMatch,
                     status: 'pending',
-                    source: isSchoolAdmin ? 'manual_request' : 'manual_request'
+                    source: 'manual_request'
                 })
                 .select('id')
                 .maybeSingle();
@@ -305,14 +316,14 @@ async function linkStudentToParent(req, res) {
                 }
                 // Protection anti-doublon (index uq_link_requests_single_pending_review ou uq_link_requests_single_approved)
                 if (reqErr.code === '23505') {
-                    // Recherche de la demande pending correspondante (status 'pending')
+                    // Recherche de la demande active correspondante (status 'pending' ou 'pending_verification')
                     const { data: pendingReq, error: pendingErr } = await supabase
                         .from('parent_student_link_requests')
                         .select('id, status')
                         .eq('school_slug', schoolSlug)
                         .eq('parent_id', targetParentId)
                         .eq('student_id', String(student.id))
-                        .eq('status', 'pending')
+                        .in('status', ['pending', 'pending_verification'])
                         .maybeSingle();
 
                     if (pendingErr) {
@@ -320,36 +331,29 @@ async function linkStudentToParent(req, res) {
                         return res.status(500).json({ error: 'Erreur interne lors de la lecture de la demande pending.' });
                     }
                     if (pendingReq) {
-                        alreadyPendingCount++;
-                        continue;
+                        if (pendingReq.status === 'pending') {
+                            alreadyPendingCount++;
+                            continue;
+                        }
+                        if (pendingReq.status === 'pending_verification') {
+                            alreadyPendingVerificationCount++;
+                            continue;
+                        }
                     }
 
-                    // Recherche de la demande pending correspondante (status 'pending_verification')
-                    const { data: pendingVerifReq, error: pendingVerifErr } = await supabase
-                        .from('parent_student_link_requests')
-                        .select('id, status')
-                        .eq('school_slug', schoolSlug)
-                        .eq('parent_id', targetParentId)
-                        .eq('student_id', String(student.id))
-                        .eq('status', 'pending_verification')
-                        .maybeSingle();
-
-                    if (pendingVerifErr) {
-                        console.error('Error reading pending_verification request:', pendingVerifErr);
-                        return res.status(500).json({ error: 'Erreur interne lors de la lecture de la demande pending_verification.' });
-                    }
-                    if (pendingVerifReq) {
-                        alreadyPendingCount++;
-                        continue;
-                    }
-
-                    // Aucune demande pending correspondante retrouvée : rejet sécurisé
+                    // Aucune demande pending correspondante retrouvée : rejet sécurisé fail-closed
                     console.warn('Duplicate insert but no matching pending request found.');
                     return res.status(400).json({ error: 'Conflit de doublon sans demande pending correspondante.' });
                 }
 
                 console.error('Erreur insertion parent_student_link_requests:', reqErr);
                 return res.status(500).json({ error: 'Erreur lors de la soumission de la demande de rattachement.' });
+            }
+
+            // Vérification stricte de confirmation Supabase avec UUID valide (fail-closed)
+            if (!insertReq || !insertReq.id || !isValidUUID(insertReq.id)) {
+                console.error('Incohérence insertion Supabase : demande non confirmée avec UUID valide:', { targetParentId, studentId: student.id, insertReq });
+                return res.status(500).json({ error: 'Erreur interne lors de la confirmation de la demande de rattachement.' });
             }
 
             createdCount++;
@@ -359,12 +363,28 @@ async function linkStudentToParent(req, res) {
 
         // Cas où tous les élèves sélectionnés possèdent déjà un lien local actif
         // Aucune demande pending n'a été créée ou retrouvée : renvoi HTTP 200 immédiat
-        if (!hasPendingRequests && alreadyLinkedCount > 0) {
+        if (!hasPendingRequests && alreadyPendingVerificationCount === 0 && alreadyLinkedCount > 0) {
             return res.status(200).json({
                 message: "Les élèves sélectionnés sont déjà rattachés à votre compte.",
                 status: 'already_linked',
                 created: 0,
                 alreadyPending: 0,
+                alreadyPendingVerification: 0,
+                alreadyLinked: alreadyLinkedCount,
+                // Alias rétrocompatible déprécié (ne prouve pas une approbation directoriale formelle)
+                alreadyApproved: alreadyLinkedCount
+            });
+        }
+
+        // Cas où seule une ou plusieurs demandes 'pending_verification' existent
+        // Aucune demande 'pending' créée ou retrouvée : renvoi HTTP 200 explicite et sécurisé (pas de 202)
+        if (!hasPendingRequests && alreadyPendingVerificationCount > 0) {
+            return res.status(200).json({
+                message: "Une demande de rattachement est déjà en cours de vérification pour cet élève.",
+                status: 'pending_verification',
+                created: 0,
+                alreadyPending: 0,
+                alreadyPendingVerification: alreadyPendingVerificationCount,
                 alreadyLinked: alreadyLinkedCount,
                 // Alias rétrocompatible déprécié (ne prouve pas une approbation directoriale formelle)
                 alreadyApproved: alreadyLinkedCount
@@ -378,6 +398,7 @@ async function linkStudentToParent(req, res) {
             status: 'pending',
             created: createdCount,
             alreadyPending: alreadyPendingCount,
+            alreadyPendingVerification: alreadyPendingVerificationCount,
             alreadyLinked: alreadyLinkedCount,
             // Alias rétrocompatible déprécié (ne prouve pas une approbation directoriale formelle)
             alreadyApproved: alreadyLinkedCount
