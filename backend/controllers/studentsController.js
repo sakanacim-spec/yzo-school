@@ -158,17 +158,26 @@ async function countStudents(req, res) {
  */
 async function linkStudentToParent(req, res) {
     const { id: tokenUserId, role, telephone: tokenPhone } = req.user;
-    const { studentId, studentIds, parentId: requestedParentId } = req.body;
+    const { studentId, studentIds, parentId: requestedParentId, targetParentId: requestedTargetParentId } = req.body;
+    const bodyParentId = requestedParentId || requestedTargetParentId;
 
     const schoolSlug = req.user ? req.user.schoolSlug : null;
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
-    const isSchoolAdmin = ['admin', 'directeur', 'directeur_general', 'comptable', 'superadmin'].includes(role);
-    const targetParentId = (isSchoolAdmin && requestedParentId) ? requestedParentId : tokenUserId;
+    const isSchoolAdmin = ['admin', 'directeur', 'directeur_general', 'superadmin'].includes(role);
 
-    if (!isSchoolAdmin && role !== 'parent') {
-        return res.status(403).json({ error: 'Permission refusée.' });
+    // Contrôle strict de l'identité :
+    // Un utilisateur avec le rôle parent ne peut JAMAIS spécifier de parentId ou targetParentId arbitraire dans la requête.
+    if (!isSchoolAdmin) {
+        if (role !== 'parent') {
+            return res.status(403).json({ error: 'Permission refusée.' });
+        }
+        if (bodyParentId && String(bodyParentId) !== String(tokenUserId)) {
+            return res.status(403).json({ error: 'Usurpation d\'identité interdite : vous ne pouvez demander un rattachement que pour votre propre compte.' });
+        }
     }
+
+    const targetParentId = (isSchoolAdmin && bodyParentId) ? bodyParentId : tokenUserId;
 
     const idsToLink = Array.isArray(studentIds) ? studentIds : (studentId ? [studentId] : []);
     if (idsToLink.length === 0) {
@@ -176,10 +185,10 @@ async function linkStudentToParent(req, res) {
     }
 
     try {
-        // 1. Charger le profil parent pour obtenir le numéro de téléphone officiel
+        // 1. Charger le profil parent pour obtenir le numéro de téléphone officiel et le nom
         const { data: parentProfile, error: pErr } = await supabase
             .from(`profiles_${schoolSlug}`)
-            .select('id, telephone, phone_normalized, role')
+            .select('id, nom, telephone, phone_normalized, role')
             .eq('id', targetParentId)
             .maybeSingle();
 
@@ -188,12 +197,22 @@ async function linkStudentToParent(req, res) {
         }
 
         const parentPhone = String(parentProfile.phone_normalized || parentProfile.telephone || tokenPhone || '').trim();
+        const parentName = String(parentProfile.nom || 'Parent').trim();
 
         // 2. Charger les élèves cibles dans l'établissement
+        // Load target students – always use the IN query which works for both single and multiple IDs.
         const { data: targetStudents, error: sErr } = await supabase
             .from(`students_${schoolSlug}`)
-            .select('id, telephone_parent, telephone_parent_normalized')
+            .select('id, nom, prenom, classe, telephone_parent, telephone_parent_normalized')
             .in('id', idsToLink);
+        if (sErr) {
+            // Propagate Supabase error as a 500 response.
+            return res.status(500).json({ error: 'Erreur lors de la récupération des élèves.' });
+        }
+        if (!targetStudents || targetStudents.length === 0) {
+            // No matching students found – reject the request.
+            return res.status(404).json({ error: 'Élève(s) introuvable(s) dans cet établissement.' });
+        }
 
         if (sErr || !targetStudents || targetStudents.length === 0) {
             return res.status(404).json({ error: 'Élève(s) introuvable(s) dans cet établissement.' });
@@ -221,151 +240,147 @@ async function linkStudentToParent(req, res) {
             }
         }
 
-        // 3. Insertion idempotente des liens
-        const validStudentIds = targetStudents.map(s => s.id);
-        const { data: existingLinks } = await supabase
-            .from(`parent_student_${schoolSlug}`)
-            .select('student_id')
-            .eq('parent_id', targetParentId)
-            .in('student_id', validStudentIds);
+        // ====================================================================
+        // Option A : Création exclusive de demande 'pending' pour parents et administrateurs
+        // Aucune création directe de lien local ou global
+        // Aucune approbation automatique via RPC
+        // ====================================================================
+        const normParent = parentPhone.replace(/\D/g, '');
+        let createdCount = 0;
+        let alreadyPendingCount = 0;
+        let alreadyLinkedCount = 0;
 
-        const alreadyLinkedIds = (existingLinks || []).map(l => l.student_id);
-        const newIdsToLink = validStudentIds.filter(sId => !alreadyLinkedIds.includes(sId));
+        for (const student of targetStudents) {
+            const sParentPhone = String(student.telephone_parent_normalized || student.telephone_parent || '').trim();
+            const normStudentParent = sParentPhone.replace(/\D/g, '');
+            const isPhoneMatch = !!(normParent && normStudentParent && (
+                normParent === normStudentParent ||
+                normParent.endsWith(normStudentParent) ||
+                normStudentParent.endsWith(normParent)
+            ));
 
-        if (newIdsToLink.length > 0) {
-            for (const sId of newIdsToLink) {
-                const { data: destStudent, error: sErr2 } = await supabase
-                    .from(`students_${schoolSlug}`)
-                    .select('nom, prenom, date_naissance')
-                    .eq('id', sId)
-                    .maybeSingle();
+            // Vérifier l'existence d'un lien actif ou historique déjà présent dans parent_student_<schoolSlug>
+            const { data: existingLocalLink, error: existingLinkErr } = await supabase
+                .from(`parent_student_${schoolSlug}`)
+                .select('student_id')
+                .eq('parent_id', targetParentId)
+                .eq('student_id', student.id)
+                .maybeSingle();
 
-                if (sErr2) return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                if (!destStudent) return res.status(500).json({ error: 'INTERNAL_ERROR' });
-
-                let rpcCalls = 0;
-                let globalId = null;
-                let destMappedReload = false;
-
-                while (true) {
-                    const { data: pLinks, error: pErrLinks } = await supabase.from('parent_child_links').select('student_global_id').eq('parent_ref', String(targetParentId));
-                    if (pErrLinks) return res.status(500).json({ error: 'INTERNAL_ERROR' });
-
-                    const expectedGlobalIds = [...new Set((pLinks || []).map(l => l.student_global_id))];
-
-                    const { data: mData, error: mErrData } = await supabase.from('student_global_mappings').select('student_global_id').eq('school_slug', schoolSlug).eq('student_local_id', String(sId)).maybeSingle();
-                    if (mErrData) return res.status(500).json({ error: 'INTERNAL_ERROR' });
-
-                    if (mData) {
-                        const exGx = mData.student_global_id;
-                        const { data: exLink, error: exLinkErr } = await supabase.from('parent_child_links').select('*').eq('parent_ref', String(targetParentId)).eq('student_global_id', exGx).maybeSingle();
-                        if (exLinkErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
-
-                        if (exLink) {
-                            const { error: updErr } = await supabase.from('parent_child_links').update({ current_link_active: true }).eq('parent_ref', String(targetParentId)).eq('student_global_id', exGx);
-                            if (updErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                            globalId = exGx;
-                            break;
-                        } else {
-                            if (expectedGlobalIds.length > 0) {
-                                const evalRes = await _evaluateSameChild(destStudent, expectedGlobalIds);
-                                if (evalRes.status === 'INTERNAL_ERROR') return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                                if (evalRes.status === 'IDENTITY_EVIDENCE_INSUFFICIENT') return res.status(409).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
-                                if (evalRes.status === 'IDENTITY_EVIDENCE_UNAVAILABLE') return res.status(503).json({ error: 'IDENTITY_EVIDENCE_UNAVAILABLE' });
-                                if (evalRes.status === 'MULTIPLE_IDENTITY_MATCHES') return res.status(409).json({ error: 'MULTIPLE_IDENTITY_MATCHES' });
-                                if (evalRes.status === 'MATCH') {
-                                    if (evalRes.matchedGlobalId !== exGx) {
-                                        return res.status(409).json({ error: 'GLOBAL_IDENTITY_OWNERSHIP_CONFLICT' });
-                                    }
-                                }
-                            }
-
-                            const { error: lErr } = await supabase.from('parent_child_links').insert({
-                                parent_ref: String(targetParentId),
-                                student_global_id: exGx,
-                                first_linked_at: new Date().toISOString(),
-                                current_link_active: true
-                            });
-
-                            if (lErr && lErr.code === '23505') {
-                                const { data: verifyLink, error: verErr } = await supabase.from('parent_child_links').select('*').eq('parent_ref', String(targetParentId)).eq('student_global_id', exGx).maybeSingle();
-                                if (verErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                                if (verifyLink) {
-                                    const { error: rUpdErr } = await supabase.from('parent_child_links').update({ current_link_active: true }).eq('parent_ref', String(targetParentId)).eq('student_global_id', exGx);
-                                    if (rUpdErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                                } else {
-                                    return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                                }
-                            } else if (lErr) {
-                                return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                            }
-                            globalId = exGx;
-                            break;
-                        }
-                    } else {
-                        if (destMappedReload) {
-                            return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                        }
-
-                        if (expectedGlobalIds.length > 0) {
-                            const evalRes = await _evaluateSameChild(destStudent, expectedGlobalIds);
-                            if (evalRes.status === 'INTERNAL_ERROR') return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                            if (evalRes.status === 'IDENTITY_EVIDENCE_INSUFFICIENT') return res.status(409).json({ error: 'IDENTITY_EVIDENCE_INSUFFICIENT' });
-                            if (evalRes.status === 'IDENTITY_EVIDENCE_UNAVAILABLE') return res.status(503).json({ error: 'IDENTITY_EVIDENCE_UNAVAILABLE' });
-                            if (evalRes.status === 'MULTIPLE_IDENTITY_MATCHES') return res.status(409).json({ error: 'MULTIPLE_IDENTITY_MATCHES' });
-                            if (evalRes.status === 'MATCH') {
-                                return res.status(409).json({ error: 'TRANSFER_REQUIRED', studentId: sId, target_student_global_id: evalRes.matchedGlobalId });
-                            }
-                        }
-
-                        if (rpcCalls >= 3) {
-                            return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                        }
-
-                        rpcCalls++;
-                        const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_and_link_new_global_student', {
-                            p_school_slug: schoolSlug,
-                            p_student_local_id: String(sId),
-                            p_parent_ref: String(targetParentId),
-                            p_expected_global_ids: expectedGlobalIds
-                        });
-
-                        if (rpcErr) return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                        if (rpcRes && rpcRes.status === 'created') {
-                            globalId = rpcRes.student_global_id;
-                            break;
-                        } else if (rpcRes && rpcRes.status === 'PORTFOLIO_CHANGED') {
-                            continue;
-                        } else if (rpcRes && rpcRes.status === 'DESTINATION_ALREADY_MAPPED') {
-                            destMappedReload = true;
-                            continue;
-                        } else {
-                            return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                        }
-                    }
-                }
-
-                if (!globalId) {
-                    return res.status(500).json({ error: 'INTERNAL_ERROR' });
-                }
-
-                const { error: insErr } = await supabase.from(`parent_student_${schoolSlug}`).insert({
-                    parent_id: targetParentId,
-                    student_id: sId
-                });
-                if (insErr && insErr.code !== '23505') {
-                    throw insErr;
-                }
+            if (existingLinkErr) {
+                console.error('Erreur lors de la vérification du lien local existant:', existingLinkErr);
+                return res.status(500).json({ error: 'Erreur interne lors de la vérification du lien.' });
             }
+
+            if (existingLocalLink) {
+                alreadyLinkedCount++;
+                continue;
+            }
+
+            // Insertion sécurisée de la demande d'approbation
+            const { data: insertReq, error: reqErr } = await supabase
+                .from('parent_student_link_requests')
+                .insert({
+                    school_slug: schoolSlug,
+                    parent_id: targetParentId,
+                    student_id: String(student.id),
+                    parent_phone_normalized: normParent,
+                    parent_name: parentName,
+                    student_name: `${student.prenom || ''} ${student.nom || ''}`.trim(),
+                    student_class: student.classe || null,
+                    phone_matched: isPhoneMatch,
+                    status: 'pending',
+                    source: isSchoolAdmin ? 'manual_request' : 'manual_request'
+                })
+                .select('id')
+                .maybeSingle();
+
+            if (reqErr) {
+                // Fail-closed si la table de migration n'est pas encore déployée
+                if (reqErr.code === '42P01') {
+                    return res.status(503).json({
+                        error: 'FEATURE_UNAVAILABLE',
+                        message: "Le service de demande de rattachement est temporairement indisponible."
+                    });
+                }
+                // Protection anti-doublon (index uq_link_requests_single_pending_review ou uq_link_requests_single_approved)
+                if (reqErr.code === '23505') {
+                    // Recherche de la demande pending correspondante (status 'pending')
+                    const { data: pendingReq, error: pendingErr } = await supabase
+                        .from('parent_student_link_requests')
+                        .select('id, status')
+                        .eq('school_slug', schoolSlug)
+                        .eq('parent_id', targetParentId)
+                        .eq('student_id', String(student.id))
+                        .eq('status', 'pending')
+                        .maybeSingle();
+
+                    if (pendingErr) {
+                        console.error('Error reading pending request:', pendingErr);
+                        return res.status(500).json({ error: 'Erreur interne lors de la lecture de la demande pending.' });
+                    }
+                    if (pendingReq) {
+                        alreadyPendingCount++;
+                        continue;
+                    }
+
+                    // Recherche de la demande pending correspondante (status 'pending_verification')
+                    const { data: pendingVerifReq, error: pendingVerifErr } = await supabase
+                        .from('parent_student_link_requests')
+                        .select('id, status')
+                        .eq('school_slug', schoolSlug)
+                        .eq('parent_id', targetParentId)
+                        .eq('student_id', String(student.id))
+                        .eq('status', 'pending_verification')
+                        .maybeSingle();
+
+                    if (pendingVerifErr) {
+                        console.error('Error reading pending_verification request:', pendingVerifErr);
+                        return res.status(500).json({ error: 'Erreur interne lors de la lecture de la demande pending_verification.' });
+                    }
+                    if (pendingVerifReq) {
+                        alreadyPendingCount++;
+                        continue;
+                    }
+
+                    // Aucune demande pending correspondante retrouvée : rejet sécurisé
+                    console.warn('Duplicate insert but no matching pending request found.');
+                    return res.status(400).json({ error: 'Conflit de doublon sans demande pending correspondante.' });
+                }
+
+                console.error('Erreur insertion parent_student_link_requests:', reqErr);
+                return res.status(500).json({ error: 'Erreur lors de la soumission de la demande de rattachement.' });
+            }
+
+            createdCount++;
         }
 
-        // Auto-assignation des badges
-        for (const sId of validStudentIds) {
-            await _autoAssignBadges(targetParentId, sId, schoolSlug);
+        const hasPendingRequests = createdCount > 0 || alreadyPendingCount > 0;
+
+        // Cas où tous les élèves sélectionnés possèdent déjà un lien local actif
+        // Aucune demande pending n'a été créée ou retrouvée : renvoi HTTP 200 immédiat
+        if (!hasPendingRequests && alreadyLinkedCount > 0) {
+            return res.status(200).json({
+                message: "Les élèves sélectionnés sont déjà rattachés à votre compte.",
+                status: 'already_linked',
+                created: 0,
+                alreadyPending: 0,
+                alreadyLinked: alreadyLinkedCount,
+                // Alias rétrocompatible déprécié (ne prouve pas une approbation directoriale formelle)
+                alreadyApproved: alreadyLinkedCount
+            });
         }
 
-        return res.status(201).json({
-            message: `${validStudentIds.length} élève(s) lié(s) avec succès.`
+        // Cas avec au moins une demande pending créée ou retrouvée (cas pur ou cas mixte) :
+        // Renvoi HTTP 202 strictement réservé aux demandes réellement transmises ou en attente
+        return res.status(202).json({
+            message: "Votre demande de rattachement a été transmise à la direction de l'établissement pour validation.",
+            status: 'pending',
+            created: createdCount,
+            alreadyPending: alreadyPendingCount,
+            alreadyLinked: alreadyLinkedCount,
+            // Alias rétrocompatible déprécié (ne prouve pas une approbation directoriale formelle)
+            alreadyApproved: alreadyLinkedCount
         });
     } catch (err) {
         console.error('Link Error:', err.message);

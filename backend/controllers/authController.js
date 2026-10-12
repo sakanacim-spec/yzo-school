@@ -165,24 +165,9 @@ async function register(req, res) {
             return res.status(500).json({ error: 'Échec de la création du profil parent : ' + profileErr.message });
         }
 
-        // Auto-Link des enfants : ÉGALITÉ E.164 EXACTE
-        try {
-            const { data: matchingStudents } = await supabase
-                .from(`students_${school_slug}`)
-                .select('id')
-                .eq('telephone_parent_normalized', phoneNormalized);
-
-            if (matchingStudents && matchingStudents.length > 0) {
-                const linkPayload = matchingStudents.map(s => ({
-                    parent_id: parent.id,
-                    student_id: s.id
-                }));
-                await supabase.from(`parent_student_${school_slug}`).insert(linkPayload);
-                console.log(`✅ [AutoLink] ${linkPayload.length} enfant(s) lié(s) de façon E.164 exacte au parent ${parent.id}`);
-            }
-        } catch (linkErr) {
-            console.error('⚠️ [AutoLink Reg] Erreur lors de la liaison automatique :', linkErr.message);
-        }
+        // P26-B Lot 2 : Suppression de l'auto-link automatique à l'inscription.
+        // L'inscription du parent est libre et indépendante de la présence d'un élève.
+        // Aucun élève n'est lié et aucune donnée scolaire n'est exposée sans approbation explicite de la direction.
 
         const token = jwt.sign(
             { id: parent.id, nom: parent.nom, role: parent.role, schoolSlug: school_slug, token_type: 'access' },
@@ -523,38 +508,8 @@ async function login(req, res) {
         // Update last login
         supabase.from(`profiles_${schoolSlug}`).update({ last_login: new Date().toISOString() }).eq('id', user.id).then(() => {});
 
-        // Auto-Link des enfants lors de la connexion (ÉGALITÉ EXACTE E.164)
-        if (user.role === 'parent') {
-            try {
-                const { data: matchingStudents } = await supabase
-                    .from(`students_${schoolSlug}`)
-                    .select('id')
-                    .eq('telephone_parent_normalized', phoneNormalized);
-
-                if (matchingStudents && matchingStudents.length > 0) {
-                    const studentIds = matchingStudents.map(s => s.id);
-
-                    const { data: existingLinks } = await supabase
-                        .from(`parent_student_${schoolSlug}`)
-                        .select('student_id')
-                        .eq('parent_id', user.id)
-                        .in('student_id', studentIds);
-
-                    const linkedIds = (existingLinks || []).map(l => l.student_id);
-                    const newLinks = studentIds.filter(id => !linkedIds.includes(id)).map(id => ({
-                        parent_id: user.id,
-                        student_id: id
-                    }));
-
-                    if (newLinks.length > 0) {
-                        await supabase.from(`parent_student_${schoolSlug}`).insert(newLinks);
-                        console.log(`✅ [AutoLink Login] ${newLinks.length} enfant(s) nouvellement lié(s) E.164 au parent ${user.id}`);
-                    }
-                }
-            } catch (autoLinkErr) {
-                console.error('⚠️ [AutoLink Login] Erreur lors de la liaison automatique :', autoLinkErr.message);
-            }
-        }
+        // P26-B Lot 2 : Suppression de l'auto-link automatique à la connexion.
+        // La connexion d'un parent n'effectue aucune écriture ni réactivation automatique de lien parent-élève.
 
         return res.json({
             message: 'Connexion réussie.',
