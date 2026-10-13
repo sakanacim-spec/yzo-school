@@ -192,6 +192,7 @@ app.use('/api/withdrawals', require('./routes/withdrawal')); // 💳 Retrait de 
 app.use('/api/superadmin', require('./routes/superAdmin')); // 👑 Routes propriétaire SaaS
 app.use('/api/affiliate', require('./routes/affiliate')); // 🤝 Routes pour les apporteurs d'affaires
 app.use('/api/public', require('./routes/public')); // 🌍 Routes publiques (Formulaires)
+app.use('/api/director', require('./routes/director')); // 🔧 Director approval endpoints
 
 // Route publique pour lister les écoles dans le login
 app.get('/api/schools', async (req, res) => {
