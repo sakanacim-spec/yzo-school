@@ -1,9 +1,9 @@
 // Tests for Director approval endpoints
-// Uses the built‑in Node test runner and supertest to hit the Express app.
+// Uses the built-in Node test runner and native HTTP to hit the Express app.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const supertest = require('supertest');
+const http = require('node:http');
 const jwt = require('jsonwebtoken');
 
 // Dummy environment variables for the server
@@ -15,6 +15,25 @@ process.env.PASSWORD_RESET_OTP_SECRET = 'cccccccccccccccccccccccccccccccc';
 
 // Load the Express app after env vars are defined
 const app = require('../../backend/server.js'); // Express app instance
+
+let server;
+let baseUrl;
+
+test.before(async () => {
+  server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  baseUrl = `http://127.0.0.1:${port}`;
+});
+
+test.after(async () => {
+  if (server) {
+    if (typeof server.closeAllConnections === 'function') {
+      server.closeAllConnections();
+    }
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
 
 // Base mock user payload (will be encoded into JWT)
 const baseMockUser = {
@@ -35,8 +54,69 @@ function generateToken(payload) {
   return jwt.sign({ token_type: 'access', ...payload }, process.env.JWT_SECRET, { algorithm: 'HS256' });
 }
 
-// SuperTest instance (no auth header attached here)
-const request = supertest(app);
+// Native HTTP client mimicking the chained supertest API (get, post, set, send)
+function makeRequest(method, path) {
+  const headers = {};
+  let payload = undefined;
+
+  const reqObj = {
+    set(keyOrObj, value) {
+      if (typeof keyOrObj === 'object' && keyOrObj !== null) {
+        Object.assign(headers, keyOrObj);
+      } else if (typeof keyOrObj === 'string') {
+        headers[keyOrObj] = value;
+      }
+      return reqObj;
+    },
+    send(body) {
+      payload = body;
+      return reqObj;
+    },
+    async then(resolve, reject) {
+      try {
+        const fetchHeaders = { ...headers };
+        let bodyStr = undefined;
+        if (payload !== undefined) {
+          if (!fetchHeaders['Content-Type'] && !fetchHeaders['content-type']) {
+            fetchHeaders['Content-Type'] = 'application/json';
+          }
+          bodyStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+        }
+
+        const url = `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+        const res = await fetch(url, {
+          method,
+          headers: fetchHeaders,
+          body: bodyStr
+        });
+
+        const text = await res.text();
+        let body;
+        try {
+          body = JSON.parse(text);
+        } catch {
+          body = text;
+        }
+
+        resolve({
+          statusCode: res.status,
+          status: res.status,
+          body,
+          headers: Object.fromEntries(res.headers.entries())
+        });
+      } catch (err) {
+        reject(err);
+      }
+    }
+  };
+
+  return reqObj;
+}
+
+const request = {
+  get: (path) => makeRequest('GET', path),
+  post: (path) => makeRequest('POST', path),
+};
 
 // --- Supabase deterministic, recording mock ------------------------------------
 const { supabase } = require('../../backend/utils/supabase');
