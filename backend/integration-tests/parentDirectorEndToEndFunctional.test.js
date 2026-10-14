@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const { Pool } = require('C:/Users/acer/Downloads/D-ambassador-fix/node_modules/pg');
+const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
 // 1. CONFIGURATION STRICTEMENT LOCALE ET JETABLE

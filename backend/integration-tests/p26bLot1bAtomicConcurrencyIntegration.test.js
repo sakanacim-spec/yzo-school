@@ -35,53 +35,138 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { Pool } = require('pg');
 
-const EXPECTED_HOST = '127.0.0.1';
-const EXPECTED_PORT = '54329';
-const EXPECTED_TARGET_DB = 'yziow_disposable_test_p26b';
+// Définition des configurations autorisées en liste blanche stricte
+const ALLOWED_TARGETS = [
+    {
+        name: 'Local Disposable Docker Container',
+        hosts: ['127.0.0.1'],
+        ports: ['54329'],
+        databases: ['yziow_disposable_test_p26b']
+    },
+    {
+        name: 'CI GitHub Actions PostgreSQL Service',
+        hosts: ['localhost', '127.0.0.1'],
+        ports: ['5432'],
+        databases: ['yzo_test'],
+        requiresCI: true
+    }
+];
 
-const migrationSqlPath = path.resolve(__dirname, '../scripts/migration_p26_b_link_approval_foundation.sql');
-
-test('P26-B Lot 1B — Banc de validation PostgreSQL sous concurrence multi-clients', async (t) => {
-    const databaseUrl = (process.env.DATABASE_URL || '').trim();
-
-    if (!databaseUrl) {
-        assert.fail(
-            'POSTGRES_TEST_BLOCKED: Aucune instance PostgreSQL locale accessible (DATABASE_URL non défini). ' +
-            `Ce banc de test requiert l'URL exacte : postgresql://postgres:postgres@${EXPECTED_HOST}:${EXPECTED_PORT}/${EXPECTED_TARGET_DB}?is_disposable_test_db=true`
-        );
+function validateDatabaseUrlSecurity(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) {
+        assert.fail('POSTGRES_TEST_BLOCKED: DATABASE_URL non défini.');
     }
 
-    // Garde-fous de sécurité stricts et infranchissables
-    let parsedUrl;
+    let parsed;
     try {
-        parsedUrl = new URL(databaseUrl);
+        parsed = new URL(rawUrl.trim());
     } catch {
         assert.fail('POSTGRES_TEST_BLOCKED: Format DATABASE_URL invalide.');
     }
 
-    const hostname = parsedUrl.hostname.toLowerCase();
-    if (hostname !== EXPECTED_HOST) {
+    // 1. Contrôle strict du protocole
+    const protocol = (parsed.protocol || '').toLowerCase();
+    if (protocol !== 'postgres:' && protocol !== 'postgresql:') {
+        assert.fail(
+            `SECURITY_VIOLATION: Protocole non autorisé (${protocol}). ` +
+            `Seuls les protocoles postgres: et postgresql: sont autorisés.`
+        );
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+    const port = parsed.port || '5432';
+    const dbName = (parsed.pathname || '').replace(/^\//, '');
+
+    // 2. Refus formel des bases système ou de production
+    const FORBIDDEN_DATABASES = ['postgres', 'production', 'prod', 'yziow_prod', 'yziow_production', 'supabase'];
+    if (FORBIDDEN_DATABASES.includes(dbName.toLowerCase())) {
+        assert.fail(
+            `SECURITY_VIOLATION: Base de données de production ou système interdite (${dbName}).`
+        );
+    }
+
+    // 3. Refus catégorique des domaines distants, URLs Supabase et IPs publiques
+    if (
+        hostname.includes('supabase.co') ||
+        hostname.includes('amazonaws.com') ||
+        hostname.includes('azure.com') ||
+        hostname.includes('render.com') ||
+        hostname.includes('vercel.app') ||
+        (!['127.0.0.1', 'localhost'].includes(hostname))
+    ) {
         assert.fail(
             `SECURITY_VIOLATION: Hôte non autorisé (${hostname}). ` +
-            `Ce banc de test exige formellement l'hôte exact ${EXPECTED_HOST}.`
+            `Seules l'adresse locale 127.0.0.1 et localhost sont admises.`
         );
     }
 
-    const port = parsedUrl.port || '5432';
-    if (port !== EXPECTED_PORT) {
+    // 4. Vérification contre la liste blanche des environnements autorisés
+    const matched = ALLOWED_TARGETS.find(target => {
+        const hostOk = target.hosts.includes(hostname);
+        const portOk = target.ports.includes(port);
+        const dbOk = target.databases.includes(dbName);
+        if (target.requiresCI) {
+            return hostOk && portOk && dbOk && process.env.CI === 'true';
+        }
+        return hostOk && portOk && dbOk;
+    });
+
+    if (!matched) {
         assert.fail(
-            `SECURITY_VIOLATION: Port non autorisé (${port}). ` +
-            `Ce banc de test exige formellement le port dédié ${EXPECTED_PORT}.`
+            `SECURITY_VIOLATION: Configuration de test non autorisée ` +
+            `[host=${hostname}, port=${port}, db=${dbName}, CI=${process.env.CI}]. ` +
+            `Ce banc exige formellement le conteneur local (127.0.0.1:54329/yziow_disposable_test_p26b) ` +
+            `ou le service CI (localhost:5432/yzo_test avec CI=true confirmé).`
         );
     }
 
-    const dbName = (parsedUrl.pathname || '').replace(/^\//, '');
-    if (dbName !== EXPECTED_TARGET_DB) {
-        assert.fail(
-            `SECURITY_VIOLATION: Base de données non autorisée (${dbName}). ` +
-            `Ce banc de test exige formellement la base exacte ${EXPECTED_TARGET_DB}.`
+    return { hostname, port, dbName, targetName: matched.name };
+}
+
+const migrationSqlPath = path.resolve(__dirname, '../scripts/migration_p26_b_link_approval_foundation.sql');
+
+test('P26-B Lot 1B — Banc de validation PostgreSQL sous concurrence multi-clients', async (t) => {
+    // Tests négatifs de conformité du garde-fou
+    await t.test('Garde-fou : Rejet formel des protocoles, domaines distants, URLs Supabase et configurations non autorisées', () => {
+        // Rejet de protocole non-postgres
+        assert.throws(
+            () => validateDatabaseUrlSecurity('http://127.0.0.1:54329/yziow_disposable_test_p26b'),
+            /SECURITY_VIOLATION: Protocole non autorisé/
         );
-    }
+        assert.throws(
+            () => validateDatabaseUrlSecurity('mysql://127.0.0.1:54329/yziow_disposable_test_p26b'),
+            /SECURITY_VIOLATION: Protocole non autorisé/
+        );
+
+        // Rejet des bases de production ou système
+        assert.throws(
+            () => validateDatabaseUrlSecurity('postgresql://postgres:pwd@127.0.0.1:54329/postgres'),
+            /SECURITY_VIOLATION: Base de données de production ou système interdite/
+        );
+        assert.throws(
+            () => validateDatabaseUrlSecurity('postgresql://postgres:pwd@127.0.0.1:54329/production'),
+            /SECURITY_VIOLATION: Base de données de production ou système interdite/
+        );
+
+        // Rejet des hôtes distants et Supabase
+        assert.throws(
+            () => validateDatabaseUrlSecurity('postgresql://postgres:pwd@db.supabase.co:5432/yzo_test'),
+            /SECURITY_VIOLATION/
+        );
+        assert.throws(
+            () => validateDatabaseUrlSecurity('postgresql://postgres:pwd@192.168.1.50:5432/yzo_test'),
+            /SECURITY_VIOLATION/
+        );
+
+        // Rejet port / base discordant
+        assert.throws(
+            () => validateDatabaseUrlSecurity('postgresql://postgres:pwd@127.0.0.1:5432/yziow_disposable_test_p26b'),
+            /SECURITY_VIOLATION/
+        );
+    });
+
+    const databaseUrl = (process.env.DATABASE_URL || '').trim();
+    validateDatabaseUrlSecurity(databaseUrl);
 
     const pool = new Pool({
         connectionString: databaseUrl,

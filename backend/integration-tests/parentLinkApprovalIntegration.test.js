@@ -78,6 +78,20 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
 
         // Pré-requis de schéma global (nécessaires pour le modèle écosystème YZIOW P24/P25)
         await client.query(`
+            -- Table maître des établissements
+            CREATE TABLE IF NOT EXISTS public.schools (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                slug TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                country TEXT DEFAULT 'BJ',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+
+            INSERT INTO public.schools (slug, name)
+            VALUES ('ecole_a', 'École A Test'), ('ecole_b', 'École B Test')
+            ON CONFLICT (slug) DO NOTHING;
+
             CREATE TABLE IF NOT EXISTS public.global_students (
                 student_global_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
