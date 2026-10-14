@@ -476,36 +476,53 @@ async function unlinkStudentFromParent(req, res) {
     }
 
     const isSchoolAdmin = ['admin', 'directeur', 'directeur_general', 'superadmin'].includes(role);
-    const parentId = isSchoolAdmin ? (req.query.parentId || tokenUserId) : tokenUserId;
+    if (!isSchoolAdmin && req.query && req.query.parentId && req.query.parentId !== tokenUserId) {
+        return res.status(403).json({ error: 'Accès non autorisé.' });
+    }
+    const parentId = isSchoolAdmin ? ((req.query && req.query.parentId) || tokenUserId) : tokenUserId;
 
     try {
-        // P25-A : Désactiver le lien global D'ABORD sans toucher à first_linked_at
-        const { data: mapping } = await supabase
-            .from('student_global_mappings')
-            .select('student_global_id')
-            .eq('school_slug', schoolSlug)
-            .eq('student_local_id', String(studentId))
-            .maybeSingle();
-
-        if (mapping) {
-            const { error: updErr } = await supabase
-                .from('parent_child_links')
-                .update({ current_link_active: false })
-                .eq('parent_ref', String(parentId))
-                .eq('student_global_id', mapping.student_global_id);
-            if (updErr) throw updErr;
+        if (typeof supabase.rpc !== 'function') {
+            console.error('Unlink Error: supabase.rpc non disponible.');
+            return res.status(500).json({ error: 'Service de détachement non disponible.' });
         }
 
-        // Ensuite, suppression locale
-        const { error } = await supabase
-            .from(`parent_student_${schoolSlug}`)
-            .delete()
-            .eq('parent_id', parentId)
-            .eq('student_id', studentId);
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('unlink_parent_student_local', {
+            p_school_slug: schoolSlug,
+            p_parent_id: parentId,
+            p_student_id: String(studentId),
+            p_actor_id: tokenUserId
+        });
 
-        if (error) throw error;
+        if (rpcErr) {
+            console.error('Unlink RPC Error:', rpcErr.message || rpcErr);
+            return res.status(500).json({ error: 'Erreur lors de la suppression du lien.' });
+        }
 
-        return res.json({ message: "Enfant retiré avec succès." });
+        if (!rpcData || typeof rpcData !== 'object') {
+            console.error('Unlink Error: Réponse RPC invalide.');
+            return res.status(500).json({ error: 'Réponse RPC invalide.' });
+        }
+
+        if (!rpcData.success) {
+            if (rpcData.error === 'LINK_NOT_FOUND') {
+                return res.status(404).json({ error: rpcData.message || 'Lien introuvable.' });
+            }
+            if (rpcData.error === 'UNAUTHORIZED_ACTOR' || rpcData.error === 'ACTOR_NOT_IN_SCHOOL') {
+                return res.status(403).json({ error: rpcData.message || 'Accès non autorisé.' });
+            }
+            if (rpcData.error === 'CONCURRENCY_LOCK_TIMEOUT') {
+                return res.status(409).json({ error: rpcData.message || 'Conflit de verrouillage temporaire.' });
+            }
+            return res.status(500).json({ error: rpcData.message || 'Erreur lors de la suppression du lien.' });
+        }
+
+        return res.json({
+            message: "Enfant retiré avec succès.",
+            local_deleted: rpcData.local_deleted,
+            has_other_legitimate_link: rpcData.has_other_legitimate_link,
+            global_link_deactivated: rpcData.global_link_deactivated
+        });
     } catch (err) {
         console.error('Unlink Error:', err.message);
         return res.status(500).json({ error: 'Erreur lors de la suppression du lien.' });

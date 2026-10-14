@@ -34,26 +34,16 @@ async function syncFromFrontend(req, res) {
     const tbl = (name) => `${name}_${schoolSlug}`;
 
     try {
-        if (replace) {
-            if (!Array.isArray(students) || students.length === 0) {
-                return res.status(400).json({ error: "Remplacement global refusé : la liste des élèves fournie est vide." });
-            }
-            console.log('🧹 [Sync] Mode Remplacer activé : Nettoyage universel de la base locale...');
-            
-            await supabase.from(tbl('presences')).delete().neq('id', '00000000-0000-0000-0000-000000000000');
-            await supabase.from(tbl('devoirs')).delete().neq('id', '00000000-0000-0000-0000-000000000000');
-            await supabase.from(tbl('parent_student')).delete().neq('student_id', '00000000-0000-0000-0000-000000000000');
-            await supabase.from(tbl('payments')).delete().neq('id', '00000000-0000-0000-0000-000000000000');
-            
-            const { error: err4 } = await supabase.from(tbl('students')).delete().neq('id', '00000000-0000-0000-0000-000000000000');
-            if (err4) throw new Error('Le serveur Supabase refuse la suppression : ' + err4.message);
-
-            console.log('✨ [Sync] Base de données cloud remise à zéro (école uniquement).');
+        if (replace && (!Array.isArray(students) || students.length === 0)) {
+            return res.status(400).json({ error: "Remplacement global refusé : la liste des élèves fournie est vide." });
         }
 
         const CHUNK_SIZE = 500;
+        let studentData = [];
+        let allPayments = [];
+        const syncPhoneErrors = [];
 
-        // --- 1. Sync Students ---
+        // --- 1. Sync Students & Payments ---
         if (students.length > 0) {
             // Déduplication SÉMANTIQUE (Métier) pour éviter que le Cloud n'accumule des doublons
             // avec des IDs techniques différents.
@@ -84,9 +74,7 @@ async function syncFromFrontend(req, res) {
                 if (sch) schoolCountryCode = sch.country;
             }
 
-            const syncPhoneErrors = [];
-
-            const studentData = uniqueStudents.map((s, idx) => {
+            studentData = uniqueStudents.map((s, idx) => {
                 const rawPhone = s.telephone || s.telephone_parent || null;
                 let normPhone = null;
                 if (rawPhone && String(rawPhone).trim()) {
@@ -120,14 +108,7 @@ async function syncFromFrontend(req, res) {
                 };
             });
 
-            for (let i = 0; i < studentData.length; i += CHUNK_SIZE) {
-                const chunk = studentData.slice(i, i + CHUNK_SIZE);
-                const { error: upsertErr } = await supabase.from(tbl('students')).upsert(chunk, { onConflict: 'id' });
-                if (upsertErr) throw upsertErr;
-            }
-
-            // --- 2. Sync Payments ---
-            const allPayments = [];
+            // Extraire les paiements des élèves
             students.forEach(s => {
                 if (Array.isArray(s.historiquesPaiements)) {
                     s.historiquesPaiements.forEach(p => {
@@ -142,10 +123,50 @@ async function syncFromFrontend(req, res) {
                     });
                 }
             });
-            if (allPayments.length > 0) {
-                for (let i = 0; i < allPayments.length; i += CHUNK_SIZE) {
-                    const chunk = allPayments.slice(i, i + CHUNK_SIZE);
-                    await supabase.from(tbl('payments')).upsert(chunk, { onConflict: 'id' });
+
+            if (replace) {
+                console.log('🧹 [Sync] Mode Remplacer activé : Substitution transactionnelle atomique...');
+                if (typeof supabase.rpc !== 'function') {
+                    return res.status(500).json({ error: "Service de remplacement atomique indisponible." });
+                }
+
+                const { data: rpcRes, error: rpcErr } = await supabase.rpc('sync_replace_school_data_atomically', {
+                    p_school_slug: schoolSlug,
+                    p_actor_id: req.user.id,
+                    p_students_payload: studentData,
+                    p_payments_payload: allPayments
+                });
+
+                if (rpcErr) {
+                    console.error('Échec RPC sync_replace_school_data_atomically:', rpcErr.message);
+                    return res.status(500).json({ error: "Erreur lors du remplacement : " + rpcErr.message });
+                }
+
+                if (!rpcRes || rpcRes.success !== true) {
+                    const errCode = rpcRes?.error;
+                    const errMsg = rpcRes?.message || 'Erreur lors du remplacement atomique.';
+                    if (errCode === 'CONCURRENCY_LOCK_TIMEOUT') {
+                        return res.status(409).json({ error: errMsg });
+                    }
+                    if (errCode === 'UNAUTHORIZED_ACTOR') {
+                        return res.status(403).json({ error: errMsg });
+                    }
+                    return res.status(500).json({ error: errMsg });
+                }
+
+                console.log('✨ [Sync] Remplacement atomique réussi :', rpcRes);
+            } else {
+                for (let i = 0; i < studentData.length; i += CHUNK_SIZE) {
+                    const chunk = studentData.slice(i, i + CHUNK_SIZE);
+                    const { error: upsertErr } = await supabase.from(tbl('students')).upsert(chunk, { onConflict: 'id' });
+                    if (upsertErr) throw upsertErr;
+                }
+
+                if (allPayments.length > 0) {
+                    for (let i = 0; i < allPayments.length; i += CHUNK_SIZE) {
+                        const chunk = allPayments.slice(i, i + CHUNK_SIZE);
+                        await supabase.from(tbl('payments')).upsert(chunk, { onConflict: 'id' });
+                    }
                 }
             }
 
@@ -889,17 +910,65 @@ async function deleteNote(req, res) {
 }
 
 async function deleteStudent(req, res) {
-    if (!req.user || !['admin', 'directeur', 'directeur_general', 'comptable'].includes(req.user.role)) return res.status(403).json({ error: 'Non autorisé.' });
+    if (!req.user || !['admin', 'directeur', 'directeur_general', 'superadmin'].includes(req.user.role)) {
+        return res.status(403).json({ error: 'Non autorisé.' });
+    }
+    const schoolSlug = req.user.schoolSlug;
+    if (!schoolSlug) {
+        return res.status(403).json({ error: 'Établissement non identifié.' });
+    }
+    const studentId = req.params.id;
+    if (!studentId || typeof studentId !== 'string' || !studentId.trim()) {
+        return res.status(400).json({ error: 'Identifiant élève requis.' });
+    }
+
     try {
-        await supabase.from(`parent_student_${req.user.schoolSlug}`).delete().eq('student_id', req.params.id);
-        await supabase.from(`payments_${req.user.schoolSlug}`).delete().eq('student_id', req.params.id);
-        await supabase.from(`presences_${req.user.schoolSlug}`).delete().eq('student_id', req.params.id);
-        await supabase.from(`notes_${req.user.schoolSlug}`).delete().eq('eleve_id', req.params.id);
-        const { error } = await supabase.from(`students_${req.user.schoolSlug}`).delete().eq('id', req.params.id);
-        if (error) throw error;
-        return res.json({ success: true, message: 'Élève supprimé.' });
+        if (typeof supabase.rpc !== 'function') {
+            console.error("Erreur: supabase.rpc indisponible pour delete_student_local_atomically.");
+            return res.status(500).json({
+                error: "Service de suppression transactionnelle indisponible. Suppression de l'élève interrompue."
+            });
+        }
+
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc('delete_student_local_atomically', {
+            p_school_slug: schoolSlug,
+            p_student_id: String(studentId).trim(),
+            p_actor_id: req.user.id
+        });
+
+        if (rpcErr) {
+            console.error('Échec technique lors de l\'exécution du service de suppression transactionnelle.');
+            return res.status(500).json({ error: "Erreur lors de la suppression de l'élève." });
+        }
+
+        if (!rpcRes || typeof rpcRes !== 'object') {
+            return res.status(500).json({ error: "Réponse invalide du service de suppression." });
+        }
+
+        if (!rpcRes.success) {
+            if (rpcRes.error === 'STUDENT_NOT_FOUND') {
+                return res.status(404).json({ error: "Élève introuvable dans cet établissement." });
+            }
+            if (rpcRes.error === 'UNAUTHORIZED_ACTOR' || rpcRes.error === 'ACTOR_NOT_IN_SCHOOL') {
+                return res.status(403).json({ error: "Non autorisé." });
+            }
+            if (rpcRes.error === 'CONCURRENCY_LOCK_TIMEOUT') {
+                return res.status(409).json({ error: "Conflit de verrouillage temporaire. Veuillez réessayer." });
+            }
+            return res.status(500).json({ error: "Erreur lors de la suppression de l'élève." });
+        }
+
+        return res.json({
+            success: true,
+            message: 'Élève supprimé.',
+            student_id: rpcRes.student_id,
+            deleted_parents_count: rpcRes.deleted_parents_count,
+            global_links_deactivated_count: rpcRes.global_links_deactivated_count,
+            global_links_preserved_count: rpcRes.global_links_preserved_count
+        });
     } catch (err) {
-        return res.status(500).json({ error: err.message });
+        console.error('Exception inattendue interceptée lors de la suppression de l\'élève.');
+        return res.status(500).json({ error: "Erreur lors de la suppression de l'élève." });
     }
 }
 

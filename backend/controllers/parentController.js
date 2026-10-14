@@ -779,7 +779,8 @@ async function getGlobalPortfolio(req, res) {
         const { data: links, error: linksErr } = await supabase
             .from('parent_child_links')
             .select('student_global_id, first_linked_at')
-            .eq('parent_ref', parentId);
+            .eq('parent_ref', parentId)
+            .eq('current_link_active', true);
 
         if (linksErr) {
             console.error('Erreur récupération portfolio links:', linksErr);
@@ -988,6 +989,118 @@ async function getGlobalPortfolio(req, res) {
     }
 }
 
+/**
+ * GET /api/parent/link-requests
+ * Permet au parent authentifié de suivre ses demandes de rattachement parent-élève.
+ */
+async function getParentLinkRequests(req, res) {
+    const { id: parentId, role } = req.user || {};
+
+    if (!parentId) {
+        return res.status(401).json({ error: 'Non authentifié.' });
+    }
+
+    if (role !== 'parent') {
+        return res.status(403).json({ error: 'Permission refusée. Accès réservé aux parents.' });
+    }
+
+    // Pagination stricte (décimaux positifs uniquement)
+    const DECIMAL_POSITIVE_INT = /^[1-9][0-9]*$/;
+    const DEFAULT_PAGE = 1;
+    const DEFAULT_LIMIT = 20;
+    const MAX_LIMIT = 100;
+
+    const parsePositiveInt = (raw, defaultValue) => {
+        if (raw === undefined) return defaultValue;
+        if (typeof raw !== 'string' || !DECIMAL_POSITIVE_INT.test(raw)) return null;
+        const val = Number(raw);
+        return Number.isSafeInteger(val) ? val : null;
+    };
+
+    const page = parsePositiveInt(req.query.page, DEFAULT_PAGE);
+    const limit = parsePositiveInt(req.query.limit, DEFAULT_LIMIT);
+
+    if (page === null || limit === null || limit > MAX_LIMIT) {
+        return res.status(400).json({ error: 'Paramètres de pagination invalides.' });
+    }
+
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    // Colonnes strictement autorisées pour le parent (ne pas exposer decided_by, revoked_by, colonnes techniques)
+    const SELECT_COLS = 'id,school_slug,student_name,student_class,status,requested_at,decided_at,rejection_reason,rejection_reason_code';
+
+    try {
+        // Comptage total des demandes du parent
+        const { count: total, error: countErr } = await supabase
+            .from('parent_student_link_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('parent_id', parentId);
+
+        if (countErr) throw countErr;
+
+        // Récupération paginée triée par date décroissante
+        const { data: rawRequests, error: dataErr } = await supabase
+            .from('parent_student_link_requests')
+            .select(SELECT_COLS)
+            .eq('parent_id', parentId)
+            .order('requested_at', { ascending: false })
+            .range(from, to);
+
+        if (dataErr) throw dataErr;
+
+        const requestsList = rawRequests || [];
+
+        // Enrichissement des noms d'écoles via la table schools (colonnes réelles : slug, name)
+        const distinctSlugs = [...new Set(requestsList.map(r => r.school_slug).filter(Boolean))];
+        const schoolNamesBySlug = {};
+
+        if (distinctSlugs.length > 0) {
+            try {
+                const { data: schoolsData, error: sErr } = await supabase
+                    .from('schools')
+                    .select('slug, name')
+                    .in('slug', distinctSlugs);
+
+                if (!sErr && Array.isArray(schoolsData)) {
+                    schoolsData.forEach(s => {
+                        if (s && s.slug) schoolNamesBySlug[s.slug] = s.name;
+                    });
+                }
+            } catch (sEx) {
+                console.warn('[getParentLinkRequests] Échec enrichissement schools (non bloquant):', sEx.message);
+            }
+        }
+
+        // Formatage final épuré
+        const formattedRequests = requestsList.map(req => {
+            const isRejected = req.status === 'rejected';
+            return {
+                id: req.id,
+                school_slug: req.school_slug,
+                school_name: schoolNamesBySlug[req.school_slug] || req.school_slug,
+                student_name: req.student_name || null,
+                student_class: req.student_class || null,
+                status: req.status,
+                requested_at: req.requested_at,
+                decided_at: req.decided_at || null,
+                rejection_reason: isRejected ? (req.rejection_reason || null) : null,
+                rejection_reason_code: isRejected ? (req.rejection_reason_code || null) : null
+            };
+        });
+
+        return res.status(200).json({
+            total: total || 0,
+            page,
+            limit,
+            requests: formattedRequests
+        });
+    } catch (err) {
+        console.error('[getParentLinkRequests] Erreur serveur:', err.message);
+        return res.status(500).json({ error: 'Erreur serveur lors de la récupération de vos demandes de rattachement.' });
+    }
+}
+
 module.exports = {
     getDashboard,
     getPayments,
@@ -999,5 +1112,6 @@ module.exports = {
     adminDeleteAccount,
     getParentData,
     toggleDevoirComplete,
-    getGlobalPortfolio
+    getGlobalPortfolio,
+    getParentLinkRequests
 };

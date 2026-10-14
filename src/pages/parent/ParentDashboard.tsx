@@ -14,6 +14,7 @@ import { SupportModal } from '../../components/SupportModal';
 import { ParentPackGuard } from '../../components/ParentPackGuard';
 import { ParentPackPayment } from '../../components/ParentPackPayment';
 import { ParentGlobalPortfolio } from '../../components/ParentGlobalPortfolio';
+import { ParentLinkRequests } from '../../components/ParentLinkRequests';
 import { chatApi } from '../../services/chatApi';
 import { isToday, isTomorrow, isPast, isValid } from 'date-fns';
 import { t } from '../../i18n';
@@ -360,6 +361,7 @@ export const ParentDashboard: React.FC = () => {
     // Parent Pack payment modal state
     const [showParentPackModal, setShowParentPackModal] = useState(false);
     const [parentPackStudentId, setParentPackStudentId] = useState<string>('');
+    const [linkRequestsRefreshKey, setLinkRequestsRefreshKey] = useState<number>(0);
 
     const fetchData = useCallback(async () => {
         if (children.length > 0) return;
@@ -679,6 +681,9 @@ export const ParentDashboard: React.FC = () => {
             {/* ── PORTEFEUILLE DES ENFANTS ASSOCIÉS (P25-T.5b) ── */}
             <ParentGlobalPortfolio />
 
+            {/* ── SUIVI DES DEMANDES DE RATTACHEMENT (P26-B Lot 3C) ── */}
+            <ParentLinkRequests refreshTrigger={linkRequestsRefreshKey} />
+
             {/* â•â• TOTAUX GLOBAUX â•â• */}
             {children.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -741,7 +746,7 @@ export const ParentDashboard: React.FC = () => {
 
         </div>
 
-        <LinkStudentModal isOpen={isLinkModalOpen} onClose={() => setIsLinkModalOpen(false)} onSuccess={fetchData} />
+        <LinkStudentModal isOpen={isLinkModalOpen} onClose={() => setIsLinkModalOpen(false)} onSuccess={() => { fetchData(); setLinkRequestsRefreshKey(k => k + 1); }} />
         <SupportModal isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} onSelect={async (role) => { try { await chatApi.initiateConversation(undefined, role); useStore.getState().setCurrentPage('chat'); } catch {} finally { setShowSupportModal(false); } }} />
         </>
     );

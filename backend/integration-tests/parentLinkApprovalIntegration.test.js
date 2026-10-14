@@ -56,6 +56,20 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
     }
 
     try {
+        // Attente de stabilisation si une autre suite (ex. Lot 6B) est en cours de transaction active
+        const waitStart = Date.now();
+        while (Date.now() - waitStart < 10000) {
+            const { rows } = await client.query(`
+                SELECT count(*)::int AS active_tx
+                FROM pg_stat_activity
+                WHERE datname = current_database()
+                  AND pid <> pg_backend_pid()
+                  AND xact_start IS NOT NULL
+            `);
+            if (rows[0].active_tx === 0) break;
+            await new Promise((r) => setTimeout(r, 100));
+        }
+
         // Isolation complète dans une transaction avec ROLLBACK final
         await client.query('BEGIN');
 
@@ -78,6 +92,21 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
 
         // Pré-requis de schéma global (nécessaires pour le modèle écosystème YZIOW P24/P25)
         await client.query(`
+            -- Table maître des établissements
+            CREATE TABLE IF NOT EXISTS public.schools (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                slug TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                country TEXT DEFAULT 'BJ',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                affiliate_id UUID NULL
+            );
+
+            INSERT INTO public.schools (slug, name)
+            VALUES ('ecole_a', 'École A Test'), ('ecole_b', 'École B Test')
+            ON CONFLICT (slug) DO NOTHING;
+
             CREATE TABLE IF NOT EXISTS public.global_students (
                 student_global_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -113,9 +142,18 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                 full_name TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS public.students_ecole_a (
+                id TEXT PRIMARY KEY,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                classe TEXT NOT NULL,
+                telephone_parent_normalized TEXT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS public.parent_student_ecole_a (
                 parent_id UUID NOT NULL,
                 student_id TEXT NOT NULL,
+                source_request_id UUID NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                 PRIMARY KEY (parent_id, student_id)
             );
@@ -127,9 +165,18 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                 full_name TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS public.students_ecole_b (
+                id TEXT PRIMARY KEY,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                classe TEXT NOT NULL,
+                telephone_parent_normalized TEXT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS public.parent_student_ecole_b (
                 parent_id UUID NOT NULL,
                 student_id TEXT NOT NULL,
+                source_request_id UUID NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                 PRIMARY KEY (parent_id, student_id)
             );
@@ -194,6 +241,10 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
             INSERT INTO public.profiles_ecole_a (id, role, full_name) VALUES
             ('${directorAId}', 'directeur', 'Directeur École A'),
             ('${teacherAId}', 'enseignant', 'Enseignant École A');
+
+            INSERT INTO public.students_ecole_a (id, nom, prenom, classe, telephone_parent_normalized) VALUES
+            ('${studentA1}', 'Élève', 'A1', '6ème A', '+22997000001'),
+            ('${studentA2}', 'Élève', 'A2', '5ème B', '+22997000002');
 
             INSERT INTO public.profiles_ecole_b (id, role, full_name) VALUES
             ('${directorBId}', 'directeur', 'Directeur École B');
@@ -323,6 +374,11 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
         // C. REJET ET RÉVOCATION
         let rejectReqId;
         await t.test('C.1. Rejet nominal avec motif obligatoire', async () => {
+            await client.query(`
+                INSERT INTO public.students_ecole_a (id, nom, prenom, classe) VALUES ('STU-UNKNOWN', 'Inconnu', 'Eleve', '6eme')
+                ON CONFLICT (id) DO NOTHING;
+            `);
+
             const insertRes = await client.query(`
                 INSERT INTO public.parent_student_link_requests (
                     school_slug, parent_id, student_id, parent_phone_normalized, parent_name, status
@@ -414,7 +470,8 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                     `, [badSlug]);
                 } catch (err) {
                     checkFailed = true;
-                    assert.match(err.message, /chk_school_slug_format/, `Le slug "${badSlug}" doit violer chk_school_slug_format`);
+                    assert.strictEqual(err.code, '23514', `Le slug "${badSlug}" doit lever le SQLSTATE 23514`);
+                    assert.strictEqual(err.constraint, 'chk_school_slug_format', `Le slug "${badSlug}" doit cibler la contrainte chk_school_slug_format`);
                 } finally {
                     await client.query('ROLLBACK TO SAVEPOINT sp_check_slug;');
                 }
@@ -433,6 +490,11 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
 
         // E. CONTRAINTES D'UNICITÉ ET ANTI-CONCURRENCE
         await t.test('E.1. Index partiel : interdiction de doubler une demande pending', async () => {
+            await client.query(`
+                INSERT INTO public.students_ecole_a (id, nom, prenom, classe) VALUES ('STU-CONCURRENCE', 'Concurrence', 'Eleve', '6eme')
+                ON CONFLICT (id) DO NOTHING;
+            `);
+
             await client.query(`
                 INSERT INTO public.parent_student_link_requests (
                     school_slug, parent_id, student_id, parent_phone_normalized, parent_name, status

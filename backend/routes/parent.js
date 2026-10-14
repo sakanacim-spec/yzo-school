@@ -11,7 +11,8 @@ const {
     adminDeleteAccount,
     getParentData,
     toggleDevoirComplete,
-    getGlobalPortfolio
+    getGlobalPortfolio,
+    getParentLinkRequests
 } = require('../controllers/parentController');
 
 // Routes protégées
@@ -19,6 +20,7 @@ router.use(authenticateToken);
 
 router.get('/data', getParentData);  // Sync temps réel pour parent
 router.get('/global-children', getGlobalPortfolio);
+router.get('/link-requests', getParentLinkRequests);
 router.get('/dashboard', getDashboard);
 router.get('/payments/:studentId', getPayments);
 router.get('/presences/:studentId', getPresences);
