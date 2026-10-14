@@ -56,6 +56,20 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
     }
 
     try {
+        // Attente de stabilisation si une autre suite (ex. Lot 6B) est en cours de transaction active
+        const waitStart = Date.now();
+        while (Date.now() - waitStart < 10000) {
+            const { rows } = await client.query(`
+                SELECT count(*)::int AS active_tx
+                FROM pg_stat_activity
+                WHERE datname = current_database()
+                  AND pid <> pg_backend_pid()
+                  AND xact_start IS NOT NULL
+            `);
+            if (rows[0].active_tx === 0) break;
+            await new Promise((r) => setTimeout(r, 100));
+        }
+
         // Isolation complète dans une transaction avec ROLLBACK final
         await client.query('BEGIN');
 
@@ -85,7 +99,8 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                 name TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'active',
                 country TEXT DEFAULT 'BJ',
-                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                affiliate_id UUID NULL
             );
 
             INSERT INTO public.schools (slug, name)

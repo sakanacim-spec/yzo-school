@@ -276,77 +276,98 @@ test('P26-B Lot 1B — Banc de validation PostgreSQL sous concurrence multi-clie
         // =====================================================================
         // PHASE 0 : VÉRIFICATION ET INITIALISATION IDEMPOTENTE DU SCHÉMA CANONIQUE
         // =====================================================================
-        await client1.query(`
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon; END IF;
-                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated; END IF;
-                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role; END IF;
-                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'postgres') THEN CREATE ROLE postgres SUPERUSER; END IF;
-            END $$;
-        `);
+        // Attente de stabilisation si une autre suite (ex. Lot 6B) est en cours de transaction active
+        const waitStart = Date.now();
+        while (Date.now() - waitStart < 10000) {
+            const { rows } = await client1.query(`
+                SELECT count(*)::int AS active_tx
+                FROM pg_stat_activity
+                WHERE datname = current_database()
+                  AND pid <> pg_backend_pid()
+                  AND pid <> $1
+                  AND xact_start IS NOT NULL
+            `, [pid2]);
+            if (rows[0].active_tx === 0) break;
+            await new Promise((r) => setTimeout(r, 100));
+        }
 
-        await client1.query(`
-            -- Table maître des établissements
-            CREATE TABLE IF NOT EXISTS public.schools (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                slug TEXT NOT NULL UNIQUE,
-                name TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'active',
-                country TEXT DEFAULT 'BJ',
-                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-            );
+        await client1.query('SELECT pg_advisory_lock(999999);');
+        try {
+            await client1.query(`
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon; END IF;
+                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated; END IF;
+                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role; END IF;
+                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'postgres') THEN CREATE ROLE postgres SUPERUSER; END IF;
+                END $$;
+            `);
 
-            -- P24.1 : global_students
-            CREATE TABLE IF NOT EXISTS public.global_students (
-                student_global_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-            );
+            await client1.query(`
+                -- Table maître des établissements
+                CREATE TABLE IF NOT EXISTS public.schools (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    slug TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    country TEXT DEFAULT 'BJ',
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    affiliate_id UUID NULL
+                );
 
-            -- P24.2 : student_global_mappings
-            CREATE TABLE IF NOT EXISTS public.student_global_mappings (
-                mapping_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                school_slug TEXT NOT NULL,
-                student_local_id TEXT NOT NULL,
-                student_global_id UUID NOT NULL REFERENCES public.global_students(student_global_id),
-                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                UNIQUE (school_slug, student_local_id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_student_global_mappings_global_id 
-                ON public.student_global_mappings(student_global_id);
+                -- P24.1 : global_students
+                CREATE TABLE IF NOT EXISTS public.global_students (
+                    student_global_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
 
-            -- P24.3 : parent_child_links
-            CREATE TABLE IF NOT EXISTS public.parent_child_links (
-                parent_ref TEXT NOT NULL,
-                student_global_id UUID NOT NULL REFERENCES public.global_students(student_global_id),
-                first_linked_at TIMESTAMPTZ NULL,
-                current_link_active BOOLEAN NOT NULL DEFAULT true,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                PRIMARY KEY (parent_ref, student_global_id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_parent_child_links_parent_ref 
-                ON public.parent_child_links(parent_ref);
-            CREATE INDEX IF NOT EXISTS idx_parent_child_links_global_id 
-                ON public.parent_child_links(student_global_id);
+                -- P24.2 : student_global_mappings
+                CREATE TABLE IF NOT EXISTS public.student_global_mappings (
+                    mapping_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    school_slug TEXT NOT NULL,
+                    student_local_id TEXT NOT NULL,
+                    student_global_id UUID NOT NULL REFERENCES public.global_students(student_global_id),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    UNIQUE (school_slug, student_local_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_student_global_mappings_global_id
+                    ON public.student_global_mappings(student_global_id);
 
-            -- P25-T.2a : parent_student_identity_transfers
-            CREATE TABLE IF NOT EXISTS public.parent_student_identity_transfers (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                parent_ref TEXT NOT NULL,
-                student_global_id UUID NOT NULL REFERENCES public.global_students(student_global_id),
-                destination_school_slug TEXT NOT NULL,
-                destination_student_local_id TEXT NOT NULL,
-                status TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-            );
-        `);
+                -- P24.3 : parent_child_links
+                CREATE TABLE IF NOT EXISTS public.parent_child_links (
+                    parent_ref TEXT NOT NULL,
+                    student_global_id UUID NOT NULL REFERENCES public.global_students(student_global_id),
+                    first_linked_at TIMESTAMPTZ NULL,
+                    current_link_active BOOLEAN NOT NULL DEFAULT true,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    PRIMARY KEY (parent_ref, student_global_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_parent_child_links_parent_ref
+                    ON public.parent_child_links(parent_ref);
+                CREATE INDEX IF NOT EXISTS idx_parent_child_links_global_id
+                    ON public.parent_child_links(student_global_id);
 
-        // Application de la migration P26-B
-        const migrationSql = fs.readFileSync(migrationSqlPath, 'utf8');
-        const cleanSql = extractMigrationBody(migrationSql);
-        await client1.query(cleanSql);
+                -- P25-T.2a : parent_student_identity_transfers
+                CREATE TABLE IF NOT EXISTS public.parent_student_identity_transfers (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    parent_ref TEXT NOT NULL,
+                    student_global_id UUID NOT NULL REFERENCES public.global_students(student_global_id),
+                    destination_school_slug TEXT NOT NULL,
+                    destination_student_local_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+            `);
+
+            // Application de la migration P26-B
+            const migrationSql = fs.readFileSync(migrationSqlPath, 'utf8');
+            const cleanSql = extractMigrationBody(migrationSql);
+            await client1.query(cleanSql);
+        } finally {
+            await client1.query('SELECT pg_advisory_unlock(999999);');
+        }
 
         // Initialisation des écoles et tables scolaires associées
         await client1.query(
@@ -1044,9 +1065,18 @@ test('P26-B Lot 1B — Banc de validation PostgreSQL sous concurrence multi-clie
                     DROP TABLE IF EXISTS public.students_${slugB} CASCADE;
                     DROP TABLE IF EXISTS public.profiles_${slugB} CASCADE;
 
-                    DELETE FROM public.parent_student_link_requests WHERE school_slug IN ($1, $2);
-                    DELETE FROM public.student_global_mappings WHERE school_slug IN ($1, $2);
-                    DELETE FROM public.schools WHERE slug IN ($1, $2);
+                    DO $$
+                    BEGIN
+                        IF to_regclass('public.parent_student_link_requests') IS NOT NULL THEN
+                            DELETE FROM public.parent_student_link_requests WHERE school_slug IN ($1, $2);
+                        END IF;
+                        IF to_regclass('public.student_global_mappings') IS NOT NULL THEN
+                            DELETE FROM public.student_global_mappings WHERE school_slug IN ($1, $2);
+                        END IF;
+                        IF to_regclass('public.schools') IS NOT NULL THEN
+                            DELETE FROM public.schools WHERE slug IN ($1, $2);
+                        END IF;
+                    END $$;
                 `, [slugA, slugB]).catch(() => {});
             } catch (cleanupErr) {
                 console.error('Erreur nettoyage fixtures:', cleanupErr.message);

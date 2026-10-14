@@ -9,6 +9,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
@@ -24,6 +26,107 @@ process.env.PASSWORD_RESET_OTP_SECRET = 'test_otp_secret_p26b_functional_min_32_
 // Vérification absolue : AUCUN accès à Supabase Production
 if (process.env.SUPABASE_URL.includes('supabase.co')) {
     throw new Error('BLOCAGE_SECURITE: Supabase Production détecté dans SUPABASE_URL.');
+}
+
+const ALLOWED_TARGETS = [
+    {
+        name: 'Local Disposable Docker Container',
+        hosts: ['127.0.0.1'],
+        ports: ['54329'],
+        databases: ['yziow_disposable_test_p26b']
+    },
+    {
+        name: 'CI GitHub Actions PostgreSQL Service',
+        hosts: ['localhost', '127.0.0.1'],
+        ports: ['5432'],
+        databases: ['yzo_test'],
+        requiresCI: true
+    }
+];
+
+function validateDatabaseUrlSecurity(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) {
+        assert.fail('POSTGRES_TEST_BLOCKED: DATABASE_URL non défini.');
+    }
+
+    let parsed;
+    try {
+        parsed = new URL(rawUrl.trim());
+    } catch {
+        assert.fail('POSTGRES_TEST_BLOCKED: Format DATABASE_URL invalide.');
+    }
+
+    const protocol = (parsed.protocol || '').toLowerCase();
+    if (protocol !== 'postgres:' && protocol !== 'postgresql:') {
+        assert.fail(
+            `SECURITY_VIOLATION: Protocole non autorisé (${protocol}). ` +
+            `Seuls les protocoles postgres: et postgresql: sont autorisés.`
+        );
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+    const port = parsed.port || '5432';
+    const dbName = (parsed.pathname || '').replace(/^\//, '');
+
+    const FORBIDDEN_DATABASES = ['postgres', 'production', 'prod', 'yziow_prod', 'yziow_production', 'supabase'];
+    if (FORBIDDEN_DATABASES.includes(dbName.toLowerCase())) {
+        assert.fail(
+            `SECURITY_VIOLATION: Base de données de production ou système interdite (${dbName}).`
+        );
+    }
+
+    if (
+        hostname.includes('supabase.co') ||
+        hostname.includes('amazonaws.com') ||
+        hostname.includes('azure.com') ||
+        hostname.includes('render.com') ||
+        hostname.includes('vercel.app') ||
+        (!['127.0.0.1', 'localhost'].includes(hostname))
+    ) {
+        assert.fail(
+            `SECURITY_VIOLATION: Hôte non autorisé (${hostname}). ` +
+            `Seules l'adresse locale 127.0.0.1 et localhost sont admises.`
+        );
+    }
+
+    const matched = ALLOWED_TARGETS.find(target => {
+        const hostOk = target.hosts.includes(hostname);
+        const portOk = target.ports.includes(port);
+        const dbOk = target.databases.includes(dbName);
+        if (target.requiresCI) {
+            return hostOk && portOk && dbOk && process.env.CI === 'true';
+        }
+        return hostOk && portOk && dbOk;
+    });
+
+    if (!matched) {
+        assert.fail(
+            `SECURITY_VIOLATION: Configuration de test non autorisée ` +
+            `[host=${hostname}, port=${port}, db=${dbName}, CI=${process.env.CI}]. ` +
+            `Ce banc exige formellement le conteneur local (127.0.0.1:54329/yziow_disposable_test_p26b) ` +
+            `ou le service CI (localhost:5432/yzo_test avec CI=true confirmé).`
+        );
+    }
+
+    return { hostname, port, dbName, targetName: matched.name };
+}
+
+const migrationSqlPath = path.resolve(__dirname, '../scripts/migration_p26_b_link_approval_foundation.sql');
+
+function extractMigrationBody(sqlText) {
+    const lines = sqlText.split(/\r?\n/);
+    const firstBeginIdx = lines.findIndex(l => l.trim() === 'BEGIN;');
+    let lastCommitIdx = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim() === 'COMMIT;') {
+            lastCommitIdx = i;
+            break;
+        }
+    }
+    if (firstBeginIdx !== -1 && lastCommitIdx !== -1 && lastCommitIdx > firstBeginIdx) {
+        return lines.slice(firstBeginIdx + 1, lastCommitIdx).join('\n');
+    }
+    return sqlText;
 }
 
 const pool = new Pool({ connectionString: PG_URL });
@@ -339,10 +442,84 @@ test('YZIOW P26-B — Validation Fonctionnelle Complète Parent-Directeur', asyn
 
     // A. VÉRIFICATION PRÉALABLE ET INITIALISATION DU BANC LOCAL
     await t.test('0. Vérification préalable de l’environnement local jetable', async () => {
+        const target = validateDatabaseUrlSecurity(PG_URL);
         pgClient = await pool.connect();
         const res = await pgClient.query('SELECT current_database(), current_user;');
-        assert.equal(res.rows[0].current_database, 'yziow_disposable_test_p26b');
+        assert.equal(res.rows[0].current_database, target.dbName);
         assert.equal(res.rows[0].current_user, 'postgres');
+
+        // Attente de stabilisation si une autre suite (ex. Lot 6B) est en cours de transaction active
+        const waitStart = Date.now();
+        while (Date.now() - waitStart < 10000) {
+            const { rows } = await pgClient.query(`
+                SELECT count(*)::int AS active_tx
+                FROM pg_stat_activity
+                WHERE datname = current_database()
+                  AND pid <> pg_backend_pid()
+                  AND xact_start IS NOT NULL
+            `);
+            if (rows[0].active_tx === 0) break;
+            await new Promise((r) => setTimeout(r, 100));
+        }
+
+        await pgClient.query('SELECT pg_advisory_lock(999999);');
+        try {
+            // Pré-requis d'environnement et migration P26-B
+            await pgClient.query(`
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon; END IF;
+                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated; END IF;
+                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role; END IF;
+                END $$;
+
+                CREATE TABLE IF NOT EXISTS public.schools (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    slug TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    country TEXT DEFAULT 'BJ',
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    affiliate_id UUID NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS public.global_students (
+                    student_global_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+
+                CREATE TABLE IF NOT EXISTS public.student_global_mappings (
+                    mapping_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    school_slug TEXT NOT NULL,
+                    student_local_id TEXT NOT NULL,
+                    student_global_id UUID NOT NULL REFERENCES public.global_students(student_global_id),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    UNIQUE (school_slug, student_local_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS public.parent_child_links (
+                    parent_ref TEXT NOT NULL,
+                    student_global_id UUID NOT NULL REFERENCES public.global_students(student_global_id),
+                    first_linked_at TIMESTAMPTZ NULL,
+                    current_link_active BOOLEAN NOT NULL DEFAULT true,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    PRIMARY KEY (parent_ref, student_global_id)
+                );
+
+                INSERT INTO public.schools (slug, name) VALUES
+                    ('${SCHOOL_A}', 'École A ${RUN_ID}'),
+                    ('${SCHOOL_B}', 'École B ${RUN_ID}')
+                ON CONFLICT (slug) DO NOTHING;
+            `);
+
+            const migrationSql = fs.readFileSync(migrationSqlPath, 'utf8');
+            const cleanSql = extractMigrationBody(migrationSql);
+            await pgClient.query(cleanSql);
+        } finally {
+            await pgClient.query('SELECT pg_advisory_unlock(999999);');
+        }
 
         // Initialisation de l'adaptateur pour brancher Express sur la vraie base
         setupSupabaseAdapter(pgClient);
@@ -789,25 +966,50 @@ test('YZIOW P26-B — Validation Fonctionnelle Complète Parent-Directeur', asyn
         try {
             if (pgClient) {
                 await pgClient.query(`
-                    DELETE FROM public.parent_student_link_requests WHERE school_slug IN ('${SCHOOL_A}', '${SCHOOL_B}');
-                    DROP TABLE IF EXISTS public.parent_student_${SCHOOL_A};
-                    DROP TABLE IF EXISTS public.students_${SCHOOL_A};
-                    DROP TABLE IF EXISTS public.profiles_${SCHOOL_A};
-                    DROP TABLE IF EXISTS public.parent_student_${SCHOOL_B};
-                    DROP TABLE IF EXISTS public.students_${SCHOOL_B};
-                    DROP TABLE IF EXISTS public.profiles_${SCHOOL_B};
-                `);
-                pgClient.release();
+                    DO $$
+                    BEGIN
+                        IF to_regclass('public.parent_student_link_requests') IS NOT NULL THEN
+                            DELETE FROM public.parent_student_link_requests WHERE school_slug IN ('${SCHOOL_A}', '${SCHOOL_B}');
+                        END IF;
+                        IF to_regclass('public.schools') IS NOT NULL THEN
+                            DELETE FROM public.schools WHERE slug IN ('${SCHOOL_A}', '${SCHOOL_B}');
+                        END IF;
+                    END $$;
+                    DROP TABLE IF EXISTS public.parent_student_${SCHOOL_A} CASCADE;
+                    DROP TABLE IF EXISTS public.students_${SCHOOL_A} CASCADE;
+                    DROP TABLE IF EXISTS public.profiles_${SCHOOL_A} CASCADE;
+                    DROP TABLE IF EXISTS public.parent_student_${SCHOOL_B} CASCADE;
+                    DROP TABLE IF EXISTS public.students_${SCHOOL_B} CASCADE;
+                    DROP TABLE IF EXISTS public.profiles_${SCHOOL_B} CASCADE;
+                `).catch((e) => {
+                    console.error('Erreur nettoyage SQL:', e.message);
+                });
             }
-            if (server) {
-                if (typeof server.closeAllConnections === 'function') {
-                    server.closeAllConnections();
+        } finally {
+            try {
+                if (pgClient) {
+                    pgClient.release();
+                    pgClient = null;
                 }
-                await new Promise((resolve) => server.close(resolve));
+            } catch (relErr) {
+                console.error('Erreur release pgClient:', relErr.message);
             }
-            await pool.end();
-        } catch (e) {
-            console.error('Erreur nettoyage banc:', e.message);
+            try {
+                if (server) {
+                    if (typeof server.closeAllConnections === 'function') {
+                        server.closeAllConnections();
+                    }
+                    await new Promise((resolve) => server.close(resolve));
+                    server = null;
+                }
+            } catch (srvErr) {
+                console.error('Erreur close server:', srvErr.message);
+            }
+            try {
+                await pool.end();
+            } catch (poolErr) {
+                console.error('Erreur pool.end:', poolErr.message);
+            }
         }
     });
 });
