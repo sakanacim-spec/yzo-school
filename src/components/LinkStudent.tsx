@@ -69,13 +69,22 @@ export const LinkStudent: React.FC<LinkStudentProps> = ({ onComplete }) => {
         setLinking(true);
         setError('');
         try {
-            await parentApi.linkStudents(selectedIds);
-
-            setMessage(`${selectedIds.length} ${t(language as Language, 'parent.linkSuccessSuffix') || 'enfant(s) lié(s) avec succès !'}`);
+            const res: any = await parentApi.linkStudents(selectedIds);
+            let successMsg = "Votre demande de rattachement a été transmise à la direction de l'établissement pour validation.";
+            if (res?.status === 'already_linked') {
+                successMsg = "Cet enfant est déjà rattaché à votre compte.";
+            } else if (res?.status === 'pending_verification') {
+                successMsg = "Une demande de rattachement est déjà en cours de vérification.";
+            } else if (res?.status === 'pending') {
+                successMsg = "Votre demande de rattachement a été transmise à la direction de l'établissement pour validation.";
+            } else if (res?.message) {
+                successMsg = res.message;
+            }
+            setMessage(successMsg);
             if (successTimerRef.current) clearTimeout(successTimerRef.current);
             successTimerRef.current = setTimeout(() => {
                 onComplete();
-            }, 1500);
+            }, 1800);
         } catch (err: any) {
             if (err.error === 'TRANSFER_REQUIRED' && err.studentId && err.target_student_global_id) {
                 setTransferPrompt({ studentId: err.studentId, globalId: err.target_student_global_id });

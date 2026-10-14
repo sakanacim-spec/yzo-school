@@ -396,5 +396,41 @@ export const parentApi = {
         const data = await parseResponse(res);
         if (!res.ok) throw data;
         return validateGlobalPortfolioResponse(data);
+    },
+
+    // ── Suivi des demandes de rattachement parent-élève (P26-B Lot 3C) ──
+    getLinkRequests: async (page = 1, limit = 20): Promise<ParentLinkRequestsResponse> => {
+        const params = new URLSearchParams({
+            page: String(page),
+            limit: String(limit)
+        });
+        const res = await fetch(`${API_URL}/parent/link-requests?${params.toString()}`, {
+            headers: getHeaders()
+        });
+        const data = await parseResponse(res);
+        if (!res.ok) throw data;
+        return data;
     }
 };
+
+export type ParentLinkRequestStatus = 'pending' | 'pending_verification' | 'approved' | 'rejected' | 'revoked';
+
+export interface ParentLinkRequest {
+    id: string;
+    school_slug: string;
+    school_name: string;
+    student_name: string | null;
+    student_class: string | null;
+    status: ParentLinkRequestStatus;
+    requested_at: string;
+    decided_at: string | null;
+    rejection_reason: string | null;
+    rejection_reason_code: string | null;
+}
+
+export interface ParentLinkRequestsResponse {
+    total: number;
+    page: number;
+    limit: number;
+    requests: ParentLinkRequest[];
+}
