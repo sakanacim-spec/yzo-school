@@ -113,6 +113,23 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
         let globalUpdatePayloadUnlink = null;
         let globalUpdatePayloadRelink = null;
         let isRelink = false;
+        let rpcUnlinkCalled = null;
+
+        supabase.rpc = (fn, params) => {
+            if (fn === 'unlink_parent_student_local') {
+                rpcUnlinkCalled = params;
+                return Promise.resolve({
+                    data: {
+                        success: true,
+                        local_deleted: true,
+                        has_other_legitimate_link: false,
+                        global_link_deactivated: true
+                    },
+                    error: null
+                });
+            }
+            return Promise.resolve({ data: null, error: null });
+        };
 
         supabase.from = (table) => {
             const m = {
@@ -129,8 +146,7 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
                 single: () => Promise.resolve({ data: { student_global_id: 'g-123' } }),
                 update: (data) => {
                     if (table === 'parent_child_links') {
-                        if (!isRelink) globalUpdatePayloadUnlink = data;
-                        else globalUpdatePayloadRelink = data;
+                        if (isRelink) globalUpdatePayloadRelink = data;
                     }
                     const res = { error: null };
                     const m2 = { eq: () => m2, then: (resolve) => resolve(res) };
@@ -165,8 +181,9 @@ describe('P25-A: Students Controller (link/unlink/relink)', () => {
         req.params = { studentId: 1 };
         await unlinkStudentFromParent(req, res);
 
-        assert.notEqual(globalUpdatePayloadUnlink, null);
-        assert.deepEqual(globalUpdatePayloadUnlink, { current_link_active: false });
+        assert.notEqual(rpcUnlinkCalled, null);
+        assert.equal(rpcUnlinkCalled.p_student_id, '1');
+        assert.equal(res.body.message, "Enfant retiré avec succès.");
 
         // C. RELINK (Option A : crée une demande pending, pas de réactivation directe de parent_child_links)
         isRelink = true;

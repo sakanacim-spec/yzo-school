@@ -113,9 +113,18 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                 full_name TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS public.students_ecole_a (
+                id TEXT PRIMARY KEY,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                classe TEXT NOT NULL,
+                telephone_parent_normalized TEXT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS public.parent_student_ecole_a (
                 parent_id UUID NOT NULL,
                 student_id TEXT NOT NULL,
+                source_request_id UUID NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                 PRIMARY KEY (parent_id, student_id)
             );
@@ -127,9 +136,18 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                 full_name TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS public.students_ecole_b (
+                id TEXT PRIMARY KEY,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                classe TEXT NOT NULL,
+                telephone_parent_normalized TEXT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS public.parent_student_ecole_b (
                 parent_id UUID NOT NULL,
                 student_id TEXT NOT NULL,
+                source_request_id UUID NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                 PRIMARY KEY (parent_id, student_id)
             );
@@ -194,6 +212,10 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
             INSERT INTO public.profiles_ecole_a (id, role, full_name) VALUES
             ('${directorAId}', 'directeur', 'Directeur École A'),
             ('${teacherAId}', 'enseignant', 'Enseignant École A');
+
+            INSERT INTO public.students_ecole_a (id, nom, prenom, classe, telephone_parent_normalized) VALUES
+            ('${studentA1}', 'Élève', 'A1', '6ème A', '+22997000001'),
+            ('${studentA2}', 'Élève', 'A2', '5ème B', '+22997000002');
 
             INSERT INTO public.profiles_ecole_b (id, role, full_name) VALUES
             ('${directorBId}', 'directeur', 'Directeur École B');
