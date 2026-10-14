@@ -746,6 +746,11 @@ test('P26-B Lot 1B — Banc de validation PostgreSQL sous concurrence multi-clie
                     [parent5BId]
                 );
 
+                await client1.query(
+                    `INSERT INTO public.students_${slugA} (id, nom, prenom, classe) VALUES ($1, 'Élève Supprimé', 'Test', '6eme')`,
+                    [studentDeleted]
+                );
+
                 const reqRes = await client1.query(
                     `INSERT INTO public.parent_student_link_requests (
                         school_slug, parent_id, student_id, parent_phone_normalized, parent_name, student_name, status
@@ -753,6 +758,11 @@ test('P26-B Lot 1B — Banc de validation PostgreSQL sous concurrence multi-clie
                     [slugA, parent5BId, studentDeleted]
                 );
                 const reqId = reqRes.rows[0].id;
+
+                await client1.query(
+                    `DELETE FROM public.students_${slugA} WHERE id = $1`,
+                    [studentDeleted]
+                );
 
                 const appRes = await client1.query(
                     'SELECT public.approve_parent_student_link($1::uuid, $2, $3::uuid, $4) AS res',

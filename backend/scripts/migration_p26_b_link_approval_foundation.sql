@@ -69,6 +69,77 @@ REVOKE ALL ON public.parent_student_link_requests FROM authenticated;
 GRANT ALL ON public.parent_student_link_requests TO service_role;
 GRANT ALL ON public.parent_student_link_requests TO postgres;
 
+-- Trigger de protection transactionnelle anti-course critique pendant la synchronisation « Remplacer »
+CREATE OR REPLACE FUNCTION public.trg_parent_student_link_requests_sync_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_student_exists BOOLEAN := false;
+BEGIN
+    -- S'applique STRICTEMENT à l'INSERTION d'une nouvelle demande
+    -- (les UPDATE sont déjà régis par la hiérarchie des RPC P26-B, évitant tout risque d'inversion ou de deadlock)
+    IF TG_OP = 'INSERT' THEN
+        -- 1. Validation stricte préalable du format du school_slug avant tout verrou ou SQL dynamique
+        IF NEW.school_slug IS NULL OR NEW.school_slug !~ '^[a-z0-9_]{1,50}$' THEN
+            RAISE EXCEPTION 'Format de school_slug invalide : %', NEW.school_slug
+                USING ERRCODE = '23514', CONSTRAINT = 'chk_school_slug_format';
+        END IF;
+
+        -- 2. Acquisition systématique du verrou partagé de Niveau 0
+        -- Si un remplacement détient le verrou exclusif (0, school_slug:sync_reset), l'insertion attend la fin du remplacement.
+        -- En temps normal (hors remplacement), ce verrou partagé est acquis immédiatement sans délai.
+        PERFORM pg_advisory_xact_lock_shared(0, hashtext(NEW.school_slug || ':sync_reset'));
+
+        -- 3. Validation explicite de l'identifiant élève
+        IF NEW.student_id IS NULL OR trim(NEW.student_id) = '' THEN
+            RAISE EXCEPTION 'INVALID_STUDENT_ID: L''identifiant de l''élève ne peut pas être null ou vide'
+                USING ERRCODE = '23502';
+        END IF;
+
+        -- 4. Vérification systématique de l'existence de l'élève dans students_<school_slug>
+        -- S'exécute toujours : que le verrou ait été obtenu immédiatement ou après attente d'un remplacement
+        BEGIN
+            EXECUTE format('
+                SELECT EXISTS (
+                    SELECT 1 FROM public.%I
+                    WHERE id = %L
+                )
+            ', 'students_' || NEW.school_slug, NEW.student_id)
+            INTO v_student_exists;
+
+            IF NOT v_student_exists THEN
+                RAISE EXCEPTION 'STUDENT_NOT_FOUND: L''élève % n''existe pas dans l''établissement %',
+                    NEW.student_id, NEW.school_slug
+                    USING ERRCODE = 'P0002';
+            END IF;
+        EXCEPTION
+            WHEN undefined_table THEN
+                RAISE EXCEPTION 'STUDENTS_TABLE_NOT_FOUND: La table des élèves pour l''établissement % n''existe pas',
+                    NEW.school_slug
+                    USING ERRCODE = '42P01';
+        END;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_link_requests_sync_guard'
+    ) THEN
+        CREATE TRIGGER trg_link_requests_sync_guard
+            BEFORE INSERT ON public.parent_student_link_requests
+            FOR EACH ROW
+            EXECUTE FUNCTION public.trg_parent_student_link_requests_sync_guard();
+    END IF;
+END $$;
+
+
 
 -- ============================================================================
 -- 2. Fonction Canonique create_school_tables (Alignée P6 + source_request_id)
@@ -448,6 +519,9 @@ BEGIN
     IF p_school_slug IS NULL OR p_school_slug !~ '^[a-z0-9_]{1,50}$' THEN RETURN jsonb_build_object('success', false, 'error', 'INVALID_SCHOOL_SLUG'); END IF;
     IF p_decided_by IS NULL THEN RETURN jsonb_build_object('success', false, 'error', 'INVALID_DECIDED_BY'); END IF;
 
+    -- VERROU 0 : Orchestration partagée d'établissement (anti-inversion et anti-deadlock avec sync_replace)
+    PERFORM pg_advisory_xact_lock_shared(0, hashtext(p_school_slug || ':sync_reset'));
+
     -- VERROU 1 : Sur la demande
     PERFORM pg_advisory_xact_lock(1, hashtext(p_school_slug || ':' || p_request_id::text));
 
@@ -605,6 +679,9 @@ BEGIN
     IF p_decided_by IS NULL THEN RETURN jsonb_build_object('success', false, 'error', 'INVALID_DECIDED_BY'); END IF;
     IF p_rejection_reason IS NULL OR trim(p_rejection_reason) = '' THEN RETURN jsonb_build_object('success', false, 'error', 'REJECTION_REASON_REQUIRED'); END IF;
 
+    -- VERROU 0 : Orchestration partagée d'établissement (anti-inversion et anti-deadlock avec sync_replace)
+    PERFORM pg_advisory_xact_lock_shared(0, hashtext(p_school_slug || ':sync_reset'));
+
     -- VERROU 1 : Sur la demande
     PERFORM pg_advisory_xact_lock(1, hashtext(p_school_slug || ':' || p_request_id::text));
 
@@ -700,6 +777,9 @@ BEGIN
     IF p_school_slug IS NULL OR p_school_slug !~ '^[a-z0-9_]{1,50}$' THEN RETURN jsonb_build_object('success', false, 'error', 'INVALID_SCHOOL_SLUG'); END IF;
     IF p_revoked_by IS NULL THEN RETURN jsonb_build_object('success', false, 'error', 'INVALID_REVOKED_BY'); END IF;
     IF p_revocation_reason IS NULL OR trim(p_revocation_reason) = '' THEN RETURN jsonb_build_object('success', false, 'error', 'REVOCATION_REASON_REQUIRED'); END IF;
+
+    -- VERROU 0 : Orchestration partagée d'établissement (anti-inversion et anti-deadlock avec sync_replace)
+    PERFORM pg_advisory_xact_lock_shared(0, hashtext(p_school_slug || ':sync_reset'));
 
     -- VERROU 1 : Sur la demande
     PERFORM pg_advisory_xact_lock(1, hashtext(p_school_slug || ':' || p_request_id::text));
@@ -1093,6 +1173,9 @@ BEGIN
         END IF;
     END IF;
 
+    -- VERROU 0 : Orchestration partagée d'établissement (anti-inversion et anti-deadlock avec sync_replace)
+    PERFORM pg_advisory_xact_lock_shared(0, hashtext(p_school_slug || ':sync_reset'));
+
     -- 2. Résolution de l'élève global
     SELECT student_global_id INTO v_global_id
     FROM public.student_global_mappings
@@ -1276,7 +1359,10 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'UNAUTHORIZED_ACTOR', 'message', 'Rôle insuffisant pour supprimer un élève.');
     END IF;
 
-    -- 2. ORDRE STRICT DES VERROUS : PHASE 1 — Tous les verrous de Niveau 1 (Demandes P26-B actives)
+    -- 2. ORDRE STRICT DES VERROUS : PHASE 0 — Orchestration partagée d'établissement (anti-inversion et anti-deadlock avec sync_replace)
+    PERFORM pg_advisory_xact_lock_shared(0, hashtext(p_school_slug || ':sync_reset'));
+
+    -- PHASE 1 — Tous les verrous de Niveau 1 (Demandes P26-B actives)
     FOR v_req IN
         SELECT id
         FROM public.parent_student_link_requests
@@ -1558,7 +1644,10 @@ BEGIN
         END IF;
     END IF;
 
-    -- 4. VERROU 2 : Verrou applicatif sur l'élève local (hashtext(slug || ':' || trim(student_id)))
+    -- 4. VERROU 0 : Orchestration partagée d'établissement (anti-inversion et anti-deadlock avec sync_replace)
+    PERFORM pg_advisory_xact_lock_shared(0, hashtext(p_school_slug || ':sync_reset'));
+
+    -- VERROU 2 : Verrou applicatif sur l'élève local (hashtext(slug || ':' || trim(student_id)))
     PERFORM pg_advisory_xact_lock(2, hashtext(p_school_slug || ':' || trim(p_student_id)));
 
     -- Verrou applicatif de Niveau 2 sur le couple local
@@ -1711,6 +1800,284 @@ REVOKE ALL ON FUNCTION public.link_parent_student_direct_atomic(TEXT, UUID, TEXT
 REVOKE ALL ON FUNCTION public.link_parent_student_direct_atomic(TEXT, UUID, TEXT, UUID, TEXT, UUID) FROM anon;
 REVOKE ALL ON FUNCTION public.link_parent_student_direct_atomic(TEXT, UUID, TEXT, UUID, TEXT, UUID) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.link_parent_student_direct_atomic(TEXT, UUID, TEXT, UUID, TEXT, UUID) TO service_role;
-GRANT EXECUTE ON FUNCTION public.link_parent_student_direct_atomic(TEXT, UUID, TEXT, UUID, TEXT, UUID) TO postgres;
+-- ============================================================================
+-- 11. RPC Transactionnelle : sync_replace_school_data_atomically
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.sync_replace_school_data_atomically(
+    p_school_slug TEXT,
+    p_actor_id UUID,
+    p_students_payload JSONB,
+    p_payments_payload JSONB DEFAULT '[]'::jsonb
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_actor_role TEXT;
+    v_req RECORD;
+    v_std RECORD;
+    v_pst RECORD;
+    v_pair RECORD;
+    v_link RECORD;
+    v_other_mapping RECORD;
+    v_other_local_link_exists BOOLEAN;
+    v_has_other_school_link BOOLEAN;
+    v_inserted_students_count INT := 0;
+    v_inserted_payments_count INT := 0;
+    v_global_links_preserved_count INT := 0;
+    v_global_links_deactivated_count INT := 0;
+BEGIN
+    SET LOCAL lock_timeout = '2s';
+
+    -- 1. Validation préalable des paramètres
+    IF p_school_slug IS NULL OR p_school_slug !~ '^[a-z0-9_]{1,50}$' THEN
+        RETURN jsonb_build_object('success', false, 'error', 'INVALID_SCHOOL_SLUG');
+    END IF;
+
+    IF p_actor_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'INVALID_ACTOR_ID');
+    END IF;
+
+    IF p_students_payload IS NULL OR jsonb_typeof(p_students_payload) <> 'array' OR jsonb_array_length(p_students_payload) = 0 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'EMPTY_STUDENTS_PAYLOAD', 'message', 'La liste des élèves à importer ne peut pas être vide en mode Remplacer.');
+    END IF;
+
+    -- 2. Habilitation de l'acteur dans profiles_<slug>
+    BEGIN
+        EXECUTE format('SELECT role FROM public.%I WHERE id = %L', 'profiles_' || p_school_slug, p_actor_id)
+        INTO v_actor_role;
+    EXCEPTION WHEN undefined_table THEN
+        RETURN jsonb_build_object('success', false, 'error', 'PROFILES_TABLE_NOT_FOUND');
+    END;
+
+    IF v_actor_role IS NULL OR v_actor_role NOT IN ('admin', 'directeur', 'directeur_general', 'superadmin') THEN
+        RETURN jsonb_build_object('success', false, 'error', 'UNAUTHORIZED_ACTOR', 'message', 'Seuls les administrateurs et directeurs peuvent remplacer les données.');
+    END IF;
+
+    -- 3. ORDRE STRICT DES VERROUS EXPLICITES : 0 -> 1 -> 2 -> 3
+    -- 3.0. Niveau 0 : Orchestration exclusive de remplacement pour l'établissement
+    PERFORM pg_advisory_xact_lock(0, hashtext(p_school_slug || ':sync_reset'));
+
+    -- Verrouillage de table EXCLUSIF sur les tables partitionnées locales de l'école
+    -- Bloque toute insertion/mutation concurrente directe dans students_<slug> et parent_student_<slug>
+    -- sans impacter les autres établissements.
+    BEGIN
+        EXECUTE format('LOCK TABLE public.%I, public.%I IN EXCLUSIVE MODE',
+            'students_' || p_school_slug,
+            'parent_student_' || p_school_slug
+        );
+    EXCEPTION WHEN undefined_table THEN
+        RETURN jsonb_build_object('success', false, 'error', 'SCHOOL_TABLES_NOT_FOUND');
+    END;
+
+    -- 3.1. Niveau 1 : Verrous sur toutes les demandes actives pour l'école (tri ASC)
+    FOR v_req IN
+        SELECT id
+        FROM public.parent_student_link_requests
+        WHERE school_slug = p_school_slug
+          AND status IN ('pending', 'pending_verification', 'approved')
+        ORDER BY id ASC
+    LOOP
+        PERFORM pg_advisory_xact_lock(1, hashtext(p_school_slug || ':' || v_req.id::text));
+    END LOOP;
+
+    -- 3.2. Niveau 2 : Verrous sur les élèves locaux (tri ASC)
+    BEGIN
+        FOR v_std IN EXECUTE format('SELECT id FROM public.%I ORDER BY id ASC', 'students_' || p_school_slug) LOOP
+            PERFORM pg_advisory_xact_lock(2, hashtext(p_school_slug || ':' || v_std.id));
+        END LOOP;
+    EXCEPTION WHEN undefined_table THEN
+        RETURN jsonb_build_object('success', false, 'error', 'STUDENTS_TABLE_NOT_FOUND');
+    END;
+
+    -- 3.2b. Niveau 2 : Verrous sur les couples locaux parent-élève existants (tri ASC)
+    BEGIN
+        FOR v_pst IN EXECUTE format('SELECT DISTINCT parent_id, student_id FROM public.%I ORDER BY parent_id ASC, student_id ASC', 'parent_student_' || p_school_slug) LOOP
+            PERFORM pg_advisory_xact_lock(2, hashtext(p_school_slug || ':' || v_pst.parent_id::text || ':' || v_pst.student_id));
+        END LOOP;
+    EXCEPTION WHEN undefined_table THEN
+        RETURN jsonb_build_object('success', false, 'error', 'PARENT_STUDENT_TABLE_NOT_FOUND');
+    END;
+
+    -- 4. CAPTURE SOUS VERROUS des rattachements locaux et de leurs mappings globaux
+    CREATE TEMP TABLE temp_links_to_reset (
+        parent_id UUID NOT NULL,
+        student_id TEXT NOT NULL,
+        student_global_id UUID NULL
+    ) ON COMMIT DROP;
+
+    BEGIN
+        EXECUTE format('
+            INSERT INTO temp_links_to_reset (parent_id, student_id, student_global_id)
+            SELECT ps.parent_id, ps.student_id, sgm.student_global_id
+            FROM public.%I ps
+            LEFT JOIN public.student_global_mappings sgm
+              ON sgm.school_slug = %L AND sgm.student_local_id = ps.student_id
+            ORDER BY ps.parent_id ASC, ps.student_id ASC
+        ', 'parent_student_' || p_school_slug, p_school_slug);
+    EXCEPTION WHEN undefined_table THEN
+        RETURN jsonb_build_object('success', false, 'error', 'PARENT_STUDENT_TABLE_NOT_FOUND');
+    END;
+
+    -- 4.3. Niveau 3 : Verrous inter-établissements sur les couples globaux (tri ASC)
+    FOR v_pair IN
+        SELECT DISTINCT parent_id, student_global_id
+        FROM temp_links_to_reset
+        WHERE student_global_id IS NOT NULL
+        ORDER BY parent_id ASC, student_global_id ASC
+    LOOP
+        PERFORM pg_advisory_xact_lock(3, hashtext(v_pair.parent_id::text || ':' || v_pair.student_global_id::text));
+    END LOOP;
+
+    -- 5. Clôture des demandes d'approbation P26-B locales
+    -- Rejet des demandes en attente
+    UPDATE public.parent_student_link_requests
+    SET status = 'rejected',
+        decided_by = p_actor_id,
+        decided_at = now(),
+        rejection_reason_code = 'SCHOOL_RESET_REPLACE',
+        rejection_reason = 'Établissement réinitialisé en mode Remplacer.',
+        updated_at = now()
+    WHERE school_slug = p_school_slug
+      AND status IN ('pending', 'pending_verification');
+
+    -- Révocation des demandes approuvées
+    UPDATE public.parent_student_link_requests
+    SET status = 'revoked',
+        revoked_at = now(),
+        revoked_by = p_actor_id,
+        revocation_reason = 'Réinitialisation complète de l''établissement en mode Remplacer.',
+        needs_global_reconciliation = false,
+        updated_at = now()
+    WHERE school_slug = p_school_slug
+      AND status = 'approved';
+
+    -- 6. Réconciliation globale des rattachements (multi-établissements safe)
+    FOR v_link IN
+        SELECT DISTINCT parent_id, student_global_id
+        FROM temp_links_to_reset
+        WHERE student_global_id IS NOT NULL
+        ORDER BY parent_id ASC, student_global_id ASC
+    LOOP
+        v_has_other_school_link := false;
+
+        FOR v_other_mapping IN (
+            SELECT school_slug, student_local_id
+            FROM public.student_global_mappings
+            WHERE student_global_id = v_link.student_global_id
+              AND school_slug <> p_school_slug
+        ) LOOP
+            BEGIN
+                EXECUTE format('
+                    SELECT EXISTS (
+                        SELECT 1 FROM public.%I
+                        WHERE parent_id = %L AND student_id = %L
+                    )
+                ', 'parent_student_' || v_other_mapping.school_slug,
+                   v_link.parent_id, v_other_mapping.student_local_id)
+                INTO v_other_local_link_exists;
+
+                IF v_other_local_link_exists THEN
+                    v_has_other_school_link := true;
+                    EXIT;
+                END IF;
+            EXCEPTION WHEN undefined_table THEN
+                NULL;
+            END;
+        END LOOP;
+
+        IF v_has_other_school_link THEN
+            v_global_links_preserved_count := v_global_links_preserved_count + 1;
+        ELSE
+            UPDATE public.parent_child_links
+            SET current_link_active = false,
+                updated_at = now()
+            WHERE parent_ref = v_link.parent_id::text
+              AND student_global_id = v_link.student_global_id;
+
+            v_global_links_deactivated_count := v_global_links_deactivated_count + 1;
+        END IF;
+    END LOOP;
+
+    -- 7. Purge ordonnée des tables locales de l'école (5 tables exactes)
+    EXECUTE format('DELETE FROM public.%I', 'presences_' || p_school_slug);
+    EXECUTE format('DELETE FROM public.%I', 'devoirs_' || p_school_slug);
+    EXECUTE format('DELETE FROM public.%I', 'parent_student_' || p_school_slug);
+    EXECUTE format('DELETE FROM public.%I', 'payments_' || p_school_slug);
+    EXECUTE format('DELETE FROM public.%I', 'students_' || p_school_slug);
+
+    -- 8. Nettoyage des mappings locaux dans student_global_mappings
+    DELETE FROM public.student_global_mappings
+    WHERE school_slug = p_school_slug;
+
+    -- 9. Insertion directe in-transaction des nouveaux élèves
+    EXECUTE format('
+        INSERT INTO public.%I (
+            id, nom, prenom, classe, matricule, genre, date_naissance,
+            statut, ecolage, deja_paye, telephone_parent, telephone_parent_normalized, updated_at
+        )
+        SELECT
+            (val->>''id'')::text,
+            (val->>''nom'')::text,
+            COALESCE(val->>''prenom'', ''''),
+            COALESCE(val->>''classe'', ''Inconnue''),
+            val->>''matricule'',
+            COALESCE(val->>''genre'', ''M''),
+            val->>''date_naissance'',
+            COALESCE(val->>''statut'', ''Actif''),
+            COALESCE((val->>''ecolage'')::numeric, 0),
+            COALESCE((val->>''deja_paye'')::numeric, 0),
+            val->>''telephone_parent'',
+            val->>''telephone_parent_normalized'',
+            now()
+        FROM jsonb_array_elements(%L::jsonb) AS val
+    ', 'students_' || p_school_slug, p_students_payload::text);
+
+    GET DIAGNOSTICS v_inserted_students_count = ROW_COUNT;
+
+    -- 10. Insertion directe in-transaction des nouveaux paiements si fournis
+    IF p_payments_payload IS NOT NULL AND jsonb_typeof(p_payments_payload) = 'array' AND jsonb_array_length(p_payments_payload) > 0 THEN
+        EXECUTE format('
+            INSERT INTO public.%I (id, student_id, montant, date, recu, note)
+            SELECT
+                (val->>''id'')::text,
+                (val->>''student_id'')::text,
+                COALESCE((val->>''montant'')::numeric, 0),
+                CASE WHEN val->>''date'' IS NOT NULL AND val->>''date'' <> '''' THEN (val->>''date'')::timestamptz ELSE now() END,
+                val->>''recu'',
+                val->>''note''
+            FROM jsonb_array_elements(%L::jsonb) AS val
+            ON CONFLICT (id) DO NOTHING
+        ', 'payments_' || p_school_slug, p_payments_payload::text);
+
+        GET DIAGNOSTICS v_inserted_payments_count = ROW_COUNT;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'school_slug', p_school_slug,
+        'inserted_students_count', v_inserted_students_count,
+        'inserted_payments_count', v_inserted_payments_count,
+        'global_links_preserved_count', v_global_links_preserved_count,
+        'global_links_deactivated_count', v_global_links_deactivated_count
+    );
+
+EXCEPTION
+    WHEN lock_not_available OR deadlock_detected THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'CONCURRENCY_LOCK_TIMEOUT',
+            'message', 'Conflit de verrouillage temporaire lors du remplacement atomique. Réessayer ultérieurement.'
+        );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.sync_replace_school_data_atomically(TEXT, UUID, JSONB, JSONB) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.sync_replace_school_data_atomically(TEXT, UUID, JSONB, JSONB) FROM anon;
+REVOKE ALL ON FUNCTION public.sync_replace_school_data_atomically(TEXT, UUID, JSONB, JSONB) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.sync_replace_school_data_atomically(TEXT, UUID, JSONB, JSONB) TO service_role;
+GRANT EXECUTE ON FUNCTION public.sync_replace_school_data_atomically(TEXT, UUID, JSONB, JSONB) TO postgres;
 
 COMMIT;

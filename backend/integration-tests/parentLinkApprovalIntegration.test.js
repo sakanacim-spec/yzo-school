@@ -374,6 +374,11 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
         // C. REJET ET RÉVOCATION
         let rejectReqId;
         await t.test('C.1. Rejet nominal avec motif obligatoire', async () => {
+            await client.query(`
+                INSERT INTO public.students_ecole_a (id, nom, prenom, classe) VALUES ('STU-UNKNOWN', 'Inconnu', 'Eleve', '6eme')
+                ON CONFLICT (id) DO NOTHING;
+            `);
+
             const insertRes = await client.query(`
                 INSERT INTO public.parent_student_link_requests (
                     school_slug, parent_id, student_id, parent_phone_normalized, parent_name, status
@@ -465,7 +470,8 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                     `, [badSlug]);
                 } catch (err) {
                     checkFailed = true;
-                    assert.match(err.message, /chk_school_slug_format/, `Le slug "${badSlug}" doit violer chk_school_slug_format`);
+                    assert.strictEqual(err.code, '23514', `Le slug "${badSlug}" doit lever le SQLSTATE 23514`);
+                    assert.strictEqual(err.constraint, 'chk_school_slug_format', `Le slug "${badSlug}" doit cibler la contrainte chk_school_slug_format`);
                 } finally {
                     await client.query('ROLLBACK TO SAVEPOINT sp_check_slug;');
                 }
@@ -484,6 +490,11 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
 
         // E. CONTRAINTES D'UNICITÉ ET ANTI-CONCURRENCE
         await t.test('E.1. Index partiel : interdiction de doubler une demande pending', async () => {
+            await client.query(`
+                INSERT INTO public.students_ecole_a (id, nom, prenom, classe) VALUES ('STU-CONCURRENCE', 'Concurrence', 'Eleve', '6eme')
+                ON CONFLICT (id) DO NOTHING;
+            `);
+
             await client.query(`
                 INSERT INTO public.parent_student_link_requests (
                     school_slug, parent_id, student_id, parent_phone_normalized, parent_name, status
