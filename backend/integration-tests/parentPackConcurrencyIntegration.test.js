@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
+const { bootstrapTestRoles } = require('./testRoleBootstrap');
 
 const migrationSqlPath = path.resolve(__dirname, '../scripts/migration_p27_parent_pack_reconciliation_defense.sql');
 const auditSqlPath = path.resolve(__dirname, '../scripts/preflight_p27_reconciliation_audit.sql');
@@ -59,21 +60,8 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
     }
 
     try {
-        // Pré-requis d'environnement PostgreSQL standard : existence des rôles Supabase s'ils n'existent pas
-        await client1.query(`
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
-                    CREATE ROLE anon NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-                    CREATE ROLE authenticated NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
-                    CREATE ROLE service_role NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
-                END IF;
-            END $$;
-        `);
+        // Pré-requis d'environnement PostgreSQL standard : existence des rôles Supabase sous verrou consultatif
+        await bootstrapTestRoles(client1);
 
         // Isolation complète dans un schéma de test dédié
         const testSchema = 'p27_concurrency_test_' + Date.now();

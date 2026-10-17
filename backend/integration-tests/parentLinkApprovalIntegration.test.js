@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
+const { bootstrapTestRoles } = require('./testRoleBootstrap');
 
 const migrationSqlPath = path.resolve(__dirname, '../scripts/migration_p26_b_link_approval_foundation.sql');
 const inspectorScriptPath = path.resolve(__dirname, '../scripts/inspect_historical_links.cjs');
@@ -56,25 +57,11 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
     }
 
     try {
+        // Pré-requis d'environnement PostgreSQL standard : existence des rôles Supabase sous verrou consultatif
+        await bootstrapTestRoles(client);
+
         // Isolation complète dans une transaction avec ROLLBACK final
         await client.query('BEGIN');
-
-        // Pré-requis d'environnement PostgreSQL standard : existence des rôles Supabase s'ils n'existent pas
-        await client.query(`
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
-                    CREATE ROLE anon;
-                END IF;
-                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
-                    CREATE ROLE authenticated;
-                END IF;
-                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
-                    CREATE ROLE service_role;
-                END IF;
-            END
-            $$;
-        `);
 
         // Pré-requis de schéma global (nécessaires pour le modèle écosystème YZIOW P24/P25)
         await client.query(`
