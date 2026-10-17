@@ -59,6 +59,22 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
     }
 
     try {
+        // Pré-requis d'environnement PostgreSQL standard : existence des rôles Supabase s'ils n'existent pas
+        await client1.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+                    CREATE ROLE anon NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+                    CREATE ROLE authenticated NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+                    CREATE ROLE service_role NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+                END IF;
+            END $$;
+        `);
+
         // Isolation complète dans un schéma de test dédié
         const testSchema = 'p27_concurrency_test_' + Date.now();
         await client1.query(`CREATE SCHEMA ${testSchema};`);
@@ -126,6 +142,55 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
                 expires_at TIMESTAMPTZ,
                 created_at TIMESTAMPTZ DEFAULT clock_timestamp(),
                 updated_at TIMESTAMPTZ DEFAULT clock_timestamp()
+            );
+
+            CREATE TABLE IF NOT EXISTS webhook_events (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                provider VARCHAR(32) NOT NULL,
+                provider_event_id VARCHAR(128) NOT NULL,
+                event_type VARCHAR(64) NOT NULL,
+                intent_id UUID,
+                status VARCHAR(32) NOT NULL,
+                error_code VARCHAR(64),
+                payload JSONB,
+                processed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT clock_timestamp(),
+                CONSTRAINT uq_webhook_provider_event UNIQUE (provider, provider_event_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS parent_subscription_periods (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                subscription_id UUID NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
+                pricing_id UUID NOT NULL,
+                duration_months INTEGER NOT NULL,
+                payment_intent_id UUID NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT clock_timestamp()
+            );
+
+            CREATE TABLE IF NOT EXISTS affiliate_financial_ledger (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                affiliate_id UUID NOT NULL,
+                school_slug TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                reference_type TEXT NOT NULL,
+                reference_id UUID NOT NULL,
+                amount_minor BIGINT NOT NULL,
+                currency TEXT NOT NULL,
+                status TEXT NOT NULL,
+                maturation_at TIMESTAMPTZ
+            );
+
+            CREATE TABLE IF NOT EXISTS affiliate_balances (
+                affiliate_id UUID NOT NULL,
+                currency TEXT NOT NULL,
+                pending_balance_minor BIGINT DEFAULT 0,
+                available_balance_minor BIGINT DEFAULT 0,
+                reserved_balance_minor BIGINT DEFAULT 0,
+                debt_balance_minor BIGINT DEFAULT 0,
+                updated_at TIMESTAMPTZ DEFAULT clock_timestamp(),
+                CONSTRAINT uq_affiliate_balances_curr UNIQUE (affiliate_id, currency)
             );
         `;
         await client1.query(bootstrapSql);
