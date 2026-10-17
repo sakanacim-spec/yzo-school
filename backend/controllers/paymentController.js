@@ -186,15 +186,20 @@ const ALLOWED_FEDAPAY_HOSTS = new Set([
 ]);
 
 /**
- * Valide strictement que l'URL de redirection FedaPay est en HTTPS et cible exclusivement un domaine FedaPay officiel
+ * Valide strictement que l'URL de redirection FedaPay est en HTTPS et cible exclusivement un domaine FedaPay officiel.
+ * Si isLive est spécifié (booléen), valide la cohérence stricte avec l'environnement :
+ * - isLive === false (sandbox) : cible exclusivement 'sandbox-checkout.fedapay.com'
+ * - isLive === true (live) : cible exclusivement 'checkout.fedapay.com'
  */
-function validateFedaPayRedirectUrl(urlStr) {
+function validateFedaPayRedirectUrl(urlStr, isLive = null) {
     if (!urlStr || typeof urlStr !== 'string') return false;
     try {
         const parsed = new URL(urlStr);
         if (parsed.protocol !== 'https:') return false;
         if (!ALLOWED_FEDAPAY_HOSTS.has(parsed.hostname)) return false;
         if (parsed.username !== '' || parsed.password !== '') return false;
+        if (isLive === true && parsed.hostname !== 'checkout.fedapay.com') return false;
+        if (isLive === false && parsed.hostname !== 'sandbox-checkout.fedapay.com') return false;
         return true;
     } catch (_e) {
         return false;
@@ -228,6 +233,12 @@ async function configureFedaPay() {
     }
 
     const trimmedKey = secretKey.trim();
+
+    // Verrouillage sandbox strict : un environnement explicitement verrouillé en sandbox ne doit JAMAIS utiliser une clé live
+    if (process.env.FEDAPAY_ENVIRONMENT === 'sandbox' && trimmedKey.startsWith('sk_live_')) {
+        return { isConfigured: false, error: 'PAYMENT_PROVIDER_NOT_CONFIGURED', reason: 'LIVE_KEY_FORBIDDEN_IN_SANDBOX' };
+    }
+
     if (isLive && !trimmedKey.startsWith('sk_live_')) {
         return { isConfigured: false, error: 'PAYMENT_PROVIDER_NOT_CONFIGURED', reason: 'LIVE_KEY_INVALID_PREFIX' };
     }
@@ -2274,24 +2285,95 @@ async function createParentPackTransaction(req, res) {
         });
 
         if (rpcError) {
-            if (rpcError.message && rpcError.message.includes('FAIL CLOSED')) {
-                return res.status(400).json({ error: rpcError.message });
+            const errorMsg = rpcError.message || '';
+            if (errorMsg.includes('RECONCILIATION_REQUIRED_PENDING')) {
+                return res.status(409).json({
+                    error: 'Une tentative de paiement précédente est en cours de réconciliation pour cet abonnement. Veuillez patienter ou contacter le support.',
+                    code: 'RECONCILIATION_PENDING'
+                });
+            }
+            if (errorMsg.includes('ACTIVE_INTENT_ALREADY_EXISTS') || errorMsg.includes('uq_active_parent_pack_intent')) {
+                return res.status(409).json({
+                    error: 'Une session de paiement est déjà active pour cet élève.',
+                    code: 'ACTIVE_INTENT_EXISTS'
+                });
+            }
+            if (errorMsg.includes('FAIL CLOSED')) {
+                return res.status(400).json({ error: errorMsg });
             }
             return res.status(500).json({ error: 'Erreur lors de la préparation du paiement.' });
         }
 
         const { subscription_id, payment_intent_id } = rpcResult;
 
-        // 8. FedaPay Setup
-        const { data: intent } = await supabase.from('payment_intents').select('expected_amount').eq('id', payment_intent_id).single();
+        // 8. FedaPay Setup & Pre-flight Fail-Closed Checks
+        const fedaConfig = await configureFedaPay();
+        if (!fedaConfig.isConfigured) {
+            try {
+                await transitionIntent(payment_intent_id, 'initializing', {
+                    status: 'cancelled',
+                    reconciliation_reason: fedaConfig.reason || 'PAYMENT_PROVIDER_NOT_CONFIGURED'
+                });
+            } catch (compErr) {
+                logCompensationFailure('PARENT_PACK_PROVIDER_CONFIG_CANCEL_FAILED', {
+                    intentId: payment_intent_id,
+                    schoolSlug,
+                    expectedStatus: 'initializing',
+                    targetStatus: 'cancelled',
+                    errorCode: 'PROVIDER_CONFIG_CANCEL_ERROR'
+                });
+            }
+            return res.status(503).json({ error: 'Le service de paiement est temporairement indisponible.' });
+        }
 
-        await configureFedaPay();
+        const { data: intent, error: intentErr } = await supabase
+            .from('payment_intents')
+            .select('expected_amount')
+            .eq('id', payment_intent_id)
+            .single();
+
+        if (intentErr || !intent) {
+            try {
+                await transitionIntent(payment_intent_id, 'initializing', {
+                    status: 'cancelled',
+                    reconciliation_reason: 'INTENT_FETCH_FAILED'
+                });
+            } catch (compErr) {
+                logCompensationFailure('PARENT_PACK_INTENT_FETCH_CANCEL_FAILED', {
+                    intentId: payment_intent_id,
+                    schoolSlug,
+                    expectedStatus: 'initializing',
+                    targetStatus: 'cancelled',
+                    errorCode: 'INTENT_FETCH_CANCEL_ERROR'
+                });
+            }
+            return res.status(500).json({ error: 'Erreur technique lors de la préparation du paiement.' });
+        }
+
+        const numericAmount = parseStrictXofAmount(intent.expected_amount);
+        if (!numericAmount) {
+            try {
+                await transitionIntent(payment_intent_id, 'initializing', {
+                    status: 'cancelled',
+                    reconciliation_reason: 'INVALID_EXPECTED_AMOUNT'
+                });
+            } catch (compErr) {
+                logCompensationFailure('PARENT_PACK_INVALID_AMOUNT_CANCEL_FAILED', {
+                    intentId: payment_intent_id,
+                    schoolSlug,
+                    expectedStatus: 'initializing',
+                    targetStatus: 'cancelled',
+                    errorCode: 'INVALID_AMOUNT_CANCEL_ERROR'
+                });
+            }
+            return res.status(400).json({ error: 'Montant de paiement invalide.' });
+        }
 
         let transaction;
         try {
             transaction = await Transaction.create({
                 description: `Parent Pack (${planType === 'monthly' ? 'Mensuel' : 'Annuel'}) - ${student.nom} ${student.prenom}`,
-                amount: intent.expected_amount,
+                amount: numericAmount,
                 currency: { iso: 'XOF' },
                 callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/parent/dashboard?payment=success`,
                 custom_metadata: {
@@ -2299,31 +2381,80 @@ async function createParentPackTransaction(req, res) {
                 }
             });
         } catch (_fedaErr) {
-            await transitionIntent(payment_intent_id, 'initializing', {
-                status: 'reconciliation_required',
-                reconciliation_reason: 'PROVIDER_CREATION_OUTCOME_UNKNOWN'
-            });
+            try {
+                await transitionIntent(payment_intent_id, 'initializing', {
+                    status: 'reconciliation_required',
+                    reconciliation_reason: 'PROVIDER_CREATION_OUTCOME_UNKNOWN'
+                });
+            } catch (compErr) {
+                logCompensationFailure('PARENT_PACK_PROVIDER_CREATION_COMPENSATION_FAILED', {
+                    intentId: payment_intent_id,
+                    schoolSlug,
+                    expectedStatus: 'initializing',
+                    targetStatus: 'reconciliation_required',
+                    errorCode: 'TX_CREATE_COMPENSATION_ERROR'
+                });
+            }
             return res.status(500).json({ error: 'Erreur lors du traitement FedaPay.' });
         }
 
-        if (!transaction || !transaction.id) {
-            await transitionIntent(payment_intent_id, 'initializing', {
-                status: 'reconciliation_required',
-                reconciliation_reason: 'PROVIDER_RESPONSE_INVALID'
-            });
+        if (!transaction || !transaction.id || typeof transaction.id === 'undefined' || String(transaction.id).trim() === '') {
+            try {
+                await transitionIntent(payment_intent_id, 'initializing', {
+                    status: 'reconciliation_required',
+                    reconciliation_reason: 'PROVIDER_RESPONSE_INVALID'
+                });
+            } catch (compErr) {
+                logCompensationFailure('PARENT_PACK_INVALID_TX_COMPENSATION_FAILED', {
+                    intentId: payment_intent_id,
+                    schoolSlug,
+                    expectedStatus: 'initializing',
+                    targetStatus: 'reconciliation_required',
+                    errorCode: 'INVALID_TX_COMPENSATION_ERROR'
+                });
+            }
             return res.status(500).json({ error: 'Erreur FedaPay.' });
         }
 
         let token;
         try {
             token = await transaction.generateToken();
-        } catch (_err) {
-            await transitionIntent(payment_intent_id, 'initializing', {
-                status: 'reconciliation_required',
-                reconciliation_reason: 'TOKEN_GENERATION_FAILED',
-                provider_transaction_id: String(transaction.id)
-            });
-            return res.status(500).json({ error: 'Erreur génération token.' });
+        } catch (_tokErr) {
+            try {
+                await transitionIntent(payment_intent_id, 'initializing', {
+                    status: 'reconciliation_required',
+                    reconciliation_reason: 'TOKEN_GENERATION_FAILED',
+                    provider_transaction_id: String(transaction.id)
+                });
+            } catch (compErr) {
+                logCompensationFailure('PARENT_PACK_TOKEN_GEN_COMPENSATION_FAILED', {
+                    intentId: payment_intent_id,
+                    schoolSlug,
+                    expectedStatus: 'initializing',
+                    targetStatus: 'reconciliation_required',
+                    errorCode: 'TOKEN_GEN_COMPENSATION_ERROR'
+                });
+            }
+            return res.status(502).json({ error: 'Erreur génération token FedaPay.' });
+        }
+
+        if (!token || typeof token.token !== 'string' || !token.token.trim() || typeof token.url !== 'string' || !token.url.trim() || !validateFedaPayRedirectUrl(token.url, fedaConfig.isLive)) {
+            try {
+                await transitionIntent(payment_intent_id, 'initializing', {
+                    status: 'reconciliation_required',
+                    reconciliation_reason: 'TOKEN_GENERATION_FAILED',
+                    provider_transaction_id: String(transaction.id)
+                });
+            } catch (compErr) {
+                logCompensationFailure('PARENT_PACK_INVALID_TOKEN_COMPENSATION_FAILED', {
+                    intentId: payment_intent_id,
+                    schoolSlug,
+                    expectedStatus: 'initializing',
+                    targetStatus: 'reconciliation_required',
+                    errorCode: 'INVALID_TOKEN_COMPENSATION_ERROR'
+                });
+            }
+            return res.status(502).json({ error: 'Token ou URL de paiement FedaPay invalide.' });
         }
 
         try {
@@ -2331,18 +2462,28 @@ async function createParentPackTransaction(req, res) {
                 status: 'pending',
                 provider_transaction_id: String(transaction.id)
             });
-        } catch (_err) {
-            await transitionIntent(payment_intent_id, 'initializing', {
-                status: 'reconciliation_required',
-                reconciliation_reason: 'LOCAL_LINK_FAILED',
-                provider_transaction_id: String(transaction.id)
-            });
-            return res.status(500).json({ error: 'Erreur locale.' });
+        } catch (_linkErr) {
+            try {
+                await transitionIntent(payment_intent_id, 'initializing', {
+                    status: 'reconciliation_required',
+                    reconciliation_reason: 'LOCAL_LINK_FAILED',
+                    provider_transaction_id: String(transaction.id)
+                });
+            } catch (compErr) {
+                logCompensationFailure('PARENT_PACK_LOCAL_LINK_COMPENSATION_FAILED', {
+                    intentId: payment_intent_id,
+                    schoolSlug,
+                    expectedStatus: 'initializing',
+                    targetStatus: 'reconciliation_required',
+                    errorCode: 'LOCAL_LINK_COMPENSATION_ERROR'
+                });
+            }
+            return res.status(500).json({ error: 'Erreur locale lors de la liaison.' });
         }
 
         return res.status(200).json({
             transactionId: transaction.id,
-            token: token.token || token.url,
+            token: token.token,
             url: token.url
         });
 
