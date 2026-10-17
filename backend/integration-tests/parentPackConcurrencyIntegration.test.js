@@ -283,48 +283,74 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         // TEST 4 : Échec Fail-Closed strict de la migration si doublons
         // --------------------------------------------------------------------
         await t.test('4. Échec transactionnel (ROLLBACK) de la migration P27 en cas de doublons', async () => {
-            // Récupérer le target_id
-            const intentRow = await client1.query(`SELECT target_id FROM ${testSchema}.payment_intents LIMIT 1;`);
+            // A. Reproduire fidèlement l'état historique avant déploiement P27 dans le schéma de test
+            await client1.query(`DROP INDEX IF EXISTS ${testSchema}.uq_active_parent_pack_intent;`);
+
+            // Récupérer le target_id d'une intention existante
+            const intentRow = await client1.query(
+                `SELECT target_id FROM ${testSchema}.payment_intents WHERE payment_type = 'parent_pack' LIMIT 1;`
+            );
             const targetId = intentRow.rows[0].target_id;
 
-            // Insérer artificiellement un doublon sur target_id
+            // Insérer artificiellement un doublon historique non résolu pour le même target_id
             await client1.query(`
                 INSERT INTO ${testSchema}.payment_intents (
                     target_id, expected_amount, expected_currency, status, payment_type, school_slug
                 ) VALUES ($1, 20000, 'XOF', 'reconciliation_required', 'parent_pack', 'ecole_test');
             `, [targetId]);
 
-            // Exécution du bloc DO de migration
+            // Vérifier que les doublons sont effectivement présents avant de rejouer la migration
+            const preCheckRes = await client1.query(`
+                SELECT COUNT(*) AS cnt
+                  FROM ${testSchema}.payment_intents
+                 WHERE target_id = $1
+                   AND payment_type = 'parent_pack'
+                   AND status IN ('initializing', 'pending', 'reconciliation_required');
+            `, [targetId]);
+            assert.strictEqual(parseInt(preCheckRes.rows[0].cnt, 10), 2, 'Deux intentions concurrentes doivent coexister avant migration');
+
+            // B. Rejouer le véritable script de migration P27 (incluant BEGIN, RPCs, REVOKE/GRANT et DO Fail-Closed)
+            // adapté au schéma de test isolé
+            const rawMigration = fs.readFileSync(migrationSqlPath, 'utf8');
+            const realMigrationSql = rawMigration.replace(/public\./g, `${testSchema}.`);
+
             let migrationFailed = false;
             let errorMessage = '';
-            try {
-                await client1.query(`
-                    DO $$
-                    DECLARE
-                        v_dupes_count INTEGER;
-                    BEGIN
-                        SELECT COUNT(*) INTO v_dupes_count
-                          FROM (
-                              SELECT target_id
-                                FROM ${testSchema}.payment_intents
-                               WHERE payment_type = 'parent_pack'
-                                 AND status IN ('initializing', 'pending', 'reconciliation_required')
-                               GROUP BY target_id
-                              HAVING COUNT(*) > 1
-                          ) d;
+            let errorCode = '';
 
-                        IF v_dupes_count > 0 THEN
-                            RAISE EXCEPTION 'FAIL CLOSED MIGRATION P27: Doublons detectes' USING ERRCODE = '23505';
-                        END IF;
-                    END $$;
-                `);
+            try {
+                // Exécution complète du script réel : BEGIN transactionnel, DDL RPCs et garde-fou Fail-Closed
+                await client1.query(realMigrationSql);
             } catch (err) {
                 migrationFailed = true;
                 errorMessage = err.message;
+                errorCode = err.code;
+                await client1.query('ROLLBACK;').catch(() => {});
             }
 
+            // C. Vérifications d'intégrité Fail-Closed strictes
             assert.strictEqual(migrationFailed, true, 'La migration doit échouer en présence de doublons');
-            assert.match(errorMessage, /FAIL CLOSED MIGRATION P27/, 'Message d erreur Fail-Closed explicite');
+            assert.strictEqual(errorCode, '23505', 'Le code d erreur PostgreSQL doit être 23505');
+            assert.match(errorMessage, /FAIL CLOSED MIGRATION P27: Impossible d installer l index unique uq_active_parent_pack_intent/, 'Message d erreur Fail-Closed attendu');
+
+            // Vérifier que les doublons historiques restent intacts après le rollback
+            const postCheckRes = await client1.query(`
+                SELECT COUNT(*) AS cnt
+                  FROM ${testSchema}.payment_intents
+                 WHERE target_id = $1
+                   AND payment_type = 'parent_pack'
+                   AND status IN ('initializing', 'pending', 'reconciliation_required');
+            `, [targetId]);
+            assert.strictEqual(parseInt(postCheckRes.rows[0].cnt, 10), 2, 'Les doublons historiques doivent être intacts (non altérés)');
+
+            // Vérifier qu'aucun index partiel n'a été installé
+            const indexCheckRes = await client1.query(`
+                SELECT indexname
+                  FROM pg_indexes
+                 WHERE schemaname = $1
+                   AND indexname = 'uq_active_parent_pack_intent';
+            `, [testSchema]);
+            assert.strictEqual(indexCheckRes.rows.length, 0, 'L index uq_active_parent_pack_intent ne doit PAS être installé');
         });
 
         // Nettoyage final du schéma de test
