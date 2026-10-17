@@ -148,26 +148,42 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
 
             CREATE TABLE IF NOT EXISTS parent_subscription_periods (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                subscription_id UUID NOT NULL,
+                subscription_id UUID NOT NULL REFERENCES parent_subscriptions(id) ON DELETE RESTRICT,
+                payment_intent_id UUID NOT NULL REFERENCES payment_intents(id) ON DELETE RESTRICT,
                 start_date DATE NOT NULL,
                 end_date DATE NOT NULL,
-                pricing_id UUID NOT NULL,
-                duration_months INTEGER NOT NULL,
-                payment_intent_id UUID NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending_payment' CHECK (status IN ('pending_payment', 'active', 'expired', 'refunded', 'canceled')),
+                created_at TIMESTAMPTZ DEFAULT clock_timestamp(),
+                updated_at TIMESTAMPTZ DEFAULT clock_timestamp(),
+                CHECK (end_date >= start_date),
+                UNIQUE (payment_intent_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS school_commission_ledger (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                period_id UUID NOT NULL REFERENCES parent_subscription_periods(id) ON DELETE RESTRICT,
+                school_slug TEXT NOT NULL,
+                ambassador_ref TEXT,
+                gross_amount_minor BIGINT NOT NULL,
+                fedapay_fee_minor BIGINT NOT NULL,
+                school_share_minor BIGINT NOT NULL,
+                ambassador_share_minor BIGINT NOT NULL,
+                yziow_share_minor BIGINT NOT NULL,
+                currency TEXT NOT NULL DEFAULT 'XOF',
+                type TEXT NOT NULL DEFAULT 'credit',
                 created_at TIMESTAMPTZ DEFAULT clock_timestamp()
             );
 
-            CREATE TABLE IF NOT EXISTS affiliate_financial_ledger (
+            CREATE TABLE IF NOT EXISTS affiliate_ledger (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 affiliate_id UUID NOT NULL,
-                school_slug TEXT NOT NULL,
-                event_type TEXT NOT NULL,
-                reference_type TEXT NOT NULL,
-                reference_id UUID NOT NULL,
+                currency VARCHAR(3) NOT NULL,
+                entry_type VARCHAR(32) NOT NULL,
                 amount_minor BIGINT NOT NULL,
-                currency TEXT NOT NULL,
-                status TEXT NOT NULL,
-                maturation_at TIMESTAMPTZ
+                payment_intent_id UUID,
+                maturation_at TIMESTAMPTZ,
+                metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
             );
 
             CREATE TABLE IF NOT EXISTS affiliate_balances (
@@ -280,15 +296,214 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         });
 
         // --------------------------------------------------------------------
-        // TEST 4 : Échec Fail-Closed strict de la migration si doublons
+        // TEST 4 : Webhook échec métier : établissement introuvable -> aucun abonnement actif
         // --------------------------------------------------------------------
-        await t.test('4. Échec transactionnel (ROLLBACK) de la migration P27 en cas de doublons', async () => {
+        await t.test('4. Webhook : établissement introuvable place en réconciliation sans créer de période active', async () => {
+            const studentRes4 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentGlobalId4 = studentRes4.rows[0].student_global_id;
+
+            const checkoutRes4 = await client1.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                ['parent_wh_school_not_found', studentGlobalId4, 'ecole_inexistante', 'eleve_wh_4', pricingId, 'maternelle', 1]
+            );
+            const intentId4 = checkoutRes4.rows[0].res.payment_intent_id;
+
+            const webhookRes4 = await client1.query(
+                `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
+                ['fedapay', 'evt_wh_school_not_found', 'transaction.approved', intentId4, 'txn_wh_4', 20000, 'XOF', 'approved', new Date().toISOString(), 600, 0, true]
+            );
+
+            assert.strictEqual(webhookRes4.rows[0].res.status, 'reconciliation_required');
+            assert.strictEqual(webhookRes4.rows[0].res.error_code, 'PARENT_PACK_SCHOOL_NOT_FOUND');
+
+            // Vérification critique : AUCUNE période active ou pending ne doit être créée
+            const periodsCount = await client1.query(
+                `SELECT COUNT(*) FROM ${testSchema}.parent_subscription_periods WHERE payment_intent_id = $1;`,
+                [intentId4]
+            );
+            assert.strictEqual(parseInt(periodsCount.rows[0].count, 10), 0, 'Aucune période ne doit être créée lors d un échec école');
+
+            // Intention en réconciliation
+            const intentCheck = await client1.query(
+                `SELECT status, reconciliation_reason FROM ${testSchema}.payment_intents WHERE id = $1;`,
+                [intentId4]
+            );
+            assert.strictEqual(intentCheck.rows[0].status, 'reconciliation_required');
+            assert.strictEqual(intentCheck.rows[0].reconciliation_reason, 'PARENT_PACK_SCHOOL_NOT_FOUND');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 5 : Webhook échec financier : frais excessifs -> aucun abonnement actif
+        // --------------------------------------------------------------------
+        await t.test('5. Webhook : frais supérieurs au restant place en réconciliation sans créer de période active', async () => {
+            const studentRes5 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentGlobalId5 = studentRes5.rows[0].student_global_id;
+
+            const checkoutRes5 = await client1.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                ['parent_wh_fee_exceeds', studentGlobalId5, 'ecole_test', 'eleve_wh_5', pricingId, 'maternelle', 1]
+            );
+            const intentId5 = checkoutRes5.rows[0].res.payment_intent_id;
+
+            // 20000 brut, commission école 20% = 4000. Frais Fedapay 18000 -> 20000 - 18000 - 4000 = -2000 < 0
+            const webhookRes5 = await client1.query(
+                `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
+                ['fedapay', 'evt_wh_fee_exceeds', 'transaction.approved', intentId5, 'txn_wh_5', 20000, 'XOF', 'approved', new Date().toISOString(), 18000, 0, true]
+            );
+
+            assert.strictEqual(webhookRes5.rows[0].res.status, 'reconciliation_required');
+            assert.strictEqual(webhookRes5.rows[0].res.error_code, 'PARENT_PACK_FEE_EXCEEDS_REMAINING_AMOUNT');
+
+            // Vérification critique : AUCUNE période ne doit être créée
+            const periodsCount = await client1.query(
+                `SELECT COUNT(*) FROM ${testSchema}.parent_subscription_periods WHERE payment_intent_id = $1;`,
+                [intentId5]
+            );
+            assert.strictEqual(parseInt(periodsCount.rows[0].count, 10), 0, 'Aucune période ne doit être créée lors de frais excessifs');
+
+            const intentCheck = await client1.query(
+                `SELECT status, reconciliation_reason FROM ${testSchema}.payment_intents WHERE id = $1;`,
+                [intentId5]
+            );
+            assert.strictEqual(intentCheck.rows[0].status, 'reconciliation_required');
+            assert.strictEqual(intentCheck.rows[0].reconciliation_reason, 'PARENT_PACK_FEE_EXCEEDS_REMAINING_AMOUNT');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 6 : Webhook paiement approuvé nominal et activation
+        // --------------------------------------------------------------------
+        let nominalIntentId;
+        let nominalPeriodId;
+        let nominalAffiliateId;
+
+        await t.test('6. Webhook nominal : activation de la souscription, période active et écritures financières complètes', async () => {
+            // Création d'une école avec ambassadeur actif
+            const affRes = await client1.query(
+                `INSERT INTO ${testSchema}.affiliates (status) VALUES ('active') RETURNING id;`
+            );
+            nominalAffiliateId = affRes.rows[0].id;
+            await client1.query(
+                `INSERT INTO ${testSchema}.schools (slug, commission_rate_percentage, affiliate_id)
+                 VALUES ('ecole_affiliee', 20, $1) ON CONFLICT (slug) DO UPDATE SET affiliate_id = $1;`,
+                [nominalAffiliateId]
+            );
+
+            const studentRes6 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentGlobalId6 = studentRes6.rows[0].student_global_id;
+
+            const checkoutRes6 = await client1.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                ['parent_wh_nominal', studentGlobalId6, 'ecole_affiliee', 'eleve_nominal_1', pricingId, 'maternelle', 1]
+            );
+            nominalIntentId = checkoutRes6.rows[0].res.payment_intent_id;
+            const subId6 = checkoutRes6.rows[0].res.subscription_id;
+
+            // La souscription est inactive avant certification
+            const subBefore = await client1.query(`SELECT status FROM ${testSchema}.parent_subscriptions WHERE id = $1;`, [subId6]);
+            assert.strictEqual(subBefore.rows[0].status, 'inactive', 'Souscription doit être inactive avant paiement');
+
+            // Appel webhook nominal certifié
+            const webhookRes6 = await client1.query(
+                `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
+                ['fedapay', 'evt_nominal_1', 'transaction.approved', nominalIntentId, 'txn_nominal_1', 20000, 'XOF', 'approved', new Date().toISOString(), 600, 0, true]
+            );
+
+            assert.strictEqual(webhookRes6.rows[0].res.status, 'completed');
+            assert.strictEqual(webhookRes6.rows[0].res.payment_type, 'parent_pack');
+            nominalPeriodId = webhookRes6.rows[0].res.period_id;
+            assert.ok(nominalPeriodId, 'period_id doit être retourné');
+
+            // A. Période active créée
+            const periodsRes = await client1.query(
+                `SELECT * FROM ${testSchema}.parent_subscription_periods WHERE payment_intent_id = $1;`,
+                [nominalIntentId]
+            );
+            assert.strictEqual(periodsRes.rows.length, 1, 'Exactement une période active');
+            assert.strictEqual(periodsRes.rows[0].id, nominalPeriodId);
+            assert.strictEqual(periodsRes.rows[0].status, 'active');
+
+            // B. Souscription activée avec contexte certifié
+            const subAfter = await client1.query(`SELECT status, school_slug, student_ref FROM ${testSchema}.parent_subscriptions WHERE id = $1;`, [subId6]);
+            assert.strictEqual(subAfter.rows[0].status, 'active');
+            assert.strictEqual(subAfter.rows[0].school_slug, 'ecole_affiliee');
+            assert.strictEqual(subAfter.rows[0].student_ref, 'eleve_nominal_1');
+
+            // C. Écriture du grand livre école (school_commission_ledger)
+            const schoolLedger = await client1.query(
+                `SELECT * FROM ${testSchema}.school_commission_ledger WHERE period_id = $1;`,
+                [nominalPeriodId]
+            );
+            assert.strictEqual(schoolLedger.rows.length, 1);
+            assert.strictEqual(schoolLedger.rows[0].gross_amount_minor, '20000');
+            assert.strictEqual(schoolLedger.rows[0].fedapay_fee_minor, '600');
+            assert.strictEqual(schoolLedger.rows[0].school_share_minor, '4000');
+            assert.strictEqual(schoolLedger.rows[0].ambassador_share_minor, '1540');
+            assert.strictEqual(schoolLedger.rows[0].yziow_share_minor, '13860');
+
+            // D. Écriture du grand livre affilié (affiliate_ledger)
+            const affLedger = await client1.query(
+                `SELECT * FROM ${testSchema}.affiliate_ledger WHERE payment_intent_id = $1;`,
+                [nominalIntentId]
+            );
+            assert.strictEqual(affLedger.rows.length, 1);
+            assert.strictEqual(affLedger.rows[0].amount_minor, '1540');
+            assert.strictEqual(affLedger.rows[0].entry_type, 'commission');
+
+            // E. Solde affilié mis à jour
+            const affBal = await client1.query(
+                `SELECT pending_balance_minor FROM ${testSchema}.affiliate_balances WHERE affiliate_id = $1 AND currency = 'XOF';`,
+                [nominalAffiliateId]
+            );
+            assert.strictEqual(affBal.rows[0].pending_balance_minor, '1540');
+
+            // F. Intention complétée
+            const intentAfter = await client1.query(`SELECT status FROM ${testSchema}.payment_intents WHERE id = $1;`, [nominalIntentId]);
+            assert.strictEqual(intentAfter.rows[0].status, 'completed');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 7 : Idempotence du webhook rejoué
+        // --------------------------------------------------------------------
+        await t.test('7. Webhook : rejeu idempotent détecté sans duplication de période ni d écriture', async () => {
+            const replayRes = await client1.query(
+                `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
+                ['fedapay', 'evt_nominal_1', 'transaction.approved', nominalIntentId, 'txn_nominal_1', 20000, 'XOF', 'approved', new Date().toISOString(), 600, 0, true]
+            );
+
+            assert.strictEqual(replayRes.rows[0].res.status, 'duplicate');
+
+            // Non-duplication de période
+            const periodsCount = await client1.query(
+                `SELECT COUNT(*) FROM ${testSchema}.parent_subscription_periods WHERE payment_intent_id = $1;`,
+                [nominalIntentId]
+            );
+            assert.strictEqual(parseInt(periodsCount.rows[0].count, 10), 1, 'Aucune période dupliquée');
+
+            // Non-duplication de grand livre école
+            const schoolLedgerCount = await client1.query(
+                `SELECT COUNT(*) FROM ${testSchema}.school_commission_ledger WHERE period_id = $1;`,
+                [nominalPeriodId]
+            );
+            assert.strictEqual(parseInt(schoolLedgerCount.rows[0].count, 10), 1, 'Aucune écriture d école dupliquée');
+
+            // Non-duplication de solde affilié
+            const affBal = await client1.query(
+                `SELECT pending_balance_minor FROM ${testSchema}.affiliate_balances WHERE affiliate_id = $1 AND currency = 'XOF';`,
+                [nominalAffiliateId]
+            );
+            assert.strictEqual(affBal.rows[0].pending_balance_minor, '1540', 'Le solde affilié ne doit pas être incrémenté deux fois');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 8 : Échec Fail-Closed strict de la migration si doublons
+        // --------------------------------------------------------------------
+        await t.test('8. Échec transactionnel (ROLLBACK) de la migration P27 en cas de doublons', async () => {
             // A. Reproduire fidèlement l'état historique avant déploiement P27 dans le schéma de test
             await client1.query(`DROP INDEX IF EXISTS ${testSchema}.uq_active_parent_pack_intent;`);
 
-            // Récupérer le target_id d'une intention existante
+            // Récupérer le target_id d'une intention non résolue
             const intentRow = await client1.query(
-                `SELECT target_id FROM ${testSchema}.payment_intents WHERE payment_type = 'parent_pack' LIMIT 1;`
+                `SELECT target_id FROM ${testSchema}.payment_intents WHERE payment_type = 'parent_pack' AND status IN ('initializing', 'pending', 'reconciliation_required') LIMIT 1;`
             );
             const targetId = intentRow.rows[0].target_id;
 

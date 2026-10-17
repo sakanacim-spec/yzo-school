@@ -310,13 +310,6 @@ BEGIN
 
     v_end_date := (v_start_date + make_interval(months => v_duration_months) - INTERVAL '1 day')::date;
 
-    -- Insert Period
-    INSERT INTO public.parent_subscription_periods (
-        subscription_id, payment_intent_id, start_date, end_date, status
-    ) VALUES (
-        v_subscription.id, p_intent_id, v_start_date, v_end_date, 'active'
-    ) RETURNING id INTO v_period_id;
-
     -- Commission logic uses intent school_slug!
     SELECT * INTO v_school FROM public.schools WHERE slug = v_intent.school_slug FOR UPDATE;
 
@@ -356,6 +349,13 @@ BEGIN
     IF v_yziow_share_minor < 0 OR v_gross_amount_minor <> v_fedapay_fee_minor + v_school_share_minor + v_ambassador_share_minor + v_yziow_share_minor THEN
         RAISE EXCEPTION 'PARENT_PACK_ALLOCATION_INVARIANT_BROKEN';
     END IF;
+
+    -- Insert Period UNIQUEMENT après validation complète de toutes les règles métier et financières
+    INSERT INTO public.parent_subscription_periods (
+        subscription_id, payment_intent_id, start_date, end_date, status
+    ) VALUES (
+        v_subscription.id, p_intent_id, v_start_date, v_end_date, 'active'
+    ) RETURNING id INTO v_period_id;
 
     INSERT INTO public.school_commission_ledger (
         period_id, school_slug, ambassador_ref, gross_amount_minor, fedapay_fee_minor, school_share_minor, ambassador_share_minor, yziow_share_minor, currency, type
