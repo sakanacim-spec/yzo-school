@@ -3,7 +3,7 @@
 -- ==============================================================================
 -- Objectif : Détecter et inventorier en mode STRICTEMENT LECTURE SEULE :
 --   1. Les intentions Parent Pack en statut 'reconciliation_required'.
---   2. Les éventuels doublons historiques d'intentions sur (school_slug, target_id)
+--   2. Les éventuels doublons historiques d'intentions sur target_id
 --      dans les statuts non résolus ('initializing', 'pending', 'reconciliation_required').
 --   3. L'état d'enregistrement du provider_transaction_id sur ces intentions.
 --
@@ -31,13 +31,13 @@ WHERE pi.payment_type = 'parent_pack'
   AND pi.status = 'reconciliation_required'
 ORDER BY pi.created_at DESC;
 
--- 2. Détection des doublons potentiels sur les statuts non résolus
--- Si ce SELECT renvoie des lignes, des doublons historiques existent et l'index unique
--- uq_active_parent_pack_intent étendu ne pourra pas être posé sans revue administrative préalable.
+-- 2. Détection des doublons potentiels sur target_id pour les statuts non résolus
+-- Si ce SELECT renvoie des lignes, des doublons historiques existent et la migration P27
+-- échouera proprement en mode FAIL-CLOSED (ROLLBACK) pour exiger une revue préalable.
 SELECT 
-    pi.school_slug,
     pi.target_id AS subscription_id,
     COUNT(*) AS unresolved_intent_count,
+    array_agg(pi.school_slug ORDER BY pi.created_at DESC) AS school_slugs,
     array_agg(pi.id ORDER BY pi.created_at DESC) AS intent_ids,
     array_agg(pi.status ORDER BY pi.created_at DESC) AS statuses,
     array_agg(COALESCE(pi.provider_transaction_id, 'NULL') ORDER BY pi.created_at DESC) AS provider_tx_ids,
@@ -46,7 +46,7 @@ SELECT
 FROM public.payment_intents pi
 WHERE pi.payment_type = 'parent_pack'
   AND pi.status IN ('initializing', 'pending', 'reconciliation_required')
-GROUP BY pi.school_slug, pi.target_id
+GROUP BY pi.target_id
 HAVING COUNT(*) > 1;
 
 -- 3. Synthèse globale de volumétrie par statut pour le type parent_pack

@@ -1,0 +1,284 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { Pool } = require('pg');
+
+const migrationSqlPath = path.resolve(__dirname, '../scripts/migration_p27_parent_pack_reconciliation_defense.sql');
+const auditSqlPath = path.resolve(__dirname, '../scripts/preflight_p27_reconciliation_audit.sql');
+
+// ============================================================================
+// SUITE 1 : VÉRIFICATION STATIQUE DES LIVRABLES SQL P27
+// ============================================================================
+
+test('P27 Intégration - Présence des livrables et intégrité de la migration', () => {
+    assert.ok(fs.existsSync(migrationSqlPath), 'Le fichier migration_p27_parent_pack_reconciliation_defense.sql doit exister');
+    assert.ok(fs.existsSync(auditSqlPath), 'Le fichier preflight_p27_reconciliation_audit.sql doit exister');
+
+    const sql = fs.readFileSync(migrationSqlPath, 'utf8');
+
+    // Vérification des éléments critiques P27
+    assert.match(sql, /CREATE OR REPLACE FUNCTION public\.prepare_parent_pack_checkout/, 'RPC prepare_parent_pack_checkout requise');
+    assert.match(sql, /CREATE OR REPLACE FUNCTION public\.process_parent_pack_webhook_event/, 'RPC process_parent_pack_webhook_event requise');
+    assert.match(sql, /FOR UPDATE/, 'Verrouillage transactionnel FOR UPDATE requis');
+    assert.match(sql, /FAIL CLOSED MIGRATION P27/, 'Garde-fou Fail-Closed strict en cas de doublons requis');
+    assert.match(sql, /CREATE UNIQUE INDEX uq_active_parent_pack_intent\s+ON public\.payment_intents\s*\(target_id\)/, 'Index partiel sur target_id seul requis');
+});
+
+// ============================================================================
+// SUITE 2 : EXÉCUTION RÉELLE SUR POSTGRESQL MULTI-CONNEXIONS CONCURRENTES
+// ============================================================================
+
+test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur PostgreSQL', async (t) => {
+    const databaseUrl = (process.env.DATABASE_URL || '').trim();
+
+    if (!databaseUrl) {
+        // Signalement explicite de l'absence de base PostgreSQL locale
+        assert.fail(
+            'POSTGRES_TEST_BLOCKED: Aucune instance PostgreSQL isolée accessible (DATABASE_URL non défini). ' +
+            'Cette suite est conçue pour s\'exécuter automatiquement dans la CI GitHub Actions (service postgres:17-alpine).'
+        );
+    }
+
+    const pool = new Pool({
+        connectionString: databaseUrl,
+        connectionTimeoutMillis: 5000,
+        max: 5
+    });
+
+    let client1;
+    let client2;
+
+    try {
+        client1 = await pool.connect();
+        client2 = await pool.connect();
+    } catch (err) {
+        assert.fail(`Connexion PostgreSQL impossible (${err.message}). Vérifier DATABASE_URL.`);
+    }
+
+    try {
+        // Isolation complète dans un schéma de test dédié
+        const testSchema = 'p27_concurrency_test_' + Date.now();
+        await client1.query(`CREATE SCHEMA ${testSchema};`);
+        await client1.query(`SET search_path = ${testSchema}, public;`);
+        await client2.query(`SET search_path = ${testSchema}, public;`);
+
+        // Bootstrap minimal des tables nécessaires
+        const bootstrapSql = `
+            CREATE TABLE IF NOT EXISTS schools (
+                slug TEXT PRIMARY KEY,
+                commission_rate_percentage NUMERIC DEFAULT 20,
+                affiliate_id UUID
+            );
+            CREATE TABLE IF NOT EXISTS affiliates (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                status TEXT DEFAULT 'active'
+            );
+            CREATE TABLE IF NOT EXISTS currency_config (
+                currency_code TEXT PRIMARY KEY,
+                cooling_off_days INTEGER DEFAULT 14
+            );
+            INSERT INTO currency_config (currency_code, cooling_off_days) VALUES ('XOF', 14) ON CONFLICT DO NOTHING;
+            INSERT INTO schools (slug, commission_rate_percentage) VALUES ('ecole_test', 20) ON CONFLICT DO NOTHING;
+
+            CREATE TABLE IF NOT EXISTS parent_pack_pricing (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                cycle_name TEXT NOT NULL,
+                active BOOLEAN DEFAULT true,
+                monthly_price_minor BIGINT NOT NULL,
+                annual_price_minor BIGINT NOT NULL,
+                annual_duration_months INTEGER NOT NULL,
+                currency TEXT DEFAULT 'XOF'
+            );
+
+            CREATE TABLE IF NOT EXISTS global_students (
+                student_global_id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+            );
+
+            CREATE TABLE IF NOT EXISTS parent_subscriptions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                parent_ref TEXT NOT NULL,
+                student_global_id UUID NOT NULL,
+                school_slug TEXT NOT NULL,
+                student_ref TEXT NOT NULL,
+                pricing_id UUID NOT NULL,
+                status TEXT NOT NULL DEFAULT 'inactive',
+                created_at TIMESTAMPTZ DEFAULT clock_timestamp(),
+                updated_at TIMESTAMPTZ DEFAULT clock_timestamp(),
+                CONSTRAINT uq_parent_subs_parent_global UNIQUE (parent_ref, student_global_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS payment_intents (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                target_id TEXT NOT NULL,
+                expected_amount BIGINT NOT NULL,
+                expected_currency TEXT NOT NULL,
+                status TEXT NOT NULL,
+                payment_type TEXT NOT NULL,
+                school_slug TEXT NOT NULL,
+                plan_type TEXT,
+                metadata JSONB,
+                provider_transaction_id TEXT,
+                reconciliation_reason TEXT,
+                completed_at TIMESTAMPTZ,
+                expires_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT clock_timestamp(),
+                updated_at TIMESTAMPTZ DEFAULT clock_timestamp()
+            );
+        `;
+        await client1.query(bootstrapSql);
+
+        // Insertion d'un tarif de test
+        const pricingRes = await client1.query(`
+            INSERT INTO parent_pack_pricing (cycle_name, active, monthly_price_minor, annual_price_minor, annual_duration_months, currency)
+            VALUES ('maternelle', true, 20000, 150000, 9, 'XOF')
+            RETURNING id;
+        `);
+        const pricingId = pricingRes.rows[0].id;
+
+        // Insertion d'un élève global
+        const studentRes = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+        const studentGlobalId = studentRes.rows[0].student_global_id;
+
+        // Injection des fonctions P27 dans le schéma de test
+        const rawMigration = fs.readFileSync(migrationSqlPath, 'utf8');
+        // Remplacer 'public.' par le schéma de test
+        const adaptedMigration = rawMigration
+            .replace(/public\./g, `${testSchema}.`)
+            .replace(/BEGIN;/g, '')
+            .replace(/COMMIT;/g, '');
+        await client1.query(adaptedMigration);
+
+        // --------------------------------------------------------------------
+        // TEST CONCURRENT 1 : Deux créations simultanées pour le même élève
+        // --------------------------------------------------------------------
+        await t.test('1. Concurrence simultanée : une seule souscription et intention créée', async () => {
+            const checkoutCall = (client) => client.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                ['parent_conc_1', studentGlobalId, 'ecole_test', 'eleve_local_1', pricingId, 'maternelle', 1]
+            );
+
+            // Exécution simultanée sur 2 connexions indépendantes
+            const results = await Promise.allSettled([
+                checkoutCall(client1),
+                checkoutCall(client2)
+            ]);
+
+            const fulfilled = results.filter(r => r.status === 'fulfilled');
+            const rejected = results.filter(r => r.status === 'rejected');
+
+            assert.strictEqual(fulfilled.length, 1, 'Exactement une requête doit réussir');
+            assert.strictEqual(rejected.length, 1, 'Exactement une requête doit être rejetée');
+            assert.match(rejected[0].reason.message, /FAIL CLOSED: ACTIVE_INTENT_ALREADY_EXISTS/, 'L erreur doit être ACTIVE_INTENT_ALREADY_EXISTS');
+
+            // Vérification de l'intégrité en base
+            const subCount = await client1.query(`SELECT COUNT(*) FROM ${testSchema}.parent_subscriptions WHERE parent_ref = $1;`, ['parent_conc_1']);
+            assert.strictEqual(parseInt(subCount.rows[0].count), 1, 'Une seule souscription en base');
+
+            const intentCount = await client1.query(`SELECT COUNT(*) FROM ${testSchema}.payment_intents WHERE payment_type = 'parent_pack';`);
+            assert.strictEqual(parseInt(intentCount.rows[0].count), 1, 'Une seule intention en base');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST CONCURRENT 2 : Rejet simultané si réconciliation pendante
+        // --------------------------------------------------------------------
+        await t.test('2. Rejet concurrent si intention précédente en reconciliation_required', async () => {
+            // Basculer l'intention existante en reconciliation_required
+            await client1.query(`UPDATE ${testSchema}.payment_intents SET status = 'reconciliation_required';`);
+
+            const checkoutCall = (client) => client.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                ['parent_conc_1', studentGlobalId, 'ecole_test', 'eleve_local_1', pricingId, 'maternelle', 1]
+            );
+
+            // Deux requêtes simultanées tentant de forcer un nouveau checkout
+            const results = await Promise.allSettled([
+                checkoutCall(client1),
+                checkoutCall(client2)
+            ]);
+
+            assert.strictEqual(results[0].status, 'rejected');
+            assert.strictEqual(results[1].status, 'rejected');
+            assert.match(results[0].reason.message, /FAIL CLOSED: RECONCILIATION_REQUIRED_PENDING/);
+            assert.match(results[1].reason.message, /FAIL CLOSED: RECONCILIATION_REQUIRED_PENDING/);
+
+            // Aucune nouvelle intention n'a été insérée
+            const intentCount = await client1.query(`SELECT COUNT(*) FROM ${testSchema}.payment_intents WHERE payment_type = 'parent_pack';`);
+            assert.strictEqual(parseInt(intentCount.rows[0].count), 1, 'Toujours 1 seule intention');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 3 : Reprise autorisée après annulation administrative
+        // --------------------------------------------------------------------
+        await t.test('3. Reprise autorisée après résolution administrative vers cancelled', async () => {
+            // Résolution administrative : passage à cancelled
+            await client1.query(`UPDATE ${testSchema}.payment_intents SET status = 'cancelled';`);
+
+            const res = await client1.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                ['parent_conc_1', studentGlobalId, 'ecole_test', 'eleve_local_1', pricingId, 'maternelle', 1]
+            );
+
+            assert.ok(res.rows[0].res.payment_intent_id, 'Nouvelle intention générée avec succès');
+            const intentCount = await client1.query(`SELECT COUNT(*) FROM ${testSchema}.payment_intents WHERE payment_type = 'parent_pack';`);
+            assert.strictEqual(parseInt(intentCount.rows[0].count), 2, '2 intentions au total (1 cancelled, 1 initializing)');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 4 : Échec Fail-Closed strict de la migration si doublons
+        // --------------------------------------------------------------------
+        await t.test('4. Échec transactionnel (ROLLBACK) de la migration P27 en cas de doublons', async () => {
+            // Récupérer le target_id
+            const intentRow = await client1.query(`SELECT target_id FROM ${testSchema}.payment_intents LIMIT 1;`);
+            const targetId = intentRow.rows[0].target_id;
+
+            // Insérer artificiellement un doublon sur target_id
+            await client1.query(`
+                INSERT INTO ${testSchema}.payment_intents (
+                    target_id, expected_amount, expected_currency, status, payment_type, school_slug
+                ) VALUES ($1, 20000, 'XOF', 'reconciliation_required', 'parent_pack', 'ecole_test');
+            `, [targetId]);
+
+            // Exécution du bloc DO de migration
+            let migrationFailed = false;
+            let errorMessage = '';
+            try {
+                await client1.query(`
+                    DO $$
+                    DECLARE
+                        v_dupes_count INTEGER;
+                    BEGIN
+                        SELECT COUNT(*) INTO v_dupes_count
+                          FROM (
+                              SELECT target_id
+                                FROM ${testSchema}.payment_intents
+                               WHERE payment_type = 'parent_pack'
+                                 AND status IN ('initializing', 'pending', 'reconciliation_required')
+                               GROUP BY target_id
+                              HAVING COUNT(*) > 1
+                          ) d;
+
+                        IF v_dupes_count > 0 THEN
+                            RAISE EXCEPTION 'FAIL CLOSED MIGRATION P27: Doublons detectes' USING ERRCODE = '23505';
+                        END IF;
+                    END $$;
+                `);
+            } catch (err) {
+                migrationFailed = true;
+                errorMessage = err.message;
+            }
+
+            assert.strictEqual(migrationFailed, true, 'La migration doit échouer en présence de doublons');
+            assert.match(errorMessage, /FAIL CLOSED MIGRATION P27/, 'Message d erreur Fail-Closed explicite');
+        });
+
+        // Nettoyage final du schéma de test
+        await client1.query(`DROP SCHEMA ${testSchema} CASCADE;`);
+    } finally {
+        client1.release();
+        client2.release();
+        await pool.end();
+    }
+});
