@@ -67,5 +67,11 @@ test('P27: Validation structurelle et de sécurité des scripts SQL P27', async 
         assert.ok(content.includes('GRANT EXECUTE ON FUNCTION public.prepare_parent_pack_checkout') && content.includes('TO service_role'), 'Droits service_role sur checkout');
         assert.ok(content.includes('REVOKE EXECUTE ON FUNCTION public.process_parent_pack_webhook_event'), 'Révocation des droits publics sur webhook');
         assert.ok(content.includes('GRANT EXECUTE ON FUNCTION public.process_parent_pack_webhook_event') && content.includes('TO service_role'), 'Droits service_role sur webhook');
+
+        // Compatibilité stricte du schéma des devises : currency_configurations (P13/prod Supabase)
+        assert.match(content, /FROM public\.currency_configurations\s+WHERE code = 'XOF'\s+AND is_active = true/, 'Requête sur public.currency_configurations avec code = XOF et is_active = true');
+        assert.ok(!/\bcurrency_config\b/.test(content), 'Aucune référence à la table inexistante currency_config');
+        assert.ok(!/\bcurrency_code\b/.test(content), 'Aucune référence à la colonne inexistante currency_code');
+        assert.ok(content.includes('v_currency_cfg.cooling_off_days'), 'Utilisation de cooling_off_days depuis currency_configurations');
     });
 });
