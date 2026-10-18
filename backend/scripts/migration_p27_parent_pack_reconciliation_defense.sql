@@ -319,9 +319,13 @@ BEGIN
         RETURN jsonb_build_object('status', 'reconciliation_required', 'error_code', 'PARENT_PACK_SCHOOL_NOT_FOUND');
     END IF;
 
-    SELECT * INTO v_currency_cfg FROM public.currency_config WHERE currency_code = 'XOF';
+    SELECT * INTO v_currency_cfg
+      FROM public.currency_configurations
+     WHERE code = 'XOF'
+       AND is_active = true;
+
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Currency XOF not supported';
+        RAISE EXCEPTION 'Currency XOF not supported or inactive';
     END IF;
 
     v_gross_amount_minor := p_remote_amount;

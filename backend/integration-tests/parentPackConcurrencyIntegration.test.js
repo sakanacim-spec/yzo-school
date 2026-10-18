@@ -26,6 +26,11 @@ test('P27 Intégration - Présence des livrables et intégrité de la migration'
     assert.match(sql, /FOR UPDATE/, 'Verrouillage transactionnel FOR UPDATE requis');
     assert.match(sql, /FAIL CLOSED MIGRATION P27/, 'Garde-fou Fail-Closed strict en cas de doublons requis');
     assert.match(sql, /CREATE UNIQUE INDEX uq_active_parent_pack_intent\s+ON public\.payment_intents\s*\(target_id\)/, 'Index partiel sur target_id seul requis');
+
+    // Vérification de la compatibilité stricte avec le schéma réel de devises (public.currency_configurations)
+    assert.match(sql, /FROM public\.currency_configurations\s+WHERE code = 'XOF'\s+AND is_active = true/, 'Requête sur public.currency_configurations requise');
+    assert.doesNotMatch(sql, /\bcurrency_config\b/, 'Aucune référence à la table inexistante currency_config');
+    assert.doesNotMatch(sql, /\bcurrency_code\b/, 'Aucune référence à la colonne inexistante currency_code');
 });
 
 // ============================================================================
@@ -80,11 +85,17 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 status TEXT DEFAULT 'active'
             );
-            CREATE TABLE IF NOT EXISTS currency_config (
-                currency_code TEXT PRIMARY KEY,
-                cooling_off_days INTEGER DEFAULT 14
+            CREATE TABLE IF NOT EXISTS currency_configurations (
+                code VARCHAR(3) PRIMARY KEY,
+                exponent INTEGER NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                min_withdrawal_minor_units BIGINT NOT NULL DEFAULT 1000,
+                cooling_off_days INTEGER NOT NULL DEFAULT 14,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
             );
-            INSERT INTO currency_config (currency_code, cooling_off_days) VALUES ('XOF', 14) ON CONFLICT DO NOTHING;
+            INSERT INTO currency_configurations (code, exponent, is_active, min_withdrawal_minor_units, cooling_off_days)
+            VALUES ('XOF', 0, true, 1000, 14)
+            ON CONFLICT (code) DO NOTHING;
             INSERT INTO schools (slug, commission_rate_percentage) VALUES ('ecole_test', 20) ON CONFLICT DO NOTHING;
 
             CREATE TABLE IF NOT EXISTS parent_pack_pricing (
@@ -403,9 +414,10 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             assert.strictEqual(subBefore.rows[0].status, 'inactive', 'Souscription doit être inactive avant paiement');
 
             // Appel webhook nominal certifié
+            const certifiedPaymentAt6 = '2026-10-18T10:00:00.000Z';
             const webhookRes6 = await client1.query(
                 `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
-                ['fedapay', 'evt_nominal_1', 'transaction.approved', nominalIntentId, 'txn_nominal_1', 20000, 'XOF', 'approved', new Date().toISOString(), 600, 0, true]
+                ['fedapay', 'evt_nominal_1', 'transaction.approved', nominalIntentId, 'txn_nominal_1', 20000, 'XOF', 'approved', certifiedPaymentAt6, 600, 0, true]
             );
 
             assert.strictEqual(webhookRes6.rows[0].res.status, 'completed');
@@ -448,6 +460,11 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             assert.strictEqual(affLedger.rows.length, 1);
             assert.strictEqual(affLedger.rows[0].amount_minor, '1540');
             assert.strictEqual(affLedger.rows[0].entry_type, 'commission');
+            assert.strictEqual(
+                new Date(affLedger.rows[0].maturation_at).toISOString(),
+                '2026-11-01T10:00:00.000Z',
+                'maturation_at doit intégrer exactement les 14 jours de cooling_off_days de currency_configurations'
+            );
 
             // E. Solde affilié mis à jour
             const affBal = await client1.query(
@@ -495,9 +512,104 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         });
 
         // --------------------------------------------------------------------
-        // TEST 8 : Échec Fail-Closed strict de la migration si doublons
+        // TEST 8 : Échec Fail-Closed du webhook si XOF est inactif
         // --------------------------------------------------------------------
-        await t.test('8. Échec transactionnel (ROLLBACK) de la migration P27 en cas de doublons', async () => {
+        await t.test('8. Webhook : échec transactionnel Fail-Closed si la devise XOF est inactive', async () => {
+            const studentRes8 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentGlobalId8 = studentRes8.rows[0].student_global_id;
+
+            const checkoutRes8 = await client1.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                ['parent_wh_curr_inactive', studentGlobalId8, 'ecole_affiliee', 'eleve_curr_1', pricingId, 'maternelle', 1]
+            );
+            const intentId8 = checkoutRes8.rows[0].res.payment_intent_id;
+
+            // Désactiver temporairement XOF dans currency_configurations
+            await client1.query(`UPDATE ${testSchema}.currency_configurations SET is_active = false WHERE code = 'XOF';`);
+
+            let webhookFailed = false;
+            let webhookError = '';
+            try {
+                await client1.query(
+                    `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
+                    ['fedapay', 'evt_curr_inactive_1', 'transaction.approved', intentId8, 'txn_curr_inactive_1', 20000, 'XOF', 'approved', new Date().toISOString(), 600, 0, true]
+                );
+            } catch (err) {
+                webhookFailed = true;
+                webhookError = err.message;
+            } finally {
+                // Restaurer l'activité de XOF
+                await client1.query(`UPDATE ${testSchema}.currency_configurations SET is_active = true WHERE code = 'XOF';`);
+            }
+
+            assert.strictEqual(webhookFailed, true, 'L appel webhook doit lever une exception si XOF est inactif');
+            assert.match(webhookError, /Currency XOF not supported or inactive/, 'Message d exception explicite');
+
+            // Vérifier qu'aucune période n'a été créée (atomicité / rollback)
+            const periodsCount = await client1.query(
+                `SELECT COUNT(*) FROM ${testSchema}.parent_subscription_periods WHERE payment_intent_id = $1;`,
+                [intentId8]
+            );
+            assert.strictEqual(parseInt(periodsCount.rows[0].count, 10), 0, 'Aucune période ne doit être créée');
+
+            // Vérifier qu'aucune écriture comptable n'a été enregistrée
+            const ledgerCount = await client1.query(
+                `SELECT COUNT(*) FROM ${testSchema}.affiliate_ledger WHERE payment_intent_id = $1;`,
+                [intentId8]
+            );
+            assert.strictEqual(parseInt(ledgerCount.rows[0].count, 10), 0, 'Aucune commission affiliée ne doit être enregistrée');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 9 : Échec Fail-Closed du webhook si XOF est manquant
+        // --------------------------------------------------------------------
+        await t.test('9. Webhook : échec transactionnel Fail-Closed si la devise XOF est inexistante', async () => {
+            const studentRes9 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentGlobalId9 = studentRes9.rows[0].student_global_id;
+
+            const checkoutRes9 = await client1.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                ['parent_wh_curr_missing', studentGlobalId9, 'ecole_affiliee', 'eleve_curr_2', pricingId, 'maternelle', 1]
+            );
+            const intentId9 = checkoutRes9.rows[0].res.payment_intent_id;
+
+            // Supprimer temporairement XOF de currency_configurations
+            await client1.query(`DELETE FROM ${testSchema}.currency_configurations WHERE code = 'XOF';`);
+
+            let webhookFailed = false;
+            let webhookError = '';
+            try {
+                await client1.query(
+                    `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
+                    ['fedapay', 'evt_curr_missing_1', 'transaction.approved', intentId9, 'txn_curr_missing_1', 20000, 'XOF', 'approved', new Date().toISOString(), 600, 0, true]
+                );
+            } catch (err) {
+                webhookFailed = true;
+                webhookError = err.message;
+            } finally {
+                // Réinsérer la configuration XOF
+                await client1.query(`
+                    INSERT INTO ${testSchema}.currency_configurations (code, exponent, is_active, min_withdrawal_minor_units, cooling_off_days)
+                    VALUES ('XOF', 0, true, 1000, 14)
+                    ON CONFLICT (code) DO NOTHING;
+                `);
+            }
+
+            assert.strictEqual(webhookFailed, true, 'L appel webhook doit lever une exception si XOF est manquant');
+            assert.match(webhookError, /Currency XOF not supported or inactive/, 'Message d exception explicite');
+
+            // Vérifier qu'aucune période n'a été créée
+            const periodsCount = await client1.query(
+                `SELECT COUNT(*) FROM ${testSchema}.parent_subscription_periods WHERE payment_intent_id = $1;`,
+                [intentId9]
+            );
+            assert.strictEqual(parseInt(periodsCount.rows[0].count, 10), 0, 'Aucune période ne doit être créée');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 10 : Échec Fail-Closed strict de la migration si doublons
+        // --------------------------------------------------------------------
+        await t.test('10. Échec transactionnel (ROLLBACK) de la migration P27 en cas de doublons', async () => {
             // A. Reproduire fidèlement l'état historique avant déploiement P27 dans le schéma de test
             await client1.query(`DROP INDEX IF EXISTS ${testSchema}.uq_active_parent_pack_intent;`);
 
