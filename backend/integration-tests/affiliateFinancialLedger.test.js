@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
+const { bootstrapTestRoles } = require('./testRoleBootstrap');
 
 const { installSupabaseMock, restoreSupabaseMock } = require('../tests/helpers/mockSupabaseModule');
 installSupabaseMock();
@@ -249,19 +250,7 @@ test('Lot 6B - Validation transactionnelle sur PostgreSQL 17 isolÃ©', async ()
         assert.fail(`Connexion PostgreSQL impossible (${err.message}) : preuve bloquÃ©e.`);
       }
 
-        const roleBootstrapSql = `DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
-    CREATE ROLE anon NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-    CREATE ROLE authenticated NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
-  END IF;
-END $$;`;
-        await client.query(roleBootstrapSql);
+        await bootstrapTestRoles(client);
         await client.query('BEGIN;');
 
         // 1. Schéma historique minimal requis (auto-suffisant pour base vierge et compatible production)
