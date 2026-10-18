@@ -444,7 +444,7 @@ BEGIN
            updated_at = clock_timestamp()
      WHERE id = v_subscription.id;
 
-    UPDATE public.payment_intents SET status = 'completed', provider_transaction_id = p_provider_transaction_id, completed_at = p_certified_payment_at, updated_at = clock_timestamp() WHERE id = p_intent_id;
+    UPDATE public.payment_intents SET status = 'completed', provider_transaction_id = p_provider_transaction_id, processed_at = p_certified_payment_at, updated_at = clock_timestamp() WHERE id = p_intent_id;
     UPDATE public.webhook_events SET status = 'processed', processed_at = clock_timestamp() WHERE id = v_event_id;
 
     RETURN jsonb_build_object('status', 'completed', 'payment_type', 'parent_pack', 'subscription_id', v_subscription.id, 'period_id', v_period_id);
