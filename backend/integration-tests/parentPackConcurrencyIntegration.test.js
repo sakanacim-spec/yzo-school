@@ -148,10 +148,16 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
                 metadata JSONB,
                 provider_transaction_id TEXT,
                 reconciliation_reason TEXT,
-                completed_at TIMESTAMPTZ,
+                processed_at TIMESTAMPTZ,
                 expires_at TIMESTAMPTZ,
                 created_at TIMESTAMPTZ DEFAULT clock_timestamp(),
-                updated_at TIMESTAMPTZ DEFAULT clock_timestamp()
+                updated_at TIMESTAMPTZ DEFAULT clock_timestamp(),
+                CONSTRAINT chk_payment_intents_processed_at
+                    CHECK (
+                        (status = 'completed' AND processed_at IS NOT NULL)
+                        OR
+                        (status <> 'completed' AND processed_at IS NULL)
+                    )
             );
 
             CREATE TABLE IF NOT EXISTS webhook_events (
@@ -397,6 +403,7 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         let nominalIntentId;
         let nominalPeriodId;
         let nominalAffiliateId;
+        let nominalCertifiedPaymentAt;
 
         await t.test('6. Webhook nominal : activation de la souscription, période active et écritures financières complètes', async () => {
             // Création d'une école avec ambassadeur actif
@@ -425,10 +432,10 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             assert.strictEqual(subBefore.rows[0].status, 'inactive', 'Souscription doit être inactive avant paiement');
 
             // Appel webhook nominal certifié
-            const certifiedPaymentAt6 = '2026-10-18T10:00:00.000Z';
+            nominalCertifiedPaymentAt = '2026-10-18T10:00:00.000Z';
             const webhookRes6 = await client1.query(
                 `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
-                ['fedapay', 'evt_nominal_1', 'transaction.approved', nominalIntentId, 'txn_nominal_1', 20000, 'XOF', 'approved', certifiedPaymentAt6, 600, 0, true]
+                ['fedapay', 'evt_nominal_1', 'transaction.approved', nominalIntentId, 'txn_nominal_1', 20000, 'XOF', 'approved', nominalCertifiedPaymentAt, 600, 0, true]
             );
 
             assert.strictEqual(webhookRes6.rows[0].res.status, 'completed');
@@ -484,9 +491,16 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             );
             assert.strictEqual(affBal.rows[0].pending_balance_minor, '1540');
 
-            // F. Intention complétée
-            const intentAfter = await client1.query(`SELECT status FROM ${testSchema}.payment_intents WHERE id = $1;`, [nominalIntentId]);
+            // F. Intention complétée avec processed_at certifié
+            const intentAfter = await client1.query(`SELECT status, processed_at, provider_transaction_id FROM ${testSchema}.payment_intents WHERE id = $1;`, [nominalIntentId]);
             assert.strictEqual(intentAfter.rows[0].status, 'completed');
+            assert.ok(intentAfter.rows[0].processed_at, 'processed_at doit être renseigné lors du passage à completed');
+            assert.strictEqual(
+                new Date(intentAfter.rows[0].processed_at).toISOString(),
+                new Date(nominalCertifiedPaymentAt).toISOString(),
+                'processed_at doit correspondre à la date certifiée de paiement'
+            );
+            assert.strictEqual(intentAfter.rows[0].provider_transaction_id, 'txn_nominal_1');
         });
 
         // --------------------------------------------------------------------
@@ -520,6 +534,15 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
                 [nominalAffiliateId]
             );
             assert.strictEqual(affBal.rows[0].pending_balance_minor, '1540', 'Le solde affilié ne doit pas être incrémenté deux fois');
+
+            // Vérification de l'intégrité de l'intention : statut completed et processed_at inchangés
+            const intentReplay = await client1.query(`SELECT status, processed_at FROM ${testSchema}.payment_intents WHERE id = $1;`, [nominalIntentId]);
+            assert.strictEqual(intentReplay.rows[0].status, 'completed');
+            assert.strictEqual(
+                new Date(intentReplay.rows[0].processed_at).toISOString(),
+                new Date(nominalCertifiedPaymentAt).toISOString(),
+                'processed_at reste inchangé lors d un rejeu idempotent'
+            );
         });
 
         // --------------------------------------------------------------------
@@ -563,12 +586,29 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             );
             assert.strictEqual(parseInt(periodsCount.rows[0].count, 10), 0, 'Aucune période ne doit être créée');
 
-            // Vérifier qu'aucune écriture comptable n'a été enregistrée
+            // Vérifier qu'aucune commission affiliée n'a été enregistrée
             const ledgerCount = await client1.query(
                 `SELECT COUNT(*) FROM ${testSchema}.affiliate_ledger WHERE payment_intent_id = $1;`,
                 [intentId8]
             );
             assert.strictEqual(parseInt(ledgerCount.rows[0].count, 10), 0, 'Aucune commission affiliée ne doit être enregistrée');
+
+            // Vérifier qu'aucune commission d'école n'a été enregistrée
+            const schoolCount = await client1.query(
+                `SELECT COUNT(*) FROM ${testSchema}.school_commission_ledger WHERE period_id IN (
+                    SELECT id FROM ${testSchema}.parent_subscription_periods WHERE payment_intent_id = $1
+                );`,
+                [intentId8]
+            );
+            assert.strictEqual(parseInt(schoolCount.rows[0].count, 10), 0, 'Aucune commission école ne doit être enregistrée');
+
+            // Vérifier que l'intention n'a pas été complétée et que processed_at est resté NULL
+            const intentAfter8 = await client1.query(
+                `SELECT status, processed_at FROM ${testSchema}.payment_intents WHERE id = $1;`,
+                [intentId8]
+            );
+            assert.notStrictEqual(intentAfter8.rows[0].status, 'completed', 'L intention ne doit pas passer à completed en cas d erreur');
+            assert.strictEqual(intentAfter8.rows[0].processed_at, null, 'processed_at doit rester NULL');
         });
 
         // --------------------------------------------------------------------
@@ -640,6 +680,19 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             const subRes = await client1.query(
                 `SELECT id, billing_anchor_date::text, cumulative_months, status FROM ${testSchema}.parent_subscriptions WHERE id = (SELECT target_id::uuid FROM ${testSchema}.payment_intents WHERE id = $1);`,
                 [intentId]
+            );
+
+            // Vérification systématique du respect de la contrainte chk_payment_intents_processed_at
+            const intentCheck = await client1.query(
+                `SELECT status, processed_at FROM ${testSchema}.payment_intents WHERE id = $1;`,
+                [intentId]
+            );
+            assert.strictEqual(intentCheck.rows[0].status, 'completed');
+            assert.ok(intentCheck.rows[0].processed_at, 'processed_at doit être non nul lors du statut completed');
+            assert.strictEqual(
+                new Date(intentCheck.rows[0].processed_at).toISOString(),
+                new Date(certifiedAt).toISOString(),
+                'processed_at doit correspondre exactement à la date certifiée'
             );
 
             return {
@@ -1041,8 +1094,8 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             // Période ancienne interrompue (janvier 2026)
             const intentOldRes = await client1.query(`
                 INSERT INTO ${testSchema}.payment_intents (
-                    target_id, expected_amount, expected_currency, status, payment_type, school_slug, metadata
-                ) VALUES ($1, 20000, 'XOF', 'completed', 'parent_pack', 'ecole_test', jsonb_build_object('duration_months', 1))
+                    target_id, expected_amount, expected_currency, status, payment_type, school_slug, metadata, processed_at
+                ) VALUES ($1, 20000, 'XOF', 'completed', 'parent_pack', 'ecole_test', jsonb_build_object('duration_months', 1), '2026-01-15T10:00:00.000Z')
                 RETURNING id;
             `, [legacySubId]);
             await client1.query(`
@@ -1054,8 +1107,8 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             // Période récente (31 août 2026 à 29 septembre 2026) après une interruption de 6 mois
             const intentRecentRes = await client1.query(`
                 INSERT INTO ${testSchema}.payment_intents (
-                    target_id, expected_amount, expected_currency, status, payment_type, school_slug, metadata
-                ) VALUES ($1, 20000, 'XOF', 'completed', 'parent_pack', 'ecole_test', jsonb_build_object('duration_months', 1))
+                    target_id, expected_amount, expected_currency, status, payment_type, school_slug, metadata, processed_at
+                ) VALUES ($1, 20000, 'XOF', 'completed', 'parent_pack', 'ecole_test', jsonb_build_object('duration_months', 1), '2026-08-31T10:00:00.000Z')
                 RETURNING id;
             `, [legacySubId]);
             await client1.query(`

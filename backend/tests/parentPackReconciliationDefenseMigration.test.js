@@ -81,5 +81,14 @@ test('P27: Validation structurelle et de sécurité des scripts SQL P27', async 
         assert.ok(content.includes('cumulative_months = v_cumulative_months'), 'Mise à jour atomique de cumulative_months');
         assert.ok(content.includes('WITH RECURSIVE chain'), 'Traitement récursif Fail-Closed de la chaîne continue sans supposer MIN(start_date)');
         assert.ok(content.includes('make_interval(months => v_cumulative_months)'), 'Calcul de l échéance via cumul de mois depuis l ancrage');
+
+        // Respect strict de la contrainte chk_payment_intents_processed_at
+        assert.ok(!content.includes('completed_at'), 'Aucune référence à la colonne inexistante completed_at');
+        assert.ok(content.includes('processed_at = p_certified_payment_at'), 'processed_at renseigné lors du passage au statut completed');
+        assert.match(
+            content,
+            /UPDATE public\.payment_intents\s+SET status = 'completed', provider_transaction_id = p_provider_transaction_id, processed_at = p_certified_payment_at, updated_at = clock_timestamp\(\)\s+WHERE id = p_intent_id;/,
+            'UPDATE completed renseigne explicitement processed_at pour respecter chk_payment_intents_processed_at'
+        );
     });
 });
