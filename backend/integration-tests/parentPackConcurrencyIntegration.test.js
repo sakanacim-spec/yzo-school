@@ -31,6 +31,13 @@ test('P27 Intégration - Présence des livrables et intégrité de la migration'
     assert.match(sql, /FROM public\.currency_configurations\s+WHERE code = 'XOF'\s+AND is_active = true/, 'Requête sur public.currency_configurations requise');
     assert.doesNotMatch(sql, /\bcurrency_config\b/, 'Aucune référence à la table inexistante currency_config');
     assert.doesNotMatch(sql, /\bcurrency_code\b/, 'Aucune référence à la colonne inexistante currency_code');
+
+    // Vérification des colonnes d'ancrage d'anniversaire et de cumul des mois
+    assert.match(sql, /ALTER TABLE public\.parent_subscriptions[\s\S]+?ADD COLUMN IF NOT EXISTS billing_anchor_date DATE/, 'Évolution DDL billing_anchor_date requise');
+    assert.match(sql, /ADD COLUMN IF NOT EXISTS cumulative_months INTEGER/, 'Évolution DDL cumulative_months requise');
+    assert.match(sql, /billing_anchor_date = v_anchor_date/, 'Mise à jour atomique de billing_anchor_date requise');
+    assert.match(sql, /cumulative_months = v_cumulative_months/, 'Mise à jour atomique de cumulative_months requise');
+    assert.match(sql, /WITH RECURSIVE chain/, 'Résilience historique via CTE récursive requise');
 });
 
 // ============================================================================
@@ -73,6 +80,8 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         await client1.query(`CREATE SCHEMA ${testSchema};`);
         await client1.query(`SET search_path = ${testSchema}, public;`);
         await client2.query(`SET search_path = ${testSchema}, public;`);
+        await client1.query(`SET timezone = 'UTC';`);
+        await client2.query(`SET timezone = 'UTC';`);
 
         // Bootstrap minimal des tables nécessaires
         const bootstrapSql = `
@@ -120,6 +129,8 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
                 student_ref TEXT NOT NULL,
                 pricing_id UUID NOT NULL,
                 status TEXT NOT NULL DEFAULT 'inactive',
+                billing_anchor_date DATE,
+                cumulative_months INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMPTZ DEFAULT clock_timestamp(),
                 updated_at TIMESTAMPTZ DEFAULT clock_timestamp(),
                 CONSTRAINT uq_parent_subs_parent_global UNIQUE (parent_ref, student_global_id)
@@ -604,6 +615,530 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
                 [intentId9]
             );
             assert.strictEqual(parseInt(periodsCount.rows[0].count, 10), 0, 'Aucune période ne doit être créée');
+        });
+
+        // --------------------------------------------------------------------
+        // HELPER POUR LES TESTS D'ANNIVERSAIRE ET DE RENOUVELLEMENT CONTINU
+        // --------------------------------------------------------------------
+        const executePaymentFlow = async ({ parentRef, studentGlobalId, pricingIdToUse, durationMonths, certifiedAt, providerEventId, cycleName = 'maternelle', amount = 20000 }) => {
+            const checkoutRes = await client1.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                [parentRef, studentGlobalId, 'ecole_test', 'eleve_' + Math.random().toString(36).slice(2, 7), pricingIdToUse, cycleName, durationMonths]
+            );
+            const intentId = checkoutRes.rows[0].res.payment_intent_id;
+
+            const webhookRes = await client1.query(
+                `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
+                ['fedapay', providerEventId, 'transaction.approved', intentId, 'txn_' + providerEventId, amount, 'XOF', 'approved', certifiedAt, 600, 0, true]
+            );
+
+            const periodRes = await client1.query(
+                `SELECT start_date::text, end_date::text, status FROM ${testSchema}.parent_subscription_periods WHERE payment_intent_id = $1;`,
+                [intentId]
+            );
+
+            const subRes = await client1.query(
+                `SELECT id, billing_anchor_date::text, cumulative_months, status FROM ${testSchema}.parent_subscriptions WHERE id = (SELECT target_id::uuid FROM ${testSchema}.payment_intents WHERE id = $1);`,
+                [intentId]
+            );
+
+            return {
+                intentId,
+                webhookStatus: webhookRes.rows[0].res.status,
+                period: periodRes.rows[0],
+                subscription: subRes.rows[0]
+            };
+        };
+
+        // --------------------------------------------------------------------
+        // TEST 11 : Date anniversaire - Achat 15 février → renouvellement 15 mars
+        // --------------------------------------------------------------------
+        await t.test('11. Date anniversaire : Achat le 15 février → renouvellement le 15 mars', async () => {
+            const studentRes11 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentId11 = studentRes11.rows[0].student_global_id;
+
+            // Étape 1 : Achat le 15 février 2027
+            const step1 = await executePaymentFlow({
+                parentRef: 'parent_anniv_feb15',
+                studentGlobalId: studentId11,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-02-15T10:00:00Z',
+                providerEventId: 'evt_anniv_feb15_1'
+            });
+
+            assert.strictEqual(step1.webhookStatus, 'completed');
+            assert.strictEqual(step1.period.start_date, '2027-02-15');
+            assert.strictEqual(step1.period.end_date, '2027-03-14');
+            assert.strictEqual(step1.subscription.billing_anchor_date, '2027-02-15');
+            assert.strictEqual(step1.subscription.cumulative_months, 1);
+
+            // Étape 2 : Renouvellement à l'échéance le 15 mars 2027
+            const step2 = await executePaymentFlow({
+                parentRef: 'parent_anniv_feb15',
+                studentGlobalId: studentId11,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-03-15T10:00:00Z',
+                providerEventId: 'evt_anniv_feb15_2'
+            });
+
+            assert.strictEqual(step2.webhookStatus, 'completed');
+            assert.strictEqual(step2.period.start_date, '2027-03-15', 'Le renouvellement commence exactement le 15 mars');
+            assert.strictEqual(step2.period.end_date, '2027-04-14');
+            assert.strictEqual(step2.subscription.billing_anchor_date, '2027-02-15', 'L ancrage d origine au 15 février est préservé');
+            assert.strictEqual(step2.subscription.cumulative_months, 2);
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 12 : Date anniversaire - 31 janvier 2027 (non-bissextile) → 28 fév, 31 mar, 30 avr, 31 mai
+        // --------------------------------------------------------------------
+        await t.test('12. Date anniversaire : 31 janvier 2027 → 28 février, 31 mars, 30 avril, 31 mai', async () => {
+            const studentRes12 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentId12 = studentRes12.rows[0].student_global_id;
+
+            // Mois 1 : Achat le 31 janvier 2027
+            const m1 = await executePaymentFlow({
+                parentRef: 'parent_anniv_jan31_2027',
+                studentGlobalId: studentId12,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-01-31T09:00:00Z',
+                providerEventId: 'evt_anniv_jan31_m1'
+            });
+            assert.strictEqual(m1.period.start_date, '2027-01-31');
+            assert.strictEqual(m1.period.end_date, '2027-02-27');
+            assert.strictEqual(m1.subscription.billing_anchor_date, '2027-01-31');
+            assert.strictEqual(m1.subscription.cumulative_months, 1);
+
+            // Mois 2 : Renouvellement au 28 février 2027 (dernier jour de février)
+            const m2 = await executePaymentFlow({
+                parentRef: 'parent_anniv_jan31_2027',
+                studentGlobalId: studentId12,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-02-28T09:00:00Z',
+                providerEventId: 'evt_anniv_jan31_m2'
+            });
+            assert.strictEqual(m2.period.start_date, '2027-02-28', 'Renouvellement au dernier jour de février (28)');
+            assert.strictEqual(m2.period.end_date, '2027-03-30');
+            assert.strictEqual(m2.subscription.billing_anchor_date, '2027-01-31');
+            assert.strictEqual(m2.subscription.cumulative_months, 2);
+
+            // Mois 3 : Renouvellement au 31 mars 2027 (31 retrouvé !)
+            const m3 = await executePaymentFlow({
+                parentRef: 'parent_anniv_jan31_2027',
+                studentGlobalId: studentId12,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-03-31T09:00:00Z',
+                providerEventId: 'evt_anniv_jan31_m3'
+            });
+            assert.strictEqual(m3.period.start_date, '2027-03-31', 'Jour anniversaire d origine 31 retrouvé en mars');
+            assert.strictEqual(m3.period.end_date, '2027-04-29');
+            assert.strictEqual(m3.subscription.billing_anchor_date, '2027-01-31');
+            assert.strictEqual(m3.subscription.cumulative_months, 3);
+
+            // Mois 4 : Renouvellement au 30 avril 2027 (dernier jour d avril)
+            const m4 = await executePaymentFlow({
+                parentRef: 'parent_anniv_jan31_2027',
+                studentGlobalId: studentId12,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-04-30T09:00:00Z',
+                providerEventId: 'evt_anniv_jan31_m4'
+            });
+            assert.strictEqual(m4.period.start_date, '2027-04-30', 'Dernier jour d avril (30)');
+            assert.strictEqual(m4.period.end_date, '2027-05-30');
+            assert.strictEqual(m4.subscription.billing_anchor_date, '2027-01-31');
+            assert.strictEqual(m4.subscription.cumulative_months, 4);
+
+            // Mois 5 : Renouvellement au 31 mai 2027 (31 retrouvé !)
+            const m5 = await executePaymentFlow({
+                parentRef: 'parent_anniv_jan31_2027',
+                studentGlobalId: studentId12,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-05-31T09:00:00Z',
+                providerEventId: 'evt_anniv_jan31_m5'
+            });
+            assert.strictEqual(m5.period.start_date, '2027-05-31', 'Jour anniversaire 31 retrouvé en mai');
+            assert.strictEqual(m5.period.end_date, '2027-06-29');
+            assert.strictEqual(m5.subscription.billing_anchor_date, '2027-01-31');
+            assert.strictEqual(m5.subscription.cumulative_months, 5);
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 13 : Date anniversaire - 31 janvier 2028 (bissextile) → 29 fév, 31 mar
+        // --------------------------------------------------------------------
+        await t.test('13. Date anniversaire : 31 janvier 2028 (bissextile) → 29 février, 31 mars', async () => {
+            const studentRes13 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentId13 = studentRes13.rows[0].student_global_id;
+
+            // Mois 1 : Achat 31 janvier 2028
+            const m1 = await executePaymentFlow({
+                parentRef: 'parent_anniv_jan31_2028',
+                studentGlobalId: studentId13,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2028-01-31T10:00:00Z',
+                providerEventId: 'evt_anniv_leap_m1'
+            });
+            assert.strictEqual(m1.period.start_date, '2028-01-31');
+            assert.strictEqual(m1.period.end_date, '2028-02-28');
+            assert.strictEqual(m1.subscription.billing_anchor_date, '2028-01-31');
+            assert.strictEqual(m1.subscription.cumulative_months, 1);
+
+            // Mois 2 : Renouvellement au 29 février 2028 (année bissextile)
+            const m2 = await executePaymentFlow({
+                parentRef: 'parent_anniv_jan31_2028',
+                studentGlobalId: studentId13,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2028-02-29T10:00:00Z',
+                providerEventId: 'evt_anniv_leap_m2'
+            });
+            assert.strictEqual(m2.period.start_date, '2028-02-29', 'Renouvellement exact au 29 février bissextile');
+            assert.strictEqual(m2.period.end_date, '2028-03-30');
+            assert.strictEqual(m2.subscription.billing_anchor_date, '2028-01-31');
+            assert.strictEqual(m2.subscription.cumulative_months, 2);
+
+            // Mois 3 : Renouvellement au 31 mars 2028
+            const m3 = await executePaymentFlow({
+                parentRef: 'parent_anniv_jan31_2028',
+                studentGlobalId: studentId13,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2028-03-31T10:00:00Z',
+                providerEventId: 'evt_anniv_leap_m3'
+            });
+            assert.strictEqual(m3.period.start_date, '2028-03-31', 'Jour anniversaire 31 restauré');
+            assert.strictEqual(m3.period.end_date, '2028-04-29');
+            assert.strictEqual(m3.subscription.billing_anchor_date, '2028-01-31');
+            assert.strictEqual(m3.subscription.cumulative_months, 3);
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 14 : Date anniversaire - Achat 29 février 2028 (jour bissextile)
+        // --------------------------------------------------------------------
+        await t.test('14. Date anniversaire : Achat le 29 février 2028 → renouvellement le 29 mars', async () => {
+            const studentRes14 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentId14 = studentRes14.rows[0].student_global_id;
+
+            const m1 = await executePaymentFlow({
+                parentRef: 'parent_anniv_feb29',
+                studentGlobalId: studentId14,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2028-02-29T11:00:00Z',
+                providerEventId: 'evt_anniv_feb29_1'
+            });
+            assert.strictEqual(m1.period.start_date, '2028-02-29');
+            assert.strictEqual(m1.period.end_date, '2028-03-28');
+            assert.strictEqual(m1.subscription.billing_anchor_date, '2028-02-29');
+            assert.strictEqual(m1.subscription.cumulative_months, 1);
+
+            const m2 = await executePaymentFlow({
+                parentRef: 'parent_anniv_feb29',
+                studentGlobalId: studentId14,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2028-03-29T11:00:00Z',
+                providerEventId: 'evt_anniv_feb29_2'
+            });
+            assert.strictEqual(m2.period.start_date, '2028-03-29', 'Renouvellement exact au 29 mars');
+            assert.strictEqual(m2.period.end_date, '2028-04-28');
+            assert.strictEqual(m2.subscription.billing_anchor_date, '2028-02-29');
+            assert.strictEqual(m2.subscription.cumulative_months, 2);
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 15 : Date anniversaire - 31 août 2027 → 30 septembre, 31 octobre
+        // --------------------------------------------------------------------
+        await t.test('15. Date anniversaire : 31 août 2027 → 30 septembre, 31 octobre', async () => {
+            const studentRes15 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentId15 = studentRes15.rows[0].student_global_id;
+
+            // Mois 1 : Achat 31 août 2027
+            const m1 = await executePaymentFlow({
+                parentRef: 'parent_anniv_aug31',
+                studentGlobalId: studentId15,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-08-31T08:00:00Z',
+                providerEventId: 'evt_anniv_aug31_1'
+            });
+            assert.strictEqual(m1.period.start_date, '2027-08-31');
+            assert.strictEqual(m1.period.end_date, '2027-09-29');
+            assert.strictEqual(m1.subscription.billing_anchor_date, '2027-08-31');
+            assert.strictEqual(m1.subscription.cumulative_months, 1);
+
+            // Mois 2 : Renouvellement 30 septembre 2027
+            const m2 = await executePaymentFlow({
+                parentRef: 'parent_anniv_aug31',
+                studentGlobalId: studentId15,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-09-30T08:00:00Z',
+                providerEventId: 'evt_anniv_aug31_2'
+            });
+            assert.strictEqual(m2.period.start_date, '2027-09-30', 'Renouvellement le 30 septembre');
+            assert.strictEqual(m2.period.end_date, '2027-10-30');
+            assert.strictEqual(m2.subscription.billing_anchor_date, '2027-08-31');
+            assert.strictEqual(m2.subscription.cumulative_months, 2);
+
+            // Mois 3 : Renouvellement 31 octobre 2027
+            const m3 = await executePaymentFlow({
+                parentRef: 'parent_anniv_aug31',
+                studentGlobalId: studentId15,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-10-31T08:00:00Z',
+                providerEventId: 'evt_anniv_aug31_3'
+            });
+            assert.strictEqual(m3.period.start_date, '2027-10-31', 'Jour anniversaire 31 retrouvé en octobre');
+            assert.strictEqual(m3.period.end_date, '2027-11-29');
+            assert.strictEqual(m3.subscription.billing_anchor_date, '2027-08-31');
+            assert.strictEqual(m3.subscription.cumulative_months, 3);
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 16 : Alternance formules 1 mois et 10 mois avec cumul exact
+        // --------------------------------------------------------------------
+        await t.test('16. Formules cumulées : alternance 1 mois et 10 mois sans perte d ancrage', async () => {
+            // Insertion d'un pricing de formule annuelle de 10 mois
+            const pricingRes10m = await client1.query(`
+                INSERT INTO parent_pack_pricing (cycle_name, active, monthly_price_minor, annual_price_minor, annual_duration_months, currency)
+                VALUES ('annuel_10m', true, 20000, 180000, 10, 'XOF')
+                RETURNING id;
+            `);
+            const pricingId10m = pricingRes10m.rows[0].id;
+
+            const studentRes16 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentId16 = studentRes16.rows[0].student_global_id;
+
+            // Étape 1 : Souscription initiale 1 mois le 31 janvier 2027
+            const p1 = await executePaymentFlow({
+                parentRef: 'parent_alternate_1_10',
+                studentGlobalId: studentId16,
+                pricingIdToUse: pricingId10m,
+                durationMonths: 1,
+                cycleName: 'annuel_10m',
+                amount: 20000,
+                certifiedAt: '2027-01-31T10:00:00Z',
+                providerEventId: 'evt_alt_1m'
+            });
+            assert.strictEqual(p1.period.start_date, '2027-01-31');
+            assert.strictEqual(p1.period.end_date, '2027-02-27');
+            assert.strictEqual(p1.subscription.billing_anchor_date, '2027-01-31');
+            assert.strictEqual(p1.subscription.cumulative_months, 1);
+
+            // Étape 2 : Renouvellement avec la formule 10 mois le 28 février 2027
+            const p2 = await executePaymentFlow({
+                parentRef: 'parent_alternate_1_10',
+                studentGlobalId: studentId16,
+                pricingIdToUse: pricingId10m,
+                durationMonths: 10,
+                cycleName: 'annuel_10m',
+                amount: 180000,
+                certifiedAt: '2027-02-28T10:00:00Z',
+                providerEventId: 'evt_alt_10m'
+            });
+            assert.strictEqual(p2.period.start_date, '2027-02-28');
+            // 2027-01-31 + 11 mois = 2027-12-31. Moins 1 jour = 2027-12-30.
+            assert.strictEqual(p2.period.end_date, '2027-12-30', 'Couverture exacte de 11 mois calendaires au total');
+            assert.strictEqual(p2.subscription.billing_anchor_date, '2027-01-31', 'Ancrage originel préservé');
+            assert.strictEqual(p2.subscription.cumulative_months, 11, 'Cumul exact 1 + 10 = 11 mois');
+
+            // Étape 3 : Renouvellement suivant d 1 mois le 31 décembre 2027
+            const p3 = await executePaymentFlow({
+                parentRef: 'parent_alternate_1_10',
+                studentGlobalId: studentId16,
+                pricingIdToUse: pricingId10m,
+                durationMonths: 1,
+                cycleName: 'annuel_10m',
+                amount: 20000,
+                certifiedAt: '2027-12-31T10:00:00Z',
+                providerEventId: 'evt_alt_1m_next'
+            });
+            assert.strictEqual(p3.period.start_date, '2027-12-31', 'Renouvellement exact au 31 décembre');
+            // 2027-01-31 + 12 mois = 2028-01-31. Moins 1 jour = 2028-01-30.
+            assert.strictEqual(p3.period.end_date, '2028-01-30', 'Couverture exacte de 12 mois');
+            assert.strictEqual(p3.subscription.billing_anchor_date, '2027-01-31');
+            assert.strictEqual(p3.subscription.cumulative_months, 12, 'Cumul exact 11 + 1 = 12 mois');
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 17 : Interruption réelle de couverture (gap impayé) puis nouvel ancrage
+        // --------------------------------------------------------------------
+        await t.test('17. Interruption réelle de couverture : réancrage au paiement certifié sans perte de jours', async () => {
+            const studentRes17 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentId17 = studentRes17.rows[0].student_global_id;
+
+            // Étape 1 : Souscription 1 mois le 15 janvier 2027
+            const cycle1 = await executePaymentFlow({
+                parentRef: 'parent_interrupted',
+                studentGlobalId: studentId17,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-01-15T09:00:00Z',
+                providerEventId: 'evt_gap_cycle1'
+            });
+            assert.strictEqual(cycle1.period.start_date, '2027-01-15');
+            assert.strictEqual(cycle1.period.end_date, '2027-02-14');
+            assert.strictEqual(cycle1.subscription.billing_anchor_date, '2027-01-15');
+            assert.strictEqual(cycle1.subscription.cumulative_months, 1);
+
+            // Étape 2 : Le parent n a pas renouvelé en février ni mars.
+            // Reprise avec nouveau paiement certifié le 10 avril 2027 (interruption de couverture)
+            const cycle2 = await executePaymentFlow({
+                parentRef: 'parent_interrupted',
+                studentGlobalId: studentId17,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-04-10T14:30:00Z',
+                providerEventId: 'evt_gap_cycle2_new_anchor'
+            });
+
+            // Le nouveau cycle démarre au jour du paiement certifié
+            assert.strictEqual(cycle2.period.start_date, '2027-04-10', 'Nouvelle couverture démarre au paiement certifié');
+            assert.strictEqual(cycle2.period.end_date, '2027-05-09', 'Couvre 1 mois calendaire entier depuis le nouvel ancrage');
+            assert.strictEqual(cycle2.subscription.billing_anchor_date, '2027-04-10', 'Nouvel ancrage d anniversaire au 10 avril');
+            assert.strictEqual(cycle2.subscription.cumulative_months, 1, 'Cumul réinitialisé pour la nouvelle chaîne continue');
+
+            // Étape 3 : Renouvellement continu de ce nouveau cycle le 10 mai 2027
+            const cycle2Renew = await executePaymentFlow({
+                parentRef: 'parent_interrupted',
+                studentGlobalId: studentId17,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-05-10T09:00:00Z',
+                providerEventId: 'evt_gap_cycle2_renew'
+            });
+            assert.strictEqual(cycle2Renew.period.start_date, '2027-05-10', 'Renouvellement exact au 10 mai');
+            assert.strictEqual(cycle2Renew.period.end_date, '2027-06-09');
+            assert.strictEqual(cycle2Renew.subscription.billing_anchor_date, '2027-04-10', 'Ancrage du 10 avril conservé');
+            assert.strictEqual(cycle2Renew.subscription.cumulative_months, 2);
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 18 : Résilience historique : gestion des interruptions sans supposer MIN(start_date)
+        // --------------------------------------------------------------------
+        await t.test('18. Résilience historique : isolation de la chaîne continue sans supposer MIN(start_date)', async () => {
+            const studentRes18 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentId18 = studentRes18.rows[0].student_global_id;
+
+            // Insertion manuelle d une souscription historique avec billing_anchor_date = NULL
+            const subInsert = await client1.query(`
+                INSERT INTO ${testSchema}.parent_subscriptions (
+                    parent_ref, student_global_id, school_slug, student_ref, pricing_id, status, billing_anchor_date, cumulative_months
+                ) VALUES (
+                    'parent_hist_legacy', $1, 'ecole_test', 'eleve_hist_1', $2, 'active', NULL, 0
+                ) RETURNING id;
+            `, [studentId18, pricingId]);
+            const legacySubId = subInsert.rows[0].id;
+
+            // Période ancienne interrompue (janvier 2026)
+            const intentOldRes = await client1.query(`
+                INSERT INTO ${testSchema}.payment_intents (
+                    target_id, expected_amount, expected_currency, status, payment_type, school_slug, metadata
+                ) VALUES ($1, 20000, 'XOF', 'completed', 'parent_pack', 'ecole_test', jsonb_build_object('duration_months', 1))
+                RETURNING id;
+            `, [legacySubId]);
+            await client1.query(`
+                INSERT INTO ${testSchema}.parent_subscription_periods (
+                    subscription_id, payment_intent_id, start_date, end_date, status
+                ) VALUES ($1, $2, '2026-01-15', '2026-02-14', 'expired');
+            `, [legacySubId, intentOldRes.rows[0].id]);
+
+            // Période récente (31 août 2026 à 29 septembre 2026) après une interruption de 6 mois
+            const intentRecentRes = await client1.query(`
+                INSERT INTO ${testSchema}.payment_intents (
+                    target_id, expected_amount, expected_currency, status, payment_type, school_slug, metadata
+                ) VALUES ($1, 20000, 'XOF', 'completed', 'parent_pack', 'ecole_test', jsonb_build_object('duration_months', 1))
+                RETURNING id;
+            `, [legacySubId]);
+            await client1.query(`
+                INSERT INTO ${testSchema}.parent_subscription_periods (
+                    subscription_id, payment_intent_id, start_date, end_date, status
+                ) VALUES ($1, $2, '2026-08-31', '2026-09-29', 'active');
+            `, [legacySubId, intentRecentRes.rows[0].id]);
+
+            // Renouvellement continu au 30 septembre 2026
+            const renewIntentRes = await client1.query(`
+                SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;
+            `, ['parent_hist_legacy', studentId18, 'ecole_test', 'eleve_hist_1', pricingId, 'maternelle', 1]);
+            const renewIntentId = renewIntentRes.rows[0].res.payment_intent_id;
+
+            const webhookRes = await client1.query(
+                `SELECT ${testSchema}.process_parent_pack_webhook_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) AS res;`,
+                ['fedapay', 'evt_hist_renew_sep30', 'transaction.approved', renewIntentId, 'txn_hist_renew_sep30', 20000, 'XOF', 'approved', '2026-09-30T09:00:00Z', 600, 0, true]
+            );
+            assert.strictEqual(webhookRes.rows[0].res.status, 'completed');
+
+            const periodRes = await client1.query(
+                `SELECT start_date::text, end_date::text FROM ${testSchema}.parent_subscription_periods WHERE payment_intent_id = $1;`,
+                [renewIntentId]
+            );
+            // La CTE récursive s est arrêtée à 2026-08-31 et a ignoré 2026-01-15 !
+            // Ancrage détecté = 2026-08-31. Mois cumulés = 1 (période récente) + 1 (renouvellement) = 2 mois.
+            // 2026-08-31 + 2 mois - 1 jour = 2026-10-31 - 1 jour = 2026-10-30.
+            assert.strictEqual(periodRes.rows[0].start_date, '2026-09-30');
+            assert.strictEqual(periodRes.rows[0].end_date, '2026-10-30', 'Calcul exact basé sur l ancrage du cycle récent 2026-08-31');
+
+            const subCheck = await client1.query(
+                `SELECT billing_anchor_date::text, cumulative_months FROM ${testSchema}.parent_subscriptions WHERE id = $1;`,
+                [legacySubId]
+            );
+            assert.strictEqual(subCheck.rows[0].billing_anchor_date, '2026-08-31', 'Ancrage récent correctement assigné');
+            assert.strictEqual(subCheck.rows[0].cumulative_months, 2);
+        });
+
+        // --------------------------------------------------------------------
+        // TEST 19 : Renouvellement anticipé : conservation de la couverture en cours sans jour perdu
+        // --------------------------------------------------------------------
+        await t.test('19. Renouvellement anticipé : aucun chevauchement ni jour de couverture perdu', async () => {
+            const studentRes19 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
+            const studentId19 = studentRes19.rows[0].student_global_id;
+
+            // Étape 1 : Achat 1 mois le 15 février 2027 (échéance au 14 mars)
+            const p1 = await executePaymentFlow({
+                parentRef: 'parent_early_renew',
+                studentGlobalId: studentId19,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-02-15T08:00:00Z',
+                providerEventId: 'evt_early_p1'
+            });
+            assert.strictEqual(p1.period.start_date, '2027-02-15');
+            assert.strictEqual(p1.period.end_date, '2027-03-14');
+            assert.strictEqual(p1.subscription.billing_anchor_date, '2027-02-15');
+            assert.strictEqual(p1.subscription.cumulative_months, 1);
+
+            // Étape 2 : Le parent paie son renouvellement en avance le 5 mars 2027 (9 jours avant expiration)
+            const p2 = await executePaymentFlow({
+                parentRef: 'parent_early_renew',
+                studentGlobalId: studentId19,
+                pricingIdToUse: pricingId,
+                durationMonths: 1,
+                certifiedAt: '2027-03-05T14:00:00Z',
+                providerEventId: 'evt_early_p2_advance'
+            });
+
+            // La nouvelle période doit démarrer le 15 mars (lendemain de la fin de la période 1), et non le 5 mars
+            assert.strictEqual(p2.period.start_date, '2027-03-15', 'La nouvelle période s enchaîne sans écraser les 9 jours restants');
+            assert.strictEqual(p2.period.end_date, '2027-04-14', 'Couvre jusqu au 14 avril inclus');
+            assert.strictEqual(p2.subscription.billing_anchor_date, '2027-02-15', 'Ancrage du 15 février préservé');
+            assert.strictEqual(p2.subscription.cumulative_months, 2, 'Cumul incrémenté à 2 mois');
+
+            // Vérifier que les deux périodes sont actives et strictement consécutives dans la base
+            const allPeriods = await client1.query(
+                `SELECT start_date::text, end_date::text, status FROM ${testSchema}.parent_subscription_periods WHERE subscription_id = $1 ORDER BY start_date ASC;`,
+                [p1.subscription.id]
+            );
+            assert.strictEqual(allPeriods.rows.length, 2);
+            assert.strictEqual(allPeriods.rows[0].end_date, '2027-03-14');
+            assert.strictEqual(allPeriods.rows[1].start_date, '2027-03-15');
         });
 
         // --------------------------------------------------------------------

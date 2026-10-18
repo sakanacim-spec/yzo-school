@@ -73,5 +73,13 @@ test('P27: Validation structurelle et de sécurité des scripts SQL P27', async 
         assert.ok(!/\bcurrency_config\b/.test(content), 'Aucune référence à la table inexistante currency_config');
         assert.ok(!/\bcurrency_code\b/.test(content), 'Aucune référence à la colonne inexistante currency_code');
         assert.ok(content.includes('v_currency_cfg.cooling_off_days'), 'Utilisation de cooling_off_days depuis currency_configurations');
+
+        // Préservation de la date anniversaire d ancrage et cumul des mois
+        assert.match(content, /ALTER TABLE public\.parent_subscriptions[\s\S]+?ADD COLUMN IF NOT EXISTS billing_anchor_date DATE/, 'Colonne billing_anchor_date requise');
+        assert.match(content, /ADD COLUMN IF NOT EXISTS cumulative_months INTEGER/, 'Colonne cumulative_months requise');
+        assert.ok(content.includes('billing_anchor_date = v_anchor_date'), 'Mise à jour atomique de billing_anchor_date');
+        assert.ok(content.includes('cumulative_months = v_cumulative_months'), 'Mise à jour atomique de cumulative_months');
+        assert.ok(content.includes('WITH RECURSIVE chain'), 'Traitement récursif Fail-Closed de la chaîne continue sans supposer MIN(start_date)');
+        assert.ok(content.includes('make_interval(months => v_cumulative_months)'), 'Calcul de l échéance via cumul de mois depuis l ancrage');
     });
 });

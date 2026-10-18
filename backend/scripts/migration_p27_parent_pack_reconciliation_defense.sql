@@ -22,6 +22,11 @@
 
 BEGIN;
 
+-- 0. Évolution du schéma parent_subscriptions : conservation de l'ancrage d'anniversaire et du cumul de mois
+ALTER TABLE public.parent_subscriptions
+    ADD COLUMN IF NOT EXISTS billing_anchor_date DATE,
+    ADD COLUMN IF NOT EXISTS cumulative_months INTEGER NOT NULL DEFAULT 0;
+
 -- 1. Mise à jour de la fonction RPC de préparation du checkout
 CREATE OR REPLACE FUNCTION public.prepare_parent_pack_checkout(
     p_parent_ref TEXT,
@@ -197,6 +202,8 @@ DECLARE
     v_start_date DATE;
     v_end_date DATE;
     v_max_end_date DATE;
+    v_anchor_date DATE;
+    v_cumulative_months INTEGER;
     v_period_id UUID;
 BEGIN
     IF p_provider IS NULL OR length(trim(p_provider)) = 0
@@ -299,16 +306,53 @@ BEGIN
         RETURN jsonb_build_object('status', 'reconciliation_required', 'error_code', 'PARENT_PACK_INVALID_DURATION');
     END IF;
 
-    -- Calculate Dates (paid-through : exclure pending_payment)
-    SELECT max(end_date) INTO v_max_end_date FROM public.parent_subscription_periods WHERE subscription_id = v_subscription.id AND status IN ('active', 'expired');
+    -- Calculate Dates avec préservation de la date anniversaire d'ancrage
+    SELECT max(end_date) INTO v_max_end_date
+      FROM public.parent_subscription_periods
+     WHERE subscription_id = v_subscription.id
+       AND status IN ('active', 'expired');
 
-    IF v_max_end_date IS NOT NULL AND v_max_end_date >= p_certified_payment_at::date THEN
-        v_start_date := v_max_end_date + INTERVAL '1 day';
+    IF v_max_end_date IS NOT NULL AND (v_max_end_date + INTERVAL '1 day')::date >= p_certified_payment_at::date THEN
+        -- Renouvellement continu sans interruption de couverture
+        v_start_date := (v_max_end_date + INTERVAL '1 day')::date;
+
+        IF v_subscription.billing_anchor_date IS NOT NULL THEN
+            v_anchor_date := v_subscription.billing_anchor_date;
+            v_cumulative_months := COALESCE(v_subscription.cumulative_months, 0) + v_duration_months;
+        ELSE
+            -- Rétrocompatibilité données historiques : identifier le début de la chaîne continue
+            WITH RECURSIVE chain AS (
+                SELECT p.start_date, p.end_date,
+                       COALESCE((pi.metadata->>'duration_months')::integer, 1) AS duration_months
+                  FROM public.parent_subscription_periods p
+                  LEFT JOIN public.payment_intents pi ON pi.id = p.payment_intent_id
+                 WHERE p.subscription_id = v_subscription.id
+                   AND p.status IN ('active', 'expired')
+                   AND p.end_date = v_max_end_date
+                UNION ALL
+                SELECT p.start_date, p.end_date,
+                       COALESCE((pi.metadata->>'duration_months')::integer, 1) AS duration_months
+                  FROM public.parent_subscription_periods p
+                  JOIN chain c ON p.end_date + INTERVAL '1 day' = c.start_date
+                  LEFT JOIN public.payment_intents pi ON pi.id = p.payment_intent_id
+                 WHERE p.subscription_id = v_subscription.id
+                   AND p.status IN ('active', 'expired')
+            )
+            SELECT MIN(start_date), COALESCE(SUM(duration_months), 1)
+              INTO v_anchor_date, v_cumulative_months
+              FROM chain;
+
+            v_anchor_date := COALESCE(v_anchor_date, v_start_date);
+            v_cumulative_months := COALESCE(v_cumulative_months, 0) + v_duration_months;
+        END IF;
     ELSE
+        -- Première souscription ou nouvel ancrage après interruption réelle de couverture
         v_start_date := p_certified_payment_at::date;
+        v_anchor_date := v_start_date;
+        v_cumulative_months := v_duration_months;
     END IF;
 
-    v_end_date := (v_start_date + make_interval(months => v_duration_months) - INTERVAL '1 day')::date;
+    v_end_date := (v_anchor_date + make_interval(months => v_cumulative_months) - INTERVAL '1 day')::date;
 
     -- Commission logic uses intent school_slug!
     SELECT * INTO v_school FROM public.schools WHERE slug = v_intent.school_slug FOR UPDATE;
@@ -392,6 +436,8 @@ BEGIN
     -- Mise à jour atomique de la souscription avec le contexte certifié
     UPDATE public.parent_subscriptions
        SET status = 'active',
+           billing_anchor_date = v_anchor_date,
+           cumulative_months = v_cumulative_months,
            school_slug = v_intent.school_slug,
            student_ref = COALESCE(v_intent.metadata->>'student_ref', student_ref),
            pricing_id = v_pricing_id,
