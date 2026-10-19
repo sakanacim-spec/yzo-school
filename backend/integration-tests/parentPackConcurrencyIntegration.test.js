@@ -87,7 +87,6 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         const bootstrapSql = `
             CREATE TABLE IF NOT EXISTS schools (
                 slug TEXT PRIMARY KEY,
-                commission_rate_percentage NUMERIC DEFAULT 20,
                 affiliate_id UUID
             );
             CREATE TABLE IF NOT EXISTS affiliates (
@@ -105,7 +104,7 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             INSERT INTO currency_configurations (code, exponent, is_active, min_withdrawal_minor_units, cooling_off_days)
             VALUES ('XOF', 0, true, 1000, 14)
             ON CONFLICT (code) DO NOTHING;
-            INSERT INTO schools (slug, commission_rate_percentage) VALUES ('ecole_test', 20) ON CONFLICT DO NOTHING;
+            INSERT INTO schools (slug) VALUES ('ecole_test') ON CONFLICT DO NOTHING;
 
             CREATE TABLE IF NOT EXISTS parent_pack_pricing (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -412,8 +411,8 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             );
             nominalAffiliateId = affRes.rows[0].id;
             await client1.query(
-                `INSERT INTO ${testSchema}.schools (slug, commission_rate_percentage, affiliate_id)
-                 VALUES ('ecole_affiliee', 20, $1) ON CONFLICT (slug) DO UPDATE SET affiliate_id = $1;`,
+                `INSERT INTO ${testSchema}.schools (slug, affiliate_id)
+                 VALUES ('ecole_affiliee', $1) ON CONFLICT (slug) DO UPDATE SET affiliate_id = $1;`,
                 [nominalAffiliateId]
             );
 

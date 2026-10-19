@@ -375,7 +375,7 @@ BEGIN
     v_gross_amount_minor := p_remote_amount;
     v_fedapay_fee_minor := p_fedapay_fee;
 
-    v_school_share_minor := FLOOR(v_gross_amount_minor * v_school.commission_rate_percentage / 100)::BIGINT;
+    v_school_share_minor := FLOOR(v_gross_amount_minor::NUMERIC * 20 / 100)::BIGINT;
     v_amount_after_fee_and_school_minor := v_gross_amount_minor - v_fedapay_fee_minor - v_school_share_minor;
 
     IF v_amount_after_fee_and_school_minor < 0 THEN
