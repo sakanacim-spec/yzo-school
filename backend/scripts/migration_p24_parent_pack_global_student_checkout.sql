@@ -346,7 +346,8 @@ BEGIN
         RETURN jsonb_build_object('status', 'reconciliation_required', 'error_code', 'PARENT_PACK_SCHOOL_NOT_FOUND');
     END IF;
 
-    SELECT * INTO v_currency_cfg FROM public.currency_config WHERE currency_code = 'XOF';
+    SELECT * INTO v_currency_cfg FROM public.currency_configurations
+      WHERE code = 'XOF' AND is_active = true;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Currency XOF not supported';
     END IF;
@@ -406,11 +407,33 @@ BEGIN
     END IF;
 
     UPDATE public.parent_subscriptions SET status = 'active', updated_at = clock_timestamp() WHERE id = v_subscription.id;
-    UPDATE public.payment_intents SET status = 'completed', provider_transaction_id = p_provider_transaction_id, completed_at = p_certified_payment_at, updated_at = clock_timestamp() WHERE id = p_intent_id;
+    UPDATE public.payment_intents SET status = 'completed',
+    provider_transaction_id = p_provider_transaction_id,
+    processed_at = p_certified_payment_at,
+    updated_at = clock_timestamp()
+WHERE id = p_intent_id;
     UPDATE public.webhook_events SET status = 'processed', processed_at = clock_timestamp() WHERE id = v_event_id;
 
     RETURN jsonb_build_object('status', 'completed', 'payment_type', 'parent_pack', 'subscription_id', v_subscription.id, 'period_id', v_period_id);
 END;
 $$;
+
+-- Security hardening – restrict execution to the service_role only
+REVOKE EXECUTE ON FUNCTION public.process_parent_pack_webhook_event(
+    VARCHAR, VARCHAR, VARCHAR, UUID, TEXT, NUMERIC, TEXT, TEXT,
+    TIMESTAMPTZ, NUMERIC, NUMERIC, BOOLEAN
+) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.process_parent_pack_webhook_event(
+    VARCHAR, VARCHAR, VARCHAR, UUID, TEXT, NUMERIC, TEXT, TEXT,
+    TIMESTAMPTZ, NUMERIC, NUMERIC, BOOLEAN
+) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.process_parent_pack_webhook_event(
+    VARCHAR, VARCHAR, VARCHAR, UUID, TEXT, NUMERIC, TEXT, TEXT,
+    TIMESTAMPTZ, NUMERIC, NUMERIC, BOOLEAN
+) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.process_parent_pack_webhook_event(
+    VARCHAR, VARCHAR, VARCHAR, UUID, TEXT, NUMERIC, TEXT, TEXT,
+    TIMESTAMPTZ, NUMERIC, NUMERIC, BOOLEAN
+) TO service_role;
 
 COMMIT;
