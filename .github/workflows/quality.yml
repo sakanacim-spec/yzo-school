@@ -68,9 +68,21 @@ jobs:
 
       - name: Tests backend
         run: npm run test:backend
+        env:
+          SKIP_PARENT_PACK_J30: true
+
+      - name: Initialisation du schéma PostgreSQL (Parent Pack)
+        run: node backend/integration-tests/setup_test_db.cjs
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/yzo_test
 
       - name: Tests d’intégration PostgreSQL
         run: npm run test:integration
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/yzo_test
+
+      - name: Tests Parent Pack (PostgreSQL)
+        run: npm run test:backend
         env:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/yzo_test
 
