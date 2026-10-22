@@ -383,9 +383,14 @@ BEGIN
             v_anchor_date := COALESCE(v_anchor_date, v_start_date);
             v_cumulative_months := COALESCE(v_cumulative_months, 0) + v_duration_months;
         END IF;
-END IF;
+        ELSE
+            -- Interruption réelle de couverture : nouvel ancrage au paiement certifié
+            v_start_date := p_certified_payment_at::date;
+            v_anchor_date := v_start_date;
+            v_cumulative_months := v_duration_months;
+        END IF;
     ELSE
-        -- Première souscription ou nouvel ancrage après interruption réelle de couverture
+        -- Première souscription (aucune couverture passée)
         v_start_date := p_certified_payment_at::date;
         v_anchor_date := v_start_date;
         v_cumulative_months := v_duration_months;
