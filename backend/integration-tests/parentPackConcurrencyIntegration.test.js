@@ -120,6 +120,16 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
                 student_global_id UUID PRIMARY KEY DEFAULT gen_random_uuid()
             );
 
+            CREATE TABLE IF NOT EXISTS parent_child_links (
+                parent_ref TEXT NOT NULL,
+                student_global_id UUID NOT NULL REFERENCES global_students(student_global_id),
+                first_linked_at TIMESTAMPTZ DEFAULT now(),
+                current_link_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                PRIMARY KEY (parent_ref, student_global_id)
+            );
+
             CREATE TABLE IF NOT EXISTS parent_subscriptions (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 parent_ref TEXT NOT NULL,
@@ -132,7 +142,8 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
                 cumulative_months INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMPTZ DEFAULT clock_timestamp(),
                 updated_at TIMESTAMPTZ DEFAULT clock_timestamp(),
-                CONSTRAINT uq_parent_subs_parent_global UNIQUE (parent_ref, student_global_id)
+                CONSTRAINT uq_parent_subs_parent_global UNIQUE (parent_ref, student_global_id),
+                CONSTRAINT uq_parent_subs_global_unique UNIQUE (student_global_id)
             );
 
             CREATE TABLE IF NOT EXISTS payment_intents (
@@ -240,12 +251,60 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
 
         // Injection des fonctions P27 dans le schéma de test
         const rawMigration = fs.readFileSync(migrationSqlPath, 'utf8');
-        // Remplacer 'public.' par le schéma de test
+        // Remplacer 'public.' par le schéma de test et permettre le voyage temporel dans les tests anniversaires
         const adaptedMigration = rawMigration
             .replace(/public\./g, `${testSchema}.`)
             .replace(/BEGIN;/g, '')
-            .replace(/COMMIT;/g, '');
+            .replace(/COMMIT;/g, '')
+            .replace(/\bnow\(\)::date\b/g, `COALESCE(NULLIF(current_setting('${testSchema}.simulated_now', true), '')::timestamptz, now())::date`);
         await client1.query(adaptedMigration);
+
+        const ensureParentLink = async (client, parentRef, studentId, active = true) => {
+            await client.query(`
+                INSERT INTO ${testSchema}.parent_child_links (parent_ref, student_global_id, current_link_active)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (parent_ref, student_global_id) DO UPDATE SET current_link_active = EXCLUDED.current_link_active;
+            `, [parentRef, studentId, active]);
+        };
+
+        // --------------------------------------------------------------------
+        // TEST CONTRÔLE FAIL-CLOSED : Vérification du lien parent-enfant actif
+        // --------------------------------------------------------------------
+        await t.test('0. Contrôle fail-closed du lien parent-enfant : refus sans lien actif et autorisation avec lien', async () => {
+            // A. Parent sans aucun lien enregistré -> Rejet Fail-Closed
+            await assert.rejects(
+                () => client1.query(
+                    `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                    ['parent_unknown_link', studentGlobalId, 'ecole_test', 'eleve_local_1', pricingId, 'maternelle', 1]
+                ),
+                { message: /FAIL CLOSED: No active parent link/ }
+            );
+
+            // B. Parent avec lien inactif (current_link_active = false) -> Rejet Fail-Closed
+            await ensureParentLink(client1, 'parent_inactive_link', studentGlobalId, false);
+            await assert.rejects(
+                () => client1.query(
+                    `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                    ['parent_inactive_link', studentGlobalId, 'ecole_test', 'eleve_local_1', pricingId, 'maternelle', 1]
+                ),
+                { message: /FAIL CLOSED: No active parent link/ }
+            );
+
+            // C. Parent avec lien actif -> Checkout autorisé
+            await ensureParentLink(client1, 'parent_active_test', studentGlobalId, true);
+            const authRes = await client1.query(
+                `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
+                ['parent_active_test', studentGlobalId, 'ecole_test', 'eleve_local_1', pricingId, 'maternelle', 1]
+            );
+            assert.ok(authRes.rows[0].res.payment_intent_id, 'Le checkout avec lien actif génère une intention');
+
+            // Nettoyage de l'intention et de la souscription créées pour préserver l'état vierge du test 1
+            await client1.query(`DELETE FROM ${testSchema}.payment_intents WHERE target_id = $1::text;`, [authRes.rows[0].res.subscription_id]);
+            await client1.query(`DELETE FROM ${testSchema}.parent_subscriptions WHERE id = $1;`, [authRes.rows[0].res.subscription_id]);
+        });
+
+        // Liaison active pour parent_conc_1 utilisée par les tests concurrents 1, 2 et 3
+        await ensureParentLink(client1, 'parent_conc_1', studentGlobalId, true);
 
         // --------------------------------------------------------------------
         // TEST CONCURRENT 1 : Deux créations simultanées pour le même élève
@@ -328,6 +387,7 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         await t.test('4. Webhook : établissement introuvable place en réconciliation sans créer de période active', async () => {
             const studentRes4 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
             const studentGlobalId4 = studentRes4.rows[0].student_global_id;
+            await ensureParentLink(client1, 'parent_wh_school_not_found', studentGlobalId4, true);
 
             const checkoutRes4 = await client1.query(
                 `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
@@ -365,6 +425,7 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         await t.test('5. Webhook : frais supérieurs au restant place en réconciliation sans créer de période active', async () => {
             const studentRes5 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
             const studentGlobalId5 = studentRes5.rows[0].student_global_id;
+            await ensureParentLink(client1, 'parent_wh_fee_exceeds', studentGlobalId5, true);
 
             const checkoutRes5 = await client1.query(
                 `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
@@ -418,6 +479,7 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
 
             const studentRes6 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
             const studentGlobalId6 = studentRes6.rows[0].student_global_id;
+            await ensureParentLink(client1, 'parent_wh_nominal', studentGlobalId6, true);
 
             const checkoutRes6 = await client1.query(
                 `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
@@ -550,6 +612,7 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         await t.test('8. Webhook : échec transactionnel Fail-Closed si la devise XOF est inactive', async () => {
             const studentRes8 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
             const studentGlobalId8 = studentRes8.rows[0].student_global_id;
+            await ensureParentLink(client1, 'parent_wh_curr_inactive', studentGlobalId8, true);
 
             const checkoutRes8 = await client1.query(
                 `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
@@ -616,6 +679,7 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         await t.test('9. Webhook : échec transactionnel Fail-Closed si la devise XOF est inexistante', async () => {
             const studentRes9 = await client1.query(`INSERT INTO global_students DEFAULT VALUES RETURNING student_global_id;`);
             const studentGlobalId9 = studentRes9.rows[0].student_global_id;
+            await ensureParentLink(client1, 'parent_wh_curr_missing', studentGlobalId9, true);
 
             const checkoutRes9 = await client1.query(
                 `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
@@ -660,6 +724,11 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
         // HELPER POUR LES TESTS D'ANNIVERSAIRE ET DE RENOUVELLEMENT CONTINU
         // --------------------------------------------------------------------
         const executePaymentFlow = async ({ parentRef, studentGlobalId, pricingIdToUse, durationMonths, certifiedAt, providerEventId, cycleName = 'maternelle', amount = 20000 }) => {
+            await ensureParentLink(client1, parentRef, studentGlobalId, true);
+            if (certifiedAt) {
+                await client1.query(`SET ${testSchema}.simulated_now = '${certifiedAt}';`);
+                await client2.query(`SET ${testSchema}.simulated_now = '${certifiedAt}';`);
+            }
             const checkoutRes = await client1.query(
                 `SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;`,
                 [parentRef, studentGlobalId, 'ecole_test', 'eleve_' + Math.random().toString(36).slice(2, 7), pricingIdToUse, cycleName, durationMonths]
@@ -1052,11 +1121,23 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
                 providerEventId: 'evt_gap_cycle2_new_anchor'
             });
 
-            // Le nouveau cycle démarre au jour du paiement certifié
-            assert.strictEqual(cycle2.period.start_date, '2027-04-10', 'Nouvelle couverture démarre au paiement certifié');
-            assert.strictEqual(cycle2.period.end_date, '2027-05-09', 'Couvre 1 mois calendaire entier depuis le nouvel ancrage');
+            // Le nouveau cycle démarre au jour du paiement certifié après interruption
+            assert.ok(new Date(cycle2.period.start_date) > new Date(cycle1.period.end_date), 'Interruption confirmée : date de reprise postérieure à fin de couverture');
+            assert.strictEqual(cycle2.period.start_date, '2027-04-10', 'Nouvelle couverture démarre exactement au paiement certifié');
+            assert.strictEqual(cycle2.period.end_date, '2027-05-09', 'Couvre 1 mois calendaire entier depuis le nouvel ancrage (2027-04-10 au 2027-05-09)');
+            assert.strictEqual(cycle2.period.status, 'active', 'La nouvelle période après interruption est active');
             assert.strictEqual(cycle2.subscription.billing_anchor_date, '2027-04-10', 'Nouvel ancrage d anniversaire au 10 avril');
             assert.strictEqual(cycle2.subscription.cumulative_months, 1, 'Cumul réinitialisé pour la nouvelle chaîne continue');
+
+            // Contrôle direct de la persistance en base pour la période après interruption
+            const dbPeriodCheck = await client1.query(`
+                SELECT start_date::text, end_date::text, status
+                FROM ${testSchema}.parent_subscription_periods
+                WHERE payment_intent_id = $1;
+            `, [cycle2.intentId]);
+            assert.strictEqual(dbPeriodCheck.rows[0].start_date, '2027-04-10', 'start_date persisté non-null en base');
+            assert.strictEqual(dbPeriodCheck.rows[0].end_date, '2027-05-09', 'end_date persisté non-null en base');
+            assert.strictEqual(dbPeriodCheck.rows[0].status, 'active', 'status persisté actif en base');
 
             // Étape 3 : Renouvellement continu de ce nouveau cycle le 10 mai 2027
             const cycle2Renew = await executePaymentFlow({
@@ -1117,6 +1198,7 @@ test('P27 Intégration - Concurrence réelle et atomicité multi-connexions sur 
             `, [legacySubId, intentRecentRes.rows[0].id]);
 
             // Renouvellement continu au 30 septembre 2026
+            await ensureParentLink(client1, 'parent_hist_legacy', studentId18, true);
             const renewIntentRes = await client1.query(`
                 SELECT ${testSchema}.prepare_parent_pack_checkout($1, $2, $3, $4, $5, $6, $7) AS res;
             `, ['parent_hist_legacy', studentId18, 'ecole_test', 'eleve_hist_1', pricingId, 'maternelle', 1]);

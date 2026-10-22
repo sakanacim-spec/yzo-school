@@ -110,6 +110,11 @@ BEGIN
 END $$;
 
 -- 6. RPC for Checkout API
+
+DO $$
+BEGIN
+    CREATE UNIQUE INDEX uq_parent_subscriptions_global_unique ON public.parent_subscriptions (student_global_id);
+END $$;
 CREATE OR REPLACE FUNCTION public.prepare_parent_pack_checkout(
     p_parent_ref TEXT,
     p_student_global_id UUID,

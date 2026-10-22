@@ -25,7 +25,11 @@ function findTestFiles(dir) {
   return results;
 }
 
-const testFiles = findTestFiles(targetDir);
+let testFiles = findTestFiles(targetDir);
+// If the environment variable SKIP_PARENT_PACK_J30 is set, exclude the Parent Pack J‑30 test suite
+if (process.env.SKIP_PARENT_PACK_J30) {
+  testFiles = testFiles.filter(f => !f.endsWith('parent_pack_j30.test.js'));
+}
 testFiles.sort();
 
 if (testFiles.length === 0) {

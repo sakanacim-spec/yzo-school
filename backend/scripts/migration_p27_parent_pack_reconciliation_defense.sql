@@ -42,7 +42,9 @@ DECLARE
     v_subscription_id UUID;
     v_intent_id UUID;
     v_amount_minor BIGINT;
+    v_student RECORD;
     v_existing_intent RECORD;
+    v_max_end_date DATE;
 BEGIN
     -- Validation du tarif
     SELECT * INTO v_pricing
@@ -63,30 +65,25 @@ BEGIN
         RAISE EXCEPTION 'FAIL CLOSED: Invalid duration_months %', p_duration_months;
     END IF;
 
-    -- A. Sérialisation et vérification préalable si la souscription existe déjà
+    -- A. Verrouillage transactionnel de l'étudiant global
+    SELECT * INTO v_student
+      FROM public.global_students
+     WHERE student_global_id = p_student_global_id
+     FOR UPDATE;
+    -- Vérifier si une souscription existe déjà
     SELECT id INTO v_subscription_id
       FROM public.parent_subscriptions
-     WHERE parent_ref = p_parent_ref
-       AND student_global_id = p_student_global_id
-       FOR UPDATE;
+     WHERE student_global_id = p_student_global_id
+     FOR UPDATE;
 
-    IF v_subscription_id IS NOT NULL THEN
-        SELECT id, status INTO v_existing_intent
-          FROM public.payment_intents
-         WHERE payment_type = 'parent_pack'
-           AND target_id = v_subscription_id::text
-           AND status IN ('initializing', 'pending', 'reconciliation_required')
-         ORDER BY created_at DESC
-         LIMIT 1
-           FOR UPDATE;
-
-        IF FOUND THEN
-            IF v_existing_intent.status = 'reconciliation_required' THEN
-                RAISE EXCEPTION 'FAIL CLOSED: RECONCILIATION_REQUIRED_PENDING (intent_id: %)', v_existing_intent.id;
-            ELSE
-                RAISE EXCEPTION 'FAIL CLOSED: ACTIVE_INTENT_ALREADY_EXISTS (intent_id: %)', v_existing_intent.id;
-            END IF;
-        END IF;
+    -- B. Vérification du lien parent-enfant actif
+    IF NOT EXISTS (
+        SELECT 1 FROM public.parent_child_links
+         WHERE parent_ref = p_parent_ref
+           AND student_global_id = p_student_global_id
+           AND current_link_active = true
+    ) THEN
+        RAISE EXCEPTION 'FAIL CLOSED: No active parent link for parent % and student %', p_parent_ref, p_student_global_id;
     END IF;
 
     -- B. Upsert sécurisé de la souscription :
@@ -98,11 +95,11 @@ BEGIN
     VALUES (
         p_parent_ref, p_student_global_id, p_school_slug, p_student_local_id, p_pricing_id, 'inactive'
     )
-    ON CONFLICT (parent_ref, student_global_id) DO UPDATE
+    ON CONFLICT (student_global_id) DO UPDATE
     SET updated_at = clock_timestamp(),
-        school_slug = CASE WHEN parent_subscriptions.status = 'active' THEN parent_subscriptions.school_slug ELSE EXCLUDED.school_slug END,
-        student_ref = CASE WHEN parent_subscriptions.status = 'active' THEN parent_subscriptions.student_ref ELSE EXCLUDED.student_ref END,
-        pricing_id  = CASE WHEN parent_subscriptions.status = 'active' THEN parent_subscriptions.pricing_id  ELSE EXCLUDED.pricing_id END
+        school_slug = CASE WHEN parent_subscriptions.status <> 'active' THEN EXCLUDED.school_slug ELSE parent_subscriptions.school_slug END,
+        student_ref = EXCLUDED.student_ref,
+        pricing_id = CASE WHEN parent_subscriptions.status <> 'active' THEN EXCLUDED.pricing_id ELSE parent_subscriptions.pricing_id END -- parent_subscriptions.status = 'active'
     RETURNING id INTO v_subscription_id;
 
     -- C. Verrouillage souscription et contre-vérification défensive post-upsert (anti-race condition)
@@ -120,12 +117,25 @@ BEGIN
      LIMIT 1
        FOR UPDATE;
 
-    IF FOUND THEN
-        IF v_existing_intent.status = 'reconciliation_required' THEN
-            RAISE EXCEPTION 'FAIL CLOSED: RECONCILIATION_REQUIRED_PENDING (intent_id: %)', v_existing_intent.id;
-        ELSE
-            RAISE EXCEPTION 'FAIL CLOSED: ACTIVE_INTENT_ALREADY_EXISTS (intent_id: %)', v_existing_intent.id;
-        END IF;
+    -- Prevent creating intent if a reconciliation pending intent exists
+    IF v_existing_intent.status = 'reconciliation_required' THEN
+        RAISE EXCEPTION 'FAIL CLOSED: RECONCILIATION_REQUIRED_PENDING';
+    END IF;
+    IF v_existing_intent.status IN ('initializing','pending') THEN
+        RAISE EXCEPTION 'FAIL CLOSED: ACTIVE_INTENT_ALREADY_EXISTS';
+    END IF;
+    IF trim(p_parent_ref) IS NULL OR trim(p_parent_ref) = '' THEN
+        RAISE EXCEPTION 'FAIL CLOSED: INVALID_PARENT_REF';
+    END IF;
+
+    -- J-30 renewal rule enforcement before intent creation
+    SELECT max(end_date) INTO v_max_end_date
+      FROM public.parent_subscription_periods
+     WHERE subscription_id = v_subscription_id
+       AND status IN ('active', 'expired');
+
+    IF v_max_end_date IS NOT NULL AND now()::date < (v_max_end_date - INTERVAL '30 days')::date THEN
+        RAISE EXCEPTION 'FAIL CLOSED: J-30_RENEWAL_TOO_EARLY (max_end_date: %)', v_max_end_date;
     END IF;
 
     -- D. Création de l'intention en statut 'initializing' avec métadonnées complètes
@@ -143,7 +153,11 @@ BEGIN
         jsonb_build_object(
             'pricing_id', p_pricing_id,
             'duration_months', p_duration_months,
-            'student_ref', p_student_local_id
+            'student_ref', p_student_local_id,
+            'parent_ref', p_parent_ref,
+            'checkout_date', now(),
+            'max_end_date', v_max_end_date,
+            'j30_deadline', CASE WHEN v_max_end_date IS NOT NULL THEN (v_max_end_date - INTERVAL '30 days')::date ELSE NULL END
         ),
         now() + interval '1 hour'
     )
@@ -312,9 +326,33 @@ BEGIN
      WHERE subscription_id = v_subscription.id
        AND status IN ('active', 'expired');
 
-    IF v_max_end_date IS NOT NULL AND (v_max_end_date + INTERVAL '1 day')::date >= p_certified_payment_at::date THEN
-        -- Renouvellement continu sans interruption de couverture
-        v_start_date := (v_max_end_date + INTERVAL '1 day')::date;
+    IF v_max_end_date IS NOT NULL THEN
+        -- J-30 renewal rule: ensure checkout was authorized (metadata flag) and keep legacy fallback
+        IF v_intent.metadata ? 'checkout_allowed' THEN
+            IF (v_intent.metadata->>'checkout_allowed')::boolean IS NOT TRUE THEN
+                UPDATE public.payment_intents SET status = 'reconciliation_required', reconciliation_reason = 'PARENT_PACK_RENEWAL_NOT_AUTHORIZED', updated_at = clock_timestamp() WHERE id = p_intent_id;
+                UPDATE public.webhook_events SET status = 'reconciliation_required', error_code = 'PARENT_PACK_RENEWAL_NOT_AUTHORIZED', processed_at = clock_timestamp() WHERE id = v_event_id;
+                RETURN jsonb_build_object('status','reconciliation_required','error_code','PARENT_PACK_RENEWAL_NOT_AUTHORIZED');
+            END IF;
+        ELSE
+            -- Legacy fallback: use stored j30_deadline if present, otherwise calculate from coverage
+            IF v_intent.metadata ? 'j30_deadline' THEN
+                IF p_certified_payment_at::date < (v_intent.metadata->>'j30_deadline')::date THEN
+                    UPDATE public.payment_intents SET status = 'reconciliation_required', reconciliation_reason = 'PARENT_PACK_RENEWAL_TOO_EARLY', updated_at = clock_timestamp() WHERE id = p_intent_id;
+                    UPDATE public.webhook_events SET status = 'reconciliation_required', error_code = 'PARENT_PACK_RENEWAL_TOO_EARLY', processed_at = clock_timestamp() WHERE id = v_event_id;
+                    RETURN jsonb_build_object('status','reconciliation_required','error_code','PARENT_PACK_RENEWAL_TOO_EARLY');
+                END IF;
+            ELSE
+                IF p_certified_payment_at::date < (v_max_end_date - INTERVAL '30 days')::date THEN
+                    UPDATE public.payment_intents SET status = 'reconciliation_required', reconciliation_reason = 'PARENT_PACK_RENEWAL_TOO_EARLY', updated_at = clock_timestamp() WHERE id = p_intent_id;
+                    UPDATE public.webhook_events SET status = 'reconciliation_required', error_code = 'PARENT_PACK_RENEWAL_TOO_EARLY', processed_at = clock_timestamp() WHERE id = v_event_id;
+                    RETURN jsonb_build_object('status','reconciliation_required','error_code','PARENT_PACK_RENEWAL_TOO_EARLY');
+                END IF;
+            END IF;
+        END IF;
+        IF (v_max_end_date + INTERVAL '1 day')::date >= p_certified_payment_at::date THEN
+            -- Renouvellement continu sans interruption de couverture
+            v_start_date := (v_max_end_date + INTERVAL '1 day')::date;
 
         IF v_subscription.billing_anchor_date IS NOT NULL THEN
             v_anchor_date := v_subscription.billing_anchor_date;
@@ -345,8 +383,14 @@ BEGIN
             v_anchor_date := COALESCE(v_anchor_date, v_start_date);
             v_cumulative_months := COALESCE(v_cumulative_months, 0) + v_duration_months;
         END IF;
+        ELSE
+            -- Interruption réelle de couverture : nouvel ancrage au paiement certifié
+            v_start_date := p_certified_payment_at::date;
+            v_anchor_date := v_start_date;
+            v_cumulative_months := v_duration_months;
+        END IF;
     ELSE
-        -- Première souscription ou nouvel ancrage après interruption réelle de couverture
+        -- Première souscription (aucune couverture passée)
         v_start_date := p_certified_payment_at::date;
         v_anchor_date := v_start_date;
         v_cumulative_months := v_duration_months;
