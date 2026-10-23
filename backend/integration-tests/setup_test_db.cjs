@@ -21,7 +21,8 @@ const sqlFiles = [
   path.join(scriptsDir, 'migration_p13_affiliate_financial_ledger.sql'),
   path.join(scriptsDir, 'migration_p19_parent_pack_foundation.sql'),
   path.join(scriptsDir, 'migration_p24_parent_pack_global_student_checkout.sql'),
-  path.join(scriptsDir, 'migration_p27_parent_pack_reconciliation_defense.sql')
+  path.join(scriptsDir, 'migration_p27_parent_pack_reconciliation_defense.sql'),
+  path.join(scriptsDir, 'migration_p28_parent_pack_global_uniqueness.sql'),
 ];
 
 async function applySqlFiles() {
