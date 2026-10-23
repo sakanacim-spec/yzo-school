@@ -85,7 +85,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/yzo_parent_pack_test
 
       - name: Tests Parent Pack (PostgreSQL)
-        run: node --test backend/tests/parent_pack_j30.test.js
+        run: npm run test:parent-pack
         env:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/yzo_parent_pack_test
 
