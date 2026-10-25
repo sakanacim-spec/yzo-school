@@ -1,4 +1,4 @@
-// backend/tests/parent_pack_p28_residual.test.js
+// backend/integration-tests/parent_pack_p28_residual.test.js
 /**
  * Complementary tests for migration P28.
  * Scenarios:
