@@ -15,7 +15,7 @@
     "test:backend": "node scripts/run-backend-tests.cjs",
     "test:donations-backend": "node --test backend/tests/donationProposalAdminApi.test.js backend/tests/donationProposalAdminMigration.test.js backend/tests/donationProposalValidation.test.js backend/tests/donationProposalRoute.test.js",
     "test:integration": "node --test backend/integration-tests/affiliateFinancialLedger.test.js",
-    "test:parent-pack": "node --test backend/tests/parent_pack_j30.test.js backend/integration-tests/parentLinkApprovalIntegration.test.js backend/integration-tests/parentPackConcurrencyIntegration.test.js backend/integration-tests/parent_pack_p28_concurrency.test.js",
+    "test:parent-pack": "node --test backend/tests/parent_pack_j30.test.js backend/integration-tests/parentLinkApprovalIntegration.test.js backend/integration-tests/parentPackConcurrencyIntegration.test.js backend/integration-tests/parent_pack_p28_concurrency.test.js backend/integration-tests/parent_pack_p28_residual.test.js",
     "test:ci-infrastructure": "node --test scripts/__tests__/runFrontendTests.test.cjs scripts/__tests__/runBackendTests.test.cjs scripts/__tests__/workflowIntegrity.test.cjs",
     "build:sitemap": "node scripts/generateSitemap.js",
     "verify:sitemap": "node scripts/generateSitemap.js --verify",
