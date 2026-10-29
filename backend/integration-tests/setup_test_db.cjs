@@ -23,6 +23,7 @@ const sqlFiles = [
   path.join(scriptsDir, 'migration_p24_parent_pack_global_student_checkout.sql'),
   path.join(scriptsDir, 'migration_p27_parent_pack_reconciliation_defense.sql'),
   path.join(scriptsDir, 'migration_p28_parent_pack_global_uniqueness.sql'),
+  path.join(scriptsDir, 'migration_p28b_parent_pack_financial_and_access_hardening.sql'),
 ];
 
 async function applySqlFiles() {
