@@ -527,6 +527,15 @@ describe('P28 & P28b residual risk and hardening tests', () => {
         );
         const intentIds = createdIntents.rows.map(r => r.id);
 
+        // 1b. Capture des identifiants des intentions préexistantes extérieures au scénario pour garantir leur non-altération
+        const externalIntentsRes = intentIds.length > 0
+          ? await cleanClient.query(
+              `SELECT id FROM public.payment_intents WHERE id != ALL($1::uuid[])`,
+              [intentIds]
+            )
+          : await cleanClient.query(`SELECT id FROM public.payment_intents`);
+        const externalIntentIds = externalIntentsRes.rows.map(r => r.id);
+
         // 2. Suppression de l'intent cree (statut 'initializing', sans periode : compatible avec le trigger P28b protect_parent_pack_intent)
         await cleanClient.query(
           `DELETE FROM public.payment_intents
@@ -580,17 +589,27 @@ describe('P28 & P28b residual risk and hardening tests', () => {
         );
         assert.strictEqual(parseInt(verifyStudent.rows[0].cnt, 10), 0, 'Cleanup verification failed: global_students row remains');
 
-        // 7. Verification transactionnelle qu'aucun intent residuel parent_pack ne subsiste
+        // 7. Verification transactionnelle qu'aucun intent residuel associe a l'eleve ne subsiste
         const verifyResidualIntents = await cleanClient.query(
-          `SELECT COUNT(*) AS cnt FROM public.payment_intents WHERE payment_type = 'parent_pack'`
+          `SELECT COUNT(*) AS cnt FROM public.payment_intents
+           WHERE payment_type = 'parent_pack'
+             AND (metadata->>'student_global_id' = $1::text OR target_id = $1::text)`,
+          [studentId]
         );
-        assert.strictEqual(parseInt(verifyResidualIntents.rows[0].cnt, 10), 0, 'Cleanup verification failed: residual parent_pack payment_intents exist');
+        assert.strictEqual(parseInt(verifyResidualIntents.rows[0].cnt, 10), 0, 'Cleanup verification failed: residual parent_pack payment_intents exist for student');
 
-        // 8. Verification transactionnelle de l'integrite des 9 intentions historiques
-        const verifyHistorical = await cleanClient.query(
-          `SELECT COUNT(*) AS cnt FROM public.payment_intents`
-        );
-        assert.strictEqual(parseInt(verifyHistorical.rows[0].cnt, 10), 9, 'Historical payment_intents altered during Scenario 7 cleanup');
+        // 8. Verification transactionnelle de la préservation intégrale des intentions extérieures au scénario
+        if (externalIntentIds.length > 0) {
+          const verifyPreserved = await cleanClient.query(
+            `SELECT COUNT(*) AS cnt FROM public.payment_intents WHERE id = ANY($1::uuid[])`,
+            [externalIntentIds]
+          );
+          assert.strictEqual(
+            parseInt(verifyPreserved.rows[0].cnt, 10),
+            externalIntentIds.length,
+            'External payment_intents were altered or deleted during Scenario 7 cleanup'
+          );
+        }
 
         // 9. Validation de la transaction uniquement apres succes de toutes les assertions
         await cleanClient.query('COMMIT');
