@@ -27,17 +27,22 @@ async function getAccessStatesForGlobalIds(parentRef, studentGlobalIds) {
         };
     }
 
-    // 1. Récupérer les liens parent-enfant (first_linked_at)
+    if (!parentRef || typeof parentRef !== 'string' || parentRef.trim() === '') {
+        return result;
+    }
+
+    // 1. Récupérer les liens parent-enfant actifs (first_linked_at, current_link_active)
     const { data: links, error: linksErr } = await supabase
         .from('parent_child_links')
-        .select('student_global_id, first_linked_at')
+        .select('student_global_id, first_linked_at, current_link_active')
         .eq('parent_ref', parentRef)
+        .eq('current_link_active', true)
         .in('student_global_id', studentGlobalIds);
 
     if (linksErr) throw linksErr;
 
     // 2. Récupérer les identifiants bénéficiant d'une couverture payée active
-    // Utilise la RPC qui compare nativement p.start_date et p.end_date avec CURRENT_DATE
+    // Utilise la RPC qui vérifie l'autorisation active dans parent_child_links et les dates de période
     const { data: paidData, error: rpcErr } = await supabase
         .rpc('get_active_parent_pack_subscriptions', {
             p_parent_ref: parentRef,
@@ -51,17 +56,17 @@ async function getAccessStatesForGlobalIds(parentRef, studentGlobalIds) {
 
     const now = new Date();
 
-    // Calcul des états (ordre de priorité P25)
+    // Calcul des états (ordre de priorité P25 / P28b : lien actif exigé en amont)
     for (const gid of studentGlobalIds) {
-        // A. Vérifier PAID_ACTIVE
-        if (paidSet.has(gid)) {
-            result[gid] = { state: ACCESS_STATES.PAID_ACTIVE, accessAllowed: true };
+        const link = links?.find(l => l.student_global_id === gid && l.current_link_active !== false);
+        if (!link) {
+            result[gid] = { state: ACCESS_STATES.PACK_SUSPENDED, accessAllowed: false };
             continue;
         }
 
-        const link = links?.find(l => l.student_global_id === gid);
-        if (!link) {
-            result[gid] = { state: ACCESS_STATES.PACK_SUSPENDED, accessAllowed: false };
+        // A. Vérifier PAID_ACTIVE (uniquement pour un parent disposant d'un lien actif)
+        if (paidSet.has(gid)) {
+            result[gid] = { state: ACCESS_STATES.PAID_ACTIVE, accessAllowed: true };
             continue;
         }
 

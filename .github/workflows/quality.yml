@@ -33,6 +33,7 @@ jobs:
           POSTGRES_DB: yzo_test
         ports:
           - 5432:5432
+          - 55428:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -77,17 +78,19 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/yzo_test
 
       - name: Création de la base Parent Pack
-        run: PGPASSWORD=postgrespassword psql -h localhost -U postgres -c "CREATE DATABASE yzo_parent_pack_test;"
+        run: PGPASSWORD=postgrespassword psql -h 127.0.0.1 -p 55428 -U postgres -c "CREATE DATABASE yziow_p28b_disposable_test_ci;"
 
       - name: Initialisation du schéma PostgreSQL (Parent Pack)
         run: node backend/integration-tests/setup_test_db.cjs
         env:
-          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/yzo_parent_pack_test
+          DATABASE_URL: postgresql://postgres:postgrespassword@127.0.0.1:55428/yziow_p28b_disposable_test_ci
 
       - name: Tests Parent Pack (PostgreSQL)
         run: npm run test:parent-pack
         env:
-          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/yzo_parent_pack_test
+          DATABASE_URL: postgresql://postgres:postgrespassword@127.0.0.1:55428/yziow_p28b_disposable_test_ci
+          P28B_ALLOW_DISPOSABLE_DB: 'true'
+          P28B_DISPOSABLE_DB_NAME: 'yziow_p28b_disposable_test_ci'
 
       - name: Build Vite de production
         run: npm run build

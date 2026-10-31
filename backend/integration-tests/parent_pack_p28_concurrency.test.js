@@ -138,7 +138,7 @@ describe('P28 - Concurrence réelle multi-connexions et unicité globale', () =>
           durationMonths: 1
         });
       },
-      /student_global_id cannot be NULL/
+      /student_global_id cannot be (NULL|null)/i
     );
   });
 

@@ -25,7 +25,9 @@ END $$;
 -- 2. Table racine plate-forme : public.schools
 CREATE TABLE IF NOT EXISTS public.schools (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL DEFAULT 'École Test',
     slug TEXT UNIQUE NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
     affiliate_id UUID,
     first_successful_payment_at TIMESTAMPTZ,
     total_revenue NUMERIC DEFAULT 0,
@@ -53,8 +55,8 @@ INSERT INTO public.affiliates (id, nom, telephone, password_hash, referral_code,
 VALUES ('11111111-1111-1111-1111-111111111111', 'Ambassadeur Test', '+22990000000', 'hash', 'REF_TEST', 'active')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.schools (slug, affiliate_id)
-VALUES ('school', '11111111-1111-1111-1111-111111111111')
+INSERT INTO public.schools (slug, name, status, affiliate_id)
+VALUES ('school', 'École Test Principale', 'active', '11111111-1111-1111-1111-111111111111')
 ON CONFLICT (slug) DO UPDATE SET affiliate_id = EXCLUDED.affiliate_id;
 
 COMMIT;
