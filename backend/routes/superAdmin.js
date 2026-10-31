@@ -22,7 +22,9 @@ const {
     getGlobalAnnouncements,
     createGlobalAnnouncement,
     getSchoolLeads,
-    changeSuperAdminPassword
+    changeSuperAdminPassword,
+    processParentPackRefund,
+    verifyParentPackRefund
 } = require('../controllers/superAdminController');
 
 const {
@@ -72,6 +74,10 @@ router.post('/support/read/:schoolId', authenticateToken, requireSuperAdmin, mar
 
 // Route modification de mot de passe SuperAdmin
 router.post('/change-password', authenticateToken, requireSuperAdmin, changeSuperAdminPassword);
+
+// Routes Remboursement Parent Pack (P28c)
+router.post('/parent-pack/refund', authenticateToken, requireSuperAdmin, processParentPackRefund);
+router.post('/parent-pack/refund/verify', authenticateToken, requireSuperAdmin, verifyParentPackRefund);
 
 // Routes pour la gestion des propositions de dons et mécénat (Lot 2)
 const {
