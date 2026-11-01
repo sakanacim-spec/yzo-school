@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS public.schools (
     name TEXT NOT NULL DEFAULT 'École Test',
     slug TEXT UNIQUE NOT NULL,
     status TEXT NOT NULL DEFAULT 'active',
+    country TEXT DEFAULT 'BJ',
     affiliate_id UUID,
     first_successful_payment_at TIMESTAMPTZ,
     total_revenue NUMERIC DEFAULT 0,
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.schools (
     tranches_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE public.schools ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'BJ';
 
 -- 3. Table des affiliés / ambassadeurs (Lot affiliation historique)
 CREATE TABLE IF NOT EXISTS public.affiliates (
@@ -55,8 +57,21 @@ INSERT INTO public.affiliates (id, nom, telephone, password_hash, referral_code,
 VALUES ('11111111-1111-1111-1111-111111111111', 'Ambassadeur Test', '+22990000000', 'hash', 'REF_TEST', 'active')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.schools (slug, name, status, affiliate_id)
-VALUES ('school', 'École Test Principale', 'active', '11111111-1111-1111-1111-111111111111')
+INSERT INTO public.schools (slug, name, status, country, affiliate_id)
+VALUES ('school', 'École Test Principale', 'active', 'BJ', '11111111-1111-1111-1111-111111111111')
 ON CONFLICT (slug) DO UPDATE SET affiliate_id = EXCLUDED.affiliate_id;
+
+-- 5. Table des SuperAdmins (requise par les contrôles d'accès administratifs et P28c)
+CREATE TABLE IF NOT EXISTS public.superadmins (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- SuperAdmin fictif dédié aux tests d'intégration (P28c)
+INSERT INTO public.superadmins (id, username, password)
+VALUES ('a0000000-0000-4000-8000-000000000001', 'superadmin', '$2a$10$FakeHashForSuperadminTestOnly12345678901234567890123456')
+ON CONFLICT (username) DO NOTHING;
 
 COMMIT;

@@ -1,6 +1,5 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { createRequire } from 'node:module';
@@ -21,30 +20,71 @@ const {
 
 const { Client } = pg;
 
-function resolveDatabaseConnectionString() {
-  const envUrl = process.env.DATABASE_URL;
-  if (envUrl) {
-    if (envUrl.toLowerCase().includes('supabase')) {
-      throw new Error('FAIL CLOSED: Supabase connections forbidden in integration tests.');
-    }
-    return envUrl;
+function validateAndResolveDisposableDbConfig() {
+  const connStr = process.env.DATABASE_URL;
+  if (!connStr) {
+    throw new Error('FAIL CLOSED: DATABASE_URL must be explicitly set to run disposable integration tests.');
   }
-  let pwd = process.env.PGPASSWORD || '';
+
+  if (connStr.toLowerCase().includes('supabase')) {
+    throw new Error('FAIL CLOSED: Supabase connections are strictly forbidden in integration tests.');
+  }
+
+  let parsed;
   try {
-    const pgpassPath = `${process.env.APPDATA}\\postgresql\\pgpass.conf`;
-    if (!pwd && fs.existsSync(pgpassPath)) {
-      const content = fs.readFileSync(pgpassPath, 'utf8');
-      const m = content.match(/localhost:5432:yziow_p28_test:postgres:([^:\r\n]+)/);
-      if (m) pwd = m[1];
-    }
-  } catch (_e) {}
-  return `postgresql://postgres:${encodeURIComponent(pwd)}@127.0.0.1:5432/yziow_p28b_restore_test`;
+    parsed = new URL(connStr);
+  } catch (_err) {
+    throw new Error('FAIL CLOSED: DATABASE_URL is not a valid URL.');
+  }
+
+  if (parsed.hostname.toLowerCase().includes('supabase')) {
+    throw new Error(`FAIL CLOSED: Refusing Supabase database host "${parsed.hostname}".`);
+  }
+
+  if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') {
+    throw new Error(`FAIL CLOSED: Refusing database host "${parsed.hostname}". Only local disposable test databases (127.0.0.1 or localhost) are permitted.`);
+  }
+
+  const dbName = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+  const forbiddenDatabases = new Set([
+    '',
+    'postgres',
+    'template0',
+    'template1',
+    'yziow_production',
+    'production',
+    'yzo_production',
+    'yziow_p28_restore_20261027',
+    'yziow_p28b_restore_test'
+  ]);
+
+  if (
+    forbiddenDatabases.has(dbName.toLowerCase()) ||
+    dbName.toLowerCase().includes('prod') ||
+    dbName.toLowerCase().includes('restore')
+  ) {
+    throw new Error(
+      `FAIL CLOSED: Refusing to run tests against protected, reference or restore database "${dbName}". Use a dedicated disposable local test database.`
+    );
+  }
+
+  console.log(
+    `[P28c refundBackend] Target disposable DB -> Host=${parsed.hostname} Port=${parsed.port || '5432'} Database=${dbName} User=${decodeURIComponent(parsed.username || '')}`
+  );
+
+  return {
+    adminUrl: connStr,
+    host: parsed.hostname,
+    port: parsed.port || '5432',
+    dbName
+  };
 }
 
 describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role', () => {
   let adminClient;
   let superAdminId;
   let globalPricingId;
+  let executorUrl;
   const originalFrom = supabase.from;
   const originalRpc = supabase.rpc;
   const testCreatedIds = {
@@ -54,11 +94,9 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role', () => {
     studentGlobalIds: []
   };
 
-  const EXECUTOR_PWD = 'test_executor_pwd';
-  const EXECUTOR_URL = `postgresql://yziow_refund_executor:${EXECUTOR_PWD}@127.0.0.1:5432/yziow_p28b_restore_test`;
-
   before(async () => {
-    adminClient = new Client({ connectionString: resolveDatabaseConnectionString() });
+    const dbConfig = validateAndResolveDisposableDbConfig();
+    adminClient = new Client({ connectionString: dbConfig.adminUrl });
     await adminClient.connect();
 
     // 1. Ensure SuperAdmin
@@ -79,7 +117,10 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role', () => {
     }
     globalPricingId = pricingRes.rows[0].id;
 
-    // 3. Ensure role yziow_refund_executor with password and privileges
+    // 3. Generate dedicated executor credentials in memory (never logged) and configure role
+    const executorPwd = 'p28c_test_' + randomUUID().replace(/-/g, '');
+    executorUrl = `postgresql://yziow_refund_executor:${encodeURIComponent(executorPwd)}@${dbConfig.host}:${dbConfig.port}/${dbConfig.dbName}`;
+
     await adminClient.query(`
       DO $$
       BEGIN
@@ -88,7 +129,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role', () => {
         END IF;
       END
       $$;
-      ALTER ROLE yziow_refund_executor WITH PASSWORD '${EXECUTOR_PWD}';
+      ALTER ROLE yziow_refund_executor WITH PASSWORD '${executorPwd}';
       GRANT USAGE ON SCHEMA public TO yziow_refund_executor;
       GRANT EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) TO yziow_refund_executor;
       REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role;
@@ -102,33 +143,17 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role', () => {
     `);
 
     // Set dedicated refund DB URL
-    process.env.YZIOW_REFUND_DATABASE_URL = EXECUTOR_URL;
+    process.env.YZIOW_REFUND_DATABASE_URL = executorUrl;
   });
 
   after(async () => {
-    // Clean up all test fixtures from real PostgreSQL database
     try {
-      if (testCreatedIds.periodIds.length > 0) {
-        await adminClient.query(`ALTER TABLE public.parent_pack_refund_audits DISABLE TRIGGER trg_immutable_parent_pack_refund_audits;`);
-        await adminClient.query(`DELETE FROM public.parent_pack_refund_audits WHERE period_id = ANY($1::uuid[]);`, [testCreatedIds.periodIds]);
-        await adminClient.query(`ALTER TABLE public.parent_pack_refund_audits ENABLE TRIGGER trg_immutable_parent_pack_refund_audits;`);
-        await adminClient.query(`DELETE FROM public.school_commission_ledger WHERE period_id = ANY($1::uuid[]);`, [testCreatedIds.periodIds]);
-        await adminClient.query(`DELETE FROM public.parent_subscription_periods WHERE id = ANY($1::uuid[]);`, [testCreatedIds.periodIds]);
-      }
-      if (testCreatedIds.intentIds.length > 0) {
-        await adminClient.query(`DELETE FROM public.payment_intents WHERE id = ANY($1::uuid[]);`, [testCreatedIds.intentIds]);
-      }
-      if (testCreatedIds.subIds.length > 0) {
-        await adminClient.query(`DELETE FROM public.parent_subscriptions WHERE id = ANY($1::uuid[]);`, [testCreatedIds.subIds]);
-      }
-      if (testCreatedIds.studentGlobalIds.length > 0) {
-        await adminClient.query(`DELETE FROM public.parent_child_links WHERE student_global_id = ANY($1::uuid[]);`, [testCreatedIds.studentGlobalIds]);
-        await adminClient.query(`DELETE FROM public.global_students WHERE student_global_id = ANY($1::uuid[]);`, [testCreatedIds.studentGlobalIds]);
+      if (adminClient) {
+        await adminClient.end();
       }
     } catch (_err) {
-      // Best effort cleanup
+      // Ignore client closing errors
     } finally {
-      if (adminClient) await adminClient.end();
       supabase.from = originalFrom;
       supabase.rpc = originalRpc;
     }
@@ -436,7 +461,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role', () => {
     `);
     assert.strictEqual(tableInsertPriv.rows[0].ok, false, 'yziow_refund_executor must NOT have direct INSERT privilege');
 
-    const executorClient = new Client({ connectionString: EXECUTOR_URL });
+    const executorClient = new Client({ connectionString: executorUrl });
     await executorClient.connect();
     try {
       await assert.rejects(
@@ -594,13 +619,13 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role', () => {
     assert.strictEqual(states[fixture.studentGlobalId].state, ACCESS_STATES.PACK_SUSPENDED);
   });
 
-  // 11. Absence de résidus financiers à la fin des tests
-  it('11. Absence de résidus financiers sur les enregistrements de test terminés', async () => {
+  // 11. Piste d'audit vérifiable sur les enregistrements de test terminés
+  it('11. Piste d\'audit vérifiable sur les enregistrements de test terminés', async () => {
     const auditRes = await adminClient.query(`
       SELECT period_id FROM public.parent_pack_refund_audits
       WHERE period_id = ANY($1::uuid[]);
     `, [testCreatedIds.periodIds]);
 
-    assert.ok(auditRes.rows.length >= 2, 'Tracked test audits exist before cleanup');
+    assert.ok(auditRes.rows.length >= 2, 'Tracked test audits exist in database');
   });
 });
