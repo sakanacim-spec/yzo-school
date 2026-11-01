@@ -321,97 +321,132 @@ async function refundParentPackSubscriptionAdmin({
     }
 
     // 3. Contrôle FedaPay fail-closed
-    if (paymentIntent.provider_transaction_id) {
-        let fedaTx = null;
-        if (fedapayClient && typeof fedapayClient.retrieveTransaction === 'function') {
-            fedaTx = await fedapayClient.retrieveTransaction(paymentIntent.provider_transaction_id);
-        } else {
-            const { configureFedaPay } = require('../controllers/paymentController');
-            const config = await configureFedaPay();
-            if (!config.isConfigured) {
-                return {
-                    success: false,
-                    code: 'PROVIDER_NOT_CONFIGURED',
-                    message: 'La passerelle FedaPay n\'est pas configurée correctement.'
-                };
-            }
-            const { Transaction } = require('fedapay');
-            try {
-                const tx = await Transaction.retrieve(paymentIntent.provider_transaction_id);
-                fedaTx = tx;
-            } catch (fedaErr) {
-                return {
-                    success: false,
-                    code: 'PROVIDER_API_ERROR',
-                    message: `Impossible de vérifier la transaction FedaPay : ${fedaErr.message || 'Erreur API'}`
-                };
-            }
-        }
+    if (!paymentIntent.provider_transaction_id || typeof paymentIntent.provider_transaction_id !== 'string' || paymentIntent.provider_transaction_id.trim() === '') {
+        return {
+            success: false,
+            code: 'NO_PROVIDER_TX_ID',
+            message: 'Aucun identifiant de transaction externe (FedaPay) associé à cette intention de paiement.'
+        };
+    }
 
-        // Refus strict des remboursements partiels
-        const isPartiallyRefunded = fedaTx && (
-            (typeof fedaTx.wasPartiallyRefunded === 'function' && fedaTx.wasPartiallyRefunded()) ||
-            (typeof fedaTx.status === 'string' && fedaTx.status.includes('partially_refunded'))
-        );
-
-        if (isPartiallyRefunded) {
+    let fedaTx = null;
+    if (fedapayClient && typeof fedapayClient.retrieveTransaction === 'function') {
+        fedaTx = await fedapayClient.retrieveTransaction(paymentIntent.provider_transaction_id);
+    } else {
+        const { configureFedaPay } = require('../controllers/paymentController');
+        const config = await configureFedaPay();
+        if (!config.isConfigured) {
             return {
                 success: false,
-                code: 'PARTIAL_REFUND_NOT_SUPPORTED',
-                message: 'Les remboursements partiels ne sont pas supportés par le parcours de compensation intégrale P28c.',
-                providerStatus: fedaTx ? fedaTx.status : 'UNKNOWN'
+                code: 'PROVIDER_NOT_CONFIGURED',
+                message: 'La passerelle FedaPay n\'est pas configurée correctement.'
             };
         }
-
-        // Vérification du statut intégralement remboursé
-        const isFullyRefunded = fedaTx && (
-            fedaTx.status === 'refunded' ||
-            fedaTx.status === 'transferred_refunded' ||
-            (typeof fedaTx.wasRefunded === 'function' && fedaTx.wasRefunded() && !fedaTx.status.includes('partially'))
-        );
-
-        if (!isFullyRefunded) {
+        const { Transaction } = require('fedapay');
+        try {
+            const tx = await Transaction.retrieve(paymentIntent.provider_transaction_id);
+            fedaTx = tx;
+        } catch (fedaErr) {
             return {
                 success: false,
-                code: 'TRANSACTION_NOT_REFUNDED_ON_PROVIDER',
-                message: 'La transaction n\'est pas marquée comme intégralement remboursée auprès de FedaPay.',
-                providerStatus: fedaTx ? fedaTx.status : 'UNKNOWN'
+                code: 'PROVIDER_API_ERROR',
+                message: `Impossible de vérifier la transaction FedaPay : ${fedaErr.message || 'Erreur API'}`
             };
-        }
-
-        // Concordance stricte de montant
-        if (fedaTx.amount !== undefined && fedaTx.amount !== null) {
-            const remoteAmount = Number(fedaTx.amount);
-            const expectedAmount = Number(paymentIntent.expected_amount);
-            if (Number.isFinite(remoteAmount) && remoteAmount !== expectedAmount) {
-                return {
-                    success: false,
-                    code: 'PROVIDER_AMOUNT_MISMATCH',
-                    message: `Incohérence de montant : la transaction FedaPay indique ${remoteAmount} alors que l'intention attendait ${expectedAmount}.`
-                };
-            }
-        }
-
-        // Concordance stricte de devise
-        if (fedaTx.currency) {
-            const remoteIso = typeof fedaTx.currency === 'object' && fedaTx.currency ? fedaTx.currency.iso : fedaTx.currency;
-            if (remoteIso && paymentIntent.expected_currency && remoteIso.toUpperCase() !== paymentIntent.expected_currency.toUpperCase()) {
-                return {
-                    success: false,
-                    code: 'PROVIDER_CURRENCY_MISMATCH',
-                    message: `Incohérence de devise : la transaction FedaPay est en ${remoteIso} alors que l'intention est en ${paymentIntent.expected_currency}.`
-                };
-            }
         }
     }
 
-    // 4. Appel de la RPC transactionnelle certifiée
-    const { data: rpcResult, error: rpcErr } = await supabase.rpc('admin_process_parent_pack_refund', {
-        p_period_id: periodId,
-        p_provider_refund_id: cleanRefundId,
-        p_admin_actor_id: adminActorId,
-        p_reason: reason
-    });
+    if (!fedaTx) {
+        return {
+            success: false,
+            code: 'PROVIDER_TRANSACTION_NOT_FOUND',
+            message: 'Transaction FedaPay introuvable.'
+        };
+    }
+
+    // Refus strict des remboursements partiels
+    const isPartiallyRefunded = (
+        (typeof fedaTx.wasPartiallyRefunded === 'function' && fedaTx.wasPartiallyRefunded()) ||
+        (typeof fedaTx.status === 'string' && fedaTx.status.includes('partially_refunded'))
+    );
+
+    if (isPartiallyRefunded) {
+        return {
+            success: false,
+            code: 'PARTIAL_REFUND_NOT_SUPPORTED',
+            message: 'Les remboursements partiels ne sont pas supportés par le parcours de compensation intégrale P28c.',
+            providerStatus: fedaTx ? fedaTx.status : 'UNKNOWN'
+        };
+    }
+
+    // Vérification du statut intégralement remboursé
+    const isFullyRefunded = (
+        fedaTx.status === 'refunded' ||
+        fedaTx.status === 'transferred_refunded' ||
+        (typeof fedaTx.wasRefunded === 'function' && fedaTx.wasRefunded() && !fedaTx.status.includes('partially'))
+    );
+
+    if (!isFullyRefunded) {
+        return {
+            success: false,
+            code: 'TRANSACTION_NOT_REFUNDED_ON_PROVIDER',
+            message: 'La transaction n\'est pas marquée comme intégralement remboursée auprès de FedaPay.',
+            providerStatus: fedaTx ? fedaTx.status : 'UNKNOWN'
+        };
+    }
+
+    // Validation stricte du montant
+    if (fedaTx.amount === undefined || fedaTx.amount === null) {
+        return {
+            success: false,
+            code: 'PROVIDER_AMOUNT_MISSING',
+            message: 'Montant absent de la transaction FedaPay.'
+        };
+    }
+    const remoteAmount = Number(fedaTx.amount);
+    const expectedAmount = Number(paymentIntent.expected_amount);
+    if (!Number.isFinite(remoteAmount) || remoteAmount !== expectedAmount) {
+        return {
+            success: false,
+            code: 'PROVIDER_AMOUNT_MISMATCH',
+            message: `Incohérence de montant : la transaction FedaPay indique ${remoteAmount} alors que l'intention attendait ${expectedAmount}.`
+        };
+    }
+
+    // Validation stricte de la devise
+    if (!fedaTx.currency) {
+        return {
+            success: false,
+            code: 'PROVIDER_CURRENCY_MISSING',
+            message: 'Devise absente de la transaction FedaPay.'
+        };
+    }
+    const remoteIso = typeof fedaTx.currency === 'object' && fedaTx.currency ? fedaTx.currency.iso : fedaTx.currency;
+    if (!remoteIso || !paymentIntent.expected_currency || String(remoteIso).toUpperCase() !== String(paymentIntent.expected_currency).toUpperCase()) {
+        return {
+            success: false,
+            code: 'PROVIDER_CURRENCY_MISMATCH',
+            message: `Incohérence de devise : la transaction FedaPay est en ${remoteIso} alors que l'intention est en ${paymentIntent.expected_currency}.`
+        };
+    }
+
+    // 4. Appel de la RPC transactionnelle via connexion PostgreSQL dédiée
+    // Utilise la variable d'environnement YZIOW_REFUND_DATABASE_URL.
+    // Si la variable est absente ou si la connexion échoue, l'opération échoue sans écriture financière.
+    let rpcResult = null;
+    let rpcErr = null;
+    try {
+        const { executeRefundRpc } = require('./refundRpc.cjs');
+        const { result, error } = await executeRefundRpc({
+            periodId,
+            providerRefundId: cleanRefundId,
+            adminActorId,
+            reason,
+        });
+        rpcResult = result;
+        rpcErr = error;
+    } catch (e) {
+        rpcErr = { message: `Refund RPC execution failure: ${e.message || e}` };
+    }
 
     if (rpcErr) {
         if (rpcErr.message && rpcErr.message.includes('ALREADY_REFUNDED')) {

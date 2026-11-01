@@ -23,10 +23,21 @@
 --      - Recalcul du statut de parent_subscriptions ('active' si autre période active couvrant
 --        CURRENT_DATE, 'expired' si autres périodes échues, 'canceled' si aucune autre période).
 --      - Enregistrement complet de la piste d'audit (référence FedaPay, admin, motif).
---      - Droits d'exécution restreints exclusivement à service_role.
+--      - Droits d'exécution restreints exclusivement au rôle dédié yziow_refund_executor.
 -- ==============================================================================
 
 BEGIN;
+
+-- 0. Rôle dédié pour l'exécution du remboursement
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yziow_refund_executor') THEN
+        CREATE ROLE yziow_refund_executor LOGIN;
+    END IF;
+END
+$$;
+
+GRANT USAGE ON SCHEMA public TO yziow_refund_executor;
 
 -- ------------------------------------------------------------------------------
 -- 1. Table d'audit des remboursements Parent Pack
@@ -53,8 +64,7 @@ CREATE TABLE IF NOT EXISTS public.parent_pack_refund_audits (
 
 ALTER TABLE public.parent_pack_refund_audits ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.parent_pack_refund_audits FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT ON public.parent_pack_refund_audits TO service_role;
+REVOKE ALL ON public.parent_pack_refund_audits FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
 
 -- Immuabilité stricte de la piste d'audit (append-only)
 CREATE OR REPLACE FUNCTION public.fn_prevent_refund_audit_mutation()
@@ -707,7 +717,7 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 4. Permissions et sécurité
 -- ------------------------------------------------------------------------------
-REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) TO yziow_refund_executor;
 
 COMMIT;
