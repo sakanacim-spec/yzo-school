@@ -43,6 +43,78 @@ $$;
 GRANT USAGE ON SCHEMA public TO yziow_refund_executor;
 
 -- ------------------------------------------------------------------------------
+-- 0b. Verrou de sécurité fail-closed des trois garanties préalables à toute
+--     compensation financière (Mission 1) :
+--       1. Authentification indépendante des deux SuperAdmins
+--       2. Preuve fournisseur FedaPay certifiée du remboursement
+--       3. Stockage privé vérifiable du justificatif
+--     Tant que ces trois garanties ne sont pas toutes actives (false par défaut),
+--     admin_approve_parent_pack_refund_reconciliation et les triggers financiers
+--     bloquent toute compensation en mode fail-closed (SECURITY_BLOCKER).
+--     Aucun paramètre HTTP, UUID déclaré, rôle SQL applicatif (service_role,
+--     yziow_refund_executor, authenticated, anon) ou variable de session (SET LOCAL)
+--     ne peut modifier ou contourner cette table.
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.parent_pack_refund_security_gate (
+    id BOOLEAN PRIMARY KEY DEFAULT true CHECK (id = true),
+    independent_admin_auth_ready BOOLEAN NOT NULL DEFAULT false,
+    independent_fedapay_proof_ready BOOLEAN NOT NULL DEFAULT false,
+    private_worm_storage_ready BOOLEAN NOT NULL DEFAULT false,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE OR REPLACE FUNCTION public.fn_guard_parent_pack_refund_security_gate()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_is_superuser BOOLEAN := false;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'FAIL CLOSED: Suppression interdite sur parent_pack_refund_security_gate.';
+    END IF;
+
+    SELECT COALESCE(rolsuper, false)
+    INTO v_is_superuser
+    FROM pg_roles
+    WHERE rolname = session_user;
+
+    IF NOT v_is_superuser
+       OR session_user IN ('yziow_refund_executor', 'service_role', 'authenticated', 'anon') THEN
+        RAISE EXCEPTION 'SECURITY_BLOCKER: Modification du verrou de securite parent_pack_refund_security_gate strictement interdite pour le role applicatif (%).',
+            session_user;
+    END IF;
+
+    NEW.updated_at := clock_timestamp();
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_guard_parent_pack_refund_security_gate ON public.parent_pack_refund_security_gate;
+CREATE TRIGGER trg_guard_parent_pack_refund_security_gate
+BEFORE INSERT OR UPDATE OR DELETE ON public.parent_pack_refund_security_gate
+FOR EACH ROW EXECUTE FUNCTION public.fn_guard_parent_pack_refund_security_gate();
+
+INSERT INTO public.parent_pack_refund_security_gate (
+    id,
+    independent_admin_auth_ready,
+    independent_fedapay_proof_ready,
+    private_worm_storage_ready
+) VALUES (true, false, false, false)
+ON CONFLICT (id) DO UPDATE
+SET independent_admin_auth_ready = false,
+    independent_fedapay_proof_ready = false,
+    private_worm_storage_ready = false,
+    updated_at = clock_timestamp();
+
+ALTER TABLE public.parent_pack_refund_security_gate ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.parent_pack_refund_security_gate
+    FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+
+-- ------------------------------------------------------------------------------
 -- 1. Table de rapprochement administratif à double validation
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.parent_pack_refund_reconciliations (
@@ -420,6 +492,18 @@ BEGIN
                 RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded interdite par operation SQL ordinaire ou variable de session isolee. Seule la RPC d''approbation a double validation est autorisee.';
             END IF;
 
+            -- 2. Les trois garanties de sécurité préalables actives dans parent_pack_refund_security_gate
+            IF NOT EXISTS (
+                SELECT 1
+                FROM public.parent_pack_refund_security_gate
+                WHERE id = true
+                  AND independent_admin_auth_ready = true
+                  AND independent_fedapay_proof_ready = true
+                  AND private_worm_storage_ready = true
+            ) THEN
+                RAISE EXCEPTION 'SECURITY_BLOCKER (FAIL CLOSED): Transition vers refunded verrouillee tant que les trois garanties de securite (authentification independante des deux SuperAdmins, preuve fournisseur FedaPay certifiee, stockage prive verifiable) ne sont pas operationnelles.';
+            END IF;
+
             -- 2. Un dossier de rapprochement 'completed' à double signature ET une piste d'audit concordante
             IF NOT EXISTS (
                 SELECT 1
@@ -529,10 +613,21 @@ BEGIN
             IF OLD.status = 'completed' OR v_has_paid_period THEN
                 IF NEW.status IS DISTINCT FROM 'completed' THEN
                     IF NEW.status = 'refunded' THEN
-                        -- Autorisé UNIQUEMENT dans le cadre de l'approbation à double validation avec audit et rapprochement complets
+                        -- Autorisé UNIQUEMENT lorsque les 3 garanties de sécurité sont actives ET dans le cadre de l'approbation à double validation
                         IF current_setting('yziow.certified_refund_active', true) IS DISTINCT FROM 'true'
                            OR current_setting('yziow.reconciliation_step_active', true) IS DISTINCT FROM 'approve' THEN
                             RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded sur payment_intent interdite par operation SQL ordinaire ou variable de session isolee. Seule la RPC d''approbation a double validation est autorisee.';
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1
+                            FROM public.parent_pack_refund_security_gate
+                            WHERE id = true
+                              AND independent_admin_auth_ready = true
+                              AND independent_fedapay_proof_ready = true
+                              AND private_worm_storage_ready = true
+                        ) THEN
+                            RAISE EXCEPTION 'SECURITY_BLOCKER (FAIL CLOSED): Transition vers refunded sur payment_intent verrouillee tant que les trois garanties de securite (authentification independante des deux SuperAdmins, preuve fournisseur FedaPay certifiee, stockage prive verifiable) ne sont pas operationnelles.';
                         END IF;
                         IF NOT EXISTS (
                             SELECT 1
@@ -1079,6 +1174,22 @@ BEGIN
         RAISE EXCEPTION 'INVALID_PROOF_ARTIFACT: Le chemin de stockage prive ou l''empreinte SHA-256 du justificatif est invalide';
     END IF;
 
+    -- 8b. Verrouillage FAIL-CLOSED de la compensation financière (Mission 1) :
+    --     Tant que les trois garanties de sécurité (authentification indépendante des deux SuperAdmins,
+    --     preuve fournisseur FedaPay certifiée du remboursement, stockage privé vérifiable)
+    --     ne sont pas toutes opérationnelles, toute approbation et compensation financière est bloquée
+    --     en mode fail-closed, y compris lors d'un appel direct via yziow_refund_executor.
+    IF NOT EXISTS (
+        SELECT 1
+        FROM public.parent_pack_refund_security_gate
+        WHERE id = true
+          AND independent_admin_auth_ready = true
+          AND independent_fedapay_proof_ready = true
+          AND private_worm_storage_ready = true
+    ) THEN
+        RAISE EXCEPTION 'SECURITY_BLOCKER: Approbation et compensation financiere verrouillees (fail-closed) tant que les trois garanties de securite (authentification independante des deux SuperAdmins, preuve fournisseur FedaPay certifiee, stockage prive verifiable) ne sont pas operationnelles.';
+    END IF;
+
     -- 9. Verrouillage de l'écriture de commission d'origine (type = 'credit')
     SELECT * INTO v_orig_ledger
     FROM public.school_commission_ledger
@@ -1418,5 +1529,8 @@ GRANT EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation
 
 REVOKE EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) TO yziow_refund_executor;
+
+REVOKE ALL ON public.parent_pack_refund_security_gate FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+REVOKE ALL ON public.superadmins FROM yziow_refund_executor;
 
 COMMIT;

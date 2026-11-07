@@ -795,22 +795,17 @@ async function approveAndExecuteParentPackRefundReconciliation({
 /**
  * P28c: Point d'entrée de remboursement administratif Parent Pack.
  * - Effectue d'abord tous les contrôles fail-closed sur la période, l'intention et FedaPay.
- * - Par défaut (appel unilatéral sans double validation ni justificatif vérifié),
- *   bloque fail-closed avec SECURITY_BLOCKER : aucune compensation financière
- *   automatique n'est déclenchée sur simple référence déclarative.
- * - Lorsque le dossier de rapprochement à double validation (deux SuperAdmins distincts
- *   + justificatif vérifié) est fourni, exécute les deux étapes de rapprochement.
+ * - Verrouillé définitivement en mode fail-closed (SECURITY_BLOCKER) :
+ *   aucune compensation financière automatique ne peut être déclenchée par cet appel,
+ *   et aucun enchaînement interne entre initiation et approbation n'est autorisé
+ *   (même si approverAdminId, reconciliationId ou un justificatif sont fournis).
  */
 async function refundParentPackSubscriptionAdmin({
     periodId,
     providerRefundId = null,
-    internalReconciliationRef = null,
     adminActorId,
-    approverAdminId = null,
     reconciliationId = null,
     proof = null,
-    approvalNotes = null,
-    reason = 'Remboursement administratif Parent Pack',
     fedapayClient = null
 }) {
     if (!periodId || !UUID_REGEX.test(periodId)) {
@@ -852,61 +847,13 @@ async function refundParentPackSubscriptionAdmin({
         };
     }
 
-    // 4. Protection FAIL-CLOSED par défaut (Mission 1) :
-    // Une simple référence déclarative ou un appel unilatéral d'un seul SuperAdmin
-    // ne peut JAMAIS déclencher la compensation financière automatique.
-    if (!approverAdminId && !reconciliationId && !proof) {
-        return {
-            success: false,
-            code: 'SECURITY_BLOCKER',
-            message: 'SECURITY_BLOCKER: La compensation financière automatique sur simple référence déclarative est désactivée (fail-closed). Un rapprochement à double validation SuperAdmin avec justificatif vérifié est requis.'
-        };
-    }
-
-    if (!approverAdminId || !UUID_REGEX.test(approverAdminId)) {
-        return {
-            success: false,
-            code: 'SECURITY_BLOCKER',
-            message: 'SECURITY_BLOCKER: La seconde validation par un SuperAdmin approbateur distinct (approverAdminId) est obligatoire.'
-        };
-    }
-
-    if (String(adminActorId).toLowerCase() === String(approverAdminId).toLowerCase()) {
-        return {
-            success: false,
-            code: 'DUAL_CUSTODY_VIOLATION',
-            message: 'Séparation des tâches violée : le SuperAdmin approbateur doit être strictement distinct du SuperAdmin initiateur.'
-        };
-    }
-
-    let targetReconciliationId = reconciliationId;
-
-    if (!targetReconciliationId) {
-        const initRes = await createParentPackRefundReconciliationRequest({
-            periodId,
-            initiatorAdminId: adminActorId,
-            reason,
-            proof,
-            internalReconciliationRef,
-            providerRefundId,
-            fedapayClient
-        });
-        if (!initRes.success) {
-            return initRes;
-        }
-        if (initRes.code === 'ALREADY_REFUNDED') {
-            return initRes;
-        }
-        targetReconciliationId = initRes.data.reconciliation_id;
-    }
-
-    return approveAndExecuteParentPackRefundReconciliation({
-        reconciliationId: targetReconciliationId,
-        periodId,
-        approverAdminId,
-        approvalNotes,
-        fedapayClient
-    });
+    // 4. Protection FAIL-CLOSED définitive (Mission 1) :
+    // Suppression de toute possibilité d'enchaîner l'initiation et l'approbation dans un même appel interne.
+    return {
+        success: false,
+        code: 'SECURITY_BLOCKER',
+        message: 'SECURITY_BLOCKER: La compensation financière via refundParentPackSubscriptionAdmin est désactivée (fail-closed). Il est strictement interdit d\'enchaîner l\'initiation et l\'approbation dans un même appel interne.'
+    };
 }
 
 module.exports = {

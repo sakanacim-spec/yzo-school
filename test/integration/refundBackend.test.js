@@ -157,6 +157,8 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
 
       REVOKE ALL ON public.parent_pack_refund_audits FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
       REVOKE ALL ON public.parent_pack_refund_reconciliations FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+      REVOKE ALL ON public.parent_pack_refund_security_gate FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+      REVOKE ALL ON public.superadmins FROM yziow_refund_executor;
       REVOKE ALL ON public.school_commission_ledger FROM yziow_refund_executor;
       REVOKE ALL ON public.affiliate_ledger FROM yziow_refund_executor;
       REVOKE ALL ON public.affiliate_balances FROM yziow_refund_executor;
@@ -192,6 +194,27 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       refundedAt: new Date().toISOString(),
       ...overrides
     };
+  }
+
+  async function withUnlockedSecurityGate(fn) {
+    await adminClient.query(`
+      UPDATE public.parent_pack_refund_security_gate
+      SET independent_admin_auth_ready = true,
+          independent_fedapay_proof_ready = true,
+          private_worm_storage_ready = true
+      WHERE id = true
+    `);
+    try {
+      return await fn();
+    } finally {
+      await adminClient.query(`
+        UPDATE public.parent_pack_refund_security_gate
+        SET independent_admin_auth_ready = false,
+            independent_fedapay_proof_ready = false,
+            private_worm_storage_ready = false
+        WHERE id = true
+      `);
+    }
   }
 
   async function seedFixture(opts = {}) {
@@ -484,12 +507,12 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     };
 
     try {
-      const res = await refundParentPackSubscriptionAdmin({
+      const res = await createParentPackRefundReconciliationRequest({
         periodId: fixture.periodId,
-        providerRefundId: 'fedapay_ref_valid_123',
-        adminActorId: superAdminId,
-        approverAdminId,
+        initiatorAdminId: superAdminId,
+        reason: 'Test connexion PostgreSQL dédiée absente',
         proof: buildValidProof(fixture),
+        providerRefundId: 'fedapay_ref_valid_123',
         fedapayClient: mockFedapay
       });
 
@@ -520,7 +543,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
   });
 
   // 7B. Rejet strict de toute écriture directe par yziow_refund_executor sur les tables
-  it('7B. Sécurité fail-closed : yziow_refund_executor ne peut faire aucun INSERT direct sur parent_pack_refund_audits ni parent_pack_refund_reconciliations', async () => {
+  it('7B. Sécurité fail-closed : yziow_refund_executor ne peut faire aucun INSERT/UPDATE direct sur parent_pack_refund_audits, parent_pack_refund_reconciliations ni parent_pack_refund_security_gate', async () => {
     const tableInsertPriv = await adminClient.query(`
       SELECT has_table_privilege('yziow_refund_executor', 'public.parent_pack_refund_audits', 'INSERT') AS ok;
     `);
@@ -530,6 +553,13 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       SELECT has_table_privilege('yziow_refund_executor', 'public.parent_pack_refund_reconciliations', 'INSERT') AS ok;
     `);
     assert.strictEqual(recInsertPriv.rows[0].ok, false);
+
+    const gateUpdatePriv = await adminClient.query(`
+      SELECT has_table_privilege('yziow_refund_executor', 'public.parent_pack_refund_security_gate', 'UPDATE') AS exec_ok,
+             has_table_privilege('service_role', 'public.parent_pack_refund_security_gate', 'UPDATE') AS srv_ok;
+    `);
+    assert.strictEqual(gateUpdatePriv.rows[0].exec_ok, false);
+    assert.strictEqual(gateUpdatePriv.rows[0].srv_ok, false);
 
     const executorClient = new Client({ connectionString: executorUrl });
     await executorClient.connect();
@@ -554,13 +584,28 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
           return true;
         }
       );
+
+      await assert.rejects(
+        async () => {
+          await executorClient.query(`
+            UPDATE public.parent_pack_refund_security_gate
+            SET independent_admin_auth_ready = true,
+                independent_fedapay_proof_ready = true,
+                private_worm_storage_ready = true;
+          `);
+        },
+        (err) => {
+          assert.strictEqual(err.code, '42501', 'Must fail with 42501 (permission denied)');
+          return true;
+        }
+      );
     } finally {
       await executorClient.end();
     }
   });
 
-  // 8. Remboursement complet à double validation avec FedaPay simulé
-  it('8. Remboursement complet nominal à double validation avec yziow_refund_executor', async () => {
+  // 8. Remboursement complet à double validation en 2 étapes explicites (lorsque la porte de sécurité est déverrouillée par superuser)
+  it('8. Remboursement complet nominal en 2 étapes explicites (initiation + approbation) avec yziow_refund_executor', async () => {
     const fixture = await seedFixture();
     const refundRef = `fedapay_ref_${randomUUID()}`;
 
@@ -573,15 +618,25 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       })
     };
 
-    const res = await refundParentPackSubscriptionAdmin({
+    const initRes = await createParentPackRefundReconciliationRequest({
       periodId: fixture.periodId,
-      providerRefundId: refundRef,
-      adminActorId: superAdminId,
-      approverAdminId,
-      proof: buildValidProof(fixture),
+      initiatorAdminId: superAdminId,
       reason: 'Test remboursement nominal à double validation',
+      proof: buildValidProof(fixture),
+      providerRefundId: refundRef,
       fedapayClient: mockFedapay
     });
+    assert.strictEqual(initRes.success, true);
+    assert.strictEqual(initRes.code, 'RECONCILIATION_PENDING_APPROVAL');
+
+    const res = await withUnlockedSecurityGate(() =>
+      approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: initRes.data.reconciliation_id,
+        approverAdminId,
+        approvalNotes: 'Seconde validation conforme',
+        fedapayClient: mockFedapay
+      })
+    );
 
     assert.strictEqual(res.success, true);
     assert.strictEqual(res.code, 'REFUND_COMPLETED');
@@ -616,28 +671,43 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       })
     };
 
-    const res1 = await refundParentPackSubscriptionAdmin({
+    const initRes = await createParentPackRefundReconciliationRequest({
       periodId: fixture.periodId,
-      providerRefundId: refundRef,
-      adminActorId: superAdminId,
-      approverAdminId,
+      initiatorAdminId: superAdminId,
+      reason: 'Premier remboursement idempotent',
       proof: buildValidProof(fixture),
+      providerRefundId: refundRef,
       fedapayClient: mockFedapay
     });
+    assert.strictEqual(initRes.success, true);
+
+    const res1 = await withUnlockedSecurityGate(() =>
+      approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: initRes.data.reconciliation_id,
+        approverAdminId,
+        fedapayClient: mockFedapay
+      })
+    );
     assert.strictEqual(res1.success, true);
 
     setupSupabaseMock({ ...fixture, status: 'refunded' });
 
-    const res2 = await refundParentPackSubscriptionAdmin({
-      periodId: fixture.periodId,
-      providerRefundId: refundRef,
-      adminActorId: superAdminId,
+    const res2 = await approveAndExecuteParentPackRefundReconciliation({
+      reconciliationId: initRes.data.reconciliation_id,
       approverAdminId,
-      proof: buildValidProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(res2.success, true);
     assert.strictEqual(res2.code, 'ALREADY_REFUNDED');
+
+    const resLegacyIdempotent = await refundParentPackSubscriptionAdmin({
+      periodId: fixture.periodId,
+      providerRefundId: refundRef,
+      adminActorId: superAdminId,
+      fedapayClient: mockFedapay
+    });
+    assert.strictEqual(resLegacyIdempotent.success, true);
+    assert.strictEqual(resLegacyIdempotent.code, 'ALREADY_REFUNDED');
 
     const auditCount = await adminClient.query(`SELECT count(*)::int AS cnt FROM public.parent_pack_refund_audits WHERE period_id = $1`, [fixture.periodId]);
     assert.strictEqual(auditCount.rows[0].cnt, 1);
@@ -659,14 +729,24 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       })
     };
 
-    await refundParentPackSubscriptionAdmin({
+    const initRes = await createParentPackRefundReconciliationRequest({
       periodId: fixture.periodId,
-      providerRefundId: refundRef,
-      adminActorId: superAdminId,
-      approverAdminId,
+      initiatorAdminId: superAdminId,
+      reason: 'Révocation droits accès',
       proof: buildValidProof(fixture),
+      providerRefundId: refundRef,
       fedapayClient: mockFedapay
     });
+    assert.strictEqual(initRes.success, true);
+
+    const approveRes = await withUnlockedSecurityGate(() =>
+      approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: initRes.data.reconciliation_id,
+        approverAdminId,
+        fedapayClient: mockFedapay
+      })
+    );
+    assert.strictEqual(approveRes.success, true);
 
     supabase.rpc = async (fn) => {
       if (fn === 'get_active_parent_pack_subscriptions') {
@@ -708,8 +788,8 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     assert.ok(auditRes.rows.length >= 2, 'Tracked test audits exist in database');
   });
 
-  // 12. Blocage fail-closed (SECURITY_BLOCKER) de tout appel unilatéral sur simple référence déclarative
-  it('12. SECURITY_BLOCKER : refus fail-closed de toute compensation automatique sur simple référence déclarative', async () => {
+  // 12. Verrouillage fail-closed par défaut (SECURITY_BLOCKER) sur tous les chemins de compensation
+  it('12. SECURITY_BLOCKER : blocage fail-closed de refundParentPackSubscriptionAdmin (même avec 2 admins + preuve), de approveAndExecuteParentPackRefundReconciliation par défaut, et des appels directs yziow_refund_executor', async () => {
     const fixture = await seedFixture();
     const mockFedapay = {
       retrieveTransaction: async () => ({
@@ -720,28 +800,111 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       })
     };
 
-    const res = await refundParentPackSubscriptionAdmin({
+    // 12A: Appel déclaratif classique à refundParentPackSubscriptionAdmin -> SECURITY_BLOCKER
+    const resUnilateral = await refundParentPackSubscriptionAdmin({
       periodId: fixture.periodId,
       providerRefundId: 'fedapay_ref_valid_123',
       adminActorId: superAdminId,
       fedapayClient: mockFedapay
     });
+    assert.strictEqual(resUnilateral.success, false);
+    assert.strictEqual(resUnilateral.code, 'SECURITY_BLOCKER');
 
-    assert.strictEqual(res.success, false);
-    assert.strictEqual(res.code, 'SECURITY_BLOCKER');
+    // 12B: Tentative d'enchaîner initiation + approbation dans un seul appel à refundParentPackSubscriptionAdmin
+    //      (même en fournissant 2 SuperAdmins distincts + justificatif valide) -> SECURITY_BLOCKER (aucun dossier créé)
+    const resChainedAttempt = await refundParentPackSubscriptionAdmin({
+      periodId: fixture.periodId,
+      providerRefundId: 'fedapay_ref_valid_123',
+      adminActorId: superAdminId,
+      approverAdminId,
+      proof: buildValidProof(fixture),
+      fedapayClient: mockFedapay
+    });
+    assert.strictEqual(resChainedAttempt.success, false);
+    assert.strictEqual(resChainedAttempt.code, 'SECURITY_BLOCKER');
 
-    // Aucune écriture financière ni révocation de droits ne doit avoir eu lieu
+    const recCountAfterChained = await adminClient.query(
+      `SELECT count(*)::int AS cnt FROM public.parent_pack_refund_reconciliations WHERE period_id = $1`,
+      [fixture.periodId]
+    );
+    assert.strictEqual(recCountAfterChained.rows[0].cnt, 0, 'refundParentPackSubscriptionAdmin must never create or chain a reconciliation');
+
+    // 12C: Création légitime d'un dossier pending_approval (Étape 1), puis tentative d'approbation (Étape 2)
+    //      avec la porte de sécurité dans son état par défaut (verrouillée) -> SECURITY_BLOCKER
+    const initRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Dossier en attente de garanties externes',
+      proof: buildValidProof(fixture),
+      providerRefundId: 'fedapay_ref_locked_123',
+      fedapayClient: mockFedapay
+    });
+    assert.strictEqual(initRes.success, true);
+    assert.strictEqual(initRes.code, 'RECONCILIATION_PENDING_APPROVAL');
+
+    const approveLockedRes = await approveAndExecuteParentPackRefundReconciliation({
+      reconciliationId: initRes.data.reconciliation_id,
+      approverAdminId,
+      approvalNotes: 'Tentative approbation avec gate par défaut',
+      fedapayClient: mockFedapay
+    });
+    assert.strictEqual(approveLockedRes.success, false);
+    assert.strictEqual(approveLockedRes.code, 'SECURITY_BLOCKER');
+
+    // 12D: Appel SQL direct via la connexion dédiée yziow_refund_executor (contournant le backend Node.js)
+    const executorClient = new Client({ connectionString: executorUrl });
+    await executorClient.connect();
+    try {
+      await assert.rejects(
+        async () => {
+          await executorClient.query(
+            `SELECT public.admin_process_parent_pack_refund($1, 'fedapay_ref_direct', $2, 'Direct legacy RPC');`,
+            [fixture.periodId, superAdminId]
+          );
+        },
+        (err) => {
+          assert.match(err.message, /SECURITY_BLOCKER/);
+          return true;
+        }
+      );
+
+      await assert.rejects(
+        async () => {
+          await executorClient.query(
+            `SELECT public.admin_approve_parent_pack_refund_reconciliation($1, $2, $3, 'refunded', $4, $5, 'Direct SQL approve');`,
+            [initRes.data.reconciliation_id, approverAdminId, fixture.providerTxId, fixture.amount, fixture.currency]
+          );
+        },
+        (err) => {
+          assert.match(err.message, /SECURITY_BLOCKER/);
+          return true;
+        }
+      );
+    } finally {
+      await executorClient.end();
+    }
+
+    // 12E: Vérifier qu'aucune écriture financière ni révocation de droits n'a eu lieu après tous ces refus
     const periodDb = await adminClient.query(`SELECT status FROM public.parent_subscription_periods WHERE id = $1`, [fixture.periodId]);
     assert.strictEqual(periodDb.rows[0].status, 'active');
 
     const subDb = await adminClient.query(`SELECT status FROM public.parent_subscriptions WHERE id = $1`, [fixture.subId]);
     assert.strictEqual(subDb.rows[0].status, 'active');
 
+    const intentDb = await adminClient.query(`SELECT status FROM public.payment_intents WHERE id = $1`, [fixture.intentId]);
+    assert.strictEqual(intentDb.rows[0].status, 'completed');
+
     const cancelCount = await adminClient.query(
       `SELECT count(*)::int AS cnt FROM public.school_commission_ledger WHERE period_id = $1 AND type = 'cancellation'`,
       [fixture.periodId]
     );
     assert.strictEqual(cancelCount.rows[0].cnt, 0);
+
+    const auditCount = await adminClient.query(
+      `SELECT count(*)::int AS cnt FROM public.parent_pack_refund_audits WHERE period_id = $1`,
+      [fixture.periodId]
+    );
+    assert.strictEqual(auditCount.rows[0].cnt, 0);
   });
 
   // 13. Double validation stricte (DUAL_CUSTODY_VIOLATION si initiator === approver)
@@ -756,12 +919,19 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       })
     };
 
-    const res = await refundParentPackSubscriptionAdmin({
+    const initRes = await createParentPackRefundReconciliationRequest({
       periodId: fixture.periodId,
-      providerRefundId: 'fedapay_ref_valid_123',
-      adminActorId: superAdminId,
-      approverAdminId: superAdminId,
+      initiatorAdminId: superAdminId,
+      reason: 'Initiation pour test dual custody',
       proof: buildValidProof(fixture),
+      providerRefundId: `fedapay_ref_dc_${randomUUID()}`,
+      fedapayClient: mockFedapay
+    });
+    assert.strictEqual(initRes.success, true);
+
+    const res = await approveAndExecuteParentPackRefundReconciliation({
+      reconciliationId: initRes.data.reconciliation_id,
+      approverAdminId: superAdminId,
       fedapayClient: mockFedapay
     });
 
@@ -769,8 +939,8 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     assert.strictEqual(res.code, 'DUAL_CUSTODY_VIOLATION');
   });
 
-  // 14. Refus fail-closed si le justificatif est manquant, incomplet ou contradictoire même avec 2 SuperAdmins distincts
-  it('14. Refus fail-closed si le justificatif est absent, incomplet ou contradictoire (même avec deux SuperAdmins distincts)', async () => {
+  // 14. Refus fail-closed si le justificatif est manquant, incomplet ou contradictoire
+  it('14. Refus fail-closed si le justificatif est absent, incomplet ou contradictoire', async () => {
     const fixture = await seedFixture();
     const mockFedapay = {
       retrieveTransaction: async () => ({
@@ -782,60 +952,60 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     };
 
     // 14A: Justificatif absent
-    const resMissingProof = await refundParentPackSubscriptionAdmin({
+    const resMissingProof = await createParentPackRefundReconciliationRequest({
       periodId: fixture.periodId,
-      providerRefundId: 'fedapay_ref_valid_123',
-      adminActorId: superAdminId,
-      approverAdminId,
+      initiatorAdminId: superAdminId,
+      reason: 'Motif test',
       proof: null,
+      providerRefundId: 'fedapay_ref_valid_123',
       fedapayClient: mockFedapay
     });
     assert.strictEqual(resMissingProof.success, false);
     assert.strictEqual(resMissingProof.code, 'SECURITY_BLOCKER');
 
     // 14B: Empreinte SHA-256 ne correspondant pas au contenu binaire fourni
-    const resBadContentHash = await refundParentPackSubscriptionAdmin({
+    const resBadContentHash = await createParentPackRefundReconciliationRequest({
       periodId: fixture.periodId,
-      providerRefundId: 'fedapay_ref_valid_123',
-      adminActorId: superAdminId,
-      approverAdminId,
+      initiatorAdminId: superAdminId,
+      reason: 'Motif test',
       proof: buildValidProof(fixture, { rawContent: 'Contenu altéré non conforme au hash' }),
+      providerRefundId: 'fedapay_ref_valid_123',
       fedapayClient: mockFedapay
     });
     assert.strictEqual(resBadContentHash.success, false);
     assert.strictEqual(resBadContentHash.code, 'PROOF_HASH_CONTENT_MISMATCH');
 
     // 14C: Montant du justificatif contradictoire
-    const resBadAmount = await refundParentPackSubscriptionAdmin({
+    const resBadAmount = await createParentPackRefundReconciliationRequest({
       periodId: fixture.periodId,
-      providerRefundId: 'fedapay_ref_valid_123',
-      adminActorId: superAdminId,
-      approverAdminId,
+      initiatorAdminId: superAdminId,
+      reason: 'Motif test',
       proof: buildValidProof(fixture, { refundedAmountMinor: 750 }),
+      providerRefundId: 'fedapay_ref_valid_123',
       fedapayClient: mockFedapay
     });
     assert.strictEqual(resBadAmount.success, false);
     assert.strictEqual(resBadAmount.code, 'PROOF_AMOUNT_MISMATCH');
 
     // 14D: Bénéficiaire du justificatif contradictoire
-    const resBadBeneficiary = await refundParentPackSubscriptionAdmin({
+    const resBadBeneficiary = await createParentPackRefundReconciliationRequest({
       periodId: fixture.periodId,
-      providerRefundId: 'fedapay_ref_valid_123',
-      adminActorId: superAdminId,
-      approverAdminId,
+      initiatorAdminId: superAdminId,
+      reason: 'Motif test',
       proof: buildValidProof(fixture, { beneficiaryRef: '+22990000999' }),
+      providerRefundId: 'fedapay_ref_valid_123',
       fedapayClient: mockFedapay
     });
     assert.strictEqual(resBadBeneficiary.success, false);
     assert.strictEqual(resBadBeneficiary.code, 'PROOF_BENEFICIARY_MISMATCH');
 
     // 14E: Date du remboursement antérieure au paiement initial
-    const resBadDate = await refundParentPackSubscriptionAdmin({
+    const resBadDate = await createParentPackRefundReconciliationRequest({
       periodId: fixture.periodId,
-      providerRefundId: 'fedapay_ref_valid_123',
-      adminActorId: superAdminId,
-      approverAdminId,
+      initiatorAdminId: superAdminId,
+      reason: 'Motif test',
       proof: buildValidProof(fixture, { refundedAt: '2020-01-01T00:00:00.000Z' }),
+      providerRefundId: 'fedapay_ref_valid_123',
       fedapayClient: mockFedapay
     });
     assert.strictEqual(resBadDate.success, false);
@@ -887,13 +1057,15 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     assert.strictEqual(selfApproveRes.success, false);
     assert.strictEqual(selfApproveRes.code, 'DUAL_CUSTODY_VIOLATION');
 
-    // Étape 2 : Approbation par SuperAdmin #2 -> exécution atomique
-    const approveRes = await approveAndExecuteParentPackRefundReconciliation({
-      reconciliationId: initRes.data.reconciliation_id,
-      approverAdminId,
-      approvalNotes: 'Vérification conforme du justificatif et du montant FedaPay',
-      fedapayClient: mockFedapay
-    });
+    // Étape 2 : Approbation par SuperAdmin #2 (avec porte de sécurité déverrouillée par superuser pour vérifier l'audit)
+    const approveRes = await withUnlockedSecurityGate(() =>
+      approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: initRes.data.reconciliation_id,
+        approverAdminId,
+        approvalNotes: 'Vérification conforme du justificatif et du montant FedaPay',
+        fedapayClient: mockFedapay
+      })
+    );
 
     assert.strictEqual(approveRes.success, true);
     assert.strictEqual(approveRes.code, 'REFUND_COMPLETED');

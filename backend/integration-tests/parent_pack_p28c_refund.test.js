@@ -167,16 +167,13 @@ async function seedPaidSubscription(opts = {}) {
 
   let affiliateId = null;
   if (hasAffiliate) {
-    const affQuery = await client.query(`SELECT id FROM public.affiliates LIMIT 1`);
-    if (affQuery.rows.length > 0) {
-      affiliateId = affQuery.rows[0].id;
-    } else {
-      affiliateId = randomUUID();
-      await client.query(`
-        INSERT INTO public.affiliates (id, nom, telephone, password_hash, referral_code, status)
-        VALUES ($1, 'Ambassadeur P28c', '+22991000000', 'hash', $2, 'active')
-      `, [affiliateId, `REF_${Date.now()}`]);
-    }
+    affiliateId = randomUUID();
+    const affPhone = `+22991${Math.floor(100000 + Math.random() * 900000)}`;
+    const affRefCode = `REF_${randomUUID().replace(/-/g, '').slice(0, 10)}`;
+    await client.query(`
+      INSERT INTO public.affiliates (id, nom, telephone, password_hash, referral_code, status)
+      VALUES ($1, 'Ambassadeur P28c', $2, 'hash', $3, 'active')
+    `, [affiliateId, affPhone, affRefCode]);
 
     await client.query(`
       INSERT INTO public.currency_configurations (code, exponent, is_active, min_withdrawal_minor_units, cooling_off_days)
@@ -289,6 +286,16 @@ async function executeDualCustodyRefundSql(data, opts = {}) {
   const initPayload = initRes.rows[0].res;
   if (initPayload.status === 'already_refunded') {
     return { initPayload, approvePayload: initPayload };
+  }
+
+  if (opts.unlockSecurityGate !== false) {
+    await client.query(`
+      UPDATE public.parent_pack_refund_security_gate
+      SET independent_admin_auth_ready = true,
+          independent_fedapay_proof_ready = true,
+          private_worm_storage_ready = true
+      WHERE id = true
+    `);
   }
 
   const approveRes = await client.query(`
@@ -795,6 +802,107 @@ describe('P28c: Parent Pack Refund and Financial Hardening (Dual-Custody)', () =
     }
     await client.query('ROLLBACK TO SAVEPOINT p28c_rec_del');
     assert.strictEqual(deleteThrew, true, 'DELETE on parent_pack_refund_reconciliations must throw FAIL CLOSED');
+  });
+
+  it('Scenario 17: Default fail-closed SECURITY_BLOCKER on admin_approve_parent_pack_refund_reconciliation & yziow_refund_executor cannot trigger compensation or unlock gate; commissions and rights remain unchanged', async () => {
+    const data = await seedPaidSubscription({ startDate: '2026-10-01', endDate: '2026-11-30' });
+
+    // 1. Verify security gate is locked by default (false, false, false)
+    const gateRes = await client.query(`SELECT * FROM public.parent_pack_refund_security_gate WHERE id = true`);
+    assert.strictEqual(gateRes.rows.length, 1);
+    assert.strictEqual(gateRes.rows[0].independent_admin_auth_ready, false);
+    assert.strictEqual(gateRes.rows[0].independent_fedapay_proof_ready, false);
+    assert.strictEqual(gateRes.rows[0].private_worm_storage_ready, false);
+
+    // 2. Verify yziow_refund_executor and service_role have zero privileges on parent_pack_refund_security_gate
+    const execPriv = await client.query(`
+      SELECT has_table_privilege('yziow_refund_executor', 'public.parent_pack_refund_security_gate', 'UPDATE') AS can_upd,
+             has_table_privilege('service_role', 'public.parent_pack_refund_security_gate', 'UPDATE') AS srv_upd
+    `);
+    assert.strictEqual(execPriv.rows[0].can_upd, false);
+    assert.strictEqual(execPriv.rows[0].srv_upd, false);
+
+    // 3. Step 1 (initiation) creates a pending_approval dossier without touching financial tables
+    const initRes = await client.query(`
+      SELECT public.admin_create_parent_pack_refund_reconciliation(
+        $1, $2, 'Dossier en attente', $3, 'refunded', 1000, 'XOF',
+        'private://refund-proofs/2026/locked.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL
+      ) AS res;
+    `, [data.periodId, superAdminId, data.providerTxId, validProofHash, data.parentRef]);
+    const recId = initRes.rows[0].res.reconciliation_id;
+    assert.strictEqual(initRes.rows[0].res.status, 'pending_approval');
+
+    // 4. Step 2 (approval) is blocked fail-closed by default (SECURITY_BLOCKER) even with 2 distinct SuperAdmins and valid proof
+    await client.query('SAVEPOINT p28c_approve_locked');
+    let approveLockedThrew = false;
+    try {
+      await client.query(`
+        SELECT public.admin_approve_parent_pack_refund_reconciliation(
+          $1, $2, $3, 'refunded', 1000, 'XOF', 'Tentative approbation avec gate verrouillee'
+        );
+      `, [recId, approverAdminId, data.providerTxId]);
+    } catch (err) {
+      approveLockedThrew = true;
+      assert.match(err.message, /SECURITY_BLOCKER/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_approve_locked');
+    assert.strictEqual(approveLockedThrew, true, 'Approval must be blocked fail-closed by default with SECURITY_BLOCKER');
+
+    // 5. Direct SQL call as yziow_refund_executor is also blocked with SECURITY_BLOCKER and cannot UPDATE security gate
+    await client.query('SAVEPOINT p28c_executor_locked');
+    let execApproveThrew = false;
+    try {
+      await client.query(`SET LOCAL ROLE yziow_refund_executor`);
+      await client.query(`
+        SELECT public.admin_approve_parent_pack_refund_reconciliation(
+          $1, $2, $3, 'refunded', 1000, 'XOF', 'Appel direct yziow_refund_executor'
+        );
+      `, [recId, approverAdminId, data.providerTxId]);
+    } catch (err) {
+      execApproveThrew = true;
+      assert.match(err.message, /SECURITY_BLOCKER/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_executor_locked');
+    assert.strictEqual(execApproveThrew, true, 'Direct call with yziow_refund_executor must fail with SECURITY_BLOCKER');
+
+    // 6. Verify school commissions, ambassador balances/ledger, and Parent Pack rights remain 100% unchanged
+    const cancelCount = await client.query(`
+      SELECT COUNT(*)::int AS cnt FROM public.school_commission_ledger
+      WHERE period_id = $1 AND type = 'cancellation'
+    `, [data.periodId]);
+    assert.strictEqual(cancelCount.rows[0].cnt, 0, 'No school commission cancellation must occur when refused');
+
+    const creditRow = await client.query(`
+      SELECT school_share_minor, ambassador_share_minor FROM public.school_commission_ledger
+      WHERE period_id = $1 AND type = 'credit'
+    `, [data.periodId]);
+    assert.strictEqual(Number(creditRow.rows[0].school_share_minor), 200);
+    assert.strictEqual(Number(creditRow.rows[0].ambassador_share_minor), 75);
+
+    const balRes = await client.query(`SELECT * FROM public.affiliate_balances WHERE affiliate_id = $1`, [data.affiliateId]);
+    assert.strictEqual(Number(balRes.rows[0].pending_balance_minor), 75, 'Ambassador pending balance must remain unchanged');
+    assert.strictEqual(Number(balRes.rows[0].available_balance_minor), 0);
+    assert.strictEqual(Number(balRes.rows[0].debt_balance_minor), 0, 'Ambassador debt balance must remain 0');
+
+    const revCount = await client.query(`
+      SELECT COUNT(*)::int AS cnt FROM public.affiliate_ledger
+      WHERE affiliate_id = $1 AND entry_type = 'refund_reversal'
+    `, [data.affiliateId]);
+    assert.strictEqual(revCount.rows[0].cnt, 0, 'No affiliate refund_reversal entry must exist when refused');
+
+    const periodRes = await client.query(`SELECT status FROM public.parent_subscription_periods WHERE id = $1`, [data.periodId]);
+    assert.strictEqual(periodRes.rows[0].status, 'active', 'Period must remain active');
+
+    const subRes = await client.query(`SELECT status FROM public.parent_subscriptions WHERE id = $1`, [data.subId]);
+    assert.strictEqual(subRes.rows[0].status, 'active', 'Subscription must remain active');
+
+    const intentRes = await client.query(`SELECT status FROM public.payment_intents WHERE id = $1`, [data.intentId]);
+    assert.strictEqual(intentRes.rows[0].status, 'completed', 'Payment intent must remain completed');
+
+    const accessRes = await client.query(`
+      SELECT * FROM public.get_active_parent_pack_subscriptions($1, ARRAY[$2]::uuid[]);
+    `, [data.parentRef, data.studentGlobalId]);
+    assert.strictEqual(accessRes.rows.length, 1, 'Parent Pack active access must remain intact');
   });
 
 });
