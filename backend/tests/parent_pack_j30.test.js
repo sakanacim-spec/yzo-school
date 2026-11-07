@@ -17,6 +17,13 @@ before(async () => {
   if (!connStr) throw new Error('DATABASE_URL not set');
   client = new Client({ connectionString: connStr });
   await client.connect();
+  // Ensure required test school exists (safe idempotent bootstrap)
+  await client.query(
+    `INSERT INTO public.schools (slug, name, country)
+     VALUES ('school', 'Ecole Test Principale', 'BJ')
+     ON CONFLICT (slug) DO NOTHING`
+  );
+
   // Reuse an existing pricing record inserted by migrations
   const pricingRes = await client.query(
     `SELECT id FROM public.parent_pack_pricing WHERE cycle_name = 'maternelle_primaire' AND currency = 'XOF' AND pricing_version = 1 LIMIT 1`

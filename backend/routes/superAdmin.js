@@ -22,7 +22,11 @@ const {
     getGlobalAnnouncements,
     createGlobalAnnouncement,
     getSchoolLeads,
-    changeSuperAdminPassword
+    changeSuperAdminPassword,
+    processParentPackRefund,
+    createParentPackRefundReconciliation,
+    approveParentPackRefundReconciliation,
+    verifyParentPackRefund
 } = require('../controllers/superAdminController');
 
 const {
@@ -72,6 +76,12 @@ router.post('/support/read/:schoolId', authenticateToken, requireSuperAdmin, mar
 
 // Route modification de mot de passe SuperAdmin
 router.post('/change-password', authenticateToken, requireSuperAdmin, changeSuperAdminPassword);
+
+// Routes Remboursement Parent Pack (P28c — Rapprochement à double validation)
+router.post('/parent-pack/refund', authenticateToken, requireSuperAdmin, processParentPackRefund);
+router.post('/parent-pack/refund/reconciliations', authenticateToken, requireSuperAdmin, createParentPackRefundReconciliation);
+router.post('/parent-pack/refund/reconciliations/:reconciliationId/approve', authenticateToken, requireSuperAdmin, approveParentPackRefundReconciliation);
+router.post('/parent-pack/refund/verify', authenticateToken, requireSuperAdmin, verifyParentPackRefund);
 
 // Routes pour la gestion des propositions de dons et mécénat (Lot 2)
 const {
