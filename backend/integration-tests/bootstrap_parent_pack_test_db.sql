@@ -69,9 +69,11 @@ CREATE TABLE IF NOT EXISTS public.superadmins (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- SuperAdmin fictif dédié aux tests d'intégration (P28c)
+-- SuperAdmins fictifs dédiés aux tests d'intégration (P28c — double validation)
 INSERT INTO public.superadmins (id, username, password)
-VALUES ('a0000000-0000-4000-8000-000000000001', 'superadmin', '$2a$10$FakeHashForSuperadminTestOnly12345678901234567890123456')
+VALUES
+    ('a0000000-0000-4000-8000-000000000001', 'superadmin', '$2a$10$FakeHashForSuperadminTestOnly12345678901234567890123456'),
+    ('a0000000-0000-4000-8000-000000000002', 'superadmin_approver', '$2a$10$FakeHashForSuperadminTestOnly12345678901234567890123456')
 ON CONFLICT (username) DO NOTHING;
 
 COMMIT;

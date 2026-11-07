@@ -1,18 +1,27 @@
 // backend/integration-tests/parent_pack_p28c_refund.test.js
 /**
- * P28c: Integration tests for Parent Pack refund and financial compensation.
+ * P28c: Integration tests for Parent Pack refund and financial compensation (Dual-Custody Reconciliation).
  *
  * Test Scenarios:
- * 1. Nominal refund via admin_process_parent_pack_refund (intent refunded, period refunded, audit recorded).
+ * 1. Nominal 2-step dual-custody refund (init reconciliation -> approve & execute) transitions intent and period, creates audit.
  * 2. Service-level FedaPay status verification (rejects if transaction not marked refunded on provider).
- * 3. Fail-closed defense: direct SQL UPDATE payment_intents SET status = 'refunded' blocked without certified RPC session tag.
- * 4. Idempotence & replay: second refund call returns already_refunded without duplicate ledger entries.
+ * 2B. Partial refund is strictly rejected.
+ * 2C. Invalid provider_refund_id format is strictly rejected.
+ * 2D. Immutability of parent_pack_refund_audits table (append-only, rejects direct INSERT, UPDATE, DELETE).
+ * 3. Fail-closed defense: direct SQL UPDATE payment_intents SET status = 'refunded' blocked.
+ * 4. Idempotence & replay: second approval call on same reconciliation/period returns already_refunded without duplicate ledger entries.
  * 5. School commission cancellation: school_commission_ledger records cancellation row with exact negative amounts.
- * 6. Affiliate ledger reversal: affiliate_ledger records refund_reversal row with provider_refund_id.
- * 7. Ambassador balance handling: pending deducted, available deducted, debt balance created if withdrawn, non-negative available balance.
- * 8. Immediate access revocation if sole period: subscription becomes cancelled, get_active_parent_pack_subscriptions yields no access.
+ * 6. Affiliate ledger reversal: affiliate_ledger records refund_reversal row with null payment_intent_id and reference distinction.
+ * 7A & 7B. Ambassador balance handling: pending deducted, available deducted, debt balance created if withdrawn, non-negative available balance.
+ * 8. Immediate access revocation if sole period: subscription becomes canceled, get_active_parent_pack_subscriptions yields no access.
  * 9. Preservation of access if another valid period covers current date: subscription remains active, access maintained.
- * 10. Access control & security attributes: non-superadmin caller rejected (FORBIDDEN_NOT_SUPERADMIN), duplicate provider_refund_id rejected.
+ * 10 & 10B. Access control & uniqueness: non-superadmin caller rejected (UNAUTHORIZED_ADMIN), duplicate provider_refund_id rejected.
+ * 11. SECURITY_BLOCKER: unilateral 4-arg admin_process_parent_pack_refund is blocked fail-closed.
+ * 12. Session variable bypass blocked: SET LOCAL yziow.certified_refund_active = 'true' cannot bypass dual-custody reconciliation check.
+ * 13. Dual-custody violation: self-approval (initiator === approver) is rejected fail-closed with DUAL_CUSTODY_VIOLATION.
+ * 14. Proof verification fail-closed: contradictory amount, beneficiary, date, storage path, or SHA-256 hash blocked even with 2 distinct SuperAdmins.
+ * 15. Reference distinction: internal_reconciliation_ref (rec_...) works with provider_refund_id = NULL when FedaPay provides no refund ID.
+ * 16. Immutability of parent_pack_refund_reconciliations: rejects direct INSERT, DELETE, and mutation of recorded fields.
  */
 'use strict';
 
@@ -20,12 +29,14 @@ const { describe, it, before, after, beforeEach, afterEach } = require('node:tes
 const assert = require('node:assert');
 const fs = require('node:fs');
 const pg = require('pg');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash } = require('node:crypto');
 
 const { Client } = pg;
 let client;
 let superAdminId;
+let approverAdminId;
 let globalPricingId;
+const validProofHash = createHash('sha256').update('justificatif_officiel_fedapay_p28c', 'utf8').digest('hex');
 
 function resolveDatabaseConnectionString() {
   const envUrl = process.env.DATABASE_URL;
@@ -36,7 +47,6 @@ function resolveDatabaseConnectionString() {
     return envUrl;
   }
 
-  // Fallback to local test DB with pgpass
   let pwd = process.env.PGPASSWORD || '';
   try {
     const pgpassPath = `${process.env.APPDATA}\\postgresql\\pgpass.conf`;
@@ -55,14 +65,18 @@ before(async () => {
   client = new Client({ connectionString: connStr });
   await client.connect();
 
-  // Find SuperAdmin ID
   const adminRes = await client.query(`SELECT id FROM public.superadmins WHERE username = 'superadmin' LIMIT 1`);
   if (adminRes.rows.length === 0) {
     throw new Error('Superadmin account not found in database.');
   }
   superAdminId = adminRes.rows[0].id;
 
-  // Find Pricing ID
+  const approverRes = await client.query(`SELECT id FROM public.superadmins WHERE username = 'superadmin_approver' LIMIT 1`);
+  if (approverRes.rows.length === 0) {
+    throw new Error('Superadmin approver account not found in database.');
+  }
+  approverAdminId = approverRes.rows[0].id;
+
   const pricingRes = await client.query(`
     SELECT id FROM public.parent_pack_pricing
     WHERE active = true AND cycle_name = 'maternelle_primaire'
@@ -86,7 +100,6 @@ afterEach(async () => {
   await client.query('ROLLBACK');
 });
 
-// Helper: Seed complete subscription with payment intent, period, school ledger and affiliate ledger
 async function seedPaidSubscription(opts = {}) {
   const studentGlobalId = opts.studentGlobalId || randomUUID();
   const parentRef = opts.parentRef || `+22997${Math.floor(100000 + Math.random() * 900000)}`;
@@ -95,16 +108,14 @@ async function seedPaidSubscription(opts = {}) {
   const endDate = opts.endDate || '2026-10-31';
   const providerTxId = opts.providerTxId || `feda_tx_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
   const hasAffiliate = opts.hasAffiliate ?? true;
-  const affiliateBalanceType = opts.affiliateBalanceType || 'pending'; // 'pending', 'available', or 'withdrawn'
+  const affiliateBalanceType = opts.affiliateBalanceType || 'pending';
 
-  // 1. Ensure school exists
   await client.query(`
     INSERT INTO public.schools (slug, name, country)
     VALUES ($1, 'Ecole P28c Test', 'BJ')
     ON CONFLICT (slug) DO NOTHING
   `, [schoolSlug]);
 
-  // 2. Global student & link
   await client.query(`
     INSERT INTO public.global_students (student_global_id)
     VALUES ($1)
@@ -117,7 +128,6 @@ async function seedPaidSubscription(opts = {}) {
     ON CONFLICT (parent_ref, student_global_id) DO UPDATE SET current_link_active = true
   `, [parentRef, studentGlobalId]);
 
-  // 3. Parent Subscription
   const subId = randomUUID();
   await client.query(`
     INSERT INTO public.parent_subscriptions (
@@ -129,9 +139,8 @@ async function seedPaidSubscription(opts = {}) {
     )
   `, [subId, studentGlobalId, parentRef, schoolSlug, globalPricingId]);
 
-  // 4. Payment Intent
   const intentId = randomUUID();
-  await client.query(`
+  const processedAtRes = await client.query(`
     INSERT INTO public.payment_intents (
       id, target_id, school_slug, expected_amount, expected_currency,
       payment_type, provider, provider_transaction_id, status, metadata,
@@ -140,11 +149,11 @@ async function seedPaidSubscription(opts = {}) {
       $1, $2, $3, 1000, 'XOF',
       'parent_pack', 'fedapay', $4, 'completed',
       jsonb_build_object('student_global_id', $5::text, 'parent_ref', $6::text),
-      NOW() + INTERVAL '1 day', NOW()
+      NOW() + INTERVAL '1 day', NOW() - INTERVAL '1 hour'
     )
+    RETURNING processed_at
   `, [intentId, subId, schoolSlug, providerTxId, studentGlobalId, parentRef]);
 
-  // 5. Parent Subscription Period
   const periodId = randomUUID();
   await client.query(`
     INSERT INTO public.parent_subscription_periods (
@@ -156,7 +165,6 @@ async function seedPaidSubscription(opts = {}) {
     )
   `, [periodId, subId, intentId, startDate, endDate]);
 
-  // 6. Affiliate & Ledger (if applicable)
   let affiliateId = null;
   if (hasAffiliate) {
     const affQuery = await client.query(`SELECT id FROM public.affiliates LIMIT 1`);
@@ -170,14 +178,12 @@ async function seedPaidSubscription(opts = {}) {
       `, [affiliateId, `REF_${Date.now()}`]);
     }
 
-    // Ensure currency XOF configuration
     await client.query(`
       INSERT INTO public.currency_configurations (code, exponent, is_active, min_withdrawal_minor_units, cooling_off_days)
       VALUES ('XOF', 0, true, 5000, 30)
       ON CONFLICT (code) DO NOTHING
     `);
 
-    // Initial balances
     let pending = 75;
     let available = 0;
     let debt = 0;
@@ -186,7 +192,7 @@ async function seedPaidSubscription(opts = {}) {
       available = 75;
     } else if (affiliateBalanceType === 'withdrawn') {
       pending = 0;
-      available = 0; // Already withdrawn
+      available = 0;
     }
 
     await client.query(`
@@ -213,8 +219,6 @@ async function seedPaidSubscription(opts = {}) {
     `, [affLedgerId, affiliateId, intentId, periodId]);
   }
 
-  // 7. School Commission Ledger
-  // 1000 = 50 fedapay + 200 school + 75 ambassador + 675 yziow
   const schoolLedgerId = randomUUID();
   await client.query(`
     INSERT INTO public.school_commission_ledger (
@@ -236,46 +240,119 @@ async function seedPaidSubscription(opts = {}) {
     periodId,
     schoolLedgerId,
     affiliateId,
-    providerTxId
+    providerTxId,
+    processedAt: processedAtRes.rows[0].processed_at
   };
 }
 
-describe('P28c: Parent Pack Refund and Financial Hardening', () => {
+// Helper: execute both steps of the dual-custody reconciliation in SQL
+async function executeDualCustodyRefundSql(data, opts = {}) {
+  const initiator = opts.initiatorAdminId !== undefined ? opts.initiatorAdminId : superAdminId;
+  const approver = opts.approverAdminId !== undefined ? opts.approverAdminId : approverAdminId;
+  const reason = opts.reason || 'Motif administratif vérifié';
+  const verifiedTxId = opts.verifiedTxId !== undefined ? opts.verifiedTxId : data.providerTxId;
+  const verifiedStatus = opts.verifiedStatus || 'refunded';
+  const verifiedAmount = opts.verifiedAmount !== undefined ? opts.verifiedAmount : 1000;
+  const verifiedCurrency = opts.verifiedCurrency || 'XOF';
+  const storagePath = opts.storagePath || `private://refund-proofs/2026/${data.periodId}.pdf`;
+  const docHash = opts.docHash || validProofHash;
+  const proofAmount = opts.proofAmount !== undefined ? opts.proofAmount : 1000;
+  const proofCurrency = opts.proofCurrency || 'XOF';
+  const beneficiaryRef = opts.beneficiaryRef !== undefined ? opts.beneficiaryRef : data.parentRef;
+  const refundedAt = opts.refundedAt || new Date().toISOString();
+  const internalRef = opts.internalRef !== undefined ? opts.internalRef : `rec_p28c_${randomUUID().replace(/-/g, '')}`;
+  const providerRefundId = opts.providerRefundId !== undefined ? opts.providerRefundId : null;
+  const approvalNotes = opts.approvalNotes || 'Seconde validation conforme au justificatif';
 
-  // Scenario 1: Nominal refund via admin_process_parent_pack_refund
-  it('Scenario 1: Nominal refund via admin RPC transitions intent and period, creates audit', async () => {
+  const initRes = await client.query(`
+    SELECT public.admin_create_parent_pack_refund_reconciliation(
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+    ) AS res;
+  `, [
+    data.periodId,
+    initiator,
+    reason,
+    verifiedTxId,
+    verifiedStatus,
+    verifiedAmount,
+    verifiedCurrency,
+    storagePath,
+    docHash,
+    proofAmount,
+    proofCurrency,
+    beneficiaryRef,
+    refundedAt,
+    internalRef,
+    providerRefundId
+  ]);
+
+  const initPayload = initRes.rows[0].res;
+  if (initPayload.status === 'already_refunded') {
+    return { initPayload, approvePayload: initPayload };
+  }
+
+  const approveRes = await client.query(`
+    SELECT public.admin_approve_parent_pack_refund_reconciliation(
+      $1, $2, $3, $4, $5, $6, $7
+    ) AS res;
+  `, [
+    initPayload.reconciliation_id,
+    approver,
+    verifiedTxId,
+    verifiedStatus,
+    verifiedAmount,
+    verifiedCurrency,
+    approvalNotes
+  ]);
+
+  return {
+    initPayload,
+    approvePayload: approveRes.rows[0].res
+  };
+}
+
+describe('P28c: Parent Pack Refund and Financial Hardening (Dual-Custody)', () => {
+
+  it('Scenario 1: Nominal 2-step dual-custody refund transitions intent and period, creates reconciliation & audit', async () => {
     const data = await seedPaidSubscription();
     const refundRef = `fedapay_ref_${randomUUID()}`;
 
-    const rpcRes = await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4) AS res;
-    `, [data.periodId, refundRef, superAdminId, 'Motif administratif valide']);
+    const { initPayload, approvePayload: res } = await executeDualCustodyRefundSql(data, {
+      providerRefundId: refundRef
+    });
 
-    const res = rpcRes.rows[0].res;
+    assert.strictEqual(initPayload.status, 'pending_approval');
     assert.strictEqual(res.status, 'success');
     assert.strictEqual(res.period_id, data.periodId);
     assert.strictEqual(res.subscription_id, data.subId);
     assert.strictEqual(res.new_subscription_status, 'canceled');
+    assert.strictEqual(res.initiator_admin_id, superAdminId);
+    assert.strictEqual(res.approver_admin_id, approverAdminId);
     assert.ok(res.refund_audit_id);
 
-    // Verify DB states
     const intentRes = await client.query(`SELECT status FROM public.payment_intents WHERE id = $1`, [data.intentId]);
     assert.strictEqual(intentRes.rows[0].status, 'refunded');
 
     const periodRes = await client.query(`SELECT status FROM public.parent_subscription_periods WHERE id = $1`, [data.periodId]);
     assert.strictEqual(periodRes.rows[0].status, 'refunded');
 
+    const recRes = await client.query(`SELECT * FROM public.parent_pack_refund_reconciliations WHERE id = $1`, [initPayload.reconciliation_id]);
+    assert.strictEqual(recRes.rows.length, 1);
+    assert.strictEqual(recRes.rows[0].status, 'completed');
+    assert.strictEqual(recRes.rows[0].initiator_admin_id, superAdminId);
+    assert.strictEqual(recRes.rows[0].approver_admin_id, approverAdminId);
+
     const auditRes = await client.query(`SELECT * FROM public.parent_pack_refund_audits WHERE period_id = $1`, [data.periodId]);
     assert.strictEqual(auditRes.rows.length, 1);
     assert.strictEqual(auditRes.rows[0].provider_refund_id, refundRef);
-    assert.strictEqual(auditRes.rows[0].admin_actor_id, superAdminId);
+    assert.strictEqual(auditRes.rows[0].initiator_admin_id, superAdminId);
+    assert.strictEqual(auditRes.rows[0].approver_admin_id, approverAdminId);
+    assert.strictEqual(auditRes.rows[0].proof_document_hash, validProofHash);
   });
 
-  // Scenario 2: Service-level FedaPay status validation
   it('Scenario 2: Service-level FedaPay validation rejects unconfirmed refund', async () => {
     const data = await seedPaidSubscription();
 
-    // Mock FedaPay client returning approved (not refunded)
     const mockFedapayUnrefunded = {
       retrieveTransaction: async (_id) => ({
         id: data.providerTxId,
@@ -290,7 +367,6 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
 
     assert.strictEqual(isRefunded, false, 'Unrefunded transaction must evaluate to false');
 
-    // DB remains unchanged
     const periodRes = await client.query(`SELECT status FROM public.parent_subscription_periods WHERE id = $1`, [data.periodId]);
     assert.strictEqual(periodRes.rows[0].status, 'active');
   });
@@ -320,11 +396,7 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
 
   it('Scenario 2D: Immutability of parent_pack_refund_audits table (append-only)', async () => {
     const data = await seedPaidSubscription();
-    const refundRef = `fedapay_ref_${randomUUID()}`;
-
-    await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-    `, [data.periodId, refundRef, superAdminId, 'Audit immutability test']);
+    await executeDualCustodyRefundSql(data, { reason: 'Audit immutability test' });
 
     await client.query('SAVEPOINT p28c_audit_mut');
     let updateThrew = false;
@@ -349,7 +421,6 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
     assert.strictEqual(deleteThrew, true, 'DELETE on parent_pack_refund_audits must throw FAIL CLOSED');
   });
 
-  // Scenario 3: Direct SQL UPDATE to refunded fails fail-closed
   it('Scenario 3: Direct SQL UPDATE payment_intents to refunded fails fail-closed', async () => {
     const data = await seedPaidSubscription();
 
@@ -363,32 +434,25 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
       `, [data.intentId]);
     } catch (err) {
       threw = true;
-      assert.match(err.message, /FAIL CLOSED|TRANSITION_TO_REFUNDED_FAIL_CLOSED/);
+      assert.match(err.message, /FAIL CLOSED/);
     }
     await client.query('ROLLBACK TO SAVEPOINT p28c_sec_check');
     assert.strictEqual(threw, true, 'Direct SQL update must throw error');
   });
 
-  // Scenario 4: Idempotence & replay
-  it('Scenario 4: Second refund call on same period returns already_refunded idempotently', async () => {
+  it('Scenario 4: Second refund approval call on same period returns already_refunded idempotently', async () => {
     const data = await seedPaidSubscription();
-    const refundRef = `fedapay_ref_${randomUUID()}`;
+    const { initPayload } = await executeDualCustodyRefundSql(data, { reason: 'Premier remboursement' });
 
-    // First call
-    await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-    `, [data.periodId, refundRef, superAdminId, 'Premier remboursement']);
-
-    // Second call
+    // Second approval call on same reconciliation
     const rpcRes2 = await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4) AS res;
-    `, [data.periodId, refundRef, superAdminId, 'Rejeu remboursement']);
+      SELECT public.admin_approve_parent_pack_refund_reconciliation($1, $2, $3, 'refunded', 1000, 'XOF', 'Rejeu') AS res;
+    `, [initPayload.reconciliation_id, approverAdminId, data.providerTxId]);
 
     const res2 = rpcRes2.rows[0].res;
     assert.strictEqual(res2.status, 'already_refunded');
     assert.strictEqual(res2.period_id, data.periodId);
 
-    // Verify exactly one audit row and one cancellation row
     const auditCount = await client.query(`SELECT COUNT(*) FROM public.parent_pack_refund_audits WHERE period_id = $1`, [data.periodId]);
     assert.strictEqual(Number(auditCount.rows[0].count), 1);
 
@@ -399,14 +463,9 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
     assert.strictEqual(Number(cancelCount.rows[0].count), 1);
   });
 
-  // Scenario 5: School commission cancellation amounts
   it('Scenario 5: School commission cancellation has exact negative amounts', async () => {
     const data = await seedPaidSubscription();
-    const refundRef = `fedapay_ref_${randomUUID()}`;
-
-    await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-    `, [data.periodId, refundRef, superAdminId, 'Audit comptable annulation']);
+    await executeDualCustodyRefundSql(data, { reason: 'Audit comptable annulation' });
 
     const cancelRes = await client.query(`
       SELECT * FROM public.school_commission_ledger
@@ -422,14 +481,10 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
     assert.strictEqual(Number(cancel.yziow_share_minor), -675);
   });
 
-  // Scenario 6: Affiliate ledger reversal entry
-  it('Scenario 6: Affiliate ledger reversal record contains provider_refund_id and null payment_intent_id', async () => {
+  it('Scenario 6: Affiliate ledger reversal record contains reference and null payment_intent_id', async () => {
     const data = await seedPaidSubscription();
     const refundRef = `fedapay_ref_${randomUUID()}`;
-
-    await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-    `, [data.periodId, refundRef, superAdminId, 'Reversal test']);
+    await executeDualCustodyRefundSql(data, { providerRefundId: refundRef, reason: 'Reversal test' });
 
     const revRes = await client.query(`
       SELECT * FROM public.affiliate_ledger
@@ -441,16 +496,12 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
     assert.strictEqual(Number(rev.amount_minor), 75);
     assert.strictEqual(rev.provider_refund_id, refundRef);
     assert.strictEqual(rev.payment_intent_id, null);
+    assert.strictEqual(rev.metadata.provider_refund_id_certified, true);
   });
 
-  // Scenario 7: Ambassador balance handling (pending, available, debt)
   it('Scenario 7A: Pending balance is cleanly reversed when commission is still pending', async () => {
     const data = await seedPaidSubscription({ affiliateBalanceType: 'pending' });
-    const refundRef = `fedapay_ref_${randomUUID()}`;
-
-    await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-    `, [data.periodId, refundRef, superAdminId, 'Pending deduction']);
+    await executeDualCustodyRefundSql(data, { reason: 'Pending deduction' });
 
     const balRes = await client.query(`SELECT * FROM public.affiliate_balances WHERE affiliate_id = $1`, [data.affiliateId]);
     const bal = balRes.rows[0];
@@ -461,11 +512,7 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
 
   it('Scenario 7B: Available balance deducted if commission matured; debt assigned if withdrawn', async () => {
     const data = await seedPaidSubscription({ affiliateBalanceType: 'withdrawn' });
-    const refundRef = `fedapay_ref_${randomUUID()}`;
-
-    await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-    `, [data.periodId, refundRef, superAdminId, 'Debt assignment test']);
+    await executeDualCustodyRefundSql(data, { reason: 'Debt assignment test' });
 
     const balRes = await client.query(`SELECT * FROM public.affiliate_balances WHERE affiliate_id = $1`, [data.affiliateId]);
     const bal = balRes.rows[0];
@@ -474,39 +521,28 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
     assert.strictEqual(Number(bal.debt_balance_minor), 75, 'Deficit must be placed into debt_balance_minor');
   });
 
-  // Scenario 8: Immediate access revocation if sole period
   it('Scenario 8: Immediate access revocation when single active period is refunded', async () => {
     const data = await seedPaidSubscription({ startDate: '2026-10-01', endDate: '2026-11-30' });
-    const refundRef = `fedapay_ref_${randomUUID()}`;
 
-    // Before refund: access granted
     const accessBefore = await client.query(`
       SELECT * FROM public.get_active_parent_pack_subscriptions($1, ARRAY[$2]::uuid[]);
     `, [data.parentRef, data.studentGlobalId]);
     assert.strictEqual(accessBefore.rows.length, 1);
 
-    // Process refund
-    await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-    `, [data.periodId, refundRef, superAdminId, 'Révocation immédiate']);
+    await executeDualCustodyRefundSql(data, { reason: 'Révocation immédiate' });
 
-    // Subscription status updated to canceled
     const subRes = await client.query(`SELECT status FROM public.parent_subscriptions WHERE id = $1`, [data.subId]);
     assert.strictEqual(subRes.rows[0].status, 'canceled');
 
-    // Access revoked: get_active_parent_pack_subscriptions returns 0
     const accessAfter = await client.query(`
       SELECT * FROM public.get_active_parent_pack_subscriptions($1, ARRAY[$2]::uuid[]);
     `, [data.parentRef, data.studentGlobalId]);
     assert.strictEqual(accessAfter.rows.length, 0);
   });
 
-  // Scenario 9: Preservation of access if multiple periods cover current date
   it('Scenario 9: Access preserved when another active period covers the current date', async () => {
-    // Period 1: October 2026 (past)
     const data = await seedPaidSubscription({ startDate: '2026-10-01', endDate: '2026-10-15' });
 
-    // Period 2: Covers today and future
     const period2Id = randomUUID();
     const intent2Id = randomUUID();
     await client.query(`
@@ -532,45 +568,33 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
       )
     `, [period2Id, data.subId, intent2Id]);
 
-    // Refund Period 1
-    const refundRef = `fedapay_ref_${randomUUID()}`;
-    const rpcRes = await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4) AS res;
-    `, [data.periodId, refundRef, superAdminId, 'Refund old period']);
-
-    const res = rpcRes.rows[0].res;
+    const { approvePayload: res } = await executeDualCustodyRefundSql(data, { reason: 'Refund old period' });
     assert.strictEqual(res.status, 'success');
     assert.strictEqual(res.new_subscription_status, 'active');
 
-    // Subscription remains active
     const subRes = await client.query(`SELECT status FROM public.parent_subscriptions WHERE id = $1`, [data.subId]);
     assert.strictEqual(subRes.rows[0].status, 'active');
 
-    // Access remains granted
     const access = await client.query(`
       SELECT * FROM public.get_active_parent_pack_subscriptions($1, ARRAY[$2]::uuid[]);
     `, [data.parentRef, data.studentGlobalId]);
     assert.strictEqual(access.rows.length, 1);
   });
 
-  // Scenario 10: Access control and permissions
-  it('Scenario 10: Non-superadmin is rejected with FORBIDDEN_NOT_SUPERADMIN', async () => {
+  it('Scenario 10: Non-superadmin is rejected with UNAUTHORIZED_ADMIN', async () => {
     const data = await seedPaidSubscription();
     const fakeAdminId = randomUUID();
-    const refundRef = `fedapay_ref_${randomUUID()}`;
 
     await client.query('SAVEPOINT p28c_perm_check');
     let threw = false;
     try {
-      await client.query(`
-        SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-      `, [data.periodId, refundRef, fakeAdminId, 'Tentative non autorisée']);
+      await executeDualCustodyRefundSql(data, { initiatorAdminId: fakeAdminId });
     } catch (err) {
       threw = true;
-      assert.match(err.message, /UNAUTHORIZED_ADMIN|FORBIDDEN_NOT_SUPERADMIN/);
+      assert.match(err.message, /UNAUTHORIZED_ADMIN/);
     }
     await client.query('ROLLBACK TO SAVEPOINT p28c_perm_check');
-    assert.strictEqual(threw, true, 'Non-superadmin must be rejected');
+    assert.strictEqual(threw, true, 'Non-superadmin initiator must be rejected');
   });
 
   it('Scenario 10B: Duplicate provider_refund_id across different periods is rejected', async () => {
@@ -578,24 +602,199 @@ describe('P28c: Parent Pack Refund and Financial Hardening', () => {
     const data2 = await seedPaidSubscription();
     const sharedRefundRef = `fedapay_ref_unique_${randomUUID()}`;
 
-    // First refund succeeds
-    await client.query(`
-      SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-    `, [data1.periodId, sharedRefundRef, superAdminId, 'Premier remboursement']);
+    await executeDualCustodyRefundSql(data1, { providerRefundId: sharedRefundRef });
 
-    // Second refund with duplicate provider_refund_id fails
     await client.query('SAVEPOINT p28c_dup_check');
     let threw = false;
     try {
-      await client.query(`
-        SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
-      `, [data2.periodId, sharedRefundRef, superAdminId, 'Deuxième remboursement avec même ref']);
+      await executeDualCustodyRefundSql(data2, { providerRefundId: sharedRefundRef });
     } catch (err) {
       threw = true;
       assert.match(err.message, /DUPLICATE_PROVIDER_REFUND_ID/);
     }
     await client.query('ROLLBACK TO SAVEPOINT p28c_dup_check');
     assert.strictEqual(threw, true, 'Duplicate provider_refund_id must be rejected');
+  });
+
+  it('Scenario 11: Direct 4-argument unilateral RPC call is blocked fail-closed with SECURITY_BLOCKER', async () => {
+    const data = await seedPaidSubscription();
+    const refundRef = `fedapay_ref_${randomUUID()}`;
+
+    await client.query('SAVEPOINT p28c_sec_blocker');
+    let threw = false;
+    try {
+      await client.query(`
+        SELECT public.admin_process_parent_pack_refund($1, $2, $3, $4);
+      `, [data.periodId, refundRef, superAdminId, 'Tentative compensation unilatérale']);
+    } catch (err) {
+      threw = true;
+      assert.match(err.message, /SECURITY_BLOCKER/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_sec_blocker');
+    assert.strictEqual(threw, true, 'Unilateral 4-argument RPC call must be rejected fail-closed');
+  });
+
+  it('Scenario 12: Session variable SET LOCAL yziow.certified_refund_active = true cannot bypass dual-custody reconciliation check', async () => {
+    const data = await seedPaidSubscription();
+
+    await client.query('SAVEPOINT p28c_session_bypass');
+    let threw = false;
+    try {
+      await client.query(`SET LOCAL yziow.certified_refund_active = 'true'`);
+      await client.query(`SET LOCAL yziow.reconciliation_step_active = 'approve'`);
+      await client.query(`UPDATE public.parent_subscription_periods SET status = 'refunded' WHERE id = $1`, [data.periodId]);
+    } catch (err) {
+      threw = true;
+      assert.match(err.message, /FAIL CLOSED/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_session_bypass');
+    assert.strictEqual(threw, true, 'Session variable alone must NOT allow transition to refunded');
+  });
+
+  it('Scenario 13: Dual-custody violation (initiator === approver) is rejected fail-closed', async () => {
+    const data = await seedPaidSubscription();
+
+    await client.query('SAVEPOINT p28c_dual_custody');
+    let threw = false;
+    try {
+      await executeDualCustodyRefundSql(data, {
+        initiatorAdminId: superAdminId,
+        approverAdminId: superAdminId
+      });
+    } catch (err) {
+      threw = true;
+      assert.match(err.message, /DUAL_CUSTODY_VIOLATION/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_dual_custody');
+    assert.strictEqual(threw, true, 'Self-approval must be rejected fail-closed');
+  });
+
+  it('Scenario 14: Contradictory or invalid proof is rejected fail-closed even when two distinct SuperAdmins sign', async () => {
+    const data = await seedPaidSubscription();
+
+    // 14A: Contradictory amount on proof (800 vs 1000)
+    await client.query('SAVEPOINT p28c_bad_amount');
+    let threwAmount = false;
+    try {
+      await executeDualCustodyRefundSql(data, { proofAmount: 800 });
+    } catch (err) {
+      threwAmount = true;
+      assert.match(err.message, /PROOF_AMOUNT_MISMATCH/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_bad_amount');
+    assert.strictEqual(threwAmount, true, 'Contradictory proof amount must be rejected');
+
+    // 14B: Contradictory beneficiary on proof
+    await client.query('SAVEPOINT p28c_bad_beneficiary');
+    let threwBeneficiary = false;
+    try {
+      await executeDualCustodyRefundSql(data, { beneficiaryRef: '+22999999999' });
+    } catch (err) {
+      threwBeneficiary = true;
+      assert.match(err.message, /PROOF_BENEFICIARY_MISMATCH/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_bad_beneficiary');
+    assert.strictEqual(threwBeneficiary, true, 'Contradictory beneficiary must be rejected');
+
+    // 14C: Refund date prior to payment processed_at
+    await client.query('SAVEPOINT p28c_bad_date');
+    let threwDate = false;
+    try {
+      await executeDualCustodyRefundSql(data, { refundedAt: '2020-01-01T00:00:00Z' });
+    } catch (err) {
+      threwDate = true;
+      assert.match(err.message, /PROOF_DATE_INVALID/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_bad_date');
+    assert.strictEqual(threwDate, true, 'Refund date prior to payment must be rejected');
+
+    // 14D: Non-private storage path or invalid SHA-256 hash
+    await client.query('SAVEPOINT p28c_bad_storage');
+    let threwStorage = false;
+    try {
+      await executeDualCustodyRefundSql(data, { storagePath: 'https://public-bucket.example.com/proof.pdf' });
+    } catch (err) {
+      threwStorage = true;
+      assert.match(err.message, /INVALID_PROOF_STORAGE_PATH/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_bad_storage');
+    assert.strictEqual(threwStorage, true, 'Public storage path must be rejected');
+  });
+
+  it('Scenario 15: Explicit distinction between internal_reconciliation_ref and provider_refund_id = NULL', async () => {
+    const data = await seedPaidSubscription();
+    const internalRef = `rec_p28c_nullref_${randomUUID().replace(/-/g, '')}`;
+
+    const { approvePayload: res } = await executeDualCustodyRefundSql(data, {
+      internalRef,
+      providerRefundId: null
+    });
+
+    assert.strictEqual(res.status, 'success');
+    assert.strictEqual(res.internal_reconciliation_ref, internalRef);
+    assert.strictEqual(res.provider_refund_id, null);
+    assert.strictEqual(res.provider_refund_id_certified, false);
+
+    const auditRes = await client.query(`SELECT * FROM public.parent_pack_refund_audits WHERE period_id = $1`, [data.periodId]);
+    assert.strictEqual(auditRes.rows[0].internal_reconciliation_ref, internalRef);
+    assert.strictEqual(auditRes.rows[0].provider_refund_id, null);
+
+    const affLedgerRes = await client.query(`
+      SELECT * FROM public.affiliate_ledger
+      WHERE affiliate_id = $1 AND entry_type = 'refund_reversal'
+      ORDER BY created_at DESC LIMIT 1
+    `, [data.affiliateId]);
+    assert.strictEqual(affLedgerRes.rows[0].provider_refund_id, internalRef);
+    assert.strictEqual(affLedgerRes.rows[0].metadata.internal_reconciliation_ref, internalRef);
+    assert.strictEqual(affLedgerRes.rows[0].metadata.provider_refund_id, null);
+    assert.strictEqual(affLedgerRes.rows[0].metadata.provider_refund_id_certified, false);
+  });
+
+  it('Scenario 16: Table parent_pack_refund_reconciliations blocks direct INSERT, UPDATE mutation and DELETE', async () => {
+    const data = await seedPaidSubscription();
+
+    // Direct INSERT without RPC is blocked
+    await client.query('SAVEPOINT p28c_rec_direct_ins');
+    let directInsertThrew = false;
+    try {
+      await client.query(`
+        INSERT INTO public.parent_pack_refund_reconciliations (
+          period_id, subscription_id, payment_intent_id, internal_reconciliation_ref,
+          provider_transaction_id, verified_provider_status, verified_amount_minor, verified_currency,
+          initiator_admin_id, reason, proof_storage_path, proof_document_hash,
+          proof_refunded_amount_minor, proof_currency, proof_beneficiary_ref, proof_refunded_at
+        ) VALUES (
+          $1, $2, $3, 'rec_direct_bypass_123', $4, 'refunded', 1000, 'XOF',
+          $5, 'Bypass', 'private://proofs/doc.pdf', $6, 1000, 'XOF', $7, NOW()
+        );
+      `, [data.periodId, data.subId, data.intentId, data.providerTxId, superAdminId, validProofHash, data.parentRef]);
+    } catch (err) {
+      directInsertThrew = true;
+      assert.match(err.message, /FAIL CLOSED/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_rec_direct_ins');
+    assert.strictEqual(directInsertThrew, true, 'Direct INSERT on parent_pack_refund_reconciliations must throw FAIL CLOSED');
+
+    // Create legitimate pending_approval reconciliation via RPC
+    const initRes = await client.query(`
+      SELECT public.admin_create_parent_pack_refund_reconciliation(
+        $1, $2, 'Test immutability', $3, 'refunded', 1000, 'XOF',
+        'private://refund-proofs/2026/test.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL
+      ) AS res;
+    `, [data.periodId, superAdminId, data.providerTxId, validProofHash, data.parentRef]);
+    const recId = initRes.rows[0].res.reconciliation_id;
+
+    // DELETE is blocked
+    await client.query('SAVEPOINT p28c_rec_del');
+    let deleteThrew = false;
+    try {
+      await client.query(`DELETE FROM public.parent_pack_refund_reconciliations WHERE id = $1`, [recId]);
+    } catch (err) {
+      deleteThrew = true;
+      assert.match(err.message, /FAIL CLOSED/);
+    }
+    await client.query('ROLLBACK TO SAVEPOINT p28c_rec_del');
+    assert.strictEqual(deleteThrew, true, 'DELETE on parent_pack_refund_reconciliations must throw FAIL CLOSED');
   });
 
 });

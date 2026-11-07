@@ -1,29 +1,32 @@
 -- ==============================================================================
--- MIGRATION P28c : REMBOURSEMENT ADMINISTRATIF CERTIFIÉ PARENT PACK,
+-- MIGRATION P28c : REMBOURSEMENT ADMINISTRATIF PARENT PACK À DOUBLE VALIDATION,
+--                  VERROUILLAGE FAIL-CLOSED DES COMPENSATIONS NON ATTESTÉES,
 --                  COMPENSATION COMMISSIONS (ÉCOLE & AMBASSADEUR) ET
 --                  RÉVOCATION SÉCURISÉE DES DROITS D'ACCÈS
 -- ==============================================================================
--- Périmètre P28c :
---   1. Création de la table d'audit immuable parent_pack_refund_audits.
---   2. Mise à jour du déclencheur validate_parent_pack_intent() :
---      - Bloque fail-closed toute transition ordinaire vers 'refunded'.
---      - Autorise exclusivement la transition lorsque le jeton transactionnel
---        certifié est actif ET qu'une piste d'audit valide existe.
---   3. RPC administrative certifiée public.admin_process_parent_pack_refund() :
---      - Validation stricte de l'acteur SuperAdmin (public.superadmins).
---      - Verrouillage pessimiste de la période, de la souscription et de l'intent.
---      - Idempotence absolue (y compris requêtes concurrentes via advisory lock).
---      - Rejet si la période n'est pas active ou expirée.
---      - Annulation de la commission école via school_commission_ledger (type = 'cancellation').
---      - Reprise de la commission ambassadeur via affiliate_ledger (entry_type = 'refund_reversal').
---      - Ajustement fail-closed de affiliate_balances (déduction pending si en période
---        de refroidissement, déduction available sinon, et affectation à debt_balance_minor
---        si les fonds ont déjà été retirés ou sont insuffisants).
---      - Transition certifiée de la période vers 'refunded'.
---      - Recalcul du statut de parent_subscriptions ('active' si autre période active couvrant
---        CURRENT_DATE, 'expired' si autres périodes échues, 'canceled' si aucune autre période).
---      - Enregistrement complet de la piste d'audit (référence FedaPay, admin, motif).
---      - Droits d'exécution restreints exclusivement au rôle dédié yziow_refund_executor.
+-- Périmètre P28c (Sécurité renforcée — Résolution SECURITY_BLOCKER) :
+--   1. Blocage fail-closed par défaut de toute compensation financière automatique
+--      non attestée : public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT)
+--      rejette systématiquement tout appel unilatéral déclaratif.
+--   2. Table d'état de rapprochement à double validation :
+--      public.parent_pack_refund_reconciliations
+--      - Étape 1 (Initiation) : Un premier SuperAdmin authentifié enregistre la
+--        demande de rapprochement avec l'identifiant de transaction d'origine,
+--        le montant/devise vérifiés auprès de FedaPay, la référence de stockage
+--        privé du justificatif (private://...) et son empreinte SHA-256.
+--      - Étape 2 (Approbation & Exécution) : Un second SuperAdmin authentifié et
+--        distinct (approver_admin_id <> initiator_admin_id) valide le dossier.
+--        Le moteur SQL vérifie la cohérence stricte des montants, devises, dates,
+--        bénéficiaire et preuves avant d'exécuter atomiquement une seule fois la
+--        compensation financière et la révocation des droits.
+--   3. Distinction explicite entre l'identifiant interne de rapprochement
+--      (internal_reconciliation_ref) et une éventuelle référence fournisseur
+--      certifiée de remboursement (provider_refund_id, nullable si FedaPay n'en
+--      fournit pas).
+--   4. Protection des triggers SQL (validate_parent_pack_intent et
+--      protect_parent_pack_intent) contre tout contournement par simple variable
+--      de session : exige un dossier de rapprochement 'completed' à double
+--      signature ET une entrée d'audit immuable concordante.
 -- ==============================================================================
 
 BEGIN;
@@ -40,16 +43,183 @@ $$;
 GRANT USAGE ON SCHEMA public TO yziow_refund_executor;
 
 -- ------------------------------------------------------------------------------
--- 1. Table d'audit des remboursements Parent Pack
+-- 1. Table de rapprochement administratif à double validation
 -- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.parent_pack_refund_audits (
+CREATE TABLE IF NOT EXISTS public.parent_pack_refund_reconciliations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     period_id UUID NOT NULL REFERENCES public.parent_subscription_periods(id) ON DELETE RESTRICT,
     subscription_id UUID NOT NULL REFERENCES public.parent_subscriptions(id) ON DELETE RESTRICT,
     payment_intent_id UUID NOT NULL REFERENCES public.payment_intents(id) ON DELETE RESTRICT,
-    provider_refund_id TEXT NOT NULL,
-    admin_actor_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
+    internal_reconciliation_ref TEXT NOT NULL,
+    provider_refund_id TEXT NULL,
+    provider_transaction_id TEXT NOT NULL,
+    verified_provider_status TEXT NOT NULL,
+    verified_amount_minor BIGINT NOT NULL,
+    verified_currency TEXT NOT NULL,
+    initiator_admin_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
     reason TEXT NOT NULL,
+    proof_storage_path TEXT NOT NULL,
+    proof_document_hash TEXT NOT NULL,
+    proof_refunded_amount_minor BIGINT NOT NULL,
+    proof_currency TEXT NOT NULL,
+    proof_beneficiary_ref TEXT NOT NULL,
+    proof_refunded_at TIMESTAMPTZ NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending_approval',
+    approver_admin_id UUID NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
+    approval_notes TEXT NULL,
+    approved_at TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    CONSTRAINT uq_refund_reconciliation_internal_ref UNIQUE (internal_reconciliation_ref),
+    CONSTRAINT chk_refund_reconciliation_status CHECK (
+        status IN ('pending_approval', 'completed', 'rejected')
+    ),
+    CONSTRAINT chk_refund_reconciliation_internal_ref CHECK (
+        internal_reconciliation_ref ~ '^rec_[a-zA-Z0-9_-]{6,120}$'
+    ),
+    CONSTRAINT chk_refund_reconciliation_provider_refund_id CHECK (
+        provider_refund_id IS NULL
+        OR (
+            length(trim(provider_refund_id)) >= 4
+            AND provider_refund_id <> internal_reconciliation_ref
+            AND provider_refund_id <> provider_transaction_id
+        )
+    ),
+    CONSTRAINT chk_refund_reconciliation_verified_status CHECK (
+        verified_provider_status = 'refunded'
+    ),
+    CONSTRAINT chk_refund_reconciliation_amounts_positive CHECK (
+        verified_amount_minor > 0
+        AND proof_refunded_amount_minor > 0
+        AND verified_amount_minor = proof_refunded_amount_minor
+    ),
+    CONSTRAINT chk_refund_reconciliation_currencies CHECK (
+        verified_currency = 'XOF'
+        AND proof_currency = 'XOF'
+    ),
+    CONSTRAINT chk_refund_reconciliation_storage_path CHECK (
+        proof_storage_path ~ '^private://[a-zA-Z0-9._/-]{8,}$'
+    ),
+    CONSTRAINT chk_refund_reconciliation_doc_hash CHECK (
+        proof_document_hash ~ '^[a-fA-F0-9]{64}$'
+    ),
+    CONSTRAINT chk_refund_reconciliation_dual_custody CHECK (
+        (status = 'pending_approval' AND approver_admin_id IS NULL AND approved_at IS NULL)
+        OR (
+            status IN ('completed', 'rejected')
+            AND approver_admin_id IS NOT NULL
+            AND approved_at IS NOT NULL
+            AND approver_admin_id <> initiator_admin_id
+        )
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_refund_reconciliation_active_period
+    ON public.parent_pack_refund_reconciliations (period_id)
+    WHERE status IN ('pending_approval', 'completed');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_refund_reconciliation_provider_refund_id
+    ON public.parent_pack_refund_reconciliations (provider_refund_id)
+    WHERE provider_refund_id IS NOT NULL;
+
+ALTER TABLE public.parent_pack_refund_reconciliations ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.parent_pack_refund_reconciliations FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+
+-- Garde d'intégrité et d'immuabilité sur parent_pack_refund_reconciliations
+CREATE OR REPLACE FUNCTION public.fn_guard_refund_reconciliation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'FAIL CLOSED: Suppression interdite sur la table de rapprochement des remboursements (%).', OLD.id;
+    END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        IF current_setting('yziow.reconciliation_step_active', true) IS DISTINCT FROM 'init' THEN
+            RAISE EXCEPTION 'FAIL CLOSED: Insertion directe interdite sur parent_pack_refund_reconciliations. Utiliser admin_create_parent_pack_refund_reconciliation.';
+        END IF;
+        IF NEW.status IS DISTINCT FROM 'pending_approval'
+           OR NEW.approver_admin_id IS NOT NULL
+           OR NEW.approved_at IS NOT NULL THEN
+            RAISE EXCEPTION 'FAIL CLOSED: Un dossier de rapprochement doit obligatoirement etre cree au statut pending_approval sans approbateur pre-rempli.';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        IF current_setting('yziow.reconciliation_step_active', true) IS DISTINCT FROM 'approve' THEN
+            RAISE EXCEPTION 'FAIL CLOSED: Modification directe interdite sur parent_pack_refund_reconciliations (%). Utiliser admin_approve_parent_pack_refund_reconciliation.', OLD.id;
+        END IF;
+
+        IF OLD.status IS DISTINCT FROM 'pending_approval' THEN
+            RAISE EXCEPTION 'FAIL CLOSED: Le dossier de rapprochement (%) est deja finalise (%) et ne peut plus etre modifie.', OLD.id, OLD.status;
+        END IF;
+
+        IF NEW.id IS DISTINCT FROM OLD.id
+           OR NEW.period_id IS DISTINCT FROM OLD.period_id
+           OR NEW.subscription_id IS DISTINCT FROM OLD.subscription_id
+           OR NEW.payment_intent_id IS DISTINCT FROM OLD.payment_intent_id
+           OR NEW.internal_reconciliation_ref IS DISTINCT FROM OLD.internal_reconciliation_ref
+           OR NEW.provider_refund_id IS DISTINCT FROM OLD.provider_refund_id
+           OR NEW.provider_transaction_id IS DISTINCT FROM OLD.provider_transaction_id
+           OR NEW.verified_provider_status IS DISTINCT FROM OLD.verified_provider_status
+           OR NEW.verified_amount_minor IS DISTINCT FROM OLD.verified_amount_minor
+           OR NEW.verified_currency IS DISTINCT FROM OLD.verified_currency
+           OR NEW.initiator_admin_id IS DISTINCT FROM OLD.initiator_admin_id
+           OR NEW.reason IS DISTINCT FROM OLD.reason
+           OR NEW.proof_storage_path IS DISTINCT FROM OLD.proof_storage_path
+           OR NEW.proof_document_hash IS DISTINCT FROM OLD.proof_document_hash
+           OR NEW.proof_refunded_amount_minor IS DISTINCT FROM OLD.proof_refunded_amount_minor
+           OR NEW.proof_currency IS DISTINCT FROM OLD.proof_currency
+           OR NEW.proof_beneficiary_ref IS DISTINCT FROM OLD.proof_beneficiary_ref
+           OR NEW.proof_refunded_at IS DISTINCT FROM OLD.proof_refunded_at
+           OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+            RAISE EXCEPTION 'FAIL CLOSED: Modification des donnees d''initiation ou des preuves interdite sur le dossier de rapprochement (%).', OLD.id;
+        END IF;
+
+        IF NEW.approver_admin_id IS NULL OR NEW.approver_admin_id = OLD.initiator_admin_id THEN
+            RAISE EXCEPTION 'DUAL_CUSTODY_VIOLATION: L''approbateur doit etre renseigne et distinct de l''initiateur sur le dossier (%).', OLD.id;
+        END IF;
+
+        RETURN NEW;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_guard_parent_pack_refund_reconciliations ON public.parent_pack_refund_reconciliations;
+CREATE TRIGGER trg_guard_parent_pack_refund_reconciliations
+BEFORE INSERT OR UPDATE OR DELETE ON public.parent_pack_refund_reconciliations
+FOR EACH ROW EXECUTE FUNCTION public.fn_guard_refund_reconciliation();
+
+-- ------------------------------------------------------------------------------
+-- 2. Table d'audit immuable des remboursements Parent Pack
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.parent_pack_refund_audits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reconciliation_id UUID NOT NULL REFERENCES public.parent_pack_refund_reconciliations(id) ON DELETE RESTRICT,
+    period_id UUID NOT NULL REFERENCES public.parent_subscription_periods(id) ON DELETE RESTRICT,
+    subscription_id UUID NOT NULL REFERENCES public.parent_subscriptions(id) ON DELETE RESTRICT,
+    payment_intent_id UUID NOT NULL REFERENCES public.payment_intents(id) ON DELETE RESTRICT,
+    internal_reconciliation_ref TEXT NOT NULL,
+    provider_refund_id TEXT NULL,
+    provider_transaction_id TEXT NOT NULL,
+    admin_actor_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
+    initiator_admin_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
+    approver_admin_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
+    reason TEXT NOT NULL,
+    approval_notes TEXT NULL,
+    proof_storage_path TEXT NOT NULL,
+    proof_document_hash TEXT NOT NULL,
+    proof_refunded_amount_minor BIGINT NOT NULL,
+    proof_currency TEXT NOT NULL,
+    proof_beneficiary_ref TEXT NOT NULL,
+    proof_refunded_at TIMESTAMPTZ NOT NULL,
     gross_amount_minor BIGINT NOT NULL,
     school_share_minor BIGINT NOT NULL,
     ambassador_share_minor BIGINT NOT NULL,
@@ -59,14 +229,25 @@ CREATE TABLE IF NOT EXISTS public.parent_pack_refund_audits (
     added_to_debt_minor BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     CONSTRAINT uq_parent_pack_refund_period UNIQUE (period_id),
-    CONSTRAINT uq_parent_pack_refund_provider UNIQUE (provider_refund_id)
+    CONSTRAINT uq_parent_pack_refund_reconciliation UNIQUE (reconciliation_id),
+    CONSTRAINT uq_parent_pack_refund_internal_ref UNIQUE (internal_reconciliation_ref),
+    CONSTRAINT chk_parent_pack_refund_dual_custody CHECK (initiator_admin_id <> approver_admin_id),
+    CONSTRAINT chk_parent_pack_refund_doc_hash CHECK (proof_document_hash ~ '^[a-fA-F0-9]{64}$'),
+    CONSTRAINT chk_parent_pack_refund_storage CHECK (proof_storage_path ~ '^private://[a-zA-Z0-9._/-]{8,}$'),
+    CONSTRAINT chk_parent_pack_refund_amounts CHECK (
+        gross_amount_minor > 0 AND proof_refunded_amount_minor = gross_amount_minor
+    )
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_parent_pack_refund_provider
+    ON public.parent_pack_refund_audits (provider_refund_id)
+    WHERE provider_refund_id IS NOT NULL;
 
 ALTER TABLE public.parent_pack_refund_audits ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.parent_pack_refund_audits FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
 
--- Immuabilité stricte de la piste d'audit (append-only)
+-- Immuabilité stricte de la piste d'audit (append-only + insertion contrôlée)
 CREATE OR REPLACE FUNCTION public.fn_prevent_refund_audit_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -74,13 +255,21 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+    IF TG_OP = 'INSERT' THEN
+        IF current_setting('yziow.certified_refund_active', true) IS DISTINCT FROM 'true'
+           OR current_setting('yziow.reconciliation_step_active', true) IS DISTINCT FROM 'approve' THEN
+            RAISE EXCEPTION 'FAIL CLOSED: Insertion directe interdite sur la table d''audit des remboursements.';
+        END IF;
+        RETURN NEW;
+    END IF;
+
     RAISE EXCEPTION 'FAIL CLOSED: Modification ou suppression interdite sur la table d''audit des remboursements (%).', OLD.id;
 END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_immutable_parent_pack_refund_audits ON public.parent_pack_refund_audits;
 CREATE TRIGGER trg_immutable_parent_pack_refund_audits
-BEFORE UPDATE OR DELETE ON public.parent_pack_refund_audits
+BEFORE INSERT OR UPDATE OR DELETE ON public.parent_pack_refund_audits
 FOR EACH ROW EXECUTE FUNCTION public.fn_prevent_refund_audit_mutation();
 
 -- Mise à niveau des contraintes sur payment_intents pour supporter l'état 'refunded'
@@ -102,7 +291,9 @@ ALTER TABLE public.payment_intents
     );
 
 -- ------------------------------------------------------------------------------
--- 2. Mise à jour de validate_parent_pack_intent() pour autoriser le parcours certifié
+-- 3. Mise à jour de validate_parent_pack_intent() :
+--    Exige le parcours à double validation complet (impossible à contourner par
+--    simple variable de session).
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.validate_parent_pack_intent()
 RETURNS TRIGGER
@@ -122,7 +313,7 @@ BEGIN
     END IF;
 
     -- Verrouillage de l'intention de paiement pour éviter toute course concurrente
-    SELECT id, payment_type, target_id, status, processed_at, school_slug, metadata
+    SELECT id, payment_type, target_id, status, processed_at, school_slug, expected_amount, expected_currency, provider_transaction_id, metadata
     INTO v_intent
     FROM public.payment_intents
     WHERE id = NEW.payment_intent_id
@@ -222,22 +413,31 @@ BEGIN
             RETURN NEW;
 
         ELSIF OLD.status IN ('active', 'expired') AND NEW.status = 'refunded' THEN
-            -- Lot P28c : La transition vers 'refunded' est strictement réservée au parcours
-            -- administratif certifié exécuté via public.admin_process_parent_pack_refund().
-            -- Contrôles cumulatifs fail-closed :
-            -- 1. Le jeton transactionnel administratif certifié doit être actif
-            IF current_setting('yziow.certified_refund_active', true) IS DISTINCT FROM 'true' THEN
-                RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded interdite par operation SQL ordinaire. Seule la RPC administrative certifiee admin_process_parent_pack_refund est autorisee.';
+            -- Lot P28c : La transition vers 'refunded' exige cumulativement :
+            -- 1. Le contexte d'approbation certifié actif
+            IF current_setting('yziow.certified_refund_active', true) IS DISTINCT FROM 'true'
+               OR current_setting('yziow.reconciliation_step_active', true) IS DISTINCT FROM 'approve' THEN
+                RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded interdite par operation SQL ordinaire ou variable de session isolee. Seule la RPC d''approbation a double validation est autorisee.';
             END IF;
 
-            -- 2. Une entrée d audit certifiée doit avoir été insérée pour cette période dans cette transaction
+            -- 2. Un dossier de rapprochement 'completed' à double signature ET une piste d'audit concordante
             IF NOT EXISTS (
                 SELECT 1
-                FROM public.parent_pack_refund_audits r
-                WHERE r.period_id = NEW.id
+                FROM public.parent_pack_refund_audits a
+                JOIN public.parent_pack_refund_reconciliations r
+                  ON r.id = a.reconciliation_id
+                WHERE a.period_id = NEW.id
+                  AND a.payment_intent_id = NEW.payment_intent_id
+                  AND r.period_id = NEW.id
                   AND r.payment_intent_id = NEW.payment_intent_id
+                  AND r.status = 'completed'
+                  AND r.initiator_admin_id <> r.approver_admin_id
+                  AND a.initiator_admin_id = r.initiator_admin_id
+                  AND a.approver_admin_id = r.approver_admin_id
+                  AND a.proof_document_hash = r.proof_document_hash
+                  AND a.proof_refunded_amount_minor = v_intent.expected_amount
             ) THEN
-                RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded refusee : aucune piste d''audit administrative certifiee valide pour la periode (%).', NEW.id;
+                RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded refusee : aucune piste d''audit et de rapprochement a double validation valide pour la periode (%).', NEW.id;
             END IF;
 
             -- 3. Le payment_intent doit avoir été initialement completed
@@ -259,9 +459,9 @@ END;
 $$;
 
 -- ------------------------------------------------------------------------------
--- 2b. Mise à jour du trigger d'intégrité sur payment_intents (P28c)
--- Autorise la transition vers 'refunded' UNIQUEMENT dans le cadre d'un appel RPC certifié
--- avec session tag yziow.certified_refund_active = 'true' et audit présent.
+-- 4. Mise à jour du trigger d'intégrité sur payment_intents (P28c)
+--    Exige également le dossier de rapprochement 'completed' à double signature
+--    et l'entrée d'audit immuable concordante.
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.protect_parent_pack_intent()
 RETURNS trigger
@@ -329,16 +529,25 @@ BEGIN
             IF OLD.status = 'completed' OR v_has_paid_period THEN
                 IF NEW.status IS DISTINCT FROM 'completed' THEN
                     IF NEW.status = 'refunded' THEN
-                        -- Autorisé UNIQUEMENT si le jeton administratif est actif ET audit présent
-                        IF current_setting('yziow.certified_refund_active', true) IS DISTINCT FROM 'true' THEN
-                            RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded sur payment_intent interdite par operation SQL ordinaire. Seule la RPC administrative certifiee est autorisee.';
+                        -- Autorisé UNIQUEMENT dans le cadre de l'approbation à double validation avec audit et rapprochement complets
+                        IF current_setting('yziow.certified_refund_active', true) IS DISTINCT FROM 'true'
+                           OR current_setting('yziow.reconciliation_step_active', true) IS DISTINCT FROM 'approve' THEN
+                            RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded sur payment_intent interdite par operation SQL ordinaire ou variable de session isolee. Seule la RPC d''approbation a double validation est autorisee.';
                         END IF;
                         IF NOT EXISTS (
                             SELECT 1
                             FROM public.parent_pack_refund_audits a
+                            JOIN public.parent_pack_refund_reconciliations r
+                              ON r.id = a.reconciliation_id
                             WHERE a.payment_intent_id = NEW.id
+                              AND r.payment_intent_id = NEW.id
+                              AND r.status = 'completed'
+                              AND r.initiator_admin_id <> r.approver_admin_id
+                              AND a.initiator_admin_id = r.initiator_admin_id
+                              AND a.approver_admin_id = r.approver_admin_id
+                              AND a.proof_refunded_amount_minor = OLD.expected_amount
                         ) THEN
-                            RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded refusee : aucune piste d''audit administrative certifiee valide pour payment_intent (%).', NEW.id;
+                            RAISE EXCEPTION 'FAIL CLOSED: Transition vers refunded refusee : aucune piste d''audit et de rapprochement a double validation valide pour payment_intent (%).', NEW.id;
                         END IF;
                     ELSE
                         RAISE EXCEPTION 'FAIL CLOSED: Retrogradation ou changement de statut interdit sur un payment_intent Parent Pack completed (% -> %).',
@@ -372,7 +581,9 @@ END;
 $$;
 
 -- ------------------------------------------------------------------------------
--- 3. RPC administrative certifiée : public.admin_process_parent_pack_refund
+-- 5. Verrouillage FAIL-CLOSED de l'ancienne RPC unilatérale à 4 arguments :
+--    Empêche toute compensation financière automatique déclenchée à partir
+--    d'une simple référence déclarative.
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_process_parent_pack_refund(
     p_period_id UUID,
@@ -385,8 +596,318 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+BEGIN
+    RAISE EXCEPTION 'SECURITY_BLOCKER: La compensation financiere automatique sur simple reference declarative (%) est desactivee (fail-closed). Utiliser le rapprochement a double validation SuperAdmin (admin_create_parent_pack_refund_reconciliation puis admin_approve_parent_pack_refund_reconciliation) avec justificatif verifie.',
+        COALESCE(p_provider_refund_id, 'NULL');
+END;
+$$;
+
+-- ------------------------------------------------------------------------------
+-- 6. Étape 1 du rapprochement : Initiation par un premier SuperAdmin authentifié
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_create_parent_pack_refund_reconciliation(
+    p_period_id UUID,
+    p_initiator_admin_id UUID,
+    p_reason TEXT,
+    p_verified_transaction_id TEXT,
+    p_verified_provider_status TEXT,
+    p_verified_amount_minor BIGINT,
+    p_verified_currency TEXT,
+    p_proof_storage_path TEXT,
+    p_proof_document_hash TEXT,
+    p_proof_refunded_amount_minor BIGINT,
+    p_proof_currency TEXT,
+    p_proof_beneficiary_ref TEXT,
+    p_proof_refunded_at TIMESTAMPTZ,
+    p_internal_reconciliation_ref TEXT DEFAULT NULL,
+    p_provider_refund_id TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
-    v_admin_name TEXT;
+    v_initiator_name TEXT;
+    v_period RECORD;
+    v_sub RECORD;
+    v_intent RECORD;
+    v_existing_rec RECORD;
+    v_existing_audit RECORD;
+    v_internal_ref TEXT;
+    v_provider_refund_id TEXT;
+    v_reconciliation_id UUID;
+BEGIN
+    -- 1. Validation des arguments obligatoires
+    IF p_period_id IS NULL THEN
+        RAISE EXCEPTION 'INVALID_ARGUMENT: period_id est obligatoire';
+    END IF;
+
+    IF p_initiator_admin_id IS NULL THEN
+        RAISE EXCEPTION 'INVALID_ARGUMENT: initiator_admin_id est obligatoire';
+    END IF;
+
+    IF p_reason IS NULL OR trim(p_reason) = '' THEN
+        RAISE EXCEPTION 'INVALID_ARGUMENT: reason est obligatoire';
+    END IF;
+
+    -- 2. Authentification du SuperAdmin initiateur
+    SELECT username INTO v_initiator_name
+    FROM public.superadmins
+    WHERE id = p_initiator_admin_id;
+
+    IF v_initiator_name IS NULL THEN
+        RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin initiateur % introuvable ou non autorise', p_initiator_admin_id;
+    END IF;
+
+    -- 3. Verrou consultatif transactionnel sur la période
+    PERFORM pg_advisory_xact_lock(hashtext('parent_pack_refund_' || p_period_id::text));
+
+    -- 4. Verrouillage de la période, de la souscription et de l'intention de paiement
+    SELECT * INTO v_period
+    FROM public.parent_subscription_periods
+    WHERE id = p_period_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'PERIOD_NOT_FOUND: Periode % introuvable', p_period_id;
+    END IF;
+
+    SELECT * INTO v_sub
+    FROM public.parent_subscriptions
+    WHERE id = v_period.subscription_id
+    FOR UPDATE;
+
+    SELECT * INTO v_intent
+    FROM public.payment_intents
+    WHERE id = v_period.payment_intent_id
+    FOR UPDATE;
+
+    -- 5. Si la période est déjà remboursée, retourner l'état idempotent
+    IF v_period.status = 'refunded' THEN
+        SELECT * INTO v_existing_audit
+        FROM public.parent_pack_refund_audits
+        WHERE period_id = p_period_id;
+
+        RETURN jsonb_build_object(
+            'status', 'already_refunded',
+            'period_id', p_period_id,
+            'reconciliation_id', v_existing_audit.reconciliation_id,
+            'internal_reconciliation_ref', v_existing_audit.internal_reconciliation_ref,
+            'refund_audit_id', v_existing_audit.id,
+            'provider_refund_id', v_existing_audit.provider_refund_id,
+            'message', 'Cette periode a deja ete remboursee et compensee.'
+        );
+    END IF;
+
+    IF v_period.status NOT IN ('active', 'expired') THEN
+        RAISE EXCEPTION 'INVALID_PERIOD_STATUS: Seules les periodes active ou expired peuvent faire l''objet d''un rapprochement (statut actuel: %)', v_period.status;
+    END IF;
+
+    IF v_intent.status IS DISTINCT FROM 'completed' OR v_intent.processed_at IS NULL THEN
+        RAISE EXCEPTION 'INTENT_NOT_COMPLETED: Impossible d''initier un remboursement pour une periode dont le payment_intent (%) n''est pas completed', v_intent.id;
+    END IF;
+
+    -- 6. Vérification fail-closed des données FedaPay observées
+    IF p_verified_transaction_id IS NULL OR trim(p_verified_transaction_id) = ''
+       OR trim(p_verified_transaction_id) IS DISTINCT FROM v_intent.provider_transaction_id THEN
+        RAISE EXCEPTION 'PROOF_TRANSACTION_MISMATCH: L''identifiant de transaction verifie (%) ne correspond pas au provider_transaction_id d''origine (%)',
+            COALESCE(p_verified_transaction_id, 'NULL'), COALESCE(v_intent.provider_transaction_id, 'NULL');
+    END IF;
+
+    IF p_verified_provider_status IS DISTINCT FROM 'refunded' THEN
+        RAISE EXCEPTION 'PROVIDER_STATUS_NOT_REFUNDED: Le statut FedaPay verifie doit etre refunded (recu: %)',
+            COALESCE(p_verified_provider_status, 'NULL');
+    END IF;
+
+    IF p_verified_amount_minor IS NULL OR p_verified_amount_minor <= 0
+       OR p_verified_amount_minor IS DISTINCT FROM v_intent.expected_amount THEN
+        RAISE EXCEPTION 'PROOF_AMOUNT_MISMATCH: Le montant verifie aupres du fournisseur (%) ne correspond pas au montant attendu de l''intention (%)',
+            COALESCE(p_verified_amount_minor, -1), v_intent.expected_amount;
+    END IF;
+
+    IF p_verified_currency IS NULL OR trim(p_verified_currency) IS DISTINCT FROM v_intent.expected_currency
+       OR trim(p_verified_currency) IS DISTINCT FROM 'XOF' THEN
+        RAISE EXCEPTION 'PROOF_CURRENCY_MISMATCH: La devise verifiee (%) ne correspond pas a la devise attendue (%)',
+            COALESCE(p_verified_currency, 'NULL'), v_intent.expected_currency;
+    END IF;
+
+    -- 7. Vérification fail-closed du justificatif indépendant (stockage privé, SHA-256, montant, devise, bénéficiaire, date)
+    IF p_proof_storage_path IS NULL OR trim(p_proof_storage_path) !~ '^private://[a-zA-Z0-9._/-]{8,}$' THEN
+        RAISE EXCEPTION 'INVALID_PROOF_STORAGE_PATH: Le chemin de conservation du justificatif (%) doit pointer vers un stockage prive immuable (private://...)',
+            COALESCE(p_proof_storage_path, 'NULL');
+    END IF;
+
+    IF p_proof_document_hash IS NULL OR trim(p_proof_document_hash) !~ '^[a-fA-F0-9]{64}$' THEN
+        RAISE EXCEPTION 'INVALID_PROOF_HASH: L''empreinte cryptographique SHA-256 du justificatif est absente ou invalide';
+    END IF;
+
+    IF p_proof_refunded_amount_minor IS NULL OR p_proof_refunded_amount_minor <= 0
+       OR p_proof_refunded_amount_minor IS DISTINCT FROM v_intent.expected_amount
+       OR p_proof_refunded_amount_minor IS DISTINCT FROM p_verified_amount_minor THEN
+        RAISE EXCEPTION 'PROOF_AMOUNT_MISMATCH: Le montant rembourse atteste sur le justificatif (%) ne correspond pas au montant de la transaction (%)',
+            COALESCE(p_proof_refunded_amount_minor, -1), v_intent.expected_amount;
+    END IF;
+
+    IF p_proof_currency IS NULL OR trim(p_proof_currency) IS DISTINCT FROM v_intent.expected_currency
+       OR trim(p_proof_currency) IS DISTINCT FROM 'XOF' THEN
+        RAISE EXCEPTION 'PROOF_CURRENCY_MISMATCH: La devise du justificatif (%) ne correspond pas a la devise de la transaction (%)',
+            COALESCE(p_proof_currency, 'NULL'), v_intent.expected_currency;
+    END IF;
+
+    IF p_proof_beneficiary_ref IS NULL OR trim(p_proof_beneficiary_ref) = ''
+       OR trim(p_proof_beneficiary_ref) IS DISTINCT FROM v_sub.parent_ref THEN
+        RAISE EXCEPTION 'PROOF_BENEFICIARY_MISMATCH: Le beneficiaire du justificatif (%) ne correspond pas au parent titulaire de la souscription (%)',
+            COALESCE(p_proof_beneficiary_ref, 'NULL'), v_sub.parent_ref;
+    END IF;
+
+    IF p_proof_refunded_at IS NULL
+       OR p_proof_refunded_at < v_intent.processed_at
+       OR p_proof_refunded_at > (clock_timestamp() + interval '5 minutes') THEN
+        RAISE EXCEPTION 'PROOF_DATE_INVALID: La date du remboursement sur le justificatif (%) est incoherente avec la date de paiement initial (%)',
+            COALESCE(p_proof_refunded_at::text, 'NULL'), COALESCE(v_intent.processed_at::text, 'NULL');
+    END IF;
+
+    -- 8. Vérification d'un dossier pending_approval existant pour cette période
+    SELECT * INTO v_existing_rec
+    FROM public.parent_pack_refund_reconciliations
+    WHERE period_id = p_period_id
+      AND status = 'pending_approval';
+
+    IF FOUND THEN
+        IF v_existing_rec.initiator_admin_id = p_initiator_admin_id
+           AND v_existing_rec.proof_document_hash = lower(trim(p_proof_document_hash))
+           AND v_existing_rec.proof_refunded_amount_minor = p_proof_refunded_amount_minor
+           AND v_existing_rec.proof_beneficiary_ref = trim(p_proof_beneficiary_ref) THEN
+            RETURN jsonb_build_object(
+                'status', 'pending_approval',
+                'reconciliation_id', v_existing_rec.id,
+                'internal_reconciliation_ref', v_existing_rec.internal_reconciliation_ref,
+                'provider_refund_id', v_existing_rec.provider_refund_id,
+                'period_id', p_period_id,
+                'subscription_id', v_sub.id,
+                'payment_intent_id', v_intent.id,
+                'initiator_admin_id', v_existing_rec.initiator_admin_id
+            );
+        ELSE
+            RAISE EXCEPTION 'RECONCILIATION_ALREADY_PENDING: Un dossier de rapprochement (%) est deja en attente d''approbation pour la periode %',
+                v_existing_rec.id, p_period_id;
+        END IF;
+    END IF;
+
+    -- 9. Normalisation et distinction explicite des références
+    IF p_internal_reconciliation_ref IS NULL OR trim(p_internal_reconciliation_ref) = '' THEN
+        v_internal_ref := 'rec_p28c_' || replace(gen_random_uuid()::text, '-', '');
+    ELSE
+        v_internal_ref := trim(p_internal_reconciliation_ref);
+    END IF;
+
+    IF v_internal_ref !~ '^rec_[a-zA-Z0-9_-]{6,120}$' THEN
+        RAISE EXCEPTION 'INVALID_INTERNAL_RECONCILIATION_REF: L''identifiant interne de rapprochement (%) doit commencer par rec_ et respecter le format attendu',
+            v_internal_ref;
+    END IF;
+
+    IF p_provider_refund_id IS NULL OR trim(p_provider_refund_id) = '' THEN
+        v_provider_refund_id := NULL;
+    ELSE
+        v_provider_refund_id := trim(p_provider_refund_id);
+        IF length(v_provider_refund_id) < 4
+           OR v_provider_refund_id = v_internal_ref
+           OR v_provider_refund_id = v_intent.provider_transaction_id THEN
+            RAISE EXCEPTION 'INVALID_PROVIDER_REFUND_ID: La reference fournisseur de remboursement (%) est invalide ou confondue avec la transaction / reference interne',
+                v_provider_refund_id;
+        END IF;
+
+        IF EXISTS (
+            SELECT 1 FROM public.parent_pack_refund_audits WHERE provider_refund_id = v_provider_refund_id
+        ) OR EXISTS (
+            SELECT 1 FROM public.parent_pack_refund_reconciliations WHERE provider_refund_id = v_provider_refund_id
+        ) THEN
+            RAISE EXCEPTION 'DUPLICATE_PROVIDER_REFUND_ID: Le provider_refund_id (%) a deja ete utilise pour un autre remboursement',
+                v_provider_refund_id;
+        END IF;
+    END IF;
+
+    -- 10. Insertion contrôlée du dossier de rapprochement au statut 'pending_approval'
+    PERFORM set_config('yziow.reconciliation_step_active', 'init', true);
+
+    INSERT INTO public.parent_pack_refund_reconciliations (
+        period_id,
+        subscription_id,
+        payment_intent_id,
+        internal_reconciliation_ref,
+        provider_refund_id,
+        provider_transaction_id,
+        verified_provider_status,
+        verified_amount_minor,
+        verified_currency,
+        initiator_admin_id,
+        reason,
+        proof_storage_path,
+        proof_document_hash,
+        proof_refunded_amount_minor,
+        proof_currency,
+        proof_beneficiary_ref,
+        proof_refunded_at,
+        status
+    ) VALUES (
+        p_period_id,
+        v_sub.id,
+        v_intent.id,
+        v_internal_ref,
+        v_provider_refund_id,
+        v_intent.provider_transaction_id,
+        p_verified_provider_status,
+        p_verified_amount_minor,
+        trim(p_verified_currency),
+        p_initiator_admin_id,
+        trim(p_reason),
+        trim(p_proof_storage_path),
+        lower(trim(p_proof_document_hash)),
+        p_proof_refunded_amount_minor,
+        trim(p_proof_currency),
+        trim(p_proof_beneficiary_ref),
+        p_proof_refunded_at,
+        'pending_approval'
+    ) RETURNING id INTO v_reconciliation_id;
+
+    PERFORM set_config('yziow.reconciliation_step_active', 'off', true);
+
+    RETURN jsonb_build_object(
+        'status', 'pending_approval',
+        'reconciliation_id', v_reconciliation_id,
+        'internal_reconciliation_ref', v_internal_ref,
+        'provider_refund_id', v_provider_refund_id,
+        'period_id', p_period_id,
+        'subscription_id', v_sub.id,
+        'payment_intent_id', v_intent.id,
+        'initiator_admin_id', p_initiator_admin_id
+    );
+END;
+$$;
+
+-- ------------------------------------------------------------------------------
+-- 7. Étape 2 du rapprochement : Approbation par un second SuperAdmin distinct
+--    et exécution atomique de la compensation financière
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_approve_parent_pack_refund_reconciliation(
+    p_reconciliation_id UUID,
+    p_approver_admin_id UUID,
+    p_verified_transaction_id TEXT,
+    p_verified_provider_status TEXT,
+    p_verified_amount_minor BIGINT,
+    p_verified_currency TEXT,
+    p_approval_notes TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_approver_name TEXT;
+    v_initiator_name TEXT;
+    v_rec RECORD;
     v_period RECORD;
     v_sub RECORD;
     v_intent RECORD;
@@ -406,75 +927,67 @@ DECLARE
     v_has_other_active BOOLEAN := false;
     v_has_other_periods BOOLEAN := false;
     v_new_sub_status TEXT;
+    v_ledger_refund_ref TEXT;
 BEGIN
     -- 1. Validation des arguments
-    IF p_period_id IS NULL THEN
-        RAISE EXCEPTION 'INVALID_ARGUMENT: period_id est obligatoire';
+    IF p_reconciliation_id IS NULL THEN
+        RAISE EXCEPTION 'INVALID_ARGUMENT: reconciliation_id est obligatoire';
     END IF;
 
-    IF p_provider_refund_id IS NULL OR trim(p_provider_refund_id) = '' THEN
-        RAISE EXCEPTION 'INVALID_ARGUMENT: provider_refund_id est obligatoire';
+    IF p_approver_admin_id IS NULL THEN
+        RAISE EXCEPTION 'INVALID_ARGUMENT: approver_admin_id est obligatoire';
     END IF;
 
-    IF p_admin_actor_id IS NULL THEN
-        RAISE EXCEPTION 'INVALID_ARGUMENT: admin_actor_id est obligatoire';
-    END IF;
-
-    IF p_reason IS NULL OR trim(p_reason) = '' THEN
-        RAISE EXCEPTION 'INVALID_ARGUMENT: reason est obligatoire';
-    END IF;
-
-    -- 2. Validation effective de l'identité et du rôle SuperAdmin
-    SELECT username INTO v_admin_name
+    -- 2. Authentification du second SuperAdmin approbateur
+    SELECT username INTO v_approver_name
     FROM public.superadmins
-    WHERE id = p_admin_actor_id;
+    WHERE id = p_approver_admin_id;
 
-    IF v_admin_name IS NULL THEN
-        RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin % introuvable ou non autorise', p_admin_actor_id;
+    IF v_approver_name IS NULL THEN
+        RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin approbateur % introuvable ou non autorise', p_approver_admin_id;
     END IF;
 
-    -- 3. Verrou consultatif transactionnel pour sérialiser les remboursements concurrents sur la période
-    PERFORM pg_advisory_xact_lock(hashtext('parent_pack_refund_' || p_period_id::text));
+    -- 3. Lecture initiale du dossier de rapprochement pour obtenir period_id
+    SELECT * INTO v_rec
+    FROM public.parent_pack_refund_reconciliations
+    WHERE id = p_reconciliation_id;
 
-    -- 4. Verrouillage pessimiste de la période
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'RECONCILIATION_NOT_FOUND: Dossier de rapprochement % introuvable', p_reconciliation_id;
+    END IF;
+
+    -- 4. Séparation stricte des tâches (Dual Custody) : vérifiée avant même le retour idempotent
+    IF v_rec.initiator_admin_id = p_approver_admin_id THEN
+        RAISE EXCEPTION 'DUAL_CUSTODY_VIOLATION: Le second SuperAdmin approbateur (%) doit etre strictement distinct du SuperAdmin initiateur (%)',
+            p_approver_admin_id, v_rec.initiator_admin_id;
+    END IF;
+
+    SELECT username INTO v_initiator_name
+    FROM public.superadmins
+    WHERE id = v_rec.initiator_admin_id;
+
+    IF v_initiator_name IS NULL THEN
+        RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin initiateur % introuvable', v_rec.initiator_admin_id;
+    END IF;
+
+    -- 5. Verrou consultatif transactionnel pour sérialiser les appels concurrents sur la période
+    PERFORM pg_advisory_xact_lock(hashtext('parent_pack_refund_' || v_rec.period_id::text));
+
+    -- 6. Verrouillage pessimiste du dossier, de la période, de la souscription et de l'intention
+    SELECT * INTO v_rec
+    FROM public.parent_pack_refund_reconciliations
+    WHERE id = p_reconciliation_id
+    FOR UPDATE;
+
     SELECT * INTO v_period
     FROM public.parent_subscription_periods
-    WHERE id = p_period_id
+    WHERE id = v_rec.period_id
     FOR UPDATE;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'PERIOD_NOT_FOUND: Periode % introuvable', p_period_id;
+        RAISE EXCEPTION 'PERIOD_NOT_FOUND: Periode % introuvable', v_rec.period_id;
     END IF;
 
-    -- 5. Idempotence : si la période est déjà au statut 'refunded'
-    IF v_period.status = 'refunded' THEN
-        SELECT * INTO v_existing_audit
-        FROM public.parent_pack_refund_audits
-        WHERE period_id = p_period_id;
-
-        RETURN jsonb_build_object(
-            'status', 'already_refunded',
-            'period_id', p_period_id,
-            'refund_audit_id', v_existing_audit.id,
-            'provider_refund_id', v_existing_audit.provider_refund_id,
-            'message', 'Cette periode a deja ete remboursee et compensee.'
-        );
-    END IF;
-
-    -- Vérification de l'éligibilité du statut
-    IF v_period.status NOT IN ('active', 'expired') THEN
-        RAISE EXCEPTION 'INVALID_PERIOD_STATUS: Seules les periodes active ou expired peuvent etre remboursees (statut actuel: %)', v_period.status;
-    END IF;
-
-    -- Unicité du provider_refund_id
-    IF EXISTS (
-        SELECT 1 FROM public.parent_pack_refund_audits
-        WHERE provider_refund_id = p_provider_refund_id
-    ) THEN
-        RAISE EXCEPTION 'DUPLICATE_PROVIDER_REFUND_ID: Le provider_refund_id (%) a deja ete utilise pour un autre remboursement', p_provider_refund_id;
-    END IF;
-
-    -- 6. Verrouillage de la souscription et de l'intention de paiement
     SELECT * INTO v_sub
     FROM public.parent_subscriptions
     WHERE id = v_period.subscription_id
@@ -485,19 +998,96 @@ BEGIN
     WHERE id = v_period.payment_intent_id
     FOR UPDATE;
 
-    IF v_intent.status IS DISTINCT FROM 'completed' OR v_intent.processed_at IS NULL THEN
-        RAISE EXCEPTION 'INTENT_NOT_COMPLETED: Impossible de rembourser une periode dont le payment_intent (%) n''est pas completed', v_intent.id;
+    -- 7. Idempotence : si le dossier est déjà 'completed' ou la période déjà 'refunded'
+    IF v_rec.status = 'completed' OR v_period.status = 'refunded' THEN
+        SELECT * INTO v_existing_audit
+        FROM public.parent_pack_refund_audits
+        WHERE period_id = v_rec.period_id;
+
+        RETURN jsonb_build_object(
+            'status', 'already_refunded',
+            'reconciliation_id', v_rec.id,
+            'internal_reconciliation_ref', v_rec.internal_reconciliation_ref,
+            'period_id', v_rec.period_id,
+            'refund_audit_id', v_existing_audit.id,
+            'provider_refund_id', v_existing_audit.provider_refund_id,
+            'initiator_admin_id', v_existing_audit.initiator_admin_id,
+            'approver_admin_id', v_existing_audit.approver_admin_id,
+            'message', 'Cette periode a deja ete remboursee et compensee.'
+        );
     END IF;
 
-    -- 7. Verrouillage de l'écriture de commission d'origine (type = 'credit')
+    IF v_rec.status IS DISTINCT FROM 'pending_approval' THEN
+        RAISE EXCEPTION 'INVALID_RECONCILIATION_STATUS: Le dossier de rapprochement (%) ne peut pas etre approuve (statut actuel: %)',
+            v_rec.id, v_rec.status;
+    END IF;
+
+    IF v_period.status NOT IN ('active', 'expired') THEN
+        RAISE EXCEPTION 'INVALID_PERIOD_STATUS: Seules les periodes active ou expired peuvent etre remboursees (statut actuel: %)',
+            v_period.status;
+    END IF;
+
+    IF v_intent.status IS DISTINCT FROM 'completed' OR v_intent.processed_at IS NULL THEN
+        RAISE EXCEPTION 'INTENT_NOT_COMPLETED: Impossible de rembourser une periode dont le payment_intent (%) n''est pas completed',
+            v_intent.id;
+    END IF;
+
+    -- 8. Contre-vérification fail-closed lors de la seconde validation :
+    --    Une double signature administrative ne remplace JAMAIS la vérification réelle du justificatif et de la transaction.
+    IF p_verified_transaction_id IS NULL
+       OR trim(p_verified_transaction_id) IS DISTINCT FROM v_intent.provider_transaction_id
+       OR v_rec.provider_transaction_id IS DISTINCT FROM v_intent.provider_transaction_id THEN
+        RAISE EXCEPTION 'PROOF_TRANSACTION_MISMATCH: Contradiction sur l''identifiant de transaction FedaPay lors de l''approbation (% vs %)',
+            COALESCE(p_verified_transaction_id, 'NULL'), COALESCE(v_intent.provider_transaction_id, 'NULL');
+    END IF;
+
+    IF p_verified_provider_status IS DISTINCT FROM 'refunded'
+       OR v_rec.verified_provider_status IS DISTINCT FROM 'refunded' THEN
+        RAISE EXCEPTION 'PROVIDER_STATUS_NOT_REFUNDED: Le statut FedaPay verifie lors de l''approbation doit etre refunded (recu: %)',
+            COALESCE(p_verified_provider_status, 'NULL');
+    END IF;
+
+    IF p_verified_amount_minor IS NULL
+       OR p_verified_amount_minor IS DISTINCT FROM v_intent.expected_amount
+       OR v_rec.verified_amount_minor IS DISTINCT FROM v_intent.expected_amount
+       OR v_rec.proof_refunded_amount_minor IS DISTINCT FROM v_intent.expected_amount THEN
+        RAISE EXCEPTION 'PROOF_AMOUNT_MISMATCH: Contradiction entre le montant verifie (%), le justificatif (%) et le payment_intent (%)',
+            COALESCE(p_verified_amount_minor, -1), v_rec.proof_refunded_amount_minor, v_intent.expected_amount;
+    END IF;
+
+    IF p_verified_currency IS NULL
+       OR trim(p_verified_currency) IS DISTINCT FROM v_intent.expected_currency
+       OR v_rec.verified_currency IS DISTINCT FROM v_intent.expected_currency
+       OR v_rec.proof_currency IS DISTINCT FROM v_intent.expected_currency THEN
+        RAISE EXCEPTION 'PROOF_CURRENCY_MISMATCH: Contradiction de devise lors de l''approbation (% vs %)',
+            COALESCE(p_verified_currency, 'NULL'), v_intent.expected_currency;
+    END IF;
+
+    IF v_rec.proof_beneficiary_ref IS DISTINCT FROM v_sub.parent_ref THEN
+        RAISE EXCEPTION 'PROOF_BENEFICIARY_MISMATCH: Le beneficiaire du justificatif (%) ne correspond pas au parent titulaire (%)',
+            v_rec.proof_beneficiary_ref, v_sub.parent_ref;
+    END IF;
+
+    IF v_rec.proof_refunded_at < v_intent.processed_at
+       OR v_rec.proof_refunded_at > (clock_timestamp() + interval '5 minutes') THEN
+        RAISE EXCEPTION 'PROOF_DATE_INVALID: La date du justificatif de remboursement (%) est incoherente avec processed_at (%)',
+            v_rec.proof_refunded_at, v_intent.processed_at;
+    END IF;
+
+    IF v_rec.proof_storage_path !~ '^private://[a-zA-Z0-9._/-]{8,}$'
+       OR v_rec.proof_document_hash !~ '^[a-fA-F0-9]{64}$' THEN
+        RAISE EXCEPTION 'INVALID_PROOF_ARTIFACT: Le chemin de stockage prive ou l''empreinte SHA-256 du justificatif est invalide';
+    END IF;
+
+    -- 9. Verrouillage de l'écriture de commission d'origine (type = 'credit')
     SELECT * INTO v_orig_ledger
     FROM public.school_commission_ledger
-    WHERE period_id = p_period_id
+    WHERE period_id = v_rec.period_id
       AND type = 'credit'
     FOR UPDATE;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'COMMISSION_LEDGER_NOT_FOUND: Aucune ecriture de commission credit trouvee pour la periode %', p_period_id;
+        RAISE EXCEPTION 'COMMISSION_LEDGER_NOT_FOUND: Aucune ecriture de commission credit trouvee pour la periode %', v_rec.period_id;
     END IF;
 
     IF EXISTS (
@@ -505,17 +1095,21 @@ BEGIN
         WHERE original_ledger_id = v_orig_ledger.id
           AND type = 'cancellation'
     ) THEN
-        RAISE EXCEPTION 'COMMISSION_ALREADY_CANCELLED: La commission pour la periode % a deja fait l''objet d''une cancellation', p_period_id;
+        RAISE EXCEPTION 'COMMISSION_ALREADY_CANCELLED: La commission pour la periode % a deja fait l''objet d''une cancellation', v_rec.period_id;
     END IF;
 
-    -- 8. Gestion de la commission ambassadeur et ajustement fail-closed du solde
+    -- Référence utilisée pour la contrainte P13 sur affiliate_ledger :
+    -- Si aucune référence fournisseur certifiée n'est disponible, on utilise l'identifiant
+    -- interne de rapprochement tout en consignant explicitement la distinction dans metadata.
+    v_ledger_refund_ref := COALESCE(v_rec.provider_refund_id, v_rec.internal_reconciliation_ref);
+
+    -- 10. Gestion de la commission ambassadeur et ajustement fail-closed du solde
     IF v_orig_ledger.ambassador_share_minor > 0 AND v_orig_ledger.ambassador_ref IS NOT NULL THEN
         SELECT id INTO v_affiliate_id
         FROM public.affiliates
         WHERE id::text = v_orig_ledger.ambassador_ref;
 
         IF v_affiliate_id IS NOT NULL THEN
-            -- Verrouiller le solde de l'ambassadeur
             SELECT * INTO v_bal
             FROM public.affiliate_balances
             WHERE affiliate_id = v_affiliate_id
@@ -523,7 +1117,6 @@ BEGIN
             FOR UPDATE;
 
             IF FOUND THEN
-                -- Vérifier la maturation et libération de la commission d'origine
                 SELECT maturation_at INTO v_comm_maturation
                 FROM public.affiliate_ledger
                 WHERE payment_intent_id = v_period.payment_intent_id
@@ -538,19 +1131,16 @@ BEGIN
                 ) INTO v_comm_released;
 
                 IF NOT v_comm_released AND (v_comm_maturation IS NULL OR v_comm_maturation > clock_timestamp()) THEN
-                    -- Cas A : Commission encore en période de refroidissement (dans pending_balance_minor)
                     v_pending_to_deduct := LEAST(v_bal.pending_balance_minor, v_orig_ledger.ambassador_share_minor);
                     v_rem := v_orig_ledger.ambassador_share_minor - v_pending_to_deduct;
                     v_avail_to_deduct := LEAST(v_bal.available_balance_minor, v_rem);
                     v_debt_to_add := v_rem - v_avail_to_deduct;
                 ELSE
-                    -- Cas B : Commission déjà libérée / mature (dans available_balance_minor)
                     v_pending_to_deduct := 0;
                     v_avail_to_deduct := LEAST(v_bal.available_balance_minor, v_orig_ledger.ambassador_share_minor);
                     v_debt_to_add := v_orig_ledger.ambassador_share_minor - v_avail_to_deduct;
                 END IF;
 
-                -- Mise à jour fail-closed des soldes ambassadeur
                 UPDATE public.affiliate_balances
                 SET pending_balance_minor = pending_balance_minor - v_pending_to_deduct,
                     available_balance_minor = available_balance_minor - v_avail_to_deduct,
@@ -560,8 +1150,6 @@ BEGIN
                   AND currency = 'XOF';
             END IF;
 
-            -- Inscription immuable dans affiliate_ledger
-            -- (Contrat P13 : entry_type = 'refund_reversal', provider_refund_id non nul, payment_intent_id nul)
             INSERT INTO public.affiliate_ledger (
                 affiliate_id,
                 currency,
@@ -574,13 +1162,20 @@ BEGIN
                 'XOF',
                 'refund_reversal',
                 v_orig_ledger.ambassador_share_minor,
-                p_provider_refund_id,
+                v_ledger_refund_ref,
                 jsonb_build_object(
-                    'source', 'parent_pack_refund',
-                    'period_id', p_period_id,
+                    'source', 'parent_pack_refund_reconciliation',
+                    'reconciliation_id', v_rec.id,
+                    'internal_reconciliation_ref', v_rec.internal_reconciliation_ref,
+                    'provider_refund_id', v_rec.provider_refund_id,
+                    'provider_refund_id_certified', (v_rec.provider_refund_id IS NOT NULL),
+                    'provider_transaction_id', v_rec.provider_transaction_id,
+                    'period_id', v_rec.period_id,
                     'payment_intent_id', v_period.payment_intent_id,
-                    'admin_actor_id', p_admin_actor_id,
-                    'reason', p_reason,
+                    'initiator_admin_id', v_rec.initiator_admin_id,
+                    'approver_admin_id', p_approver_admin_id,
+                    'proof_document_hash', v_rec.proof_document_hash,
+                    'reason', v_rec.reason,
                     'deducted_from_pending', v_pending_to_deduct,
                     'deducted_from_available', v_avail_to_deduct,
                     'added_to_debt', v_debt_to_add
@@ -589,8 +1184,7 @@ BEGIN
         END IF;
     END IF;
 
-    -- 9. Annulation de la commission école dans school_commission_ledger
-    -- (Règle P19 : les montants d'une cancellation doivent être l'exact opposé négatif du crédit d'origine)
+    -- 11. Annulation de la commission école dans school_commission_ledger
     INSERT INTO public.school_commission_ledger (
         period_id,
         school_slug,
@@ -604,7 +1198,7 @@ BEGIN
         type,
         original_ledger_id
     ) VALUES (
-        p_period_id,
+        v_rec.period_id,
         v_orig_ledger.school_slug,
         v_orig_ledger.ambassador_ref,
         -v_orig_ledger.gross_amount_minor,
@@ -617,14 +1211,39 @@ BEGIN
         v_orig_ledger.id
     ) RETURNING id INTO v_cancellation_ledger_id;
 
-    -- 10. Enregistrement de la piste d'audit certifiée
+    -- 12. Activation des verrous transactionnels d'approbation et d'audit
+    PERFORM set_config('yziow.reconciliation_step_active', 'approve', true);
+    PERFORM set_config('yziow.certified_refund_active', 'true', true);
+
+    -- Finalisation du dossier de rapprochement à double validation
+    UPDATE public.parent_pack_refund_reconciliations
+    SET status = 'completed',
+        approver_admin_id = p_approver_admin_id,
+        approval_notes = NULLIF(trim(COALESCE(p_approval_notes, '')), ''),
+        approved_at = clock_timestamp(),
+        updated_at = clock_timestamp()
+    WHERE id = v_rec.id;
+
+    -- 13. Enregistrement de la piste d'audit immuable
     INSERT INTO public.parent_pack_refund_audits (
+        reconciliation_id,
         period_id,
         subscription_id,
         payment_intent_id,
+        internal_reconciliation_ref,
         provider_refund_id,
+        provider_transaction_id,
         admin_actor_id,
+        initiator_admin_id,
+        approver_admin_id,
         reason,
+        approval_notes,
+        proof_storage_path,
+        proof_document_hash,
+        proof_refunded_amount_minor,
+        proof_currency,
+        proof_beneficiary_ref,
+        proof_refunded_at,
         gross_amount_minor,
         school_share_minor,
         ambassador_share_minor,
@@ -633,12 +1252,24 @@ BEGIN
         deducted_from_available_minor,
         added_to_debt_minor
     ) VALUES (
-        p_period_id,
+        v_rec.id,
+        v_rec.period_id,
         v_sub.id,
         v_period.payment_intent_id,
-        p_provider_refund_id,
-        p_admin_actor_id,
-        p_reason,
+        v_rec.internal_reconciliation_ref,
+        v_rec.provider_refund_id,
+        v_rec.provider_transaction_id,
+        v_rec.initiator_admin_id,
+        v_rec.initiator_admin_id,
+        p_approver_admin_id,
+        v_rec.reason,
+        NULLIF(trim(COALESCE(p_approval_notes, '')), ''),
+        v_rec.proof_storage_path,
+        v_rec.proof_document_hash,
+        v_rec.proof_refunded_amount_minor,
+        v_rec.proof_currency,
+        v_rec.proof_beneficiary_ref,
+        v_rec.proof_refunded_at,
         v_orig_ledger.gross_amount_minor,
         v_orig_ledger.school_share_minor,
         v_orig_ledger.ambassador_share_minor,
@@ -648,29 +1279,28 @@ BEGIN
         v_debt_to_add
     ) RETURNING id INTO v_refund_audit_id;
 
-    -- 11. Transition certifiée de l'intention et de la période vers 'refunded'
-    PERFORM set_config('yziow.certified_refund_active', 'true', true);
-
+    -- 14. Transition certifiée de l'intention et de la période vers 'refunded'
     IF v_period.payment_intent_id IS NOT NULL THEN
         UPDATE public.payment_intents
         SET status = 'refunded',
-            updated_at = clock_timestamp()
+             updated_at = clock_timestamp()
         WHERE id = v_period.payment_intent_id;
     END IF;
 
     UPDATE public.parent_subscription_periods
     SET status = 'refunded',
         updated_at = clock_timestamp()
-    WHERE id = p_period_id;
+    WHERE id = v_rec.period_id;
 
     PERFORM set_config('yziow.certified_refund_active', 'false', true);
+    PERFORM set_config('yziow.reconciliation_step_active', 'off', true);
 
-    -- 12. Recalcul du statut de parent_subscriptions selon les valeurs autorisées ('active', 'expired', 'canceled')
+    -- 15. Recalcul du statut de parent_subscriptions ('active', 'expired', 'canceled')
     SELECT EXISTS (
         SELECT 1
         FROM public.parent_subscription_periods
         WHERE subscription_id = v_sub.id
-          AND id <> p_period_id
+          AND id <> v_rec.period_id
           AND status = 'active'
           AND CURRENT_DATE BETWEEN start_date AND end_date
     ) INTO v_has_other_active;
@@ -679,7 +1309,7 @@ BEGIN
         SELECT 1
         FROM public.parent_subscription_periods
         WHERE subscription_id = v_sub.id
-          AND id <> p_period_id
+          AND id <> v_rec.period_id
           AND status IN ('active', 'expired')
     ) INTO v_has_other_periods;
 
@@ -696,14 +1326,20 @@ BEGIN
         updated_at = clock_timestamp()
     WHERE id = v_sub.id;
 
-    -- 13. Retour structuré de succès
+    -- 16. Retour structuré de succès
     RETURN jsonb_build_object(
         'status', 'success',
-        'period_id', p_period_id,
+        'reconciliation_id', v_rec.id,
+        'internal_reconciliation_ref', v_rec.internal_reconciliation_ref,
+        'provider_refund_id', v_rec.provider_refund_id,
+        'provider_refund_id_certified', (v_rec.provider_refund_id IS NOT NULL),
+        'provider_transaction_id', v_rec.provider_transaction_id,
+        'period_id', v_rec.period_id,
         'subscription_id', v_sub.id,
         'new_subscription_status', v_new_sub_status,
         'refund_audit_id', v_refund_audit_id,
-        'provider_refund_id', p_provider_refund_id,
+        'initiator_admin_id', v_rec.initiator_admin_id,
+        'approver_admin_id', p_approver_admin_id,
         'gross_refunded_minor', v_orig_ledger.gross_amount_minor,
         'school_cancelled_minor', v_orig_ledger.school_share_minor,
         'ambassador_cancelled_minor', v_orig_ledger.ambassador_share_minor,
@@ -715,9 +1351,72 @@ END;
 $$;
 
 -- ------------------------------------------------------------------------------
--- 4. Permissions et sécurité
+-- 7b. Lecture sécurisée d'un dossier de rapprochement (pour l'étape d'approbation)
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_get_parent_pack_refund_reconciliation(
+    p_reconciliation_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_rec RECORD;
+BEGIN
+    IF p_reconciliation_id IS NULL THEN
+        RAISE EXCEPTION 'INVALID_ARGUMENT: reconciliation_id est obligatoire';
+    END IF;
+
+    SELECT * INTO v_rec
+    FROM public.parent_pack_refund_reconciliations
+    WHERE id = p_reconciliation_id;
+
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'id', v_rec.id,
+        'period_id', v_rec.period_id,
+        'subscription_id', v_rec.subscription_id,
+        'payment_intent_id', v_rec.payment_intent_id,
+        'internal_reconciliation_ref', v_rec.internal_reconciliation_ref,
+        'provider_refund_id', v_rec.provider_refund_id,
+        'provider_transaction_id', v_rec.provider_transaction_id,
+        'verified_provider_status', v_rec.verified_provider_status,
+        'verified_amount_minor', v_rec.verified_amount_minor,
+        'verified_currency', v_rec.verified_currency,
+        'initiator_admin_id', v_rec.initiator_admin_id,
+        'reason', v_rec.reason,
+        'proof_storage_path', v_rec.proof_storage_path,
+        'proof_document_hash', v_rec.proof_document_hash,
+        'proof_refunded_amount_minor', v_rec.proof_refunded_amount_minor,
+        'proof_currency', v_rec.proof_currency,
+        'proof_beneficiary_ref', v_rec.proof_beneficiary_ref,
+        'proof_refunded_at', v_rec.proof_refunded_at,
+        'status', v_rec.status,
+        'approver_admin_id', v_rec.approver_admin_id,
+        'approval_notes', v_rec.approval_notes,
+        'approved_at', v_rec.approved_at,
+        'created_at', v_rec.created_at
+    );
+END;
+$$;
+
+-- ------------------------------------------------------------------------------
+-- 8. Permissions et sécurité
 -- ------------------------------------------------------------------------------
 REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) TO yziow_refund_executor;
+
+REVOKE EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT) TO yziow_refund_executor;
+
+REVOKE EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT) TO yziow_refund_executor;
+
+REVOKE EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) TO yziow_refund_executor;
 
 COMMIT;

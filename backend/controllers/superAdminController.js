@@ -782,7 +782,7 @@ async function changeSuperAdminPassword(req, res) {
     }
 }
 
-// ── POST /superadmin/parent-pack/refund ─────────────────────
+// ── POST /superadmin/parent-pack/refund (Verrouillé fail-closed contre tout appel unilatéral) ──
 async function processParentPackRefund(req, res) {
     try {
         const adminActorId = req.user?.id;
@@ -795,6 +795,8 @@ async function processParentPackRefund(req, res) {
         }
 
         const { refundParentPackSubscriptionAdmin } = require('../services/parentPackService');
+        // Appel strictement unilatéral : aucun paramètre client (ex. approverAdminId dans req.body)
+        // n'est accepté pour contourner la double validation.
         const result = await refundParentPackSubscriptionAdmin({
             periodId,
             providerRefundId,
@@ -805,11 +807,9 @@ async function processParentPackRefund(req, res) {
         if (!result.success) {
             const status = (result.code === 'PERIOD_NOT_FOUND' || result.code === 'PAYMENT_INTENT_NOT_FOUND')
                 ? 404
-                : (result.code === 'DUPLICATE_PROVIDER_REFUND_ID' || result.code === 'TRANSACTION_NOT_REFUNDED_ON_PROVIDER' || result.code === 'INVALID_INTENT_STATUS')
-                    ? 400
-                    : (result.code === 'FORBIDDEN_NOT_SUPERADMIN')
-                        ? 403
-                        : 500;
+                : (result.code === 'SECURITY_BLOCKER' || result.code === 'FORBIDDEN_NOT_SUPERADMIN' || result.code === 'DUAL_CUSTODY_VIOLATION')
+                    ? 403
+                    : 400;
             return res.status(status).json(result);
         }
 
@@ -817,6 +817,87 @@ async function processParentPackRefund(req, res) {
     } catch (err) {
         console.error('SuperAdmin processParentPackRefund Error:', err);
         return res.status(500).json({ error: 'Erreur lors du traitement du remboursement : ' + err.message });
+    }
+}
+
+// ── POST /superadmin/parent-pack/refund/reconciliations (Étape 1 : Initiation par SuperAdmin #1) ──
+async function createParentPackRefundReconciliation(req, res) {
+    try {
+        const initiatorAdminId = req.user?.id;
+        const {
+            periodId,
+            reason,
+            proof,
+            internalReconciliationRef,
+            providerRefundId
+        } = req.body || {};
+
+        if (!periodId || !proof) {
+            return res.status(400).json({
+                error: 'Champs requis manquants : periodId et proof sont obligatoires.'
+            });
+        }
+
+        const { createParentPackRefundReconciliationRequest } = require('../services/parentPackService');
+        const result = await createParentPackRefundReconciliationRequest({
+            periodId,
+            initiatorAdminId,
+            reason: reason || 'Remboursement administratif Parent Pack',
+            proof,
+            internalReconciliationRef: internalReconciliationRef || null,
+            providerRefundId: providerRefundId || null
+        });
+
+        if (!result.success) {
+            const status = (result.code === 'PERIOD_NOT_FOUND' || result.code === 'PAYMENT_INTENT_NOT_FOUND' || result.code === 'SUBSCRIPTION_NOT_FOUND')
+                ? 404
+                : (result.code === 'FORBIDDEN_NOT_SUPERADMIN' || result.code === 'SECURITY_BLOCKER')
+                    ? 403
+                    : 400;
+            return res.status(status).json(result);
+        }
+
+        return res.status(201).json(result);
+    } catch (err) {
+        console.error('SuperAdmin createParentPackRefundReconciliation Error:', err);
+        return res.status(500).json({ error: 'Erreur lors de la création du dossier de rapprochement : ' + err.message });
+    }
+}
+
+// ── POST /superadmin/parent-pack/refund/reconciliations/:reconciliationId/approve (Étape 2 : Approbation par SuperAdmin #2) ──
+async function approveParentPackRefundReconciliation(req, res) {
+    try {
+        const approverAdminId = req.user?.id;
+        const { reconciliationId } = req.params;
+        const { periodId, approvalNotes } = req.body || {};
+
+        if (!reconciliationId) {
+            return res.status(400).json({
+                error: 'Identifiant du dossier de rapprochement (reconciliationId) obligatoire.'
+            });
+        }
+
+        const { approveAndExecuteParentPackRefundReconciliation } = require('../services/parentPackService');
+        const result = await approveAndExecuteParentPackRefundReconciliation({
+            reconciliationId,
+            periodId: periodId || null,
+            approverAdminId,
+            approvalNotes: approvalNotes || null
+        });
+
+        if (!result.success) {
+            const status = (result.code === 'RECONCILIATION_NOT_FOUND' || result.code === 'PERIOD_NOT_FOUND' || result.code === 'PAYMENT_INTENT_NOT_FOUND')
+                ? 404
+                : (result.code === 'FORBIDDEN_NOT_SUPERADMIN' || result.code === 'DUAL_CUSTODY_VIOLATION' || result.code === 'SECURITY_BLOCKER')
+                    ? 403
+                    : 400;
+            return res.status(status).json(result);
+        }
+
+        return res.json(result);
+    } catch (err) {
+        console.error('SuperAdmin approveParentPackRefundReconciliation Error:', err);
+        return res.status(500).json({ error: 'Erreur lors de l\'approbation du remboursement : ' + err.message });
     }
 }
 
@@ -849,5 +930,7 @@ module.exports = {
     getSettings, updateSettings, getTransactions, getGlobalAnnouncements, createGlobalAnnouncement, getSchoolLeads,
     changeSuperAdminPassword,
     processParentPackRefund,
+    createParentPackRefundReconciliation,
+    approveParentPackRefundReconciliation,
     verifyParentPackRefund
 };

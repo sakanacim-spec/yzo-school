@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { supabase } = require('../utils/supabase');
 
 /**
@@ -12,6 +13,9 @@ const ACCESS_STATES = {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PROVIDER_REFUND_ID_REGEX = /^(ref_|fedapay_|feda_|tx_)[a-zA-Z0-9_-]{6,120}$/i;
+const INTERNAL_RECONCILIATION_REF_REGEX = /^rec_[a-zA-Z0-9_-]{6,120}$/;
+const PRIVATE_STORAGE_PATH_REGEX = /^private:\/\/[a-zA-Z0-9._/-]{8,}$/;
+const SHA256_HEX_REGEX = /^[a-fA-F0-9]{64}$/;
 
 /**
  * Détermine l'état d'accès pour une liste de student_global_id.
@@ -234,41 +238,15 @@ async function verifyParentPackRefundStatus(periodId, fedapayClient = null) {
 }
 
 /**
- * P28c: Remboursement administratif d'un abonnement Parent Pack.
- * Effectue les vérifications fail-closed côté FedaPay puis appelle l'audit et la RPC transactionnelle.
- *
- * @param {Object} params
- * @param {string} params.periodId - UUID de la période
- * @param {string} params.providerRefundId - Référence unique du remboursement FedaPay / provider
- * @param {string} params.adminActorId - UUID du superadmin exécutant
- * @param {string} [params.reason] - Motif du remboursement
- * @param {Object} [params.fedapayClient] - Client mocké pour les tests (optionnel)
- * @returns {Promise<Object>} Résultat du remboursement
+ * Inspecte la période, la souscription, le payment_intent et vérifie auprès de FedaPay
+ * que la transaction d'origine existe, est au statut 'refunded' (non partiel) et correspond
+ * au montant et à la devise attendus.
  */
-async function refundParentPackSubscriptionAdmin({
-    periodId,
-    providerRefundId,
-    adminActorId,
-    reason = 'Remboursement administratif Parent Pack',
-    fedapayClient = null
-}) {
+async function inspectAndVerifyFedaPayRefundContext(periodId, fedapayClient = null) {
     if (!periodId || !UUID_REGEX.test(periodId)) {
         return { success: false, code: 'INVALID_PERIOD_ID', message: 'Identifiant de période invalide.' };
     }
-    if (!adminActorId || !UUID_REGEX.test(adminActorId)) {
-        return { success: false, code: 'INVALID_ADMIN_ACTOR_ID', message: 'Identifiant d\'administrateur invalide.' };
-    }
-    if (!providerRefundId || typeof providerRefundId !== 'string' || !PROVIDER_REFUND_ID_REGEX.test(providerRefundId.trim())) {
-        return {
-            success: false,
-            code: 'INVALID_PROVIDER_REFUND_ID_FORMAT',
-            message: 'Référence du remboursement fournisseur invalide. Format attendu : préfixe ref_, fedapay_, feda_ ou tx_ suivi d\'au moins 6 caractères alphanumériques.'
-        };
-    }
 
-    const cleanRefundId = providerRefundId.trim();
-
-    // 1. Contrôle d'existence de la période et idempotence
     const { data: period, error: periodErr } = await supabase
         .from('parent_subscription_periods')
         .select('id, subscription_id, payment_intent_id, status, start_date, end_date')
@@ -281,29 +259,32 @@ async function refundParentPackSubscriptionAdmin({
     }
 
     if (period.status === 'refunded') {
-        const { data: existingAudit } = await supabase
-            .from('parent_pack_refund_audits')
-            .select('id, provider_refund_id, created_at')
-            .eq('period_id', periodId)
-            .maybeSingle();
-
         return {
             success: true,
-            code: 'ALREADY_REFUNDED',
-            message: 'Cette période d\'abonnement a déjà été remboursée.',
-            audit: existingAudit || null,
-            period_id: periodId
+            alreadyRefunded: true,
+            periodId,
+            period
         };
     }
 
-    // 2. Contrôle du payment intent
     if (!period.payment_intent_id) {
         return { success: false, code: 'PAYMENT_INTENT_NOT_FOUND', message: 'Intention de paiement introuvable pour cette période.' };
     }
 
+    const { data: subscription, error: subErr } = await supabase
+        .from('parent_subscriptions')
+        .select('id, parent_ref, school_slug, status')
+        .eq('id', period.subscription_id)
+        .maybeSingle();
+
+    if (subErr) throw subErr;
+    if (!subscription) {
+        return { success: false, code: 'SUBSCRIPTION_NOT_FOUND', message: 'Souscription introuvable.' };
+    }
+
     const { data: paymentIntent, error: piErr } = await supabase
         .from('payment_intents')
-        .select('id, status, provider_transaction_id, expected_amount, expected_currency')
+        .select('id, status, provider_transaction_id, expected_amount, expected_currency, processed_at')
         .eq('id', period.payment_intent_id)
         .maybeSingle();
 
@@ -320,7 +301,6 @@ async function refundParentPackSubscriptionAdmin({
         };
     }
 
-    // 3. Contrôle FedaPay fail-closed
     if (!paymentIntent.provider_transaction_id || typeof paymentIntent.provider_transaction_id !== 'string' || paymentIntent.provider_transaction_id.trim() === '') {
         return {
             success: false,
@@ -344,8 +324,7 @@ async function refundParentPackSubscriptionAdmin({
         }
         const { Transaction } = require('fedapay');
         try {
-            const tx = await Transaction.retrieve(paymentIntent.provider_transaction_id);
-            fedaTx = tx;
+            fedaTx = await Transaction.retrieve(paymentIntent.provider_transaction_id);
         } catch (fedaErr) {
             return {
                 success: false,
@@ -363,7 +342,14 @@ async function refundParentPackSubscriptionAdmin({
         };
     }
 
-    // Refus strict des remboursements partiels
+    if (fedaTx.id !== undefined && fedaTx.id !== null && String(fedaTx.id).trim() !== String(paymentIntent.provider_transaction_id).trim()) {
+        return {
+            success: false,
+            code: 'PROVIDER_TRANSACTION_MISMATCH',
+            message: `L'identifiant de transaction retourné par FedaPay (${fedaTx.id}) ne correspond pas à la transaction d'origine (${paymentIntent.provider_transaction_id}).`
+        };
+    }
+
     const isPartiallyRefunded = (
         (typeof fedaTx.wasPartiallyRefunded === 'function' && fedaTx.wasPartiallyRefunded()) ||
         (typeof fedaTx.status === 'string' && fedaTx.status.includes('partially_refunded'))
@@ -378,7 +364,6 @@ async function refundParentPackSubscriptionAdmin({
         };
     }
 
-    // Vérification du statut intégralement remboursé
     const isFullyRefunded = (
         fedaTx.status === 'refunded' ||
         fedaTx.status === 'transferred_refunded' ||
@@ -394,7 +379,6 @@ async function refundParentPackSubscriptionAdmin({
         };
     }
 
-    // Validation stricte du montant
     if (fedaTx.amount === undefined || fedaTx.amount === null) {
         return {
             success: false,
@@ -412,7 +396,6 @@ async function refundParentPackSubscriptionAdmin({
         };
     }
 
-    // Validation stricte de la devise
     if (!fedaTx.currency) {
         return {
             success: false,
@@ -429,59 +412,501 @@ async function refundParentPackSubscriptionAdmin({
         };
     }
 
-    // 4. Appel de la RPC transactionnelle via connexion PostgreSQL dédiée
-    // Utilise la variable d'environnement YZIOW_REFUND_DATABASE_URL.
-    // Si la variable est absente ou si la connexion échoue, l'opération échoue sans écriture financière.
-    let rpcResult = null;
-    let rpcErr = null;
-    try {
-        const { executeRefundRpc } = require('./refundRpc.cjs');
-        const { result, error } = await executeRefundRpc({
-            periodId,
-            providerRefundId: cleanRefundId,
-            adminActorId,
-            reason,
-        });
-        rpcResult = result;
-        rpcErr = error;
-    } catch (e) {
-        rpcErr = { message: `Refund RPC execution failure: ${e.message || e}` };
+    return {
+        success: true,
+        alreadyRefunded: false,
+        period,
+        subscription,
+        paymentIntent,
+        verifiedTransactionId: String(paymentIntent.provider_transaction_id).trim(),
+        verifiedProviderStatus: 'refunded',
+        verifiedAmountMinor: expectedAmount,
+        verifiedCurrency: String(paymentIntent.expected_currency).toUpperCase()
+    };
+}
+
+/**
+ * Valide de manière fail-closed le justificatif indépendant de remboursement.
+ * Même si deux SuperAdmins distincts signent, toute absence, contradiction ou
+ * incohérence du justificatif bloque immédiatement l'opération.
+ */
+function validateIndependentRefundProof({ proof, paymentIntent, subscription }) {
+    if (!proof || typeof proof !== 'object') {
+        return {
+            valid: false,
+            code: 'SECURITY_BLOCKER',
+            message: 'SECURITY_BLOCKER: Justificatif de remboursement absent. Aucune compensation financière automatique n\'est autorisée sans preuve vérifiée.'
+        };
     }
 
-    if (rpcErr) {
-        if (rpcErr.message && rpcErr.message.includes('ALREADY_REFUNDED')) {
+    const storagePath = typeof (proof.storagePath ?? proof.proofStoragePath) === 'string'
+        ? (proof.storagePath ?? proof.proofStoragePath).trim()
+        : '';
+    if (!PRIVATE_STORAGE_PATH_REGEX.test(storagePath)) {
+        return {
+            valid: false,
+            code: 'INVALID_PROOF_STORAGE_PATH',
+            message: 'Le chemin de conservation du justificatif est absent ou invalide (format attendu : private://...).'
+        };
+    }
+
+    const documentHash = typeof (proof.documentHash ?? proof.proofDocumentHash) === 'string'
+        ? (proof.documentHash ?? proof.proofDocumentHash).trim().toLowerCase()
+        : '';
+    if (!SHA256_HEX_REGEX.test(documentHash)) {
+        return {
+            valid: false,
+            code: 'INVALID_PROOF_HASH',
+            message: 'L\'empreinte cryptographique SHA-256 du justificatif est absente ou invalide.'
+        };
+    }
+
+    if (proof.rawContent !== undefined && proof.rawContent !== null) {
+        const buf = Buffer.isBuffer(proof.rawContent)
+            ? proof.rawContent
+            : Buffer.from(String(proof.rawContent), 'utf8');
+        const computedHash = crypto.createHash('sha256').update(buf).digest('hex').toLowerCase();
+        if (computedHash !== documentHash) {
             return {
-                success: true,
-                code: 'ALREADY_REFUNDED',
-                message: 'Cette période d\'abonnement a déjà été remboursée.'
+                valid: false,
+                code: 'PROOF_HASH_CONTENT_MISMATCH',
+                message: 'L\'empreinte SHA-256 déclarée ne correspond pas au contenu binaire du justificatif fourni.'
             };
         }
-        if (rpcErr.message && rpcErr.message.includes('DUPLICATE_PROVIDER_REFUND_ID')) {
+    }
+
+    const rawAmount = proof.refundedAmountMinor ?? proof.proofRefundedAmountMinor;
+    const refundedAmountMinor = Number(rawAmount);
+    const expectedAmount = Number(paymentIntent.expected_amount);
+    if (rawAmount === undefined || rawAmount === null || !Number.isInteger(refundedAmountMinor) || refundedAmountMinor <= 0 || refundedAmountMinor !== expectedAmount) {
+        return {
+            valid: false,
+            code: 'PROOF_AMOUNT_MISMATCH',
+            message: `Le montant remboursé sur le justificatif (${rawAmount}) ne correspond pas au montant de la transaction (${expectedAmount}).`
+        };
+    }
+
+    const currency = typeof (proof.currency ?? proof.proofCurrency) === 'string'
+        ? (proof.currency ?? proof.proofCurrency).trim().toUpperCase()
+        : '';
+    const expectedCurrency = String(paymentIntent.expected_currency || '').trim().toUpperCase();
+    if (!currency || currency !== expectedCurrency || currency !== 'XOF') {
+        return {
+            valid: false,
+            code: 'PROOF_CURRENCY_MISMATCH',
+            message: `La devise du justificatif (${currency || 'ABSENTE'}) ne correspond pas à la devise attendue (${expectedCurrency}).`
+        };
+    }
+
+    const beneficiaryRef = typeof (proof.beneficiaryRef ?? proof.proofBeneficiaryRef) === 'string'
+        ? (proof.beneficiaryRef ?? proof.proofBeneficiaryRef).trim()
+        : '';
+    if (!beneficiaryRef || beneficiaryRef !== String(subscription.parent_ref || '').trim()) {
+        return {
+            valid: false,
+            code: 'PROOF_BENEFICIARY_MISMATCH',
+            message: `Le bénéficiaire du justificatif (${beneficiaryRef || 'ABSENT'}) ne correspond pas au parent titulaire (${subscription.parent_ref}).`
+        };
+    }
+
+    const rawRefundedAt = proof.refundedAt ?? proof.proofRefundedAt;
+    const parsedRefundedAt = rawRefundedAt ? new Date(rawRefundedAt) : null;
+    const parsedProcessedAt = paymentIntent.processed_at ? new Date(paymentIntent.processed_at) : null;
+    if (
+        !parsedRefundedAt ||
+        Number.isNaN(parsedRefundedAt.getTime()) ||
+        (parsedProcessedAt && parsedRefundedAt.getTime() < parsedProcessedAt.getTime()) ||
+        parsedRefundedAt.getTime() > Date.now() + 5 * 60 * 1000
+    ) {
+        return {
+            valid: false,
+            code: 'PROOF_DATE_INVALID',
+            message: 'La date du remboursement attestée sur le justificatif est absente, antérieure au paiement initial ou dans le futur.'
+        };
+    }
+
+    return {
+        valid: true,
+        normalizedProof: {
+            proofStoragePath: storagePath,
+            proofDocumentHash: documentHash,
+            proofRefundedAmountMinor: refundedAmountMinor,
+            proofCurrency: currency,
+            proofBeneficiaryRef: beneficiaryRef,
+            proofRefundedAt: parsedRefundedAt.toISOString()
+        }
+    };
+}
+
+function mapReconciliationRpcError(rpcErr) {
+    const msg = rpcErr?.message || 'Erreur RPC inconnue';
+    const knownCodes = [
+        'SECURITY_BLOCKER',
+        'DUAL_CUSTODY_VIOLATION',
+        'UNAUTHORIZED_ADMIN',
+        'PERIOD_NOT_FOUND',
+        'RECONCILIATION_NOT_FOUND',
+        'RECONCILIATION_ALREADY_PENDING',
+        'INVALID_RECONCILIATION_STATUS',
+        'INVALID_PERIOD_STATUS',
+        'INTENT_NOT_COMPLETED',
+        'PROOF_TRANSACTION_MISMATCH',
+        'PROVIDER_STATUS_NOT_REFUNDED',
+        'PROOF_AMOUNT_MISMATCH',
+        'PROOF_CURRENCY_MISMATCH',
+        'PROOF_BENEFICIARY_MISMATCH',
+        'PROOF_DATE_INVALID',
+        'INVALID_PROOF_STORAGE_PATH',
+        'INVALID_PROOF_HASH',
+        'INVALID_PROOF_ARTIFACT',
+        'INVALID_INTERNAL_RECONCILIATION_REF',
+        'INVALID_PROVIDER_REFUND_ID',
+        'DUPLICATE_PROVIDER_REFUND_ID'
+    ];
+    for (const code of knownCodes) {
+        if (msg.includes(code)) {
             return {
                 success: false,
-                code: 'DUPLICATE_PROVIDER_REFUND_ID',
-                message: 'Cette référence de remboursement a déjà été utilisée pour un autre remboursement.'
+                code: code === 'UNAUTHORIZED_ADMIN' ? 'FORBIDDEN_NOT_SUPERADMIN' : code,
+                message: msg
             };
         }
-        if (rpcErr.message && rpcErr.message.includes('FORBIDDEN_NOT_SUPERADMIN')) {
+    }
+    return {
+        success: false,
+        code: 'REFUND_RPC_ERROR',
+        message: msg
+    };
+}
+
+/**
+ * Étape 1 du rapprochement à double validation :
+ * Crée un dossier de rapprochement (status = 'pending_approval') par un premier SuperAdmin authentifié.
+ */
+async function createParentPackRefundReconciliationRequest({
+    periodId,
+    initiatorAdminId,
+    reason = 'Remboursement administratif Parent Pack',
+    proof,
+    internalReconciliationRef = null,
+    providerRefundId = null,
+    fedapayClient = null
+}) {
+    if (!periodId || !UUID_REGEX.test(periodId)) {
+        return { success: false, code: 'INVALID_PERIOD_ID', message: 'Identifiant de période invalide.' };
+    }
+    if (!initiatorAdminId || !UUID_REGEX.test(initiatorAdminId)) {
+        return { success: false, code: 'INVALID_ADMIN_ACTOR_ID', message: 'Identifiant du SuperAdmin initiateur invalide.' };
+    }
+    if (!reason || typeof reason !== 'string' || reason.trim() === '') {
+        return { success: false, code: 'INVALID_REASON', message: 'Le motif du remboursement est obligatoire.' };
+    }
+
+    let cleanProviderRefundId = null;
+    if (providerRefundId !== null && providerRefundId !== undefined && String(providerRefundId).trim() !== '') {
+        cleanProviderRefundId = String(providerRefundId).trim();
+        if (!PROVIDER_REFUND_ID_REGEX.test(cleanProviderRefundId)) {
             return {
                 success: false,
-                code: 'FORBIDDEN_NOT_SUPERADMIN',
-                message: 'Action réservée exclusivement aux administrateurs autorisés.'
+                code: 'INVALID_PROVIDER_REFUND_ID_FORMAT',
+                message: 'Référence fournisseur de remboursement invalide.'
             };
         }
+    }
+
+    let cleanInternalRef = null;
+    if (internalReconciliationRef !== null && internalReconciliationRef !== undefined && String(internalReconciliationRef).trim() !== '') {
+        cleanInternalRef = String(internalReconciliationRef).trim();
+        if (!INTERNAL_RECONCILIATION_REF_REGEX.test(cleanInternalRef)) {
+            return {
+                success: false,
+                code: 'INVALID_INTERNAL_RECONCILIATION_REF',
+                message: 'Identifiant interne de rapprochement invalide (format attendu : rec_...).'
+            };
+        }
+    }
+
+    const context = await inspectAndVerifyFedaPayRefundContext(periodId, fedapayClient);
+    if (!context.success) {
+        return context;
+    }
+    if (context.alreadyRefunded) {
+        return {
+            success: true,
+            code: 'ALREADY_REFUNDED',
+            message: 'Cette période d\'abonnement a déjà été remboursée.',
+            period_id: periodId
+        };
+    }
+
+    const proofValidation = validateIndependentRefundProof({
+        proof,
+        paymentIntent: context.paymentIntent,
+        subscription: context.subscription
+    });
+    if (!proofValidation.valid) {
         return {
             success: false,
-            code: 'REFUND_RPC_ERROR',
-            message: rpcErr.message
+            code: proofValidation.code,
+            message: proofValidation.message
+        };
+    }
+
+    const { executeCreateRefundReconciliationRpc } = require('./refundRpc.cjs');
+    const { result, error } = await executeCreateRefundReconciliationRpc({
+        periodId,
+        initiatorAdminId,
+        reason: reason.trim(),
+        verifiedTransactionId: context.verifiedTransactionId,
+        verifiedProviderStatus: context.verifiedProviderStatus,
+        verifiedAmountMinor: context.verifiedAmountMinor,
+        verifiedCurrency: context.verifiedCurrency,
+        proofStoragePath: proofValidation.normalizedProof.proofStoragePath,
+        proofDocumentHash: proofValidation.normalizedProof.proofDocumentHash,
+        proofRefundedAmountMinor: proofValidation.normalizedProof.proofRefundedAmountMinor,
+        proofCurrency: proofValidation.normalizedProof.proofCurrency,
+        proofBeneficiaryRef: proofValidation.normalizedProof.proofBeneficiaryRef,
+        proofRefundedAt: proofValidation.normalizedProof.proofRefundedAt,
+        internalReconciliationRef: cleanInternalRef,
+        providerRefundId: cleanProviderRefundId
+    });
+
+    if (error) {
+        return mapReconciliationRpcError(error);
+    }
+
+    if (result && result.status === 'already_refunded') {
+        return {
+            success: true,
+            code: 'ALREADY_REFUNDED',
+            message: 'Cette période d\'abonnement a déjà été remboursée.',
+            data: result
+        };
+    }
+
+    return {
+        success: true,
+        code: 'RECONCILIATION_PENDING_APPROVAL',
+        data: result
+    };
+}
+
+/**
+ * Étape 2 du rapprochement à double validation :
+ * Approuve un dossier de rapprochement existant par un second SuperAdmin distinct
+ * après contre-vérification FedaPay et exécute atomiquement la compensation financière.
+ */
+async function approveAndExecuteParentPackRefundReconciliation({
+    reconciliationId,
+    periodId = null,
+    approverAdminId,
+    approvalNotes = null,
+    fedapayClient = null
+}) {
+    if (!reconciliationId || !UUID_REGEX.test(reconciliationId)) {
+        return { success: false, code: 'INVALID_RECONCILIATION_ID', message: 'Identifiant de dossier de rapprochement invalide.' };
+    }
+    if (!approverAdminId || !UUID_REGEX.test(approverAdminId)) {
+        return { success: false, code: 'INVALID_APPROVER_ADMIN_ID', message: 'Identifiant du second SuperAdmin approbateur invalide.' };
+    }
+
+    const {
+        executeGetRefundReconciliationRpc,
+        executeApproveRefundReconciliationRpc
+    } = require('./refundRpc.cjs');
+
+    const { result: dossier, error: getErr } = await executeGetRefundReconciliationRpc({ reconciliationId });
+    if (getErr) {
+        return mapReconciliationRpcError(getErr);
+    }
+    if (!dossier) {
+        return {
+            success: false,
+            code: 'RECONCILIATION_NOT_FOUND',
+            message: 'Dossier de rapprochement introuvable.'
+        };
+    }
+
+    if (periodId && dossier.period_id !== periodId) {
+        return {
+            success: false,
+            code: 'RECONCILIATION_PERIOD_MISMATCH',
+            message: 'Le dossier de rapprochement ne correspond pas à la période indiquée.'
+        };
+    }
+
+    if (String(dossier.initiator_admin_id).toLowerCase() === String(approverAdminId).toLowerCase()) {
+        return {
+            success: false,
+            code: 'DUAL_CUSTODY_VIOLATION',
+            message: 'Séparation des tâches violée : le second SuperAdmin approbateur doit être strictement distinct du SuperAdmin initiateur.'
+        };
+    }
+
+    const context = await inspectAndVerifyFedaPayRefundContext(dossier.period_id, fedapayClient);
+    if (!context.success) {
+        return context;
+    }
+
+    // Si la période est déjà remboursée, on laisse la RPC SQL retourner l'état idempotent après ses contrôles
+    const verifiedTransactionId = context.alreadyRefunded
+        ? dossier.provider_transaction_id
+        : context.verifiedTransactionId;
+    const verifiedProviderStatus = context.alreadyRefunded
+        ? 'refunded'
+        : context.verifiedProviderStatus;
+    const verifiedAmountMinor = context.alreadyRefunded
+        ? Number(dossier.verified_amount_minor)
+        : context.verifiedAmountMinor;
+    const verifiedCurrency = context.alreadyRefunded
+        ? dossier.verified_currency
+        : context.verifiedCurrency;
+
+    const { result, error } = await executeApproveRefundReconciliationRpc({
+        reconciliationId,
+        approverAdminId,
+        verifiedTransactionId,
+        verifiedProviderStatus,
+        verifiedAmountMinor,
+        verifiedCurrency,
+        approvalNotes
+    });
+
+    if (error) {
+        return mapReconciliationRpcError(error);
+    }
+
+    if (result && result.status === 'already_refunded') {
+        return {
+            success: true,
+            code: 'ALREADY_REFUNDED',
+            message: 'Cette période d\'abonnement a déjà été remboursée.',
+            data: result
         };
     }
 
     return {
         success: true,
         code: 'REFUND_COMPLETED',
-        data: rpcResult
+        data: result
     };
+}
+
+/**
+ * P28c: Point d'entrée de remboursement administratif Parent Pack.
+ * - Effectue d'abord tous les contrôles fail-closed sur la période, l'intention et FedaPay.
+ * - Par défaut (appel unilatéral sans double validation ni justificatif vérifié),
+ *   bloque fail-closed avec SECURITY_BLOCKER : aucune compensation financière
+ *   automatique n'est déclenchée sur simple référence déclarative.
+ * - Lorsque le dossier de rapprochement à double validation (deux SuperAdmins distincts
+ *   + justificatif vérifié) est fourni, exécute les deux étapes de rapprochement.
+ */
+async function refundParentPackSubscriptionAdmin({
+    periodId,
+    providerRefundId = null,
+    internalReconciliationRef = null,
+    adminActorId,
+    approverAdminId = null,
+    reconciliationId = null,
+    proof = null,
+    approvalNotes = null,
+    reason = 'Remboursement administratif Parent Pack',
+    fedapayClient = null
+}) {
+    if (!periodId || !UUID_REGEX.test(periodId)) {
+        return { success: false, code: 'INVALID_PERIOD_ID', message: 'Identifiant de période invalide.' };
+    }
+    if (!adminActorId || !UUID_REGEX.test(adminActorId)) {
+        return { success: false, code: 'INVALID_ADMIN_ACTOR_ID', message: 'Identifiant d\'administrateur invalide.' };
+    }
+
+    // Si providerRefundId est transmis (ou si l'appel est un appel déclaratif classique), valider son format
+    if (providerRefundId !== null && providerRefundId !== undefined) {
+        if (typeof providerRefundId !== 'string' || !PROVIDER_REFUND_ID_REGEX.test(providerRefundId.trim())) {
+            return {
+                success: false,
+                code: 'INVALID_PROVIDER_REFUND_ID_FORMAT',
+                message: 'Référence du remboursement fournisseur invalide. Format attendu : préfixe ref_, fedapay_, feda_ ou tx_ suivi d\'au moins 6 caractères alphanumériques.'
+            };
+        }
+    } else if (!reconciliationId && !proof) {
+        return {
+            success: false,
+            code: 'INVALID_PROVIDER_REFUND_ID_FORMAT',
+            message: 'Référence du remboursement fournisseur ou dossier de rapprochement obligatoire.'
+        };
+    }
+
+    // 1–3. Contrôles d'existence, d'intention et vérification FedaPay fail-closed
+    const context = await inspectAndVerifyFedaPayRefundContext(periodId, fedapayClient);
+    if (!context.success) {
+        return context;
+    }
+
+    if (context.alreadyRefunded) {
+        return {
+            success: true,
+            code: 'ALREADY_REFUNDED',
+            message: 'Cette période d\'abonnement a déjà été remboursée.',
+            period_id: periodId
+        };
+    }
+
+    // 4. Protection FAIL-CLOSED par défaut (Mission 1) :
+    // Une simple référence déclarative ou un appel unilatéral d'un seul SuperAdmin
+    // ne peut JAMAIS déclencher la compensation financière automatique.
+    if (!approverAdminId && !reconciliationId && !proof) {
+        return {
+            success: false,
+            code: 'SECURITY_BLOCKER',
+            message: 'SECURITY_BLOCKER: La compensation financière automatique sur simple référence déclarative est désactivée (fail-closed). Un rapprochement à double validation SuperAdmin avec justificatif vérifié est requis.'
+        };
+    }
+
+    if (!approverAdminId || !UUID_REGEX.test(approverAdminId)) {
+        return {
+            success: false,
+            code: 'SECURITY_BLOCKER',
+            message: 'SECURITY_BLOCKER: La seconde validation par un SuperAdmin approbateur distinct (approverAdminId) est obligatoire.'
+        };
+    }
+
+    if (String(adminActorId).toLowerCase() === String(approverAdminId).toLowerCase()) {
+        return {
+            success: false,
+            code: 'DUAL_CUSTODY_VIOLATION',
+            message: 'Séparation des tâches violée : le SuperAdmin approbateur doit être strictement distinct du SuperAdmin initiateur.'
+        };
+    }
+
+    let targetReconciliationId = reconciliationId;
+
+    if (!targetReconciliationId) {
+        const initRes = await createParentPackRefundReconciliationRequest({
+            periodId,
+            initiatorAdminId: adminActorId,
+            reason,
+            proof,
+            internalReconciliationRef,
+            providerRefundId,
+            fedapayClient
+        });
+        if (!initRes.success) {
+            return initRes;
+        }
+        if (initRes.code === 'ALREADY_REFUNDED') {
+            return initRes;
+        }
+        targetReconciliationId = initRes.data.reconciliation_id;
+    }
+
+    return approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: targetReconciliationId,
+        periodId,
+        approverAdminId,
+        approvalNotes,
+        fedapayClient
+    });
 }
 
 module.exports = {
@@ -490,5 +915,8 @@ module.exports = {
     resolveGlobalIds,
     getAccessStatesForLocalIds,
     verifyParentPackRefundStatus,
+    validateIndependentRefundProof,
+    createParentPackRefundReconciliationRequest,
+    approveAndExecuteParentPackRefundReconciliation,
     refundParentPackSubscriptionAdmin
 };

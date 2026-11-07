@@ -1,11 +1,6 @@
 const { Client } = require('pg');
 
-/**
- * Execute the secure refund RPC using the dedicated PostgreSQL login role.
- * Reads connection string from YZIOW_REFUND_DATABASE_URL (must be set in the server env).
- * Returns { result, error } where `result` is the function output (or null) and `error` an object with a `message` field.
- */
-async function executeRefundRpc({ periodId, providerRefundId, adminActorId, reason }) {
+async function runWithRefundRole(query, values) {
   const connStr = process.env.YZIOW_REFUND_DATABASE_URL;
   if (!connStr) {
     return { result: null, error: { message: 'Refund DB URL not configured (YZIOW_REFUND_DATABASE_URL missing)' } };
@@ -13,8 +8,7 @@ async function executeRefundRpc({ periodId, providerRefundId, adminActorId, reas
   const client = new Client({ connectionString: connStr });
   try {
     await client.connect();
-    const query = `SELECT admin_process_parent_pack_refund($1, $2, $3, $4) AS result`;
-    const res = await client.query(query, [periodId, providerRefundId, adminActorId, reason]);
+    const res = await client.query(query, values);
     const result = res.rows[0] ? res.rows[0].result : null;
     return { result, error: null };
   } catch (e) {
@@ -24,4 +18,87 @@ async function executeRefundRpc({ periodId, providerRefundId, adminActorId, reas
   }
 }
 
-module.exports = { executeRefundRpc };
+/**
+ * Legacy unilateral refund RPC (fail-closed at SQL level with SECURITY_BLOCKER).
+ */
+async function executeRefundRpc({ periodId, providerRefundId, adminActorId, reason }) {
+  const query = `SELECT admin_process_parent_pack_refund($1, $2, $3, $4) AS result`;
+  return runWithRefundRole(query, [periodId, providerRefundId, adminActorId, reason]);
+}
+
+/**
+ * Step 1: Create a dual-custody refund reconciliation dossier (status = 'pending_approval').
+ */
+async function executeCreateRefundReconciliationRpc({
+  periodId,
+  initiatorAdminId,
+  reason,
+  verifiedTransactionId,
+  verifiedProviderStatus,
+  verifiedAmountMinor,
+  verifiedCurrency,
+  proofStoragePath,
+  proofDocumentHash,
+  proofRefundedAmountMinor,
+  proofCurrency,
+  proofBeneficiaryRef,
+  proofRefundedAt,
+  internalReconciliationRef = null,
+  providerRefundId = null,
+}) {
+  const query = `SELECT admin_create_parent_pack_refund_reconciliation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) AS result`;
+  return runWithRefundRole(query, [
+    periodId,
+    initiatorAdminId,
+    reason,
+    verifiedTransactionId,
+    verifiedProviderStatus,
+    verifiedAmountMinor,
+    verifiedCurrency,
+    proofStoragePath,
+    proofDocumentHash,
+    proofRefundedAmountMinor,
+    proofCurrency,
+    proofBeneficiaryRef,
+    proofRefundedAt,
+    internalReconciliationRef,
+    providerRefundId,
+  ]);
+}
+
+/**
+ * Step 2: Approve a pending refund reconciliation dossier by a distinct second SuperAdmin
+ * and atomically execute the financial compensation.
+ */
+async function executeApproveRefundReconciliationRpc({
+  reconciliationId,
+  approverAdminId,
+  verifiedTransactionId,
+  verifiedProviderStatus,
+  verifiedAmountMinor,
+  verifiedCurrency,
+  approvalNotes = null,
+}) {
+  const query = `SELECT admin_approve_parent_pack_refund_reconciliation($1, $2, $3, $4, $5, $6, $7) AS result`;
+  return runWithRefundRole(query, [
+    reconciliationId,
+    approverAdminId,
+    verifiedTransactionId,
+    verifiedProviderStatus,
+    verifiedAmountMinor,
+    verifiedCurrency,
+    approvalNotes,
+  ]);
+}
+
+async function executeGetRefundReconciliationRpc({ reconciliationId }) {
+  const query = `SELECT admin_get_parent_pack_refund_reconciliation($1) AS result`;
+  return runWithRefundRole(query, [reconciliationId]);
+}
+
+module.exports = {
+  executeRefundRpc,
+  executeCreateRefundReconciliationRpc,
+  executeApproveRefundReconciliationRpc,
+  executeGetRefundReconciliationRpc,
+};
