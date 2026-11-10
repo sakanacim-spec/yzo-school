@@ -1,5 +1,12 @@
 const crypto = require('crypto');
 const { supabase } = require('../utils/supabase');
+const {
+    verifyRefundProofAuthorization,
+    parsePrivateRefundProofUri,
+    verifyRefundProofBytes,
+    storeRefundProofDocument,
+    readAndVerifyStoredRefundProof
+} = require('./refundProofStorage');
 
 /**
  * Constantes d'accès P25
@@ -429,8 +436,14 @@ async function inspectAndVerifyFedaPayRefundContext(periodId, fedapayClient = nu
  * Valide de manière fail-closed le justificatif indépendant de remboursement.
  * Même si deux SuperAdmins distincts signent, toute absence, contradiction ou
  * incohérence du justificatif bloque immédiatement l'opération.
+ *
+ * Chantier D.1 :
+ * - Calcul systématique du SHA-256 côté serveur sur les octets réels (`fileBuffer` / `rawContent`).
+ * - Vérification stricte de la taille (16 octets à 5 Mo) et de la signature binaire réelle (PDF, PNG, JPEG, WEBP).
+ * - Interdiction de faire confiance à un simple chemin `private://...` ou à un hash envoyé par l'administrateur
+ *   sans vérification binaire côté serveur.
  */
-function validateIndependentRefundProof({ proof, paymentIntent, subscription }) {
+function validateIndependentRefundProof({ proof, paymentIntent, subscription, options = {} }) {
     if (!proof || typeof proof !== 'object') {
         return {
             valid: false,
@@ -439,21 +452,44 @@ function validateIndependentRefundProof({ proof, paymentIntent, subscription }) 
         };
     }
 
-    const storagePath = typeof (proof.storagePath ?? proof.proofStoragePath) === 'string'
+    const rawBinaryContent = proof.fileBuffer !== undefined && proof.fileBuffer !== null
+        ? proof.fileBuffer
+        : proof.rawContent;
+    const hasBinaryContent = rawBinaryContent !== undefined && rawBinaryContent !== null;
+
+    const rawStoragePath = typeof (proof.storagePath ?? proof.proofStoragePath) === 'string'
         ? (proof.storagePath ?? proof.proofStoragePath).trim()
         : '';
-    if (!PRIVATE_STORAGE_PATH_REGEX.test(storagePath)) {
+
+    if (rawStoragePath !== '') {
+        if (!PRIVATE_STORAGE_PATH_REGEX.test(rawStoragePath)) {
+            return {
+                valid: false,
+                code: 'INVALID_PROOF_STORAGE_PATH',
+                message: 'Le chemin de conservation du justificatif est absent ou invalide (format attendu : private://refund-proofs/...).'
+            };
+        }
+        const parsedUri = parsePrivateRefundProofUri(rawStoragePath);
+        if (!parsedUri.valid) {
+            return {
+                valid: false,
+                code: parsedUri.code,
+                message: parsedUri.message
+            };
+        }
+    } else if (!hasBinaryContent) {
         return {
             valid: false,
             code: 'INVALID_PROOF_STORAGE_PATH',
-            message: 'Le chemin de conservation du justificatif est absent ou invalide (format attendu : private://...).'
+            message: 'Le chemin de conservation du justificatif est absent ou invalide (format attendu : private://refund-proofs/...).'
         };
     }
 
-    const documentHash = typeof (proof.documentHash ?? proof.proofDocumentHash) === 'string'
+    const declaredHash = typeof (proof.documentHash ?? proof.proofDocumentHash) === 'string'
         ? (proof.documentHash ?? proof.proofDocumentHash).trim().toLowerCase()
         : '';
-    if (!SHA256_HEX_REGEX.test(documentHash)) {
+
+    if (declaredHash !== '' && !SHA256_HEX_REGEX.test(declaredHash)) {
         return {
             valid: false,
             code: 'INVALID_PROOF_HASH',
@@ -461,18 +497,42 @@ function validateIndependentRefundProof({ proof, paymentIntent, subscription }) 
         };
     }
 
-    if (proof.rawContent !== undefined && proof.rawContent !== null) {
-        const buf = Buffer.isBuffer(proof.rawContent)
-            ? proof.rawContent
-            : Buffer.from(String(proof.rawContent), 'utf8');
-        const computedHash = crypto.createHash('sha256').update(buf).digest('hex').toLowerCase();
-        if (computedHash !== documentHash) {
+    let serverVerifiedHash = null;
+    let byteCheck = null;
+    let requiresStorageReadVerification = false;
+
+    if (hasBinaryContent) {
+        byteCheck = verifyRefundProofBytes(rawBinaryContent, {
+            expectedDocumentHash: declaredHash || null,
+            mimeType: proof.mimeType || null,
+            originalFilename: proof.originalFilename || null,
+            storagePath: rawStoragePath || null
+        });
+        if (!byteCheck.valid) {
             return {
                 valid: false,
-                code: 'PROOF_HASH_CONTENT_MISMATCH',
-                message: 'L\'empreinte SHA-256 déclarée ne correspond pas au contenu binaire du justificatif fourni.'
+                code: byteCheck.code,
+                message: byteCheck.message
             };
         }
+        serverVerifiedHash = byteCheck.documentHash;
+    } else {
+        if (!declaredHash) {
+            return {
+                valid: false,
+                code: 'INVALID_PROOF_HASH',
+                message: 'L\'empreinte cryptographique SHA-256 du justificatif est absente ou invalide.'
+            };
+        }
+        if (options.allowPreUploadedLookup !== true) {
+            return {
+                valid: false,
+                code: 'PROOF_CONTENT_UNVERIFIED',
+                message: 'SECURITY_BLOCKER: Le contenu binaire réel du justificatif est absent. Le serveur ne fait jamais confiance à un simple chemin private://... ou à un hash déclaré sans vérification binaire serveur.'
+            };
+        }
+        serverVerifiedHash = declaredHash;
+        requiresStorageReadVerification = true;
     }
 
     const rawAmount = proof.refundedAmountMinor ?? proof.proofRefundedAmountMinor;
@@ -527,9 +587,14 @@ function validateIndependentRefundProof({ proof, paymentIntent, subscription }) 
 
     return {
         valid: true,
+        requiresStorageWrite: hasBinaryContent,
+        requiresStorageReadVerification,
+        detectedFormat: byteCheck ? byteCheck.format : null,
+        detectedMimeType: byteCheck ? byteCheck.mimeType : null,
+        byteLength: byteCheck ? byteCheck.byteLength : null,
         normalizedProof: {
-            proofStoragePath: storagePath,
-            proofDocumentHash: documentHash,
+            proofStoragePath: rawStoragePath || null,
+            proofDocumentHash: serverVerifiedHash,
             proofRefundedAmountMinor: refundedAmountMinor,
             proofCurrency: currency,
             proofBeneficiaryRef: beneficiaryRef,
@@ -582,15 +647,20 @@ function mapReconciliationRpcError(rpcErr) {
 /**
  * Étape 1 du rapprochement à double validation :
  * Crée un dossier de rapprochement (status = 'pending_approval') par un premier SuperAdmin authentifié.
+ * Chantier D.1 : Stocke le justificatif dans un emplacement privé (`refund-proofs`, `upsert: false`)
+ * après validation binaire stricte et calcul serveur du SHA-256, ou vérifie l'intégrité du fichier
+ * réellement stocké avant toute écriture en base.
  */
 async function createParentPackRefundReconciliationRequest({
     periodId,
     initiatorAdminId,
+    actorRole = 'superadmin',
     reason = 'Remboursement administratif Parent Pack',
     proof,
     internalReconciliationRef = null,
     providerRefundId = null,
-    fedapayClient = null
+    fedapayClient = null,
+    storageClient = null
 }) {
     if (!periodId || !UUID_REGEX.test(periodId)) {
         return { success: false, code: 'INVALID_PERIOD_ID', message: 'Identifiant de période invalide.' };
@@ -600,6 +670,29 @@ async function createParentPackRefundReconciliationRequest({
     }
     if (!reason || typeof reason !== 'string' || reason.trim() === '') {
         return { success: false, code: 'INVALID_REASON', message: 'Le motif du remboursement est obligatoire.' };
+    }
+
+    // Protection contre l'usurpation déclarative :
+    // Le rôle de l'administrateur provient EXCLUSIVEMENT du contexte serveur authentifié (actorRole),
+    // JAMAIS d'un attribut déclaratif dans l'objet proof ou req.body.
+    if (proof && typeof proof === 'object' && proof.actorRole !== undefined && proof.actorRole !== actorRole) {
+        return {
+            success: false,
+            code: 'UNAUTHORIZED_PROOF_STORAGE_ACCESS',
+            message: 'Accès refusé au stockage des justificatifs : tentative d\'usurpation du rôle déclaratif dans les données du justificatif.'
+        };
+    }
+
+    const authCheck = verifyRefundProofAuthorization({
+        actorAdminId: initiatorAdminId,
+        actorRole
+    });
+    if (!authCheck.authorized) {
+        return {
+            success: false,
+            code: authCheck.code,
+            message: authCheck.message
+        };
     }
 
     let cleanProviderRefundId = null;
@@ -642,7 +735,8 @@ async function createParentPackRefundReconciliationRequest({
     const proofValidation = validateIndependentRefundProof({
         proof,
         paymentIntent: context.paymentIntent,
-        subscription: context.subscription
+        subscription: context.subscription,
+        options: { allowPreUploadedLookup: true }
     });
     if (!proofValidation.valid) {
         return {
@@ -650,6 +744,54 @@ async function createParentPackRefundReconciliationRequest({
             code: proofValidation.code,
             message: proofValidation.message
         };
+    }
+
+    let finalStoragePath = proofValidation.normalizedProof.proofStoragePath;
+    let finalDocumentHash = proofValidation.normalizedProof.proofDocumentHash;
+
+    if (proofValidation.requiresStorageWrite) {
+        const rawBinaryContent = proof.fileBuffer !== undefined && proof.fileBuffer !== null
+            ? proof.fileBuffer
+            : proof.rawContent;
+        const storeRes = await storeRefundProofDocument({
+            periodId,
+            actorAdminId: initiatorAdminId,
+            actorRole,
+            fileBuffer: rawBinaryContent,
+            claimedDocumentHash: proof.documentHash ?? proof.proofDocumentHash ?? null,
+            storagePath: finalStoragePath,
+            mimeType: proof.mimeType ?? null,
+            originalFilename: proof.originalFilename ?? null,
+            storageClient
+        });
+        if (!storeRes.success) {
+            return {
+                success: false,
+                code: storeRes.code,
+                message: storeRes.message
+            };
+        }
+        finalStoragePath = storeRes.storagePath;
+        finalDocumentHash = storeRes.documentHash;
+    } else if (proofValidation.requiresStorageReadVerification) {
+        const readRes = await readAndVerifyStoredRefundProof({
+            storagePath: finalStoragePath,
+            expectedDocumentHash: finalDocumentHash,
+            periodId,
+            actorAdminId: initiatorAdminId,
+            actorRole,
+            phase: 'init',
+            storageClient
+        });
+        if (!readRes.valid) {
+            return {
+                success: false,
+                code: readRes.code,
+                message: readRes.message
+            };
+        }
+        finalStoragePath = readRes.storagePath;
+        finalDocumentHash = readRes.documentHash;
     }
 
     const { executeCreateRefundReconciliationRpc } = require('./refundRpc.cjs');
@@ -661,8 +803,8 @@ async function createParentPackRefundReconciliationRequest({
         verifiedProviderStatus: context.verifiedProviderStatus,
         verifiedAmountMinor: context.verifiedAmountMinor,
         verifiedCurrency: context.verifiedCurrency,
-        proofStoragePath: proofValidation.normalizedProof.proofStoragePath,
-        proofDocumentHash: proofValidation.normalizedProof.proofDocumentHash,
+        proofStoragePath: finalStoragePath,
+        proofDocumentHash: finalDocumentHash,
         proofRefundedAmountMinor: proofValidation.normalizedProof.proofRefundedAmountMinor,
         proofCurrency: proofValidation.normalizedProof.proofCurrency,
         proofBeneficiaryRef: proofValidation.normalizedProof.proofBeneficiaryRef,
@@ -694,20 +836,35 @@ async function createParentPackRefundReconciliationRequest({
 /**
  * Étape 2 du rapprochement à double validation :
  * Approuve un dossier de rapprochement existant par un second SuperAdmin distinct
- * après contre-vérification FedaPay et exécute atomiquement la compensation financière.
+ * après contre-vérification FedaPay, relecture du fichier réellement stocké et
+ * recalcul serveur du SHA-256 (Chantier D.1), puis tente la compensation financière.
  */
 async function approveAndExecuteParentPackRefundReconciliation({
     reconciliationId,
     periodId = null,
     approverAdminId,
+    actorRole = 'superadmin',
     approvalNotes = null,
-    fedapayClient = null
+    fedapayClient = null,
+    storageClient = null
 }) {
     if (!reconciliationId || !UUID_REGEX.test(reconciliationId)) {
         return { success: false, code: 'INVALID_RECONCILIATION_ID', message: 'Identifiant de dossier de rapprochement invalide.' };
     }
     if (!approverAdminId || !UUID_REGEX.test(approverAdminId)) {
         return { success: false, code: 'INVALID_APPROVER_ADMIN_ID', message: 'Identifiant du second SuperAdmin approbateur invalide.' };
+    }
+
+    const authCheck = verifyRefundProofAuthorization({
+        actorAdminId: approverAdminId,
+        actorRole
+    });
+    if (!authCheck.authorized) {
+        return {
+            success: false,
+            code: authCheck.code,
+            message: authCheck.message
+        };
     }
 
     const {
@@ -746,6 +903,25 @@ async function approveAndExecuteParentPackRefundReconciliation({
     const context = await inspectAndVerifyFedaPayRefundContext(dossier.period_id, fedapayClient);
     if (!context.success) {
         return context;
+    }
+
+    // Chantier D.1 : Relecture du fichier réellement stocké et recalcul serveur du SHA-256 avant toute approbation
+    const storedProofCheck = await readAndVerifyStoredRefundProof({
+        storagePath: dossier.proof_storage_path,
+        expectedDocumentHash: dossier.proof_document_hash,
+        periodId: dossier.period_id,
+        reconciliationId,
+        actorAdminId: approverAdminId,
+        actorRole,
+        phase: 'approve',
+        storageClient
+    });
+    if (!storedProofCheck.valid) {
+        return {
+            success: false,
+            code: storedProofCheck.code,
+            message: storedProofCheck.message
+        };
     }
 
     // Si la période est déjà remboursée, on laisse la RPC SQL retourner l'état idempotent après ses contrôles
