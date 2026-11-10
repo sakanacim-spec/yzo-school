@@ -28,6 +28,13 @@ const {
   verifyRefundProofBytes,
   MAX_PROOF_FILE_SIZE_BYTES
 } = require('../../backend/services/refundProofStorage.js');
+const {
+  DEFAULT_REFUND_ACTION_AUTH_KEY,
+  ACTION_PROOF_VERSION,
+  ACTION_PROOF_ISSUER,
+  generateRefundActionProof,
+  verifyRefundActionProofLocally
+} = require('../../backend/services/refundActionProofAuthority.js');
 
 const { Client } = pg;
 
@@ -160,15 +167,17 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       GRANT EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) TO yziow_refund_executor;
       REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role;
 
-      GRANT EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT) TO yziow_refund_executor;
-      REVOKE EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role;
+      GRANT EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) TO yziow_refund_executor;
+      REVOKE EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role;
 
-      GRANT EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT) TO yziow_refund_executor;
-      REVOKE EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role;
+      GRANT EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) TO yziow_refund_executor;
+      REVOKE EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role;
 
       GRANT EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) TO yziow_refund_executor;
       REVOKE EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) FROM PUBLIC, anon, authenticated, service_role;
 
+      REVOKE ALL ON SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+      REVOKE ALL ON ALL TABLES IN SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
       REVOKE ALL ON public.parent_pack_refund_audits FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
       REVOKE ALL ON public.parent_pack_refund_reconciliations FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
       REVOKE ALL ON public.parent_pack_refund_security_gate FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
@@ -210,6 +219,35 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       refundedAt: new Date().toISOString(),
       ...overrides
     };
+  }
+
+  function buildValidInitiatorProof(fixture, overrides = {}) {
+    const docHash = overrides.proofDocumentHash || overrides.documentHash || validProofHash;
+    return generateRefundActionProof({
+      adminId: overrides.initiatorAdminId || overrides.adminId || superAdminId,
+      actionType: 'initiate',
+      periodId: overrides.periodId || fixture.periodId,
+      providerTransactionId: overrides.providerRefundId || overrides.providerTransactionId || fixture.providerTxId,
+      verifiedAmountMinor: overrides.amount !== undefined ? overrides.amount : fixture.amount,
+      currency: overrides.currency || fixture.currency,
+      proofDocumentHash: docHash,
+      secretKey: overrides.secretKey || null
+    });
+  }
+
+  function buildValidApproverProof(fixture, reconciliationId, overrides = {}) {
+    const docHash = overrides.proofDocumentHash || overrides.documentHash || validProofHash;
+    return generateRefundActionProof({
+      adminId: overrides.approverAdminId || overrides.adminId || approverAdminId,
+      actionType: 'approve',
+      periodId: overrides.periodId || fixture.periodId,
+      reconciliationId,
+      providerTransactionId: overrides.providerRefundId || overrides.providerTransactionId || fixture.providerTxId,
+      verifiedAmountMinor: overrides.amount !== undefined ? overrides.amount : fixture.amount,
+      currency: overrides.currency || fixture.currency,
+      proofDocumentHash: docHash,
+      secretKey: overrides.secretKey || null
+    });
   }
 
   async function withUnlockedSecurityGate(fn) {
@@ -529,6 +567,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
         reason: 'Test connexion PostgreSQL dédiée absente',
         proof: buildValidProof(fixture),
         providerRefundId: 'fedapay_ref_valid_123',
+        initiatorActionProof: buildValidInitiatorProof(fixture),
         fedapayClient: mockFedapay
       });
 
@@ -542,8 +581,8 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
 
   // 6 & 7. Droits PostgreSQL : yziow_refund_executor autorise, service_role refuse
   it('6 & 7. Privilèges PostgreSQL : yziow_refund_executor a EXECUTE sur les RPC de rapprochement, service_role est strictement rejeté', async () => {
-    const createSig = 'admin_create_parent_pack_refund_reconciliation(uuid, uuid, text, text, text, bigint, text, text, text, bigint, text, text, timestamp with time zone, text, text)';
-    const approveSig = 'admin_approve_parent_pack_refund_reconciliation(uuid, uuid, text, text, bigint, text, text)';
+    const createSig = 'admin_create_parent_pack_refund_reconciliation(uuid, uuid, text, text, text, bigint, text, text, text, bigint, text, text, timestamp with time zone, text, text, jsonb)';
+    const approveSig = 'admin_approve_parent_pack_refund_reconciliation(uuid, uuid, text, text, bigint, text, text, jsonb)';
 
     const execCreate = await adminClient.query(`SELECT has_function_privilege('yziow_refund_executor', '${createSig}', 'EXECUTE') AS ok`);
     assert.strictEqual(execCreate.rows[0].ok, true);
@@ -640,6 +679,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       reason: 'Test remboursement nominal à double validation',
       proof: buildValidProof(fixture),
       providerRefundId: refundRef,
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(initRes.success, true);
@@ -650,6 +690,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
         reconciliationId: initRes.data.reconciliation_id,
         approverAdminId,
         approvalNotes: 'Seconde validation conforme',
+        approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
         fedapayClient: mockFedapay
       })
     );
@@ -693,6 +734,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       reason: 'Premier remboursement idempotent',
       proof: buildValidProof(fixture),
       providerRefundId: refundRef,
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(initRes.success, true);
@@ -701,6 +743,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       approveAndExecuteParentPackRefundReconciliation({
         reconciliationId: initRes.data.reconciliation_id,
         approverAdminId,
+        approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
         fedapayClient: mockFedapay
       })
     );
@@ -711,6 +754,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     const res2 = await approveAndExecuteParentPackRefundReconciliation({
       reconciliationId: initRes.data.reconciliation_id,
       approverAdminId,
+      approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(res2.success, true);
@@ -751,6 +795,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       reason: 'Révocation droits accès',
       proof: buildValidProof(fixture),
       providerRefundId: refundRef,
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(initRes.success, true);
@@ -759,6 +804,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       approveAndExecuteParentPackRefundReconciliation({
         reconciliationId: initRes.data.reconciliation_id,
         approverAdminId,
+        approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
         fedapayClient: mockFedapay
       })
     );
@@ -853,6 +899,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       reason: 'Dossier en attente de garanties externes',
       proof: buildValidProof(fixture),
       providerRefundId: `fedapay_ref_locked_${randomUUID()}`,
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(initRes.success, true);
@@ -862,6 +909,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       reconciliationId: initRes.data.reconciliation_id,
       approverAdminId,
       approvalNotes: 'Tentative approbation avec gate par défaut',
+      approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(approveLockedRes.success, false);
@@ -884,11 +932,22 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
         }
       );
 
+      const approverProof = generateRefundActionProof({
+        adminId: approverAdminId,
+        actionType: 'approve',
+        periodId: fixture.periodId,
+        reconciliationId: initRes.data.reconciliation_id,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+
       await assert.rejects(
         async () => {
           await executorClient.query(
-            `SELECT public.admin_approve_parent_pack_refund_reconciliation($1, $2, $3, 'refunded', $4, $5, 'Direct SQL approve');`,
-            [initRes.data.reconciliation_id, approverAdminId, fixture.providerTxId, fixture.amount, fixture.currency]
+            `SELECT public.admin_approve_parent_pack_refund_reconciliation($1, $2, $3, 'refunded', $4, $5, 'Direct SQL approve', $6);`,
+            [initRes.data.reconciliation_id, approverAdminId, fixture.providerTxId, fixture.amount, fixture.currency, JSON.stringify(approverProof)]
           );
         },
         (err) => {
@@ -941,6 +1000,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       reason: 'Initiation pour test dual custody',
       proof: buildValidProof(fixture),
       providerRefundId: `fedapay_ref_dc_${randomUUID()}`,
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(initRes.success, true);
@@ -948,6 +1008,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     const res = await approveAndExecuteParentPackRefundReconciliation({
       reconciliationId: initRes.data.reconciliation_id,
       approverAdminId: superAdminId,
+      approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id, { adminId: superAdminId }),
       fedapayClient: mockFedapay
     });
 
@@ -1050,6 +1111,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       proof: buildValidProof(fixture),
       internalReconciliationRef: internalRef,
       providerRefundId: null,
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
 
@@ -1068,6 +1130,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     const selfApproveRes = await approveAndExecuteParentPackRefundReconciliation({
       reconciliationId: initRes.data.reconciliation_id,
       approverAdminId: superAdminId,
+      approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id, { adminId: superAdminId }),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(selfApproveRes.success, false);
@@ -1079,6 +1142,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
         reconciliationId: initRes.data.reconciliation_id,
         approverAdminId,
         approvalNotes: 'Vérification conforme du justificatif et du montant FedaPay',
+        approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
         fedapayClient: mockFedapay
       })
     );
@@ -1132,6 +1196,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
         beneficiaryRef: fixturePdf.parentRef,
         refundedAt: new Date().toISOString()
       },
+      initiatorActionProof: buildValidInitiatorProof(fixturePdf, { proofDocumentHash: expectedServerPdfHash }),
       fedapayClient: mockFedapay
     });
 
@@ -1174,6 +1239,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
         beneficiaryRef: fixturePng.parentRef,
         refundedAt: new Date().toISOString()
       },
+      initiatorActionProof: buildValidInitiatorProof(fixturePng, { proofDocumentHash: expectedPngHash }),
       fedapayClient: mockFedapayPng
     });
     assert.strictEqual(initPngRes.success, true);
@@ -1343,6 +1409,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       initiatorAdminId: superAdminId,
       reason: 'Dossier dont le fichier sera supprimé avant approbation',
       proof: buildValidProof(fixture),
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(initRes.success, true);
@@ -1354,6 +1421,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       approveAndExecuteParentPackRefundReconciliation({
         reconciliationId: initRes.data.reconciliation_id,
         approverAdminId,
+        approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
         fedapayClient: mockFedapay
       })
     );
@@ -1378,6 +1446,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       initiatorAdminId: superAdminId,
       reason: 'Dossier pour test altération post-stockage',
       proof: buildValidProof(fixture),
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(initRes.success, true);
@@ -1395,6 +1464,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       approveAndExecuteParentPackRefundReconciliation({
         reconciliationId: initRes.data.reconciliation_id,
         approverAdminId,
+        approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
         fedapayClient: mockFedapay
       })
     );
@@ -1409,6 +1479,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       approveAndExecuteParentPackRefundReconciliation({
         reconciliationId: initRes.data.reconciliation_id,
         approverAdminId,
+        approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
         fedapayClient: mockFedapay
       })
     );
@@ -1629,6 +1700,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       initiatorAdminId: superAdminId,
       reason: 'Test panne lecture storage à l\'approbation',
       proof: buildValidProof(fixture),
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(initRes.success, true);
@@ -1639,6 +1711,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
         approveAndExecuteParentPackRefundReconciliation({
           reconciliationId: initRes.data.reconciliation_id,
           approverAdminId,
+          approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
           fedapayClient: mockFedapay
         })
       );
@@ -1667,6 +1740,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       initiatorAdminId: superAdminId,
       reason: 'Vérification zéro écriture financière après refus D.1',
       proof: buildValidProof(fixture),
+      initiatorActionProof: buildValidInitiatorProof(fixture),
       fedapayClient: mockFedapay
     });
     assert.strictEqual(initRes.success, true);
@@ -1684,6 +1758,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       approveAndExecuteParentPackRefundReconciliation({
         reconciliationId: initRes.data.reconciliation_id,
         approverAdminId,
+        approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id),
         fedapayClient: mockFedapay
       })
     );
@@ -1726,5 +1801,858 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     assert.strictEqual(gateRes.rows[0].independent_admin_auth_ready, false);
     assert.strictEqual(gateRes.rows[0].independent_fedapay_proof_ready, false);
     assert.strictEqual(gateRes.rows[0].private_worm_storage_ready, false);
+  });
+
+  // ============================================================================
+  // Chantier D.2 — Authentification cryptographique indépendante des SuperAdmins
+  // ============================================================================
+
+  it('24. Chantier D.2 — Deux SuperAdmins distincts avec preuves valides : transition et compensation réussies', async () => {
+    const fixture = await seedFixture();
+    const refundRef = `fedapay_ref_${randomUUID()}`;
+    const mockFedapay = {
+      retrieveTransaction: async () => ({
+        id: fixture.providerTxId,
+        status: 'refunded',
+        amount: fixture.amount,
+        currency: fixture.currency
+      })
+    };
+    const proofDoc = buildValidProof(fixture);
+
+    const initProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      reconciliationId: null,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: proofDoc.documentHash
+    });
+
+    const initRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'D.2 nominal double authorization',
+      proof: proofDoc,
+      providerRefundId: refundRef,
+      initiatorActionProof: initProof,
+      fedapayClient: mockFedapay
+    });
+    assert.strictEqual(initRes.success, true);
+    assert.strictEqual(initRes.code, 'RECONCILIATION_PENDING_APPROVAL');
+
+    const approverProof = generateRefundActionProof({
+      adminId: approverAdminId,
+      actionType: 'approve',
+      periodId: fixture.periodId,
+      reconciliationId: initRes.data.reconciliation_id,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: proofDoc.documentHash
+    });
+
+    const res = await withUnlockedSecurityGate(() =>
+      approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: initRes.data.reconciliation_id,
+        approverAdminId,
+        approvalNotes: 'Approbation D.2 avec preuve valide',
+        approverActionProof: approverProof,
+        fedapayClient: mockFedapay
+      })
+    );
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.code, 'REFUND_COMPLETED');
+    assert.strictEqual(res.data.status, 'success');
+
+    // Vérification de la persistance des preuves dans reconciliation et audit
+    const recDb = await adminClient.query(
+      `SELECT initiator_action_proof, approver_action_proof FROM public.parent_pack_refund_reconciliations WHERE id = $1`,
+      [initRes.data.reconciliation_id]
+    );
+    assert.ok(recDb.rows[0].initiator_action_proof);
+    assert.strictEqual(recDb.rows[0].initiator_action_proof.jti, initProof.jti);
+    assert.ok(recDb.rows[0].approver_action_proof);
+    assert.strictEqual(recDb.rows[0].approver_action_proof.jti, approverProof.jti);
+
+    const auditDb = await adminClient.query(
+      `SELECT initiator_action_proof, approver_action_proof FROM public.parent_pack_refund_audits WHERE period_id = $1`,
+      [fixture.periodId]
+    );
+    assert.ok(auditDb.rows[0].initiator_action_proof);
+    assert.ok(auditDb.rows[0].approver_action_proof);
+  });
+
+  it('25. Chantier D.2 — Même SuperAdmin utilisé deux fois : rejet avec DUAL_CUSTODY_VIOLATION', async () => {
+    const fixture = await seedFixture();
+    const mockFedapay = {
+      retrieveTransaction: async () => ({
+        id: fixture.providerTxId,
+        status: 'refunded',
+        amount: fixture.amount,
+        currency: fixture.currency
+      })
+    };
+    const initRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Dual custody test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: buildValidInitiatorProof(fixture),
+      fedapayClient: mockFedapay
+    });
+    assert.strictEqual(initRes.success, true);
+
+    const approveRes = await withUnlockedSecurityGate(() =>
+      approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: initRes.data.reconciliation_id,
+        approverAdminId: superAdminId, // Même SuperAdmin !
+        approverActionProof: buildValidApproverProof(fixture, initRes.data.reconciliation_id, { adminId: superAdminId }),
+        fedapayClient: mockFedapay
+      })
+    );
+    assert.strictEqual(approveRes.success, false);
+    assert.strictEqual(approveRes.code, 'DUAL_CUSTODY_VIOLATION');
+  });
+
+  it('26. Chantier D.2 — UUID SuperAdmin arbitraire sans preuve : rejet avec ACTION_PROOF_REQUIRED', async () => {
+    const fixture = await seedFixture();
+    const client = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client.connect();
+    try {
+      await assert.rejects(
+        async () => {
+          await client.query(`
+            SELECT public.admin_create_parent_pack_refund_reconciliation(
+              $1, $2, 'Tentative sans preuve', $3, 'refunded', 1000, 'XOF',
+              'private://refund-proofs/2026/test.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL, NULL
+            );
+          `, [fixture.periodId, superAdminId, fixture.providerTxId, validProofHash, fixture.parentRef]);
+        },
+        (err) => {
+          assert.match(err.message, /ACTION_PROOF_REQUIRED/);
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('27. Chantier D.2 — Signature invalide : rejet fail-closed (INVALID_ACTION_PROOF_SIGNATURE)', async () => {
+    const fixture = await seedFixture();
+    const forgedProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+    forgedProof.signature = 'a'.repeat(64); // Signature falsifiée
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Bad signature test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: forgedProof,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'INVALID_ACTION_PROOF_SIGNATURE');
+  });
+
+  it('28. Chantier D.2 — Preuve émise par une autorité non reconnue : rejet immédiat', async () => {
+    const fixture = await seedFixture();
+    const rogueProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash,
+      issuer: 'rogue-authority-fake'
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Rogue authority test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: rogueProof,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'UNRECOGNIZED_ACTION_PROOF_AUTHORITY');
+  });
+
+  it('29. Chantier D.2 — Preuve signée pour un autre administrateur : rejet avec ACTION_PROOF_ADMIN_MISMATCH', async () => {
+    const fixture = await seedFixture();
+    const mismatchedProof = generateRefundActionProof({
+      adminId: approverAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Admin mismatch test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: mismatchedProof,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'ACTION_PROOF_ADMIN_MISMATCH');
+  });
+
+  it('30. Chantier D.2 — Preuve expirée : rejet fail-closed (ACTION_PROOF_EXPIRED)', async () => {
+    const fixture = await seedFixture();
+    const expiredProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash,
+      issuedAt: new Date(Date.now() - 400000).toISOString(),
+      expiresAt: new Date(Date.now() - 100000).toISOString()
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Expired proof test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: expiredProof,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'ACTION_PROOF_EXPIRED');
+  });
+
+  it('31. Chantier D.2 — Preuve émise pour une autre période ou un autre dossier : rejet', async () => {
+    const fixture = await seedFixture();
+    const wrongPeriodId = randomUUID();
+    const wrongPeriodProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: wrongPeriodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Wrong period test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: wrongPeriodProof,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'ACTION_PROOF_PERIOD_MISMATCH');
+  });
+
+  it('32. Chantier D.2 — Altération du montant, devise ou hash après signature : rejet fail-closed', async () => {
+    const fixture = await seedFixture();
+    const tamperedProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+    tamperedProof.verified_amount_minor = fixture.amount + 500;
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Tampered payload test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: tamperedProof,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+    assert.strictEqual(res.success, false);
+    assert.ok(res.code === 'ACTION_PROOF_AMOUNT_MISMATCH' || res.code === 'INVALID_ACTION_PROOF_SIGNATURE');
+  });
+
+  it('33. Chantier D.2 — Administrateur désactivé ou révoqué (is_active = false) : rejet fail-closed', async () => {
+    const fixture = await seedFixture();
+    const revokedAdminId = randomUUID();
+    await adminClient.query(`
+      INSERT INTO public.superadmins (id, username, password, is_active)
+      VALUES ($1, 'revoked_admin_d2', 'hash', false)
+      ON CONFLICT (id) DO UPDATE SET is_active = false;
+    `, [revokedAdminId]);
+
+    const revokedProof = generateRefundActionProof({
+      adminId: revokedAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const client = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client.connect();
+    try {
+      await assert.rejects(
+        async () => {
+          await client.query(`
+            SELECT public.admin_create_parent_pack_refund_reconciliation(
+              $1, $2, 'Revoked admin test', $3, 'refunded', 1000, 'XOF',
+              'private://refund-proofs/2026/test.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL, $6
+            );
+          `, [fixture.periodId, revokedAdminId, fixture.providerTxId, validProofHash, fixture.parentRef, JSON.stringify(revokedProof)]);
+        },
+        (err) => {
+          assert.match(err.message, /UNAUTHORIZED_ADMIN|REVOKED_ADMIN/);
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('34. Chantier D.2 — Réutilisation d\'une preuve déjà consommée (jti) : rejet avec ACTION_PROOF_ALREADY_CONSUMED', async () => {
+    const fixture1 = await seedFixture();
+
+    const reusedProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture1.periodId,
+      providerTransactionId: fixture1.providerTxId,
+      verifiedAmountMinor: fixture1.amount,
+      currency: fixture1.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    // Premier appel : consomme le nonce jti
+    const res1 = await createParentPackRefundReconciliationRequest({
+      periodId: fixture1.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'First call consumes nonce',
+      proof: buildValidProof(fixture1),
+      initiatorActionProof: reusedProof,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture1.providerTxId, status: 'refunded', amount: fixture1.amount, currency: fixture1.currency })
+      }
+    });
+    assert.strictEqual(res1.success, true);
+
+    // Deuxième appel avec la MEME preuve / MEME jti
+    const client = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client.connect();
+    try {
+      await assert.rejects(
+        async () => {
+          await client.query(`
+            SELECT public.admin_create_parent_pack_refund_reconciliation(
+              $1, $2, 'Replay test', $3, 'refunded', 1000, 'XOF',
+              'private://refund-proofs/2026/test.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL, $6
+            );
+          `, [fixture1.periodId, superAdminId, fixture1.providerTxId, validProofHash, fixture1.parentRef, JSON.stringify(reusedProof)]);
+        },
+        (err) => {
+          assert.match(err.message, /ACTION_PROOF_ALREADY_CONSUMED/);
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('35. Chantier D.2 — Deux tentatives concurrentes avec la même preuve : atomicité stricte', async () => {
+    const fixture = await seedFixture();
+    const sharedProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const client1 = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    const client2 = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client1.connect();
+    await client2.connect();
+
+    try {
+      const callRpc = (c) =>
+        c.query(`
+          SELECT public.admin_create_parent_pack_refund_reconciliation(
+            $1, $2, 'Concurrent test', $3, 'refunded', 1000, 'XOF',
+            'private://refund-proofs/2026/test.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL, $6
+          );
+        `, [fixture.periodId, superAdminId, fixture.providerTxId, validProofHash, fixture.parentRef, JSON.stringify(sharedProof)]);
+
+      const results = await Promise.allSettled([callRpc(client1), callRpc(client2)]);
+      const fulfilled = results.filter(r => r.status === 'fulfilled');
+      const rejected = results.filter(r => r.status === 'rejected');
+
+      assert.strictEqual(fulfilled.length, 1, 'Exactly one concurrent call must succeed');
+      assert.strictEqual(rejected.length, 1, 'Exactly one concurrent call must be rejected');
+      assert.match(rejected[0].reason.message, /ACTION_PROOF_ALREADY_CONSUMED|RECONCILIATION_ALREADY_PENDING/);
+    } finally {
+      await client1.end();
+      await client2.end();
+    }
+  });
+
+  it('36. Chantier D.2 — Utilisation d\'une preuve "initiate" pour approuver : rejet ACTION_PROOF_TYPE_MISMATCH', async () => {
+    const fixture = await seedFixture();
+    const initProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const initRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Type mismatch test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: initProof,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    const approveRes = await withUnlockedSecurityGate(() =>
+      approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: initRes.data.reconciliation_id,
+        approverAdminId,
+        approverActionProof: initProof, // mauvais type !
+        fedapayClient: {
+          retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+        }
+      })
+    );
+    assert.strictEqual(approveRes.success, false);
+    assert.strictEqual(approveRes.code, 'ACTION_PROOF_TYPE_MISMATCH');
+  });
+
+  it('37. Chantier D.2 — Utilisation d\'une preuve "approve" pour initier : rejet ACTION_PROOF_TYPE_MISMATCH', async () => {
+    const fixture = await seedFixture();
+    const approveProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'approve',
+      periodId: fixture.periodId,
+      reconciliationId: randomUUID(),
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const initRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Type mismatch init test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: approveProof, // mauvais type !
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+    assert.strictEqual(initRes.success, false);
+    assert.strictEqual(initRes.code, 'ACTION_PROOF_TYPE_MISMATCH');
+  });
+
+  it('38. Chantier D.2 — Appel direct d\'approbation via YZIOW_REFUND_DATABASE_URL sans preuve : rejet ACTION_PROOF_REQUIRED', async () => {
+    const fixture = await seedFixture();
+    const client = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client.connect();
+
+    try {
+      const initProof = generateRefundActionProof({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+      const initRes = await client.query(`
+        SELECT public.admin_create_parent_pack_refund_reconciliation(
+          $1, $2, 'Pending rec', $3, 'refunded', 1000, 'XOF',
+          'private://refund-proofs/2026/test.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL, $6
+        ) AS res;
+      `, [fixture.periodId, superAdminId, fixture.providerTxId, validProofHash, fixture.parentRef, JSON.stringify(initProof)]);
+      const recId = initRes.rows[0].res.reconciliation_id;
+
+      // Appel direct sans preuve par un attaquant possédant YZIOW_REFUND_DATABASE_URL
+      await assert.rejects(
+        async () => {
+          await client.query(`
+            SELECT public.admin_approve_parent_pack_refund_reconciliation(
+              $1, $2, $3, 'refunded', 1000, 'XOF', 'Direct attack without proof', NULL
+            );
+          `, [recId, approverAdminId, fixture.providerTxId]);
+        },
+        (err) => {
+          assert.match(err.message, /ACTION_PROOF_REQUIRED/);
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('39. Chantier D.2 — Tentative de lecture de yziow_refund_auth.authority_config par yziow_refund_executor : permission denied', async () => {
+    const client = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client.connect();
+    try {
+      await assert.rejects(
+        async () => {
+          await client.query(`SELECT * FROM yziow_refund_auth.authority_config`);
+        },
+        (err) => {
+          assert.strictEqual(err.code, '42501', 'Must fail with 42501 (permission denied on schema/table)');
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('40. Chantier D.2 — Tentative de manipulation de yziow_refund_auth.consumed_action_proofs : permission denied', async () => {
+    const client = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client.connect();
+    try {
+      await assert.rejects(
+        async () => {
+          await client.query(`DELETE FROM yziow_refund_auth.consumed_action_proofs`);
+        },
+        (err) => {
+          assert.strictEqual(err.code, '42501', 'Must fail with 42501 (permission denied)');
+          return true;
+        }
+      );
+      await assert.rejects(
+        async () => {
+          await client.query(
+            `INSERT INTO yziow_refund_auth.consumed_action_proofs (jti, admin_id, action_type, period_id, provider_transaction_id, verified_amount_minor, currency, proof_document_hash, issued_at, expires_at) VALUES ($1, $2, 'initiate', $3, 'tx', 1000, 'XOF', 'hash', NOW(), NOW())`,
+            [randomUUID(), superAdminId, randomUUID()]
+          );
+        },
+        (err) => {
+          assert.strictEqual(err.code, '42501', 'Must fail with 42501 (permission denied)');
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('41. Chantier D.2 — Tentative d\'appel direct à yziow_refund_auth.verify_and_consume_action_proof : permission denied', async () => {
+    const client = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client.connect();
+    try {
+      await assert.rejects(
+        async () => {
+          await client.query(`
+            SELECT yziow_refund_auth.verify_and_consume_action_proof(
+              '{}'::jsonb, 'initiate', $1, $2, NULL, 'tx', 1000, 'XOF', 'doc'
+            );
+          `, [superAdminId, randomUUID()]);
+        },
+        (err) => {
+          assert.strictEqual(err.code, '42501', 'Direct call to verify function must fail with permission denied (42501)');
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('42. Chantier D.2 — Appel direct de admin_process_parent_pack_refund reste verrouillé (SECURITY_BLOCKER)', async () => {
+    const fixture = await seedFixture();
+    const client = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client.connect();
+    try {
+      await assert.rejects(
+        async () => {
+          await client.query(`
+            SELECT public.admin_process_parent_pack_refund($1, 'fedapay_bypass_123', $2, 'Tentative de bypass');
+          `, [fixture.periodId, superAdminId]);
+        },
+        (err) => {
+          assert.match(err.message, /SECURITY_BLOCKER/);
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('43. Chantier D.2 — Absence totale d\'écriture financière si la preuve d\'action échoue', async () => {
+    const fixture = await seedFixture();
+    const badProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+    badProof.signature = 'bad'.repeat(21) + 'a';
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Failed proof audit check',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: badProof,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+    assert.strictEqual(res.success, false);
+
+    // Contrôle d'intégrité financière absolue
+    const periodDb = await adminClient.query(`SELECT status FROM public.parent_subscription_periods WHERE id = $1`, [fixture.periodId]);
+    assert.strictEqual(periodDb.rows[0].status, 'active');
+
+    const subDb = await adminClient.query(`SELECT status FROM public.parent_subscriptions WHERE id = $1`, [fixture.subId]);
+    assert.strictEqual(subDb.rows[0].status, 'active');
+
+    const intentDb = await adminClient.query(`SELECT status FROM public.payment_intents WHERE id = $1`, [fixture.intentId]);
+    assert.strictEqual(intentDb.rows[0].status, 'completed');
+
+    const schoolCancelCount = await adminClient.query(
+      `SELECT count(*)::int AS cnt FROM public.school_commission_ledger WHERE period_id = $1 AND type = 'cancellation'`,
+      [fixture.periodId]
+    );
+    assert.strictEqual(schoolCancelCount.rows[0].cnt, 0);
+
+    const affiliateReversalCount = await adminClient.query(
+      `SELECT count(*)::int AS cnt FROM public.affiliate_ledger WHERE entry_type = 'refund_reversal' AND (metadata->>'period_id') = $1`,
+      [fixture.periodId]
+    );
+    assert.strictEqual(affiliateReversalCount.rows[0].cnt, 0);
+
+    const auditCount = await adminClient.query(
+      `SELECT count(*)::int AS cnt FROM public.parent_pack_refund_audits WHERE period_id = $1`,
+      [fixture.periodId]
+    );
+    assert.strictEqual(auditCount.rows[0].cnt, 0);
+
+    const gateRes = await adminClient.query(
+      `SELECT independent_admin_auth_ready, independent_fedapay_proof_ready, private_worm_storage_ready
+       FROM public.parent_pack_refund_security_gate WHERE id = true`
+    );
+    assert.strictEqual(gateRes.rows[0].independent_admin_auth_ready, false);
+    assert.strictEqual(gateRes.rows[0].independent_fedapay_proof_ready, false);
+    assert.strictEqual(gateRes.rows[0].private_worm_storage_ready, false);
+  });
+
+  // =========================================================================
+  // CHANTIER D.2 (SÉCURISATION FINALE DE L'ÉMISSION DES PREUVES)
+  // =========================================================================
+
+  it('44. Chantier D.2 — Tentative d\'initiation sans preuve personnelle (createParentPackRefundReconciliationRequest sans initiatorActionProof) : rejet immédiat ACTION_PROOF_REQUIRED (génération automatique interdite)', async () => {
+    const fixture = await seedFixture();
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Tentative sans preuve d\'initiation',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: null, // Preuve absente
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'ACTION_PROOF_REQUIRED');
+    assert.match(res.message, /génération automatique interdite|obligatoire/);
+  });
+
+  it('45. Chantier D.2 — Tentative d\'approbation sans preuve personnelle (approveAndExecuteParentPackRefundReconciliation sans approverActionProof) : rejet immédiat ACTION_PROOF_REQUIRED (génération automatique interdite)', async () => {
+    const fixture = await seedFixture();
+    const mockFedapay = {
+      retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+    };
+
+    const initRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Initiation valide avec preuve',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: buildValidInitiatorProof(fixture),
+      fedapayClient: mockFedapay
+    });
+    assert.strictEqual(initRes.success, true);
+
+    const approveRes = await withUnlockedSecurityGate(() =>
+      approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: initRes.data.reconciliation_id,
+        approverAdminId,
+        approverActionProof: null, // Preuve d'approbation absente !
+        fedapayClient: mockFedapay
+      })
+    );
+
+    assert.strictEqual(approveRes.success, false);
+    assert.strictEqual(approveRes.code, 'ACTION_PROOF_REQUIRED');
+    assert.match(approveRes.message, /génération automatique interdite|obligatoire/);
+  });
+
+  it('46. Chantier D.2 — Élimination stricte de toute clé par défaut hors environnement de test explicitement autorisé', () => {
+    const { getActiveAuthoritySecretKey } = require('../../backend/services/refundActionProofAuthority.js');
+    const oldNodeEnv = process.env.NODE_ENV;
+    const oldP28b = process.env.P28B_ALLOW_DISPOSABLE_DB;
+    const oldP28c = process.env.P28C_ALLOW_DISPOSABLE_DB;
+    const oldKey = process.env.YZIOW_REFUND_AUTH_AUTHORITY_SECRET;
+    const oldLegacyKey = process.env.YZIOW_REFUND_ACTION_AUTH_KEY;
+
+    try {
+      delete process.env.YZIOW_REFUND_AUTH_AUTHORITY_SECRET;
+      delete process.env.YZIOW_REFUND_ACTION_AUTH_KEY;
+
+      // Hors test explicitement autorisé (ex: staging ou production ou dev)
+      process.env.NODE_ENV = 'staging';
+      delete process.env.P28B_ALLOW_DISPOSABLE_DB;
+      delete process.env.P28C_ALLOW_DISPOSABLE_DB;
+
+      assert.throws(
+        () => getActiveAuthoritySecretKey(),
+        (err) => {
+          assert.match(err.message, /AUTHORITY_SECRET_NOT_CONFIGURED/);
+          return true;
+        }
+      );
+
+      // En production
+      process.env.NODE_ENV = 'production';
+      assert.throws(
+        () => getActiveAuthoritySecretKey(),
+        (err) => {
+          assert.match(err.message, /AUTHORITY_SECRET_NOT_CONFIGURED/);
+          return true;
+        }
+      );
+    } finally {
+      process.env.NODE_ENV = oldNodeEnv;
+      if (oldP28b) process.env.P28B_ALLOW_DISPOSABLE_DB = oldP28b;
+      if (oldP28c) process.env.P28C_ALLOW_DISPOSABLE_DB = oldP28c;
+      if (oldKey) process.env.YZIOW_REFUND_AUTH_AUTHORITY_SECRET = oldKey;
+      if (oldLegacyKey) process.env.YZIOW_REFUND_ACTION_AUTH_KEY = oldLegacyKey;
+    }
+  });
+
+  it('47. Chantier D.2 — Divergence de secret HMAC entre backend et PostgreSQL : rejet fail-closed (INVALID_ACTION_PROOF_SIGNATURE)', async () => {
+    const fixture = await seedFixture();
+    // Signature générée avec une fausse clé divergente
+    const divergentProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash,
+      secretKey: 'divergent_secret_key_testing_mismatch_123456789'
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Divergent secret test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: divergentProof,
+      actionAuthSecretKey: 'divergent_secret_key_testing_mismatch_123456789', // backend accepte localement avec la même clé
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    // Mais PostgreSQL possède la clé officielle -> rejet fail-closed
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'INVALID_ACTION_PROOF_SIGNATURE');
+  });
+
+  it('48. Chantier D.2 — Préservation du blocage financier SECURITY_BLOCKER même avec deux preuves valides distinctes et non rejouées', async () => {
+    const fixture = await seedFixture();
+    const mockFedapay = {
+      retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+    };
+
+    const initProof = buildValidInitiatorProof(fixture);
+    const initRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Gate blocker preservation test',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: initProof,
+      fedapayClient: mockFedapay
+    });
+    assert.strictEqual(initRes.success, true);
+
+    const approverProof = buildValidApproverProof(fixture, initRes.data.reconciliation_id);
+
+    // Appel avec gate par défaut (verrouillée)
+    const approveRes = await approveAndExecuteParentPackRefundReconciliation({
+      reconciliationId: initRes.data.reconciliation_id,
+      approverAdminId,
+      approvalNotes: 'Approbation bloquée par gate',
+      approverActionProof: approverProof,
+      fedapayClient: mockFedapay
+    });
+
+    assert.strictEqual(approveRes.success, false);
+    assert.strictEqual(approveRes.code, 'SECURITY_BLOCKER');
+
+    // Vérification que les ledgers de commission école et ambassadeur ne sont PAS impactés
+    const schoolLedger = await adminClient.query(`SELECT count(*)::int AS cnt FROM public.school_commission_ledger WHERE period_id = $1 AND type = 'cancellation'`, [fixture.periodId]);
+    assert.strictEqual(schoolLedger.rows[0].cnt, 0);
+
+    const periodDb = await adminClient.query(`SELECT status FROM public.parent_subscription_periods WHERE id = $1`, [fixture.periodId]);
+    assert.strictEqual(periodDb.rows[0].status, 'active');
   });
 });

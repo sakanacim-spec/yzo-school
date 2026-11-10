@@ -43,6 +43,308 @@ $$;
 GRANT USAGE ON SCHEMA public TO yziow_refund_executor;
 
 -- ------------------------------------------------------------------------------
+-- 0a. Chantier D.2 : Extension cryptographique et schéma isolé d'authentification
+--     indépendante des SuperAdmins (yziow_refund_auth)
+-- ------------------------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE SCHEMA IF NOT EXISTS yziow_refund_auth;
+
+-- Table de configuration de l'autorité de preuve (clé secrète HMAC-SHA256)
+CREATE TABLE IF NOT EXISTS yziow_refund_auth.authority_config (
+    id BOOLEAN PRIMARY KEY DEFAULT true CHECK (id = true),
+    secret_key TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+INSERT INTO yziow_refund_auth.authority_config (id, secret_key)
+VALUES (true, 'yziow_refund_action_auth_secret_default_testing_key_2026')
+ON CONFLICT (id) DO NOTHING;
+
+-- Table des nonces d'autorisation consommés (consommation atomique à usage unique / anti-rejeu)
+CREATE TABLE IF NOT EXISTS yziow_refund_auth.consumed_action_proofs (
+    jti UUID PRIMARY KEY,
+    admin_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
+    action_type TEXT NOT NULL CHECK (action_type IN ('initiate', 'approve')),
+    period_id UUID NOT NULL,
+    reconciliation_id UUID NULL,
+    provider_transaction_id TEXT NOT NULL,
+    verified_amount_minor BIGINT NOT NULL,
+    currency TEXT NOT NULL,
+    proof_document_hash TEXT NOT NULL,
+    issued_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+-- Révocation stricte : yziow_refund_executor (YZIOW_REFUND_DATABASE_URL) et les rôles applicatifs
+-- n'ont AUCUN accès au schéma d'autorité, à la clé secrète ou aux preuves consommées
+REVOKE ALL ON SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+REVOKE ALL ON ALL TABLES IN SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+
+-- Activation de l'état actif/révoqué sur superadmins
+ALTER TABLE public.superadmins ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
+-- Fonction de vérification cryptographique et de consommation atomique de la preuve d'action
+CREATE OR REPLACE FUNCTION yziow_refund_auth.verify_and_consume_action_proof(
+    p_proof JSONB,
+    p_expected_action_type TEXT,
+    p_expected_admin_id UUID,
+    p_expected_period_id UUID,
+    p_expected_reconciliation_id UUID,
+    p_expected_tx_id TEXT,
+    p_expected_amount BIGINT,
+    p_expected_currency TEXT,
+    p_expected_doc_hash TEXT
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = yziow_refund_auth, public, pg_catalog, pgcrypto
+AS $$
+DECLARE
+    v_version TEXT;
+    v_issuer TEXT;
+    v_action_type TEXT;
+    v_admin_id_text TEXT;
+    v_admin_id UUID;
+    v_is_active BOOLEAN;
+    v_period_id_text TEXT;
+    v_period_id UUID;
+    v_rec_id_text TEXT;
+    v_rec_id UUID;
+    v_tx_id TEXT;
+    v_amount_text TEXT;
+    v_amount BIGINT;
+    v_currency TEXT;
+    v_doc_hash TEXT;
+    v_issued_at_text TEXT;
+    v_expires_at_text TEXT;
+    v_issued_at TIMESTAMPTZ;
+    v_expires_at TIMESTAMPTZ;
+    v_jti_text TEXT;
+    v_jti UUID;
+    v_signature TEXT;
+    v_secret TEXT;
+    v_canonical TEXT;
+    v_expected_sig TEXT;
+BEGIN
+    -- 1. Présence de la preuve
+    IF p_proof IS NULL OR jsonb_typeof(p_proof) <> 'object' THEN
+        RAISE EXCEPTION 'ACTION_PROOF_REQUIRED: Preuve d''action cryptographique obligatoire pour toute operation de remboursement.';
+    END IF;
+
+    -- 2. Version et autorité émettrice
+    v_version := p_proof->>'version';
+    IF v_version IS DISTINCT FROM '1.0' THEN
+        RAISE EXCEPTION 'INVALID_ACTION_PROOF_VERSION: Version de preuve d''action non supportee (%)', COALESCE(v_version, 'NULL');
+    END IF;
+
+    v_issuer := p_proof->>'issuer';
+    IF v_issuer IS DISTINCT FROM 'yziow-refund-auth-authority' THEN
+        RAISE EXCEPTION 'UNRECOGNIZED_ACTION_PROOF_AUTHORITY: Autorite emettrice de la preuve d''action non reconnue (%)', COALESCE(v_issuer, 'NULL');
+    END IF;
+
+    -- 3. Type d'action ('initiate' ou 'approve')
+    v_action_type := p_proof->>'action_type';
+    IF v_action_type IS DISTINCT FROM p_expected_action_type THEN
+        RAISE EXCEPTION 'ACTION_PROOF_TYPE_MISMATCH: Type d''action discordant dans la preuve (% vs attendu %)',
+            COALESCE(v_action_type, 'NULL'), p_expected_action_type;
+    END IF;
+
+    -- 4. Administrateur signataire
+    v_admin_id_text := p_proof->>'admin_id';
+    IF v_admin_id_text IS NULL OR v_admin_id_text !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+        RAISE EXCEPTION 'INVALID_ACTION_PROOF_ADMIN_ID: Identifiant admin_id de preuve invalide (%)', COALESCE(v_admin_id_text, 'NULL');
+    END IF;
+    v_admin_id := v_admin_id_text::UUID;
+
+    IF p_expected_admin_id IS NOT NULL AND v_admin_id IS DISTINCT FROM p_expected_admin_id THEN
+        RAISE EXCEPTION 'ACTION_PROOF_ADMIN_MISMATCH: Le signataire de la preuve (%) ne correspond pas a l''administrateur declare (%)',
+            v_admin_id, p_expected_admin_id;
+    END IF;
+
+    -- Vérification du statut actif/révoqué de l'administrateur
+    SELECT is_active INTO v_is_active
+    FROM public.superadmins
+    WHERE id = v_admin_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin signataire % introuvable', v_admin_id;
+    END IF;
+
+    IF v_is_active IS NOT TRUE THEN
+        RAISE EXCEPTION 'REVOKED_ADMIN: Le SuperAdmin signataire % est inactif ou a ete revoque', v_admin_id;
+    END IF;
+
+    -- 5. Période
+    v_period_id_text := p_proof->>'period_id';
+    IF v_period_id_text IS NULL OR v_period_id_text !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+        RAISE EXCEPTION 'INVALID_ACTION_PROOF_PERIOD_ID: Identifiant period_id de preuve invalide (%)', COALESCE(v_period_id_text, 'NULL');
+    END IF;
+    v_period_id := v_period_id_text::UUID;
+
+    IF v_period_id IS DISTINCT FROM p_expected_period_id THEN
+        RAISE EXCEPTION 'ACTION_PROOF_PERIOD_MISMATCH: Periode discordante dans la preuve (% vs %)',
+            v_period_id, p_expected_period_id;
+    END IF;
+
+    -- 6. Dossier de rapprochement (obligatoire pour approbation, facultatif ou null pour initiation)
+    v_rec_id_text := p_proof->>'reconciliation_id';
+    IF p_expected_action_type = 'approve' THEN
+        IF v_rec_id_text IS NULL OR v_rec_id_text !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+            RAISE EXCEPTION 'INVALID_ACTION_PROOF_RECONCILIATION_ID: Identifiant reconciliation_id obligatoire pour l''approbation';
+        END IF;
+        v_rec_id := v_rec_id_text::UUID;
+        IF v_rec_id IS DISTINCT FROM p_expected_reconciliation_id THEN
+            RAISE EXCEPTION 'ACTION_PROOF_DOSSIER_MISMATCH: Dossier discordant dans la preuve (% vs %)',
+                v_rec_id, p_expected_reconciliation_id;
+        END IF;
+    ELSE
+        IF v_rec_id_text IS NOT NULL AND trim(v_rec_id_text) <> '' THEN
+            v_rec_id := v_rec_id_text::UUID;
+        ELSE
+            v_rec_id := NULL;
+        END IF;
+    END IF;
+
+    -- 7. Transaction fournisseur FedaPay
+    v_tx_id := trim(COALESCE(p_proof->>'provider_transaction_id', ''));
+    IF v_tx_id IS DISTINCT FROM trim(p_expected_tx_id) THEN
+        RAISE EXCEPTION 'ACTION_PROOF_TRANSACTION_MISMATCH: Transaction FedaPay discordante dans la preuve (% vs %)',
+            v_tx_id, trim(p_expected_tx_id);
+    END IF;
+
+    -- 8. Montant vérifié
+    v_amount_text := p_proof->>'verified_amount_minor';
+    IF v_amount_text IS NULL OR v_amount_text !~ '^[0-9]+$' THEN
+        RAISE EXCEPTION 'INVALID_ACTION_PROOF_AMOUNT: Montant verified_amount_minor invalide';
+    END IF;
+    v_amount := v_amount_text::BIGINT;
+    IF v_amount IS DISTINCT FROM p_expected_amount THEN
+        RAISE EXCEPTION 'ACTION_PROOF_AMOUNT_MISMATCH: Montant discordant dans la preuve (% vs %)',
+            v_amount, p_expected_amount;
+    END IF;
+
+    -- 9. Devise
+    v_currency := upper(trim(COALESCE(p_proof->>'currency', '')));
+    IF v_currency IS DISTINCT FROM upper(trim(p_expected_currency)) THEN
+        RAISE EXCEPTION 'ACTION_PROOF_CURRENCY_MISMATCH: Devise discordante dans la preuve (% vs %)',
+            v_currency, upper(trim(p_expected_currency));
+    END IF;
+
+    -- 10. Empreinte SHA-256 du justificatif
+    v_doc_hash := lower(trim(COALESCE(p_proof->>'proof_document_hash', '')));
+    IF v_doc_hash !~ '^[a-f0-9]{64}$' THEN
+        RAISE EXCEPTION 'INVALID_ACTION_PROOF_DOC_HASH: Empreinte SHA-256 documentaire invalide';
+    END IF;
+    IF v_doc_hash IS DISTINCT FROM lower(trim(p_expected_doc_hash)) THEN
+        RAISE EXCEPTION 'ACTION_PROOF_DOCUMENT_HASH_MISMATCH: Empreinte de justificatif discordante dans la preuve (% vs %)',
+            v_doc_hash, lower(trim(p_expected_doc_hash));
+    END IF;
+
+    -- 11. Horodatages et validité temporelle (5 minutes max)
+    v_issued_at_text := trim(COALESCE(p_proof->>'issued_at', ''));
+    v_expires_at_text := trim(COALESCE(p_proof->>'expires_at', ''));
+    BEGIN
+        v_issued_at := v_issued_at_text::TIMESTAMPTZ;
+        v_expires_at := v_expires_at_text::TIMESTAMPTZ;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE EXCEPTION 'INVALID_ACTION_PROOF_TIMESTAMPS: Horodatages de la preuve invalides';
+    END;
+
+    IF v_expires_at < clock_timestamp() THEN
+        RAISE EXCEPTION 'ACTION_PROOF_EXPIRED: Preuve d''action expiree a % (heure courante: %)',
+            v_expires_at, clock_timestamp();
+    END IF;
+
+    IF v_issued_at > (clock_timestamp() + interval '30 seconds') THEN
+        RAISE EXCEPTION 'ACTION_PROOF_FUTURE: Preuve d''action emise dans le futur (%)', v_issued_at;
+    END IF;
+
+    -- 12. Nonce unique (jti)
+    v_jti_text := p_proof->>'jti';
+    IF v_jti_text IS NULL OR v_jti_text !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+        RAISE EXCEPTION 'INVALID_ACTION_PROOF_JTI: Nonce jti UUID valide requis';
+    END IF;
+    v_jti := v_jti_text::UUID;
+
+    -- 13. Vérification de la signature cryptographique (HMAC-SHA256)
+    v_signature := lower(trim(COALESCE(p_proof->>'signature', '')));
+    IF v_signature !~ '^[a-f0-9]{64}$' THEN
+        RAISE EXCEPTION 'INVALID_ACTION_PROOF_SIGNATURE: Format de signature invalide';
+    END IF;
+
+    SELECT secret_key INTO v_secret
+    FROM yziow_refund_auth.authority_config
+    WHERE id = true;
+
+    IF v_secret IS NULL OR v_secret = '' THEN
+        RAISE EXCEPTION 'AUTHORITY_KEY_NOT_CONFIGURED: Cle secrete de l''autorite de preuve non configuree';
+    END IF;
+
+    -- Reconstitution de la chaîne canonique exacte :
+    -- v1|action_type|admin_id|period_id|reconciliation_id|provider_transaction_id|verified_amount_minor|currency|proof_document_hash|issued_at|expires_at|jti
+    v_canonical := 'v1|' || v_action_type || '|' ||
+                   lower(v_admin_id::text) || '|' ||
+                   lower(v_period_id::text) || '|' ||
+                   COALESCE(lower(v_rec_id::text), '') || '|' ||
+                   v_tx_id || '|' ||
+                   v_amount::text || '|' ||
+                   v_currency || '|' ||
+                   v_doc_hash || '|' ||
+                   v_issued_at_text || '|' ||
+                   v_expires_at_text || '|' ||
+                   lower(v_jti::text);
+
+    v_expected_sig := lower(encode(hmac(convert_to(v_canonical, 'utf8'), convert_to(v_secret, 'utf8'), 'sha256'), 'hex'));
+
+    IF v_signature IS DISTINCT FROM v_expected_sig THEN
+        RAISE EXCEPTION 'INVALID_ACTION_PROOF_SIGNATURE: Signature cryptographique de la preuve invalide (rejet fail-closed).';
+    END IF;
+
+    -- 14. Consommation atomique à usage unique (anti-rejeu)
+    BEGIN
+        INSERT INTO yziow_refund_auth.consumed_action_proofs (
+            jti,
+            admin_id,
+            action_type,
+            period_id,
+            reconciliation_id,
+            provider_transaction_id,
+            verified_amount_minor,
+            currency,
+            proof_document_hash,
+            issued_at,
+            expires_at,
+            consumed_at
+        ) VALUES (
+            v_jti,
+            v_admin_id,
+            v_action_type,
+            v_period_id,
+            v_rec_id,
+            v_tx_id,
+            v_amount,
+            v_currency,
+            v_doc_hash,
+            v_issued_at,
+            v_expires_at,
+            clock_timestamp()
+        );
+    EXCEPTION
+        WHEN unique_violation THEN
+            RAISE EXCEPTION 'ACTION_PROOF_ALREADY_CONSUMED: La preuve d''action (%) a deja ete consommee. Rejeu interdit.', v_jti;
+    END;
+
+    RETURN v_admin_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION yziow_refund_auth.verify_and_consume_action_proof(JSONB, TEXT, UUID, UUID, UUID, TEXT, BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+
+-- ------------------------------------------------------------------------------
 -- 0b. Verrou de sécurité fail-closed des trois garanties préalables à toute
 --     compensation financière (Mission 1) :
 --       1. Authentification indépendante des deux SuperAdmins
@@ -140,6 +442,8 @@ CREATE TABLE IF NOT EXISTS public.parent_pack_refund_reconciliations (
     approver_admin_id UUID NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
     approval_notes TEXT NULL,
     approved_at TIMESTAMPTZ NULL,
+    initiator_action_proof JSONB NULL,
+    approver_action_proof JSONB NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     CONSTRAINT uq_refund_reconciliation_internal_ref UNIQUE (internal_reconciliation_ref),
@@ -193,6 +497,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_refund_reconciliation_active_period
 CREATE UNIQUE INDEX IF NOT EXISTS uq_refund_reconciliation_provider_refund_id
     ON public.parent_pack_refund_reconciliations (provider_refund_id)
     WHERE provider_refund_id IS NOT NULL;
+
+ALTER TABLE public.parent_pack_refund_reconciliations
+    ADD COLUMN IF NOT EXISTS initiator_action_proof JSONB NULL,
+    ADD COLUMN IF NOT EXISTS approver_action_proof JSONB NULL;
 
 ALTER TABLE public.parent_pack_refund_reconciliations ENABLE ROW LEVEL SECURITY;
 
@@ -249,7 +557,8 @@ BEGIN
            OR NEW.proof_currency IS DISTINCT FROM OLD.proof_currency
            OR NEW.proof_beneficiary_ref IS DISTINCT FROM OLD.proof_beneficiary_ref
            OR NEW.proof_refunded_at IS DISTINCT FROM OLD.proof_refunded_at
-           OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+           OR NEW.created_at IS DISTINCT FROM OLD.created_at
+           OR NEW.initiator_action_proof IS DISTINCT FROM OLD.initiator_action_proof THEN
             RAISE EXCEPTION 'FAIL CLOSED: Modification des donnees d''initiation ou des preuves interdite sur le dossier de rapprochement (%).', OLD.id;
         END IF;
 
@@ -299,6 +608,8 @@ CREATE TABLE IF NOT EXISTS public.parent_pack_refund_audits (
     deducted_from_pending_minor BIGINT NOT NULL DEFAULT 0,
     deducted_from_available_minor BIGINT NOT NULL DEFAULT 0,
     added_to_debt_minor BIGINT NOT NULL DEFAULT 0,
+    initiator_action_proof JSONB NULL,
+    approver_action_proof JSONB NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     CONSTRAINT uq_parent_pack_refund_period UNIQUE (period_id),
     CONSTRAINT uq_parent_pack_refund_reconciliation UNIQUE (reconciliation_id),
@@ -314,6 +625,10 @@ CREATE TABLE IF NOT EXISTS public.parent_pack_refund_audits (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_parent_pack_refund_provider
     ON public.parent_pack_refund_audits (provider_refund_id)
     WHERE provider_refund_id IS NOT NULL;
+
+ALTER TABLE public.parent_pack_refund_audits
+    ADD COLUMN IF NOT EXISTS initiator_action_proof JSONB NULL,
+    ADD COLUMN IF NOT EXISTS approver_action_proof JSONB NULL;
 
 ALTER TABLE public.parent_pack_refund_audits ENABLE ROW LEVEL SECURITY;
 
@@ -700,6 +1015,8 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 6. Étape 1 du rapprochement : Initiation par un premier SuperAdmin authentifié
 -- ------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.admin_create_parent_pack_refund_reconciliation(
     p_period_id UUID,
     p_initiator_admin_id UUID,
@@ -715,7 +1032,8 @@ CREATE OR REPLACE FUNCTION public.admin_create_parent_pack_refund_reconciliation
     p_proof_beneficiary_ref TEXT,
     p_proof_refunded_at TIMESTAMPTZ,
     p_internal_reconciliation_ref TEXT DEFAULT NULL,
-    p_provider_refund_id TEXT DEFAULT NULL
+    p_provider_refund_id TEXT DEFAULT NULL,
+    p_initiator_action_proof JSONB DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -749,7 +1067,7 @@ BEGIN
     -- 2. Authentification du SuperAdmin initiateur
     SELECT username INTO v_initiator_name
     FROM public.superadmins
-    WHERE id = p_initiator_admin_id;
+    WHERE id = p_initiator_admin_id AND is_active = true;
 
     IF v_initiator_name IS NULL THEN
         RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin initiateur % introuvable ou non autorise', p_initiator_admin_id;
@@ -863,7 +1181,21 @@ BEGIN
             COALESCE(p_proof_refunded_at::text, 'NULL'), COALESCE(v_intent.processed_at::text, 'NULL');
     END IF;
 
-    -- 8. Vérification d'un dossier pending_approval existant pour cette période
+    -- 8. Vérification et consommation atomique de la preuve d'action de l'initiateur (Chantier D.2)
+    --    Tout appel doit impérativement fournir une preuve d'action valide, non expirée et non rejouée.
+    PERFORM yziow_refund_auth.verify_and_consume_action_proof(
+        p_initiator_action_proof,
+        'initiate'::TEXT,
+        p_initiator_admin_id,
+        p_period_id,
+        NULL::UUID,
+        v_intent.provider_transaction_id,
+        v_intent.expected_amount::BIGINT,
+        v_intent.expected_currency,
+        p_proof_document_hash
+    );
+
+    -- 8b. Vérification d'un dossier pending_approval existant pour cette période
     SELECT * INTO v_existing_rec
     FROM public.parent_pack_refund_reconciliations
     WHERE period_id = p_period_id
@@ -944,7 +1276,8 @@ BEGIN
         proof_currency,
         proof_beneficiary_ref,
         proof_refunded_at,
-        status
+        status,
+        initiator_action_proof
     ) VALUES (
         p_period_id,
         v_sub.id,
@@ -963,7 +1296,8 @@ BEGIN
         trim(p_proof_currency),
         trim(p_proof_beneficiary_ref),
         p_proof_refunded_at,
-        'pending_approval'
+        'pending_approval',
+        p_initiator_action_proof
     ) RETURNING id INTO v_reconciliation_id;
 
     PERFORM set_config('yziow.reconciliation_step_active', 'off', true);
@@ -985,6 +1319,8 @@ $$;
 -- 7. Étape 2 du rapprochement : Approbation par un second SuperAdmin distinct
 --    et exécution atomique de la compensation financière
 -- ------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.admin_approve_parent_pack_refund_reconciliation(
     p_reconciliation_id UUID,
     p_approver_admin_id UUID,
@@ -992,7 +1328,8 @@ CREATE OR REPLACE FUNCTION public.admin_approve_parent_pack_refund_reconciliatio
     p_verified_provider_status TEXT,
     p_verified_amount_minor BIGINT,
     p_verified_currency TEXT,
-    p_approval_notes TEXT DEFAULT NULL
+    p_approval_notes TEXT DEFAULT NULL,
+    p_approver_action_proof JSONB DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -1036,7 +1373,7 @@ BEGIN
     -- 2. Authentification du second SuperAdmin approbateur
     SELECT username INTO v_approver_name
     FROM public.superadmins
-    WHERE id = p_approver_admin_id;
+    WHERE id = p_approver_admin_id AND is_active = true;
 
     IF v_approver_name IS NULL THEN
         RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin approbateur % introuvable ou non autorise', p_approver_admin_id;
@@ -1174,7 +1511,20 @@ BEGIN
         RAISE EXCEPTION 'INVALID_PROOF_ARTIFACT: Le chemin de stockage prive ou l''empreinte SHA-256 du justificatif est invalide';
     END IF;
 
-    -- 8b. Verrouillage FAIL-CLOSED de la compensation financière (Mission 1) :
+    -- 8b. Vérification et consommation atomique de la preuve d'action de l'approbateur (Chantier D.2)
+    PERFORM yziow_refund_auth.verify_and_consume_action_proof(
+        p_approver_action_proof,
+        'approve'::TEXT,
+        p_approver_admin_id,
+        v_rec.period_id,
+        p_reconciliation_id,
+        p_verified_transaction_id,
+        p_verified_amount_minor::BIGINT,
+        p_verified_currency,
+        v_rec.proof_document_hash
+    );
+
+    -- 8c. Verrouillage FAIL-CLOSED de la compensation financière (Mission 1) :
     --     Tant que les trois garanties de sécurité (authentification indépendante des deux SuperAdmins,
     --     preuve fournisseur FedaPay certifiée du remboursement, stockage privé vérifiable)
     --     ne sont pas toutes opérationnelles, toute approbation et compensation financière est bloquée
@@ -1332,6 +1682,7 @@ BEGIN
         approver_admin_id = p_approver_admin_id,
         approval_notes = NULLIF(trim(COALESCE(p_approval_notes, '')), ''),
         approved_at = clock_timestamp(),
+        approver_action_proof = p_approver_action_proof,
         updated_at = clock_timestamp()
     WHERE id = v_rec.id;
 
@@ -1361,7 +1712,9 @@ BEGIN
         yziow_share_minor,
         deducted_from_pending_minor,
         deducted_from_available_minor,
-        added_to_debt_minor
+        added_to_debt_minor,
+        initiator_action_proof,
+        approver_action_proof
     ) VALUES (
         v_rec.id,
         v_rec.period_id,
@@ -1387,7 +1740,9 @@ BEGIN
         v_orig_ledger.yziow_share_minor,
         v_pending_to_deduct,
         v_avail_to_deduct,
-        v_debt_to_add
+        v_debt_to_add,
+        v_rec.initiator_action_proof,
+        p_approver_action_proof
     ) RETURNING id INTO v_refund_audit_id;
 
     -- 14. Transition certifiée de l'intention et de la période vers 'refunded'
@@ -1510,6 +1865,8 @@ BEGIN
         'approver_admin_id', v_rec.approver_admin_id,
         'approval_notes', v_rec.approval_notes,
         'approved_at', v_rec.approved_at,
+        'initiator_action_proof', v_rec.initiator_action_proof,
+        'approver_action_proof', v_rec.approver_action_proof,
         'created_at', v_rec.created_at
     );
 END;
@@ -1521,11 +1878,11 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) TO yziow_refund_executor;
 
-REVOKE EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT) TO yziow_refund_executor;
+REVOKE EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) TO yziow_refund_executor;
 
-REVOKE EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT) TO yziow_refund_executor;
+REVOKE EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) TO yziow_refund_executor;
 
 REVOKE EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) TO yziow_refund_executor;

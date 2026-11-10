@@ -30,6 +30,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const pg = require('pg');
 const { randomUUID, createHash } = require('node:crypto');
+const { generateRefundActionProof } = require('../services/refundActionProofAuthority');
 
 const { Client } = pg;
 let client;
@@ -261,9 +262,27 @@ async function executeDualCustodyRefundSql(data, opts = {}) {
   const providerRefundId = opts.providerRefundId !== undefined ? opts.providerRefundId : null;
   const approvalNotes = opts.approvalNotes || 'Seconde validation conforme au justificatif';
 
+  let initiatorProof = opts.initiatorProof;
+  if (initiatorProof === undefined) {
+    try {
+      initiatorProof = generateRefundActionProof({
+        adminId: initiator,
+        actionType: 'initiate',
+        periodId: data.periodId,
+        reconciliationId: null,
+        providerTransactionId: verifiedTxId,
+        verifiedAmountMinor: verifiedAmount,
+        currency: verifiedCurrency,
+        proofDocumentHash: docHash,
+      });
+    } catch {
+      initiatorProof = null;
+    }
+  }
+
   const initRes = await client.query(`
     SELECT public.admin_create_parent_pack_refund_reconciliation(
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
     ) AS res;
   `, [
     data.periodId,
@@ -280,7 +299,8 @@ async function executeDualCustodyRefundSql(data, opts = {}) {
     beneficiaryRef,
     refundedAt,
     internalRef,
-    providerRefundId
+    providerRefundId,
+    initiatorProof ? JSON.stringify(initiatorProof) : null
   ]);
 
   const initPayload = initRes.rows[0].res;
@@ -298,9 +318,27 @@ async function executeDualCustodyRefundSql(data, opts = {}) {
     `);
   }
 
+  let approverProof = opts.approverProof;
+  if (approverProof === undefined) {
+    try {
+      approverProof = generateRefundActionProof({
+        adminId: approver,
+        actionType: 'approve',
+        periodId: data.periodId,
+        reconciliationId: initPayload.reconciliation_id,
+        providerTransactionId: verifiedTxId,
+        verifiedAmountMinor: verifiedAmount,
+        currency: verifiedCurrency,
+        proofDocumentHash: docHash,
+      });
+    } catch {
+      approverProof = null;
+    }
+  }
+
   const approveRes = await client.query(`
     SELECT public.admin_approve_parent_pack_refund_reconciliation(
-      $1, $2, $3, $4, $5, $6, $7
+      $1, $2, $3, $4, $5, $6, $7, $8
     ) AS res;
   `, [
     initPayload.reconciliation_id,
@@ -309,7 +347,8 @@ async function executeDualCustodyRefundSql(data, opts = {}) {
     verifiedStatus,
     verifiedAmount,
     verifiedCurrency,
-    approvalNotes
+    approvalNotes,
+    approverProof ? JSON.stringify(approverProof) : null
   ]);
 
   return {
@@ -452,9 +491,19 @@ describe('P28c: Parent Pack Refund and Financial Hardening (Dual-Custody)', () =
     const { initPayload } = await executeDualCustodyRefundSql(data, { reason: 'Premier remboursement' });
 
     // Second approval call on same reconciliation
+    const replayApproverProof = generateRefundActionProof({
+      adminId: approverAdminId,
+      actionType: 'approve',
+      periodId: data.periodId,
+      reconciliationId: initPayload.reconciliation_id,
+      providerTransactionId: data.providerTxId,
+      verifiedAmountMinor: 1000,
+      currency: 'XOF',
+      proofDocumentHash: validProofHash,
+    });
     const rpcRes2 = await client.query(`
-      SELECT public.admin_approve_parent_pack_refund_reconciliation($1, $2, $3, 'refunded', 1000, 'XOF', 'Rejeu') AS res;
-    `, [initPayload.reconciliation_id, approverAdminId, data.providerTxId]);
+      SELECT public.admin_approve_parent_pack_refund_reconciliation($1, $2, $3, 'refunded', 1000, 'XOF', 'Rejeu', $4) AS res;
+    `, [initPayload.reconciliation_id, approverAdminId, data.providerTxId, JSON.stringify(replayApproverProof)]);
 
     const res2 = rpcRes2.rows[0].res;
     assert.strictEqual(res2.status, 'already_refunded');
@@ -783,12 +832,22 @@ describe('P28c: Parent Pack Refund and Financial Hardening (Dual-Custody)', () =
     assert.strictEqual(directInsertThrew, true, 'Direct INSERT on parent_pack_refund_reconciliations must throw FAIL CLOSED');
 
     // Create legitimate pending_approval reconciliation via RPC
+    const initProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: data.periodId,
+      reconciliationId: null,
+      providerTransactionId: data.providerTxId,
+      verifiedAmountMinor: 1000,
+      currency: 'XOF',
+      proofDocumentHash: validProofHash,
+    });
     const initRes = await client.query(`
       SELECT public.admin_create_parent_pack_refund_reconciliation(
         $1, $2, 'Test immutability', $3, 'refunded', 1000, 'XOF',
-        'private://refund-proofs/2026/test.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL
+        'private://refund-proofs/2026/test.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL, $6
       ) AS res;
-    `, [data.periodId, superAdminId, data.providerTxId, validProofHash, data.parentRef]);
+    `, [data.periodId, superAdminId, data.providerTxId, validProofHash, data.parentRef, JSON.stringify(initProof)]);
     const recId = initRes.rows[0].res.reconciliation_id;
 
     // DELETE is blocked
@@ -823,24 +882,45 @@ describe('P28c: Parent Pack Refund and Financial Hardening (Dual-Custody)', () =
     assert.strictEqual(execPriv.rows[0].srv_upd, false);
 
     // 3. Step 1 (initiation) creates a pending_approval dossier without touching financial tables
+    const initProof = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: data.periodId,
+      reconciliationId: null,
+      providerTransactionId: data.providerTxId,
+      verifiedAmountMinor: 1000,
+      currency: 'XOF',
+      proofDocumentHash: validProofHash,
+    });
     const initRes = await client.query(`
       SELECT public.admin_create_parent_pack_refund_reconciliation(
         $1, $2, 'Dossier en attente', $3, 'refunded', 1000, 'XOF',
-        'private://refund-proofs/2026/locked.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL
+        'private://refund-proofs/2026/locked.pdf', $4, 1000, 'XOF', $5, NOW(), NULL, NULL, $6
       ) AS res;
-    `, [data.periodId, superAdminId, data.providerTxId, validProofHash, data.parentRef]);
+    `, [data.periodId, superAdminId, data.providerTxId, validProofHash, data.parentRef, JSON.stringify(initProof)]);
     const recId = initRes.rows[0].res.reconciliation_id;
     assert.strictEqual(initRes.rows[0].res.status, 'pending_approval');
 
-    // 4. Step 2 (approval) is blocked fail-closed by default (SECURITY_BLOCKER) even with 2 distinct SuperAdmins and valid proof
+    // 4. Step 2 (approval) is blocked fail-closed by default (SECURITY_BLOCKER) even with 2 distinct SuperAdmins and valid action proof
+    const approverProof = generateRefundActionProof({
+      adminId: approverAdminId,
+      actionType: 'approve',
+      periodId: data.periodId,
+      reconciliationId: recId,
+      providerTransactionId: data.providerTxId,
+      verifiedAmountMinor: 1000,
+      currency: 'XOF',
+      proofDocumentHash: validProofHash,
+    });
+
     await client.query('SAVEPOINT p28c_approve_locked');
     let approveLockedThrew = false;
     try {
       await client.query(`
         SELECT public.admin_approve_parent_pack_refund_reconciliation(
-          $1, $2, $3, 'refunded', 1000, 'XOF', 'Tentative approbation avec gate verrouillee'
+          $1, $2, $3, 'refunded', 1000, 'XOF', 'Tentative approbation avec gate verrouillee', $4
         );
-      `, [recId, approverAdminId, data.providerTxId]);
+      `, [recId, approverAdminId, data.providerTxId, JSON.stringify(approverProof)]);
     } catch (err) {
       approveLockedThrew = true;
       assert.match(err.message, /SECURITY_BLOCKER/);
@@ -855,9 +935,9 @@ describe('P28c: Parent Pack Refund and Financial Hardening (Dual-Custody)', () =
       await client.query(`SET LOCAL ROLE yziow_refund_executor`);
       await client.query(`
         SELECT public.admin_approve_parent_pack_refund_reconciliation(
-          $1, $2, $3, 'refunded', 1000, 'XOF', 'Appel direct yziow_refund_executor'
+          $1, $2, $3, 'refunded', 1000, 'XOF', 'Appel direct yziow_refund_executor', $4
         );
-      `, [recId, approverAdminId, data.providerTxId]);
+      `, [recId, approverAdminId, data.providerTxId, JSON.stringify(approverProof)]);
     } catch (err) {
       execApproveThrew = true;
       assert.match(err.message, /SECURITY_BLOCKER/);

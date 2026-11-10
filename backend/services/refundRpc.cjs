@@ -45,8 +45,9 @@ async function executeCreateRefundReconciliationRpc({
   proofRefundedAt,
   internalReconciliationRef = null,
   providerRefundId = null,
+  initiatorActionProof = null,
 }) {
-  const query = `SELECT admin_create_parent_pack_refund_reconciliation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) AS result`;
+  const query = `SELECT admin_create_parent_pack_refund_reconciliation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) AS result`;
   return runWithRefundRole(query, [
     periodId,
     initiatorAdminId,
@@ -63,6 +64,7 @@ async function executeCreateRefundReconciliationRpc({
     proofRefundedAt,
     internalReconciliationRef,
     providerRefundId,
+    initiatorActionProof ? JSON.stringify(initiatorActionProof) : null,
   ]);
 }
 
@@ -78,8 +80,9 @@ async function executeApproveRefundReconciliationRpc({
   verifiedAmountMinor,
   verifiedCurrency,
   approvalNotes = null,
+  approverActionProof = null,
 }) {
-  const query = `SELECT admin_approve_parent_pack_refund_reconciliation($1, $2, $3, $4, $5, $6, $7) AS result`;
+  const query = `SELECT admin_approve_parent_pack_refund_reconciliation($1, $2, $3, $4, $5, $6, $7, $8) AS result`;
   return runWithRefundRole(query, [
     reconciliationId,
     approverAdminId,
@@ -88,6 +91,7 @@ async function executeApproveRefundReconciliationRpc({
     verifiedAmountMinor,
     verifiedCurrency,
     approvalNotes,
+    approverActionProof ? JSON.stringify(approverActionProof) : null,
   ]);
 }
 

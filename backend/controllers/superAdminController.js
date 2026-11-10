@@ -829,7 +829,8 @@ async function createParentPackRefundReconciliation(req, res) {
             reason,
             proof,
             internalReconciliationRef,
-            providerRefundId
+            providerRefundId,
+            initiatorActionProof
         } = req.body || {};
 
         if (!periodId || !proof) {
@@ -845,7 +846,8 @@ async function createParentPackRefundReconciliation(req, res) {
             reason: reason || 'Remboursement administratif Parent Pack',
             proof,
             internalReconciliationRef: internalReconciliationRef || null,
-            providerRefundId: providerRefundId || null
+            providerRefundId: providerRefundId || null,
+            initiatorActionProof: initiatorActionProof || null
         });
 
         if (!result.success) {
@@ -869,7 +871,7 @@ async function approveParentPackRefundReconciliation(req, res) {
     try {
         const approverAdminId = req.user?.id;
         const { reconciliationId } = req.params;
-        const { periodId, approvalNotes } = req.body || {};
+        const { periodId, approvalNotes, approverActionProof } = req.body || {};
 
         if (!reconciliationId) {
             return res.status(400).json({
@@ -882,7 +884,8 @@ async function approveParentPackRefundReconciliation(req, res) {
             reconciliationId,
             periodId: periodId || null,
             approverAdminId,
-            approvalNotes: approvalNotes || null
+            approvalNotes: approvalNotes || null,
+            approverActionProof: approverActionProof || null
         });
 
         if (!result.success) {
