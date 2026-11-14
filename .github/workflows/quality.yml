@@ -89,6 +89,15 @@ jobs:
         run: npm run test:parent-pack
         env:
           DATABASE_URL: postgresql://postgres:postgrespassword@127.0.0.1:55428/yziow_p28b_disposable_test_ci
+          NODE_ENV: 'test'
+          P28B_ALLOW_DISPOSABLE_DB: 'true'
+          P28B_DISPOSABLE_DB_NAME: 'yziow_p28b_disposable_test_ci'
+
+      - name: Tests d’intégration Parent Pack P28c
+        run: npm run test:parent-pack-p28c
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@127.0.0.1:55428/yziow_p28b_disposable_test_ci
+          NODE_ENV: 'test'
           P28B_ALLOW_DISPOSABLE_DB: 'true'
           P28B_DISPOSABLE_DB_NAME: 'yziow_p28b_disposable_test_ci'
 

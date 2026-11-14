@@ -782,9 +782,322 @@ async function changeSuperAdminPassword(req, res) {
     }
 }
 
+// ── POST /superadmin/parent-pack/refund (Verrouillé fail-closed contre tout appel unilatéral) ──
+async function processParentPackRefund(req, res) {
+    try {
+        const adminActorId = req.user?.id;
+        const { periodId, providerRefundId, reason } = req.body;
+
+        if (!periodId || !providerRefundId) {
+            return res.status(400).json({
+                error: 'Champs requis manquants : periodId et providerRefundId sont obligatoires.'
+            });
+        }
+
+        const { refundParentPackSubscriptionAdmin } = require('../services/parentPackService');
+        // Appel strictement unilatéral : aucun paramètre client (ex. approverAdminId dans req.body)
+        // n'est accepté pour contourner la double validation.
+        const result = await refundParentPackSubscriptionAdmin({
+            periodId,
+            providerRefundId,
+            adminActorId,
+            reason: reason || 'Remboursement administratif Parent Pack'
+        });
+
+        if (!result.success) {
+            const status = (result.code === 'PERIOD_NOT_FOUND' || result.code === 'PAYMENT_INTENT_NOT_FOUND')
+                ? 404
+                : (result.code === 'SECURITY_BLOCKER' || result.code === 'FORBIDDEN_NOT_SUPERADMIN' || result.code === 'DUAL_CUSTODY_VIOLATION')
+                    ? 403
+                    : 400;
+            return res.status(status).json(result);
+        }
+
+        return res.json(result);
+    } catch (err) {
+        console.error('SuperAdmin processParentPackRefund Error:', err);
+        return res.status(500).json({ error: 'Erreur lors du traitement du remboursement : ' + err.message });
+    }
+}
+
+// ── POST /superadmin/parent-pack/refund/reconciliations (Étape 1 : Initiation par SuperAdmin #1) ──
+async function createParentPackRefundReconciliation(req, res) {
+    try {
+        const initiatorAdminId = req.user?.id;
+        const {
+            periodId,
+            reason,
+            proof,
+            internalReconciliationRef,
+            providerRefundId,
+            initiatorActionProof,
+            initiatorWebAuthnConfirmation
+        } = req.body || {};
+
+        if (!periodId || !proof) {
+            return res.status(400).json({
+                error: 'Champs requis manquants : periodId et proof sont obligatoires.'
+            });
+        }
+
+        const { createParentPackRefundReconciliationRequest } = require('../services/parentPackService');
+        const result = await createParentPackRefundReconciliationRequest({
+            periodId,
+            initiatorAdminId,
+            reason: reason || 'Remboursement administratif Parent Pack',
+            proof,
+            internalReconciliationRef: internalReconciliationRef || null,
+            providerRefundId: providerRefundId || null,
+            initiatorActionProof: initiatorActionProof || null,
+            initiatorWebAuthnConfirmation: initiatorWebAuthnConfirmation || null
+        });
+
+        if (!result.success) {
+            const status = (result.code === 'PERIOD_NOT_FOUND' || result.code === 'PAYMENT_INTENT_NOT_FOUND' || result.code === 'SUBSCRIPTION_NOT_FOUND')
+                ? 404
+                : (result.code === 'FORBIDDEN_NOT_SUPERADMIN' || result.code === 'SECURITY_BLOCKER')
+                    ? 403
+                    : 400;
+            return res.status(status).json(result);
+        }
+
+        return res.status(201).json(result);
+    } catch (err) {
+        console.error('SuperAdmin createParentPackRefundReconciliation Error:', err);
+        return res.status(500).json({ error: 'Erreur lors de la création du dossier de rapprochement : ' + err.message });
+    }
+}
+
+// ── POST /superadmin/parent-pack/refund/reconciliations/:reconciliationId/approve (Étape 2 : Approbation par SuperAdmin #2) ──
+async function approveParentPackRefundReconciliation(req, res) {
+    try {
+        const approverAdminId = req.user?.id;
+        const { reconciliationId } = req.params;
+        const { periodId, approvalNotes, approverActionProof, approverWebAuthnConfirmation } = req.body || {};
+
+        if (!reconciliationId) {
+            return res.status(400).json({
+                error: 'Identifiant du dossier de rapprochement (reconciliationId) obligatoire.'
+            });
+        }
+
+        const { approveAndExecuteParentPackRefundReconciliation } = require('../services/parentPackService');
+        const result = await approveAndExecuteParentPackRefundReconciliation({
+            reconciliationId,
+            periodId: periodId || null,
+            approverAdminId,
+            approvalNotes: approvalNotes || null,
+            approverActionProof: approverActionProof || null,
+            approverWebAuthnConfirmation: approverWebAuthnConfirmation || null
+        });
+
+        if (!result.success) {
+            const status = (result.code === 'RECONCILIATION_NOT_FOUND' || result.code === 'PERIOD_NOT_FOUND' || result.code === 'PAYMENT_INTENT_NOT_FOUND')
+                ? 404
+                : (result.code === 'FORBIDDEN_NOT_SUPERADMIN' || result.code === 'DUAL_CUSTODY_VIOLATION' || result.code === 'SECURITY_BLOCKER')
+                    ? 403
+                    : 400;
+            return res.status(status).json(result);
+        }
+
+        return res.json(result);
+    } catch (err) {
+        console.error('SuperAdmin approveParentPackRefundReconciliation Error:', err);
+        return res.status(500).json({ error: 'Erreur lors de l\'approbation du remboursement : ' + err.message });
+    }
+}
+
+// ── POST /superadmin/parent-pack/refund/verify ──────────────
+async function verifyParentPackRefund(req, res) {
+    try {
+        const { periodId } = req.body;
+        if (!periodId) {
+            return res.status(400).json({ error: 'Champs requis manquant : periodId est obligatoire.' });
+        }
+
+        const { verifyParentPackRefundStatus } = require('../services/parentPackService');
+        const result = await verifyParentPackRefundStatus(periodId);
+
+        if (!result.success) {
+            const status = (result.code === 'PERIOD_NOT_FOUND' || result.code === 'PAYMENT_INTENT_NOT_FOUND') ? 404 : 400;
+            return res.status(status).json(result);
+        }
+
+        return res.json(result);
+    } catch (err) {
+        console.error('SuperAdmin verifyParentPackRefund Error:', err);
+        return res.status(500).json({ error: 'Erreur lors de la vérification du remboursement : ' + err.message });
+    }
+}
+
+// ── Chantier D.2.1, D.2.2 & D.2.3 : Authentification forte personnelle WebAuthn via l'Autorité Indépendante ──
+
+// POST /api/superadmin/webauthn/register/challenge
+async function createWebAuthnRegistrationChallenge(req, res) {
+    try {
+        const adminId = req.user?.id;
+        const { rpId, origin } = req.body || {};
+        const { requestRegistrationChallenge } = require('../services/webauthnAuthorityClient');
+        const challengeData = await requestRegistrationChallenge(adminId, { rpId, origin });
+        return res.json({ success: true, ...challengeData });
+    } catch (err) {
+        console.error('SuperAdmin createWebAuthnRegistrationChallenge Error:', err);
+        const status = err.code === 'AUTHORITY_UNAVAILABLE' ? 503 : 400;
+        return res.status(status).json({ success: false, code: err.code || 'CHALLENGE_ERROR', error: err.message });
+    }
+}
+
+// POST /api/superadmin/webauthn/register/verify
+async function verifyWebAuthnRegistration(req, res) {
+    try {
+        const adminId = req.user?.id;
+        const {
+            credentialId,
+            publicKeySpki,
+            attestationObject,
+            clientDataJSON,
+            authenticatorData,
+            expectedChallenge,
+            enrollmentApprovalToken,
+            rpId,
+            origin,
+            aaguid,
+            transports
+        } = req.body || {};
+
+        const { requestVerifyAndRegisterCredential } = require('../services/webauthnAuthorityClient');
+        const result = await requestVerifyAndRegisterCredential({
+            adminId,
+            credentialId,
+            publicKeySpki,
+            attestationObject,
+            clientDataJSON,
+            authenticatorData,
+            expectedChallenge,
+            enrollmentApprovalToken,
+            requireEnrollmentApproval: true,
+            rpId,
+            origin,
+            aaguid,
+            transports
+        });
+
+        if (!result.valid) {
+            const status = (
+                result.code === 'UNAUTHORIZED_ADMIN_REGISTRATION' ||
+                result.code === 'INVALID_ORIGIN' ||
+                result.code === 'ENROLLMENT_CO_AUTHORIZATION_REQUIRED' ||
+                result.code === 'HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED' ||
+                result.code === 'SELF_ENROLLMENT_APPROVAL_FORBIDDEN'
+            ) ? 403 : (result.code === 'AUTHORITY_UNAVAILABLE' ? 503 : 400);
+            return res.status(status).json(result);
+        }
+
+        return res.status(201).json(result);
+    } catch (err) {
+        console.error('SuperAdmin verifyWebAuthnRegistration Error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+}
+
+// POST /api/superadmin/webauthn/refund/challenge
+async function createRefundActionChallenge(req, res) {
+    try {
+        const adminId = req.user?.id;
+        const {
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor,
+            currency,
+            proofDocumentHash,
+            rpId,
+            origin
+        } = req.body || {};
+
+        const { requestActionConfirmationChallenge } = require('../services/webauthnAuthorityClient');
+        const challengeData = await requestActionConfirmationChallenge({
+            adminId,
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor,
+            currency,
+            proofDocumentHash,
+            rpId,
+            origin
+        });
+
+        return res.json({ success: true, ...challengeData });
+    } catch (err) {
+        console.error('SuperAdmin createRefundActionChallenge Error:', err);
+        const status = err.code === 'AUTHORITY_UNAVAILABLE' ? 503 : (err.code === 'AUTHORITATIVE_DOSSIER_MISMATCH' || err.code === 'DUAL_CUSTODY_VIOLATION' ? 403 : 400);
+        return res.status(status).json({ success: false, code: err.code || 'CHALLENGE_ERROR', error: err.message });
+    }
+}
+
+// POST /api/superadmin/webauthn/refund/confirm
+async function confirmRefundAction(req, res) {
+    try {
+        const adminId = req.user?.id;
+        const {
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor,
+            currency,
+            proofDocumentHash,
+            webauthnAssertion
+        } = req.body || {};
+
+        const { requestConfirmedActionProof } = require('../services/webauthnAuthorityClient');
+        const result = await requestConfirmedActionProof({
+            adminId,
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor,
+            currency,
+            proofDocumentHash,
+            webauthnAssertion
+        });
+
+        if (!result.success) {
+            const status = (
+                result.code === 'INVALID_WEBAUTHN_SIGNATURE' ||
+                result.code === 'CREDENTIAL_REVOKED' ||
+                result.code === 'AUTHORITATIVE_DOSSIER_MISMATCH' ||
+                result.code === 'DUAL_CUSTODY_VIOLATION'
+            )
+                ? 403
+                : (result.code === 'AUTHORITY_UNAVAILABLE')
+                    ? 503
+                    : 400;
+            return res.status(status).json(result);
+        }
+
+        return res.json(result);
+    } catch (err) {
+        console.error('SuperAdmin confirmRefundAction Error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+}
+
 module.exports = { 
     getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, 
     recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus,
     getSettings, updateSettings, getTransactions, getGlobalAnnouncements, createGlobalAnnouncement, getSchoolLeads,
-    changeSuperAdminPassword
+    changeSuperAdminPassword,
+    processParentPackRefund,
+    createParentPackRefundReconciliation,
+    approveParentPackRefundReconciliation,
+    verifyParentPackRefund,
+    createWebAuthnRegistrationChallenge,
+    verifyWebAuthnRegistration,
+    createRefundActionChallenge,
+    confirmRefundAction
 };
