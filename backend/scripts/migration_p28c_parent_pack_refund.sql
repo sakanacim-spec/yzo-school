@@ -54,11 +54,15 @@ CREATE SCHEMA IF NOT EXISTS yziow_refund_auth;
 CREATE TABLE IF NOT EXISTS yziow_refund_auth.authority_config (
     id BOOLEAN PRIMARY KEY DEFAULT true CHECK (id = true),
     secret_key TEXT NOT NULL,
+    require_webauthn_confirmation BOOLEAN NOT NULL DEFAULT false,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
-INSERT INTO yziow_refund_auth.authority_config (id, secret_key)
-VALUES (true, 'yziow_refund_action_auth_secret_default_testing_key_2026')
+ALTER TABLE yziow_refund_auth.authority_config
+    ADD COLUMN IF NOT EXISTS require_webauthn_confirmation BOOLEAN NOT NULL DEFAULT false;
+
+INSERT INTO yziow_refund_auth.authority_config (id, secret_key, require_webauthn_confirmation)
+VALUES (true, 'yziow_refund_action_auth_secret_default_testing_key_2026', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Table des nonces d'autorisation consommés (consommation atomique à usage unique / anti-rejeu)
@@ -72,15 +76,198 @@ CREATE TABLE IF NOT EXISTS yziow_refund_auth.consumed_action_proofs (
     verified_amount_minor BIGINT NOT NULL,
     currency TEXT NOT NULL,
     proof_document_hash TEXT NOT NULL,
+    webauthn_challenge_id UUID UNIQUE NULL,
+    credential_id TEXT NULL,
     issued_at TIMESTAMPTZ NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     consumed_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
+ALTER TABLE yziow_refund_auth.consumed_action_proofs
+    ADD COLUMN IF NOT EXISTS webauthn_challenge_id UUID UNIQUE NULL,
+    ADD COLUMN IF NOT EXISTS credential_id TEXT NULL;
+
+-- ------------------------------------------------------------------------------
+-- 0a.1. Chantier D.2.1 & D.2.2 : Authentificateurs personnels WebAuthn des SuperAdmins
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.superadmin_webauthn_credentials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE CASCADE,
+    credential_id TEXT NOT NULL UNIQUE,
+    public_key_spki TEXT NOT NULL,
+    public_key_cose TEXT NULL,
+    cose_alg INTEGER NOT NULL DEFAULT -7,
+    counter BIGINT NOT NULL DEFAULT 0,
+    aaguid TEXT NULL,
+    attestation_format TEXT NULL DEFAULT 'none',
+    credential_device_type TEXT NULL DEFAULT 'singleDevice',
+    credential_backed_up BOOLEAN NOT NULL DEFAULT false,
+    transports TEXT[] NULL,
+    registered_by_approver_id UUID NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    revoked_at TIMESTAMPTZ NULL,
+    last_used_at TIMESTAMPTZ NULL
+);
+
+ALTER TABLE public.superadmin_webauthn_credentials
+    ADD COLUMN IF NOT EXISTS public_key_cose TEXT NULL,
+    ADD COLUMN IF NOT EXISTS cose_alg INTEGER NOT NULL DEFAULT -7,
+    ADD COLUMN IF NOT EXISTS attestation_format TEXT NULL DEFAULT 'none',
+    ADD COLUMN IF NOT EXISTS credential_device_type TEXT NULL DEFAULT 'singleDevice',
+    ADD COLUMN IF NOT EXISTS credential_backed_up BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS registered_by_approver_id UUID NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT;
+
+ALTER TABLE public.superadmin_webauthn_credentials ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_superadmin_webauthn_credentials_admin_id
+    ON public.superadmin_webauthn_credentials (admin_id);
+
+-- Table des challenges d'authentification forte WebAuthn (usage unique, courte durée)
+CREATE TABLE IF NOT EXISTS yziow_refund_auth.webauthn_challenges (
+    challenge_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE CASCADE,
+    action_type TEXT NOT NULL CHECK (action_type IN ('register', 'initiate', 'approve')),
+    challenge_bytes TEXT NOT NULL UNIQUE,
+    canonical_payload TEXT NULL,
+    period_id UUID NULL,
+    reconciliation_id UUID NULL,
+    provider_transaction_id TEXT NULL,
+    verified_amount_minor BIGINT NULL,
+    currency TEXT NULL,
+    proof_document_hash TEXT NULL,
+    rp_id TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ NULL,
+    consumed_by_credential_id TEXT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_admin_action
+    ON yziow_refund_auth.webauthn_challenges (admin_id, action_type);
+
 -- Révocation stricte : yziow_refund_executor (YZIOW_REFUND_DATABASE_URL) et les rôles applicatifs
--- n'ont AUCUN accès au schéma d'autorité, à la clé secrète ou aux preuves consommées
+-- n'ont AUCUN accès au schéma d'autorité, à la clé secrète, aux preuves ou aux challenges
 REVOKE ALL ON SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
 REVOKE ALL ON ALL TABLES IN SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+
+REVOKE ALL ON TABLE public.superadmin_webauthn_credentials FROM PUBLIC, anon, authenticated, yziow_refund_executor;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.superadmin_webauthn_credentials TO service_role;
+
+-- Fonction sécurisée pour enregistrer un challenge WebAuthn
+CREATE OR REPLACE FUNCTION yziow_refund_auth.store_webauthn_challenge(
+    p_admin_id UUID,
+    p_action_type TEXT,
+    p_challenge_bytes TEXT,
+    p_canonical_payload TEXT,
+    p_period_id UUID,
+    p_reconciliation_id UUID,
+    p_provider_tx_id TEXT,
+    p_amount BIGINT,
+    p_currency TEXT,
+    p_doc_hash TEXT,
+    p_rp_id TEXT,
+    p_origin TEXT,
+    p_validity_seconds INTEGER DEFAULT 300
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = yziow_refund_auth, public, pg_catalog
+AS $$
+DECLARE
+    v_challenge_id UUID;
+BEGIN
+    INSERT INTO yziow_refund_auth.webauthn_challenges (
+        admin_id,
+        action_type,
+        challenge_bytes,
+        canonical_payload,
+        period_id,
+        reconciliation_id,
+        provider_transaction_id,
+        verified_amount_minor,
+        currency,
+        proof_document_hash,
+        rp_id,
+        origin,
+        created_at,
+        expires_at
+    ) VALUES (
+        p_admin_id,
+        p_action_type,
+        p_challenge_bytes,
+        p_canonical_payload,
+        p_period_id,
+        p_reconciliation_id,
+        p_provider_tx_id,
+        p_amount,
+        p_currency,
+        p_doc_hash,
+        p_rp_id,
+        p_origin,
+        clock_timestamp(),
+        clock_timestamp() + (p_validity_seconds || ' seconds')::interval
+    )
+    RETURNING challenge_id INTO v_challenge_id;
+
+    RETURN v_challenge_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION yziow_refund_auth.store_webauthn_challenge(UUID, TEXT, TEXT, TEXT, UUID, UUID, TEXT, BIGINT, TEXT, TEXT, TEXT, TEXT, INTEGER) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+
+-- Fonction sécurisée pour consommer atomiquement un challenge WebAuthn (FOR UPDATE)
+CREATE OR REPLACE FUNCTION yziow_refund_auth.consume_webauthn_challenge(
+    p_challenge_bytes TEXT,
+    p_admin_id UUID,
+    p_action_type TEXT,
+    p_credential_id TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = yziow_refund_auth, public, pg_catalog
+AS $$
+DECLARE
+    v_challenge RECORD;
+BEGIN
+    SELECT * INTO v_challenge
+    FROM yziow_refund_auth.webauthn_challenges
+    WHERE challenge_bytes = p_challenge_bytes
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'CHALLENGE_NOT_FOUND: Challenge WebAuthn introuvable.';
+    END IF;
+
+    IF v_challenge.consumed_at IS NOT NULL THEN
+        RAISE EXCEPTION 'CHALLENGE_ALREADY_CONSUMED: Ce challenge WebAuthn a deja ete consomme (anti-rejeu).';
+    END IF;
+
+    IF v_challenge.expires_at < clock_timestamp() THEN
+        RAISE EXCEPTION 'CHALLENGE_EXPIRED: Ce challenge WebAuthn est expire.';
+    END IF;
+
+    IF v_challenge.admin_id IS DISTINCT FROM p_admin_id THEN
+        RAISE EXCEPTION 'CHALLENGE_ADMIN_MISMATCH: Le challenge n''appartient pas a l''administrateur declare.';
+    END IF;
+
+    IF v_challenge.action_type IS DISTINCT FROM p_action_type THEN
+        RAISE EXCEPTION 'CHALLENGE_ACTION_MISMATCH: Le type d''action ne correspond pas au challenge.';
+    END IF;
+
+    UPDATE yziow_refund_auth.webauthn_challenges
+    SET consumed_at = clock_timestamp(),
+        consumed_by_credential_id = p_credential_id
+    WHERE challenge_id = v_challenge.challenge_id;
+
+    RETURN TRUE;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION yziow_refund_auth.consume_webauthn_challenge(TEXT, UUID, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
 
 -- Activation de l'état actif/révoqué sur superadmins
 ALTER TABLE public.superadmins ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
@@ -126,6 +313,13 @@ DECLARE
     v_jti UUID;
     v_signature TEXT;
     v_secret TEXT;
+    v_require_webauthn BOOLEAN := false;
+    v_admin_has_active_webauthn BOOLEAN := false;
+    v_webauthn_challenge_id_text TEXT;
+    v_webauthn_challenge_id UUID := NULL;
+    v_credential_id TEXT := NULL;
+    v_challenge_rec RECORD;
+    v_cred_rec RECORD;
     v_canonical TEXT;
     v_expected_sig TEXT;
 BEGIN
@@ -276,7 +470,8 @@ BEGIN
         RAISE EXCEPTION 'INVALID_ACTION_PROOF_SIGNATURE: Format de signature invalide';
     END IF;
 
-    SELECT secret_key INTO v_secret
+    SELECT secret_key, COALESCE(require_webauthn_confirmation, false)
+    INTO v_secret, v_require_webauthn
     FROM yziow_refund_auth.authority_config
     WHERE id = true;
 
@@ -304,6 +499,69 @@ BEGIN
         RAISE EXCEPTION 'INVALID_ACTION_PROOF_SIGNATURE: Signature cryptographique de la preuve invalide (rejet fail-closed).';
     END IF;
 
+    -- 13b. Chantier D.2.2 (P1 & P5) : Contre-vérification PostgreSQL indépendante du challenge WebAuthn
+    --      Si l'administrateur possède un authentificateur WebAuthn actif, si require_webauthn_confirmation est actif,
+    --      ou si la preuve contient un webauthn_challenge_id, PostgreSQL vérifie directement que le challenge WebAuthn
+    --      a été réellement émis, consommé avec un authentificateur actif appartenant à ce SuperAdmin, et lié à ce dossier exact.
+    --      Ainsi, même un backend compromis ne peut fabriquer une preuve acceptée par PostgreSQL sans assertion WebAuthn réelle.
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.superadmin_webauthn_credentials
+        WHERE admin_id = v_admin_id
+          AND is_active = true
+          AND revoked_at IS NULL
+    ) INTO v_admin_has_active_webauthn;
+
+    v_webauthn_challenge_id_text := NULLIF(trim(COALESCE(p_proof->>'webauthn_challenge_id', '')), '');
+    v_credential_id := NULLIF(trim(COALESCE(p_proof->>'credential_id', '')), '');
+
+    IF v_require_webauthn OR v_admin_has_active_webauthn OR v_webauthn_challenge_id_text IS NOT NULL THEN
+        IF v_webauthn_challenge_id_text IS NULL
+           OR v_webauthn_challenge_id_text !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+           OR v_credential_id IS NULL THEN
+            RAISE EXCEPTION 'WEBAUTHN_CONFIRMATION_REQUIRED: Une confirmation materielle WebAuthn valide et consommee est obligatoire pour cet administrateur (contournement HMAC seul interdit).';
+        END IF;
+
+        v_webauthn_challenge_id := v_webauthn_challenge_id_text::UUID;
+
+        SELECT * INTO v_challenge_rec
+        FROM yziow_refund_auth.webauthn_challenges
+        WHERE challenge_id = v_webauthn_challenge_id;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'CHALLENGE_NOT_FOUND: Challenge WebAuthn (%) reference dans la preuve introuvable dans yziow_refund_auth.webauthn_challenges.', v_webauthn_challenge_id;
+        END IF;
+
+        IF v_challenge_rec.consumed_at IS NULL
+           OR v_challenge_rec.consumed_by_credential_id IS DISTINCT FROM v_credential_id THEN
+            RAISE EXCEPTION 'WEBAUTHN_CONFIRMATION_REQUIRED: Le challenge WebAuthn (%) n''a pas ete consomme par une assertion materielle valide.', v_webauthn_challenge_id;
+        END IF;
+
+        IF v_challenge_rec.admin_id IS DISTINCT FROM v_admin_id
+           OR v_challenge_rec.action_type IS DISTINCT FROM v_action_type
+           OR v_challenge_rec.period_id IS DISTINCT FROM v_period_id
+           OR (v_action_type = 'approve' AND v_challenge_rec.reconciliation_id IS DISTINCT FROM v_rec_id)
+           OR v_challenge_rec.provider_transaction_id IS DISTINCT FROM v_tx_id
+           OR v_challenge_rec.verified_amount_minor IS DISTINCT FROM v_amount
+           OR upper(trim(COALESCE(v_challenge_rec.currency, ''))) IS DISTINCT FROM v_currency
+           OR lower(trim(COALESCE(v_challenge_rec.proof_document_hash, ''))) IS DISTINCT FROM v_doc_hash THEN
+            RAISE EXCEPTION 'CHALLENGE_DOSSIER_MISMATCH: Le challenge WebAuthn consomme (%) ne correspond pas aux donnees exactes du dossier.', v_webauthn_challenge_id;
+        END IF;
+
+        SELECT * INTO v_cred_rec
+        FROM public.superadmin_webauthn_credentials
+        WHERE credential_id = v_credential_id
+          AND admin_id = v_admin_id;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'CREDENTIAL_NOT_FOUND: Authentificateur WebAuthn (%) introuvable pour l''administrateur %.', v_credential_id, v_admin_id;
+        END IF;
+
+        IF v_cred_rec.is_active IS NOT TRUE OR v_cred_rec.revoked_at IS NOT NULL THEN
+            RAISE EXCEPTION 'CREDENTIAL_REVOKED: L''authentificateur WebAuthn (%) a ete revoque.', v_credential_id;
+        END IF;
+    END IF;
+
     -- 14. Consommation atomique à usage unique (anti-rejeu)
     BEGIN
         INSERT INTO yziow_refund_auth.consumed_action_proofs (
@@ -316,6 +574,8 @@ BEGIN
             verified_amount_minor,
             currency,
             proof_document_hash,
+            webauthn_challenge_id,
+            credential_id,
             issued_at,
             expires_at,
             consumed_at
@@ -329,13 +589,15 @@ BEGIN
             v_amount,
             v_currency,
             v_doc_hash,
+            v_webauthn_challenge_id,
+            v_credential_id,
             v_issued_at,
             v_expires_at,
             clock_timestamp()
         );
     EXCEPTION
         WHEN unique_violation THEN
-            RAISE EXCEPTION 'ACTION_PROOF_ALREADY_CONSUMED: La preuve d''action (%) a deja ete consommee. Rejeu interdit.', v_jti;
+            RAISE EXCEPTION 'ACTION_PROOF_ALREADY_CONSUMED: La preuve d''action (%) ou son challenge WebAuthn a deja ete consomme. Rejeu interdit.', v_jti;
     END;
 
     RETURN v_admin_id;

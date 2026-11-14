@@ -830,7 +830,8 @@ async function createParentPackRefundReconciliation(req, res) {
             proof,
             internalReconciliationRef,
             providerRefundId,
-            initiatorActionProof
+            initiatorActionProof,
+            initiatorWebAuthnConfirmation
         } = req.body || {};
 
         if (!periodId || !proof) {
@@ -847,7 +848,8 @@ async function createParentPackRefundReconciliation(req, res) {
             proof,
             internalReconciliationRef: internalReconciliationRef || null,
             providerRefundId: providerRefundId || null,
-            initiatorActionProof: initiatorActionProof || null
+            initiatorActionProof: initiatorActionProof || null,
+            initiatorWebAuthnConfirmation: initiatorWebAuthnConfirmation || null
         });
 
         if (!result.success) {
@@ -871,7 +873,7 @@ async function approveParentPackRefundReconciliation(req, res) {
     try {
         const approverAdminId = req.user?.id;
         const { reconciliationId } = req.params;
-        const { periodId, approvalNotes, approverActionProof } = req.body || {};
+        const { periodId, approvalNotes, approverActionProof, approverWebAuthnConfirmation } = req.body || {};
 
         if (!reconciliationId) {
             return res.status(400).json({
@@ -885,7 +887,8 @@ async function approveParentPackRefundReconciliation(req, res) {
             periodId: periodId || null,
             approverAdminId,
             approvalNotes: approvalNotes || null,
-            approverActionProof: approverActionProof || null
+            approverActionProof: approverActionProof || null,
+            approverWebAuthnConfirmation: approverWebAuthnConfirmation || null
         });
 
         if (!result.success) {
@@ -927,6 +930,155 @@ async function verifyParentPackRefund(req, res) {
     }
 }
 
+// ── Chantier D.2.1 & D.2.2 : Authentification forte personnelle WebAuthn ──
+
+// POST /api/superadmin/webauthn/register/challenge
+async function createWebAuthnRegistrationChallenge(req, res) {
+    try {
+        const adminId = req.user?.id;
+        const { rpId, origin } = req.body || {};
+        const { createRegistrationChallenge } = require('../services/superAdminWebAuthnAuthority');
+        const challengeData = await createRegistrationChallenge(adminId, { rpId, origin });
+        return res.json({ success: true, ...challengeData });
+    } catch (err) {
+        console.error('SuperAdmin createWebAuthnRegistrationChallenge Error:', err);
+        return res.status(400).json({ success: false, error: err.message });
+    }
+}
+
+// POST /api/superadmin/webauthn/register/verify
+async function verifyWebAuthnRegistration(req, res) {
+    try {
+        const adminId = req.user?.id;
+        const {
+            credentialId,
+            publicKeySpki,
+            attestationObject,
+            clientDataJSON,
+            authenticatorData,
+            expectedChallenge,
+            enrollmentApprovalToken,
+            rpId,
+            origin,
+            aaguid,
+            transports
+        } = req.body || {};
+
+        const { verifyAndRegisterCredential } = require('../services/superAdminWebAuthnAuthority');
+        const result = await verifyAndRegisterCredential({
+            adminId,
+            credentialId,
+            publicKeySpki,
+            attestationObject,
+            clientDataJSON,
+            authenticatorData,
+            expectedChallenge,
+            enrollmentApprovalToken,
+            requireEnrollmentApproval: true,
+            rpId,
+            origin,
+            aaguid,
+            transports
+        });
+
+        if (!result.valid) {
+            const status = (
+                result.code === 'UNAUTHORIZED_ADMIN_REGISTRATION' ||
+                result.code === 'INVALID_ORIGIN' ||
+                result.code === 'ENROLLMENT_CO_AUTHORIZATION_REQUIRED' ||
+                result.code === 'SELF_ENROLLMENT_APPROVAL_FORBIDDEN'
+            ) ? 403 : 400;
+            return res.status(status).json(result);
+        }
+
+        return res.status(201).json(result);
+    } catch (err) {
+        console.error('SuperAdmin verifyWebAuthnRegistration Error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+}
+
+// POST /api/superadmin/webauthn/refund/challenge
+async function createRefundActionChallenge(req, res) {
+    try {
+        const adminId = req.user?.id;
+        const {
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor,
+            currency,
+            proofDocumentHash,
+            rpId,
+            origin
+        } = req.body || {};
+
+        const { createActionConfirmationChallenge } = require('../services/superAdminWebAuthnAuthority');
+        const challengeData = await createActionConfirmationChallenge({
+            adminId,
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor,
+            currency,
+            proofDocumentHash,
+            rpId,
+            origin
+        });
+
+        return res.json({ success: true, ...challengeData });
+    } catch (err) {
+        console.error('SuperAdmin createRefundActionChallenge Error:', err);
+        return res.status(400).json({ success: false, error: err.message });
+    }
+}
+
+// POST /api/superadmin/webauthn/refund/confirm
+async function confirmRefundAction(req, res) {
+    try {
+        const adminId = req.user?.id;
+        const {
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor,
+            currency,
+            proofDocumentHash,
+            webauthnAssertion
+        } = req.body || {};
+
+        const { issueConfirmedActionProof } = require('../services/superAdminWebAuthnAuthority');
+        const result = await issueConfirmedActionProof({
+            adminId,
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor,
+            currency,
+            proofDocumentHash,
+            webauthnAssertion
+        });
+
+        if (!result.success) {
+            const status = (result.code === 'INVALID_WEBAUTHN_SIGNATURE' || result.code === 'CREDENTIAL_REVOKED')
+                ? 403
+                : (result.code === 'AUTHORITY_UNAVAILABLE')
+                    ? 503
+                    : 400;
+            return res.status(status).json(result);
+        }
+
+        return res.json(result);
+    } catch (err) {
+        console.error('SuperAdmin confirmRefundAction Error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+}
+
 module.exports = { 
     getAllSchools, createSchool, updateSchoolStatus, updateSchool, deleteSchool, getGlobalStats, impersonateSchool, 
     recordDisbursement, updateCommissionRate, getAffiliates, payoutAffiliate, updateAffiliateStatus,
@@ -935,5 +1087,9 @@ module.exports = {
     processParentPackRefund,
     createParentPackRefundReconciliation,
     approveParentPackRefundReconciliation,
-    verifyParentPackRefund
+    verifyParentPackRefund,
+    createWebAuthnRegistrationChallenge,
+    verifyWebAuthnRegistration,
+    createRefundActionChallenge,
+    confirmRefundAction
 };

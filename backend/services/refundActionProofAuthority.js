@@ -25,19 +25,26 @@ function getActiveAuthoritySecretKey(customKey = null) {
     if (customKey && typeof customKey === 'string' && customKey.trim() !== '') {
         return customKey.trim();
     }
-    const envKey = process.env.YZIOW_REFUND_AUTH_AUTHORITY_SECRET || process.env.YZIOW_REFUND_ACTION_AUTH_KEY;
+    if (process.env.YZIOW_SIMULATE_COMPROMISED_BACKEND_NO_KEY === 'true') {
+        throw new Error('AUTHORITY_SECRET_NOT_CONFIGURED: Le backend applicatif ne détient pas la clé secrète de l\'autorité indépendante (rejet fail-closed).');
+    }
+    const envKey =
+        process.env.YZIOW_WEBAUTHN_AUTHORITY_SECRET ||
+        process.env.YZIOW_REFUND_AUTH_AUTHORITY_SECRET ||
+        process.env.YZIOW_REFUND_ACTION_AUTH_KEY;
     if (envKey && typeof envKey === 'string' && envKey.trim() !== '') {
         return envKey.trim();
     }
     const isTestExplicitlyAuthorized =
         process.env.NODE_ENV === 'test' &&
+        process.env.YZIOW_SIMULATE_COMPROMISED_BACKEND_NO_KEY !== 'true' &&
         (process.env.P28B_ALLOW_DISPOSABLE_DB === 'true' || process.env.P28C_ALLOW_DISPOSABLE_DB === 'true');
 
     if (isTestExplicitlyAuthorized) {
         return DEFAULT_REFUND_ACTION_AUTH_KEY;
     }
 
-    throw new Error('AUTHORITY_SECRET_NOT_CONFIGURED: La variable d\'environnement YZIOW_REFUND_AUTH_AUTHORITY_SECRET doit être explicitement configurée (aucune clé par défaut autorisée hors tests unitaires/jetables explicites).');
+    throw new Error('AUTHORITY_SECRET_NOT_CONFIGURED: La variable d\'environnement YZIOW_WEBAUTHN_AUTHORITY_SECRET (ou YZIOW_REFUND_AUTH_AUTHORITY_SECRET) doit être explicitement configurée dans l\'autorité indépendante (aucune clé par défaut autorisée hors tests unitaires/jetables explicites).');
 }
 
 /**
@@ -103,7 +110,9 @@ function generateRefundActionProof({
     issuedAt = null,
     expiresAt = null,
     issuer = ACTION_PROOF_ISSUER,
-    version = ACTION_PROOF_VERSION
+    version = ACTION_PROOF_VERSION,
+    webauthnChallengeId = null,
+    credentialId = null
 }) {
     if (!adminId || !isValidUUID(adminId)) {
         throw new Error('INVALID_ACTION_PROOF_ADMIN_ID: UUID adminId valide requis');
@@ -159,7 +168,7 @@ function generateRefundActionProof({
     const activeSecret = getActiveAuthoritySecretKey(secretKey);
     const signature = crypto.createHmac('sha256', activeSecret).update(canonical, 'utf8').digest('hex').toLowerCase();
 
-    return {
+    const proofObj = {
         version,
         issuer,
         action_type: actionType,
@@ -175,12 +184,24 @@ function generateRefundActionProof({
         jti: effectiveJti,
         signature
     };
+
+    if (webauthnChallengeId) {
+        proofObj.auth_method = 'webauthn';
+        proofObj.webauthn_challenge_id = String(webauthnChallengeId).toLowerCase();
+    }
+    if (credentialId) {
+        proofObj.credential_id = String(credentialId);
+    }
+
+    return proofObj;
 }
 
 /**
- * Vérifie localement côté Node.js la validité formelle et la signature d'une preuve d'action.
+ * Vérifie localement côté backend applicatif la structure formelle et la concordance
+ * des champs d'une preuve d'action SANS détenir la clé secrète de l'autorité (Chantier D.2.2 - P1).
+ * La vérification cryptographique de la signature et du challenge WebAuthn est exécutée par PostgreSQL.
  */
-function verifyRefundActionProofLocally(proof, expectedFields = {}, secretKey = null) {
+function verifyRefundActionProofClaimsLocally(proof, expectedFields = {}) {
     if (!proof || typeof proof !== 'object') {
         return { valid: false, code: 'ACTION_PROOF_REQUIRED', message: 'Preuve d\'action absente ou invalide.' };
     }
@@ -230,6 +251,23 @@ function verifyRefundActionProofLocally(proof, expectedFields = {}, secretKey = 
         return { valid: false, code: 'ACTION_PROOF_EXPIRED', message: 'Preuve d\'action expirée.' };
     }
 
+    const actualSig = String(proof.signature || '').trim().toLowerCase();
+    if (!/^[a-fA-F0-9]{64}$/.test(actualSig)) {
+        return { valid: false, code: 'INVALID_ACTION_PROOF_SIGNATURE', message: 'Format de signature de preuve invalide.' };
+    }
+
+    return { valid: true };
+}
+
+/**
+ * Vérifie localement côté Node.js la validité formelle et la signature d'une preuve d'action.
+ */
+function verifyRefundActionProofLocally(proof, expectedFields = {}, secretKey = null) {
+    const claimsCheck = verifyRefundActionProofClaimsLocally(proof, expectedFields);
+    if (!claimsCheck.valid) {
+        return claimsCheck;
+    }
+
     const canonical = buildCanonicalActionPayload({
         actionType: proof.action_type,
         adminId: proof.admin_id,
@@ -246,11 +284,7 @@ function verifyRefundActionProofLocally(proof, expectedFields = {}, secretKey = 
 
     const activeSecret = getActiveAuthoritySecretKey(secretKey);
     const expectedSig = crypto.createHmac('sha256', activeSecret).update(canonical, 'utf8').digest('hex').toLowerCase();
-
     const actualSig = String(proof.signature || '').trim().toLowerCase();
-    if (!/^[a-fA-F0-9]{64}$/.test(actualSig)) {
-        return { valid: false, code: 'INVALID_ACTION_PROOF_SIGNATURE', message: 'Format de signature de preuve invalide.' };
-    }
 
     const bufActual = Buffer.from(actualSig, 'hex');
     const bufExpected = Buffer.from(expectedSig, 'hex');
@@ -269,5 +303,6 @@ module.exports = {
     getActiveAuthoritySecretKey,
     buildCanonicalActionPayload,
     generateRefundActionProof,
+    verifyRefundActionProofClaimsLocally,
     verifyRefundActionProofLocally
 };

@@ -8,7 +8,7 @@ const {
     readAndVerifyStoredRefundProof
 } = require('./refundProofStorage');
 const {
-    generateRefundActionProof,
+    verifyRefundActionProofClaimsLocally,
     verifyRefundActionProofLocally
 } = require('./refundActionProofAuthority');
 
@@ -653,7 +653,27 @@ function mapReconciliationRpcError(rpcErr) {
         'INVALID_ACTION_PROOF_DOC_HASH',
         'INVALID_ACTION_PROOF_TIMESTAMPS',
         'INVALID_ACTION_PROOF_JTI',
-        'REVOKED_ADMIN'
+        'REVOKED_ADMIN',
+        'CHALLENGE_NOT_FOUND',
+        'CHALLENGE_ALREADY_CONSUMED',
+        'CHALLENGE_EXPIRED',
+        'CHALLENGE_ADMIN_MISMATCH',
+        'CHALLENGE_ACTION_MISMATCH',
+        'WEBAUTHN_CONFIRMATION_REQUIRED',
+        'INVALID_WEBAUTHN_SIGNATURE',
+        'USER_PRESENCE_REQUIRED',
+        'USER_VERIFICATION_REQUIRED',
+        'CREDENTIAL_REVOKED',
+        'CREDENTIAL_NOT_FOUND',
+        'CHALLENGE_DOSSIER_MISMATCH',
+        'AUTHORITY_UNAVAILABLE',
+        'AUTHORITY_SECRET_NOT_CONFIGURED',
+        'INVALID_ATTESTATION_OBJECT',
+        'UNSUPPORTED_COSE_ALGORITHM',
+        'INVALID_COSE_PUBLIC_KEY',
+        'ENROLLMENT_CO_AUTHORIZATION_REQUIRED',
+        'SELF_ENROLLMENT_APPROVAL_FORBIDDEN',
+        'INVALID_ENROLLMENT_APPROVAL_TOKEN'
     ];
     for (const code of knownCodes) {
         if (msg.includes(code)) {
@@ -687,6 +707,7 @@ async function createParentPackRefundReconciliationRequest({
     internalReconciliationRef = null,
     providerRefundId = null,
     initiatorActionProof = null,
+    initiatorWebAuthnConfirmation = null,
     actionAuthSecretKey = null,
     fedapayClient = null,
     storageClient = null
@@ -823,9 +844,34 @@ async function createParentPackRefundReconciliationRequest({
         finalDocumentHash = readRes.documentHash;
     }
 
-    // Chantier D.2 : Preuve d'action cryptographique personnelle obligatoire pour l'initiateur
+    // Chantier D.2 & D.2.1 : Preuve d'action cryptographique personnelle obligatoire pour l'initiateur
     // La génération automatique implicite est formellement interdite (rejet fail-closed immédiat).
-    if (!initiatorActionProof) {
+    let finalInitiatorProof = initiatorActionProof;
+
+    if (!finalInitiatorProof && initiatorWebAuthnConfirmation) {
+        const { issueConfirmedActionProof } = require('./superAdminWebAuthnAuthority');
+        const issueRes = await issueConfirmedActionProof({
+            adminId: initiatorAdminId,
+            actionType: 'initiate',
+            periodId,
+            providerTransactionId: context.verifiedTransactionId,
+            verifiedAmountMinor: context.verifiedAmountMinor,
+            currency: context.verifiedCurrency,
+            proofDocumentHash: finalDocumentHash,
+            webauthnAssertion: initiatorWebAuthnConfirmation,
+            secretKey: actionAuthSecretKey
+        });
+        if (!issueRes.success) {
+            return {
+                success: false,
+                code: issueRes.code,
+                message: issueRes.message
+            };
+        }
+        finalInitiatorProof = issueRes.actionProof;
+    }
+
+    if (!finalInitiatorProof) {
         return {
             success: false,
             code: 'ACTION_PROOF_REQUIRED',
@@ -833,7 +879,10 @@ async function createParentPackRefundReconciliationRequest({
         };
     }
 
-    const localCheck = verifyRefundActionProofLocally(initiatorActionProof, {
+    // Chantier D.2.2 (P1) : Le backend applicatif ne détient pas la clé secrète de l'autorité.
+    // Il vérifie la cohérence structurelle et les revendications du dossier, tandis que PostgreSQL
+    // (yziow_refund_auth.verify_and_consume_action_proof) vérifie la signature cryptographique et le challenge WebAuthn.
+    const expectedInitiatorClaims = {
         actionType: 'initiate',
         adminId: initiatorAdminId,
         periodId,
@@ -841,7 +890,10 @@ async function createParentPackRefundReconciliationRequest({
         verifiedAmountMinor: context.verifiedAmountMinor,
         currency: context.verifiedCurrency,
         proofDocumentHash: finalDocumentHash
-    }, actionAuthSecretKey);
+    };
+    const localCheck = actionAuthSecretKey
+        ? verifyRefundActionProofLocally(finalInitiatorProof, expectedInitiatorClaims, actionAuthSecretKey)
+        : verifyRefundActionProofClaimsLocally(finalInitiatorProof, expectedInitiatorClaims);
     if (!localCheck.valid) {
         return {
             success: false,
@@ -849,7 +901,6 @@ async function createParentPackRefundReconciliationRequest({
             message: localCheck.message
         };
     }
-    const finalInitiatorProof = initiatorActionProof;
 
     const { executeCreateRefundReconciliationRpc } = require('./refundRpc.cjs');
     const { result, error } = await executeCreateRefundReconciliationRpc({
@@ -904,6 +955,7 @@ async function approveAndExecuteParentPackRefundReconciliation({
     actorRole = 'superadmin',
     approvalNotes = null,
     approverActionProof = null,
+    approverWebAuthnConfirmation = null,
     actionAuthSecretKey = null,
     fedapayClient = null,
     storageClient = null
@@ -998,9 +1050,35 @@ async function approveAndExecuteParentPackRefundReconciliation({
         ? dossier.verified_currency
         : context.verifiedCurrency;
 
-    // Chantier D.2 : Preuve d'action cryptographique personnelle obligatoire pour l'approbateur
+    // Chantier D.2 & D.2.1 : Preuve d'action cryptographique personnelle obligatoire pour l'approbateur
     // La génération automatique implicite est formellement interdite (rejet fail-closed immédiat).
-    if (!approverActionProof) {
+    let finalApproverProof = approverActionProof;
+
+    if (!finalApproverProof && approverWebAuthnConfirmation) {
+        const { issueConfirmedActionProof } = require('./superAdminWebAuthnAuthority');
+        const issueRes = await issueConfirmedActionProof({
+            adminId: approverAdminId,
+            actionType: 'approve',
+            periodId: dossier.period_id,
+            reconciliationId,
+            providerTransactionId: verifiedTransactionId,
+            verifiedAmountMinor: verifiedAmountMinor,
+            currency: verifiedCurrency,
+            proofDocumentHash: dossier.proof_document_hash,
+            webauthnAssertion: approverWebAuthnConfirmation,
+            secretKey: actionAuthSecretKey
+        });
+        if (!issueRes.success) {
+            return {
+                success: false,
+                code: issueRes.code,
+                message: issueRes.message
+            };
+        }
+        finalApproverProof = issueRes.actionProof;
+    }
+
+    if (!finalApproverProof) {
         return {
             success: false,
             code: 'ACTION_PROOF_REQUIRED',
@@ -1008,7 +1086,7 @@ async function approveAndExecuteParentPackRefundReconciliation({
         };
     }
 
-    const localCheck = verifyRefundActionProofLocally(approverActionProof, {
+    const expectedApproverClaims = {
         actionType: 'approve',
         adminId: approverAdminId,
         periodId: dossier.period_id,
@@ -1017,7 +1095,10 @@ async function approveAndExecuteParentPackRefundReconciliation({
         verifiedAmountMinor: verifiedAmountMinor,
         currency: verifiedCurrency,
         proofDocumentHash: dossier.proof_document_hash
-    }, actionAuthSecretKey);
+    };
+    const localCheck = actionAuthSecretKey
+        ? verifyRefundActionProofLocally(finalApproverProof, expectedApproverClaims, actionAuthSecretKey)
+        : verifyRefundActionProofClaimsLocally(finalApproverProof, expectedApproverClaims);
     if (!localCheck.valid) {
         return {
             success: false,
@@ -1025,7 +1106,6 @@ async function approveAndExecuteParentPackRefundReconciliation({
             message: localCheck.message
         };
     }
-    const finalApproverProof = approverActionProof;
 
     const { result, error } = await executeApproveRefundReconciliationRpc({
         reconciliationId,

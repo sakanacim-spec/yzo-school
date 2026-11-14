@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID, createHash } from 'node:crypto';
+import crypto, { randomUUID, createHash } from 'node:crypto';
 import pg from 'pg';
 import { createRequire } from 'node:module';
 
@@ -35,6 +35,19 @@ const {
   generateRefundActionProof,
   verifyRefundActionProofLocally
 } = require('../../backend/services/refundActionProofAuthority.js');
+const {
+  buildWebAuthnAttestationObject,
+  issueEnrollmentApprovalToken,
+  createRegistrationChallenge,
+  verifyAndRegisterCredential,
+  revokeCredential,
+  createActionConfirmationChallenge,
+  verifyWebAuthnAssertion,
+  issueConfirmedActionProof,
+  resetInMemoryState,
+  clearPersistedWebAuthnStateForTests,
+  closeAuthorityDbPool
+} = require('../../backend/services/superAdminWebAuthnAuthority.js');
 
 const { Client } = pg;
 
@@ -196,6 +209,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
 
   after(async () => {
     try {
+      await closeAuthorityDbPool();
       if (adminClient) {
         await adminClient.end();
       }
@@ -2654,5 +2668,1345 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
 
     const periodDb = await adminClient.query(`SELECT status FROM public.parent_subscription_periods WHERE id = $1`, [fixture.periodId]);
     assert.strictEqual(periodDb.rows[0].status, 'active');
+  });
+
+  // =========================================================================
+  // CHANTIER D.2.1 (AUTHENTIFICATION FORTE PERSONNELLE DES DEUX SUPERADMINS)
+  // =========================================================================
+
+  function generateWebAuthnKeypair() {
+    return crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  }
+
+  function signWebAuthnAssertion({
+    keypair,
+    challenge,
+    origin = 'http://localhost:5173',
+    rpId = 'localhost',
+    userPresent = true,
+    userVerified = true,
+    counter = 1
+  }) {
+    const clientDataObj = {
+      type: 'webauthn.get',
+      challenge: challenge,
+      origin: origin
+    };
+    const clientDataJSON = Buffer.from(JSON.stringify(clientDataObj), 'utf8');
+    const clientDataHash = crypto.createHash('sha256').update(clientDataJSON).digest();
+
+    const rpIdHash = crypto.createHash('sha256').update(rpId).digest();
+    let flags = 0;
+    if (userPresent) flags |= 0x01;
+    if (userVerified) flags |= 0x04;
+
+    const signCount = Buffer.alloc(4);
+    signCount.writeUInt32BE(counter, 0);
+
+    const authenticatorData = Buffer.concat([rpIdHash, Buffer.from([flags]), signCount]);
+    const signedData = Buffer.concat([authenticatorData, clientDataHash]);
+
+    const signature = crypto.sign('sha256', signedData, keypair.privateKey);
+
+    return {
+      clientDataJSON: clientDataJSON.toString('base64url'),
+      authenticatorData: authenticatorData.toString('base64url'),
+      signature: signature.toString('base64url')
+    };
+  }
+
+  it('49. Chantier D.2.1 — Scénario 1 : Enregistrement WebAuthn valide d\'un authentificateur pour un SuperAdmin', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const challengeData = await createRegistrationChallenge(superAdminId);
+    assert.strictEqual(typeof challengeData.challenge, 'string');
+    assert.strictEqual(challengeData.rp.id, 'localhost');
+
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_sa1_' + randomUUID();
+
+    const clientDataObj = {
+      type: 'webauthn.create',
+      challenge: challengeData.challenge,
+      origin: challengeData.origin
+    };
+    const clientDataJSON = Buffer.from(JSON.stringify(clientDataObj), 'utf8').toString('base64url');
+
+    const regResult = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON,
+      expectedChallenge: challengeData.challenge
+    });
+
+    assert.strictEqual(regResult.valid, true);
+    assert.strictEqual(regResult.credential.credential_id, credId);
+    assert.strictEqual(regResult.credential.admin_id, superAdminId.toLowerCase());
+    assert.strictEqual(regResult.credential.is_active, true);
+  });
+
+  it('50. Chantier D.2.1 — Scénario 2 : Tentative d\'enregistrement WebAuthn pour un autre SuperAdmin (rejet UNAUTHORIZED_ADMIN_REGISTRATION)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const challengeData = await createRegistrationChallenge(superAdminId);
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_spoofed_' + randomUUID();
+
+    const clientDataObj = {
+      type: 'webauthn.create',
+      challenge: challengeData.challenge,
+      origin: challengeData.origin
+    };
+    const clientDataJSON = Buffer.from(JSON.stringify(clientDataObj), 'utf8').toString('base64url');
+
+    const regResult = await verifyAndRegisterCredential({
+      adminId: approverAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON,
+      expectedChallenge: challengeData.challenge
+    });
+
+    assert.strictEqual(regResult.valid, false);
+    assert.strictEqual(regResult.code, 'UNAUTHORIZED_ADMIN_REGISTRATION');
+  });
+
+  it('51. Chantier D.2.1 — Scénario 3 : Challenge inexistant ou expiré (rejet CHALLENGE_NOT_FOUND)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_' + randomUUID();
+
+    const clientDataObj = {
+      type: 'webauthn.create',
+      challenge: 'non_existent_challenge_bytes_1234567890',
+      origin: 'http://localhost:5173'
+    };
+    const clientDataJSON = Buffer.from(JSON.stringify(clientDataObj), 'utf8').toString('base64url');
+
+    const regResult = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON,
+      expectedChallenge: 'non_existent_challenge_bytes_1234567890'
+    });
+
+    assert.strictEqual(regResult.valid, false);
+    assert.strictEqual(regResult.code, 'CHALLENGE_NOT_FOUND');
+  });
+
+  it('52. Chantier D.2.1 — Scénario 4 : Signature cryptographique WebAuthn invalide (rejet INVALID_WEBAUTHN_SIGNATURE)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair1 = generateWebAuthnKeypair();
+    const keypair2 = generateWebAuthnKeypair();
+    const pubSpki = keypair1.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixture = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const forgedAssertion = signWebAuthnAssertion({
+      keypair: keypair2,
+      challenge: actionChal.challenge
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Invalid signature test',
+      proof: buildValidProof(fixture),
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId,
+        ...forgedAssertion
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'INVALID_WEBAUTHN_SIGNATURE');
+  });
+
+  it('53. Chantier D.2.1 — Scénario 5 : Origine non autorisée dans clientDataJSON (rejet INVALID_ORIGIN)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixture = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const phishingAssertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge,
+      origin: 'https://evil-phishing-platform.com'
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Invalid origin test',
+      proof: buildValidProof(fixture),
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId,
+        ...phishingAssertion
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'INVALID_ORIGIN');
+  });
+
+  it('54. Chantier D.2.1 — Scénario 6 : RP ID incorrect dans authenticatorData (rejet INVALID_RP_ID)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixture = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const badRpAssertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge,
+      rpId: 'rogue-server.org'
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Bad RP ID test',
+      proof: buildValidProof(fixture),
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId,
+        ...badRpAssertion
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'INVALID_RP_ID');
+  });
+
+  it('55. Chantier D.2.1 — Scénario 7 : Absence de présence utilisateur physique / UP à 0 (rejet USER_PRESENCE_REQUIRED)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixture = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const noUpAssertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge,
+      userPresent: false
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'No UP flag test',
+      proof: buildValidProof(fixture),
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId,
+        ...noUpAssertion
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'USER_PRESENCE_REQUIRED');
+  });
+
+  it('55b. Chantier D.2.1 — Scénario 7b : Absence de vérification biométrique/PIN (UV à 0) sur opération financière (rejet USER_VERIFICATION_REQUIRED)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixture = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    // Assertion avec UP=1 mais sans UV (userVerified: false)
+    const noUvAssertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge,
+      userPresent: true,
+      userVerified: false
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'No UV flag financial test',
+      proof: buildValidProof(fixture),
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId,
+        ...noUvAssertion
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'USER_VERIFICATION_REQUIRED');
+  });
+
+  it('56. Chantier D.2.1 — Scénario 8 : Authentificateur révoqué (rejet CREDENTIAL_REVOKED)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_revoked_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    await revokeCredential(credId, superAdminId);
+
+    const fixture = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const assertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Revoked credential test',
+      proof: buildValidProof(fixture),
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId,
+        ...assertion
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.code, 'CREDENTIAL_REVOKED');
+  });
+
+  it('57. Chantier D.2.1 — Scénario 9 : Signature WebAuthn pour un autre dossier / cross-dossier (rejet CHALLENGE_MISMATCH)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixtureA = await seedFixture();
+    const fixtureB = await seedFixture();
+
+    const actionChalA = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixtureA.periodId,
+      providerTransactionId: fixtureA.providerTxId,
+      verifiedAmountMinor: fixtureA.amount,
+      currency: fixtureA.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const assertionA = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChalA.challenge
+    });
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixtureB.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Cross dossier attack test',
+      proof: buildValidProof(fixtureB),
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId,
+        ...assertionA
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixtureB.providerTxId, status: 'refunded', amount: fixtureB.amount, currency: fixtureB.currency })
+      }
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.match(res.code, /(CHALLENGE_DOSSIER_MISMATCH|CHALLENGE_NOT_FOUND|CHALLENGE_MISMATCH)/);
+  });
+
+  it('58. Chantier D.2.1 — Scénario 10 : Modification du montant après confirmation WebAuthn (rejet fail-closed)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixture = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const assertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge
+    });
+
+    const tamperedProof = buildValidProof(fixture);
+    tamperedProof.refundedAmountMinor = 20000;
+
+    const res = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Tampered amount test',
+      proof: tamperedProof,
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId,
+        ...assertion
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(res.success, false);
+    assert.match(res.code, /(CHALLENGE_DOSSIER_MISMATCH|PROOF_AMOUNT_MISMATCH|CHALLENGE_MISMATCH)/);
+  });
+
+  it('59. Chantier D.2.1 — Scénario 11 : Réutilisation d\'un challenge d\'action WebAuthn / anti-rejeu (rejet CHALLENGE_ALREADY_CONSUMED)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixture1 = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture1.periodId,
+      providerTransactionId: fixture1.providerTxId,
+      verifiedAmountMinor: fixture1.amount,
+      currency: fixture1.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const assertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge,
+      counter: 1
+    });
+
+    // Première utilisation : valide
+    const issue1 = await issueConfirmedActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture1.periodId,
+      providerTransactionId: fixture1.providerTxId,
+      verifiedAmountMinor: fixture1.amount,
+      currency: fixture1.currency,
+      proofDocumentHash: validProofHash,
+      webauthnAssertion: {
+        credentialId: credId,
+        ...assertion
+      }
+    });
+    assert.strictEqual(issue1.success, true);
+    assert.strictEqual(typeof issue1.actionProof.signature, 'string');
+
+    // Seconde tentative avec le même challenge et assertion déjà consommés (rejet anti-rejeu)
+    const issue2 = await issueConfirmedActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture1.periodId,
+      providerTransactionId: fixture1.providerTxId,
+      verifiedAmountMinor: fixture1.amount,
+      currency: fixture1.currency,
+      proofDocumentHash: validProofHash,
+      webauthnAssertion: {
+        credentialId: credId,
+        ...assertion
+      }
+    });
+
+    assert.strictEqual(issue2.success, false);
+    assert.strictEqual(issue2.code, 'CHALLENGE_ALREADY_CONSUMED');
+  });
+
+  it('60. Chantier D.2.1 — Scénario 12 : Approbation par le même SuperAdmin (rejet DUAL_CUSTODY_VIOLATION)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_single_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      publicKeySpki: pubSpki,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixture = await seedFixture();
+    const initChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const initAssertion = signWebAuthnAssertion({
+      keypair,
+      challenge: initChal.challenge,
+      counter: 1
+    });
+
+    const initRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Dual custody test',
+      proof: buildValidProof(fixture),
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId,
+        ...initAssertion
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+    assert.strictEqual(initRes.success, true);
+
+    const approveChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'approve',
+      periodId: fixture.periodId,
+      reconciliationId: initRes.data.reconciliation_id,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const approveAssertion = signWebAuthnAssertion({
+      keypair,
+      challenge: approveChal.challenge,
+      counter: 2
+    });
+
+    const approveRes = await approveAndExecuteParentPackRefundReconciliation({
+      reconciliationId: initRes.data.reconciliation_id,
+      approverAdminId: superAdminId,
+      approvalNotes: 'Self approval attempt',
+      approverWebAuthnConfirmation: {
+        credentialId: credId,
+        ...approveAssertion
+      },
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(approveRes.success, false);
+    assert.strictEqual(approveRes.code, 'DUAL_CUSTODY_VIOLATION');
+  });
+
+  it('61. Chantier D.2.1 — Scénario 13 : Deux SuperAdmins distincts avec confirmations matérielles WebAuthn valides', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair1 = generateWebAuthnKeypair();
+    const pubSpki1 = keypair1.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId1 = 'cred_sa1_' + randomUUID();
+    const regChal1 = await createRegistrationChallenge(superAdminId);
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId1,
+      publicKeySpki: pubSpki1,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal1.challenge, origin: regChal1.origin })).toString('base64url'),
+      expectedChallenge: regChal1.challenge
+    });
+
+    const keypair2 = generateWebAuthnKeypair();
+    const pubSpki2 = keypair2.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId2 = 'cred_sa2_' + randomUUID();
+    const regChal2 = await createRegistrationChallenge(approverAdminId);
+    await verifyAndRegisterCredential({
+      adminId: approverAdminId,
+      credentialId: credId2,
+      publicKeySpki: pubSpki2,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal2.challenge, origin: regChal2.origin })).toString('base64url'),
+      expectedChallenge: regChal2.challenge
+    });
+
+    const fixture = await seedFixture();
+    const mockFedapay = {
+      retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+    };
+
+    const initChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const initAssertion = signWebAuthnAssertion({
+      keypair: keypair1,
+      challenge: initChal.challenge,
+      counter: 1
+    });
+
+    const initRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Two distinct admins valid WebAuthn flow',
+      proof: buildValidProof(fixture),
+      initiatorWebAuthnConfirmation: {
+        credentialId: credId1,
+        ...initAssertion
+      },
+      fedapayClient: mockFedapay
+    });
+
+    assert.strictEqual(initRes.success, true);
+    assert.strictEqual(initRes.code, 'RECONCILIATION_PENDING_APPROVAL');
+    const recId = initRes.data.reconciliation_id;
+
+    const approveChal = await createActionConfirmationChallenge({
+      adminId: approverAdminId,
+      actionType: 'approve',
+      periodId: fixture.periodId,
+      reconciliationId: recId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const approveAssertion = signWebAuthnAssertion({
+      keypair: keypair2,
+      challenge: approveChal.challenge,
+      counter: 1
+    });
+
+    const approveRes = await approveAndExecuteParentPackRefundReconciliation({
+      reconciliationId: recId,
+      approverAdminId,
+      approvalNotes: 'Valid approval by distinct second SuperAdmin',
+      approverWebAuthnConfirmation: {
+        credentialId: credId2,
+        ...approveAssertion
+      },
+      fedapayClient: mockFedapay
+    });
+
+    assert.strictEqual(approveRes.code, 'SECURITY_BLOCKER');
+  });
+
+  it('62. Chantier D.2.1 — Scénario 14 : Appel SQL direct sans attestation indépendante (rejet immédiat ACTION_PROOF_REQUIRED / fail-closed)', async () => {
+    const fixture = await seedFixture();
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+
+    try {
+      await assert.rejects(
+        async () => {
+          await client.query(`
+            SELECT admin_create_parent_pack_refund_reconciliation(
+              $1, $2, 'Direct SQL attack', $3, 'refunded', $4, $5,
+              'private://refund-proofs/test.pdf', $6, $4, $5, $7,
+              NOW(), NULL, NULL, NULL
+            )
+          `, [fixture.periodId, superAdminId, fixture.providerTxId, fixture.amount, fixture.currency, validProofHash, fixture.parentRef]);
+        },
+        (err) => {
+          assert.match(err.message, /ACTION_PROOF_REQUIRED/);
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('63. Chantier D.2.1 — Scénario 15 : Tentative du backend simulé comme compromis de fabriquer les autorisations sans signatures WebAuthn matérielles', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const fixture = await seedFixture();
+
+    const compromisedBackendAttempt = await issueConfirmedActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash,
+      webauthnAssertion: null
+    });
+
+    assert.strictEqual(compromisedBackendAttempt.success, false);
+    assert.strictEqual(compromisedBackendAttempt.code, 'WEBAUTHN_CONFIRMATION_REQUIRED');
+  });
+
+  it('64. Chantier D.2.1 — Scénario 16 : Indisponibilité de l\'autorité indépendante (rejet fail-closed immédiat AUTHORITY_UNAVAILABLE)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const fixture = await seedFixture();
+
+    const unavailableAttempt = await issueConfirmedActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash,
+      webauthnAssertion: { credentialId: 'dummy', clientDataJSON: 'dGVzdA', authenticatorData: 'dGVzdA', signature: 'dGVzdA' },
+      authorityAvailable: false
+    });
+
+    assert.strictEqual(unavailableAttempt.success, false);
+    assert.strictEqual(unavailableAttempt.code, 'AUTHORITY_UNAVAILABLE');
+  });
+
+  it('65. Chantier D.2.1 — Scénario 17 : Maintien du blocage financier même avec deux preuves WebAuthn valides (parent_pack_refund_security_gate = false)', async () => {
+    const fixture = await seedFixture();
+    const gateRes = await adminClient.query(
+      `SELECT independent_admin_auth_ready, independent_fedapay_proof_ready, private_worm_storage_ready
+       FROM public.parent_pack_refund_security_gate WHERE id = true`
+    );
+    assert.strictEqual(gateRes.rows[0].independent_admin_auth_ready, false);
+    assert.strictEqual(gateRes.rows[0].independent_fedapay_proof_ready, false);
+    assert.strictEqual(gateRes.rows[0].private_worm_storage_ready, false);
+
+    const fakeRecId = randomUUID();
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+
+    try {
+      await assert.rejects(
+        async () => {
+          await client.query(`
+            SELECT admin_approve_parent_pack_refund_reconciliation(
+              $1, $2, 'tx_123', 'refunded', 10000, 'XOF', 'Approval notes', NULL
+            )
+          `, [fakeRecId, approverAdminId]);
+        },
+        (err) => {
+          assert.match(err.message, /(ACTION_PROOF_REQUIRED|SECURITY_BLOCKER|RECONCILIATION_NOT_FOUND)/);
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  // =========================================================================
+  // CHANTIER D.2.2 (RÉSOLUTION DES BLOCAGES P1, P4, P5 : AUTORITÉ ISOLÉE,
+  //                 @SIMPLEWEBAUTHN/SERVER, PERSISTANCE & ATOMICITÉ POSTGRESQL)
+  // =========================================================================
+
+  it('66. Chantier D.2.2 (P1) — Attaque backend compromis : rejet fail-closed par PostgreSQL d\'une preuve HMAC forgée sans challenge WebAuthn consommé lorsqu\'un authentificateur est enregistré', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_p1_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    const attObj = buildWebAuthnAttestationObject({ publicKeySpki: pubSpki, credentialId: credId });
+    const regRes = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      attestationObject: attObj,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+    assert.strictEqual(regRes.valid, true);
+
+    const fixture = await seedFixture();
+
+    // Cas 1A : Backend compromis sans clé secrète d'autorité tente de générer une preuve
+    process.env.YZIOW_SIMULATE_COMPROMISED_BACKEND_NO_KEY = 'true';
+    try {
+      assert.throws(
+        () => generateRefundActionProof({
+          adminId: superAdminId,
+          actionType: 'initiate',
+          periodId: fixture.periodId,
+          providerTransactionId: fixture.providerTxId,
+          verifiedAmountMinor: fixture.amount,
+          currency: fixture.currency,
+          proofDocumentHash: validProofHash
+        }),
+        /AUTHORITY_SECRET_NOT_CONFIGURED/
+      );
+    } finally {
+      delete process.env.YZIOW_SIMULATE_COMPROMISED_BACKEND_NO_KEY;
+    }
+
+    // Cas 1B : Même si un attaquant fabriquait une preuve HMAC brute sans passer par
+    // la consommation d'un challenge WebAuthn réel dans yziow_refund_auth.webauthn_challenges,
+    // PostgreSQL (yziow_refund_auth.verify_and_consume_action_proof) la rejette avec WEBAUTHN_CONFIRMATION_REQUIRED !
+    const rawHmacProofWithoutWebAuthn = generateRefundActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const bypassRes = await createParentPackRefundReconciliationRequest({
+      periodId: fixture.periodId,
+      initiatorAdminId: superAdminId,
+      reason: 'Compromised backend HMAC-only bypass attempt',
+      proof: buildValidProof(fixture),
+      initiatorActionProof: rawHmacProofWithoutWebAuthn,
+      fedapayClient: {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      }
+    });
+
+    assert.strictEqual(bypassRes.success, false);
+    assert.strictEqual(bypassRes.code, 'WEBAUTHN_CONFIRMATION_REQUIRED');
+  });
+
+  it('67. Chantier D.2.2 (P1) — Tentative d\'émission d\'une preuve sans authentificateur personnel enregistré (rejet CREDENTIAL_NOT_FOUND)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const fixture = await seedFixture();
+    const keypair = generateWebAuthnKeypair();
+
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const assertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge
+    });
+
+    const issueRes = await issueConfirmedActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash,
+      webauthnAssertion: {
+        credentialId: 'unregistered_cred_' + randomUUID(),
+        ...assertion
+      }
+    });
+
+    assert.strictEqual(issueRes.success, false);
+    assert.strictEqual(issueRes.code, 'CREDENTIAL_NOT_FOUND');
+  });
+
+  it('68. Chantier D.2.2 (P4) — Enregistrement avec attestationObject CBOR falsifié ou corrompu : rejet par @simplewebauthn/server (INVALID_ATTESTATION_OBJECT)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const regChal = await createRegistrationChallenge(superAdminId);
+    const credId = 'cred_forged_att_' + randomUUID();
+    const clientDataJSON = Buffer.from(JSON.stringify({
+      type: 'webauthn.create',
+      challenge: regChal.challenge,
+      origin: regChal.origin
+    })).toString('base64url');
+
+    // Tentative 1 : octets CBOR corrompus / non valides
+    const badCborRes = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      attestationObject: Buffer.from('not_a_valid_cbor_attestation_object_payload').toString('base64url'),
+      clientDataJSON,
+      expectedChallenge: regChal.challenge
+    });
+    assert.strictEqual(badCborRes.valid, false);
+    assert.strictEqual(badCborRes.code, 'INVALID_ATTESTATION_OBJECT');
+
+    // Tentative 2 : attestationObject avec fmt inconnu ("rogue-fmt")
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const rogueFmtAttObj = buildWebAuthnAttestationObject({
+      publicKeySpki: pubSpki,
+      credentialId: credId,
+      fmt: 'rogue-attestation-format'
+    });
+    const rogueFmtRes = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      attestationObject: rogueFmtAttObj,
+      clientDataJSON,
+      expectedChallenge: regChal.challenge
+    });
+    assert.strictEqual(rogueFmtRes.valid, false);
+    assert.strictEqual(rogueFmtRes.code, 'INVALID_ATTESTATION_OBJECT');
+  });
+
+  it('69. Chantier D.2.2 (P4) — Enregistrement avec clé COSE invalide ou algorithme non autorisé (ex: RS1 / -65535 ou algorithme inconnu) : rejet UNSUPPORTED_COSE_ALGORITHM', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const regChal = await createRegistrationChallenge(superAdminId);
+    const credId = 'cred_bad_alg_' + randomUUID();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+
+    // Clé COSE avec alg = -65535 (RS1 SHA-1 interdit)
+    const weakAlgAttObj = buildWebAuthnAttestationObject({
+      publicKeySpki: pubSpki,
+      credentialId: credId,
+      coseAlg: -65535
+    });
+
+    const clientDataJSON = Buffer.from(JSON.stringify({
+      type: 'webauthn.create',
+      challenge: regChal.challenge,
+      origin: regChal.origin
+    })).toString('base64url');
+
+    const res = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      attestationObject: weakAlgAttObj,
+      clientDataJSON,
+      expectedChallenge: regChal.challenge
+    });
+
+    assert.strictEqual(res.valid, false);
+    assert.strictEqual(res.code, 'UNSUPPORTED_COSE_ALGORITHM');
+  });
+
+  it('70. Chantier D.2.2 (P4) — Session SuperAdmin volée tentant un enregistrement ou un remplacement de clé sans co-autorisation d\'un second SuperAdmin : rejet ENROLLMENT_CO_AUTHORIZATION_REQUIRED', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair1 = generateWebAuthnKeypair();
+    const pubSpki1 = keypair1.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId1 = 'cred_initial_' + randomUUID();
+
+    // 1. Tentative d'enrôlement en mode session HTTP (requireEnrollmentApproval: true) sans jeton de co-autorisation
+    const regChal1 = await createRegistrationChallenge(superAdminId);
+    const attObj1 = buildWebAuthnAttestationObject({ publicKeySpki: pubSpki1, credentialId: credId1 });
+    const clientData1 = Buffer.from(JSON.stringify({
+      type: 'webauthn.create',
+      challenge: regChal1.challenge,
+      origin: regChal1.origin
+    })).toString('base64url');
+
+    const stolenSessionInitialAttempt = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId1,
+      attestationObject: attObj1,
+      clientDataJSON: clientData1,
+      expectedChallenge: regChal1.challenge,
+      requireEnrollmentApproval: true,
+      enrollmentApprovalToken: null
+    });
+    assert.strictEqual(stolenSessionInitialAttempt.valid, false);
+    assert.strictEqual(stolenSessionInitialAttempt.code, 'ENROLLMENT_CO_AUTHORIZATION_REQUIRED');
+
+    // 2. Tentative d'auto-approbation par le même SuperAdmin -> rejet SELF_ENROLLMENT_APPROVAL_FORBIDDEN
+    assert.throws(
+      () => issueEnrollmentApprovalToken({
+        targetAdminId: superAdminId,
+        approverAdminId: superAdminId
+      }),
+      /SELF_ENROLLMENT_APPROVAL_FORBIDDEN/
+    );
+
+    // 3. Co-autorisation valide par le second SuperAdmin (approverAdminId) -> succès
+    const validApprovalToken1 = issueEnrollmentApprovalToken({
+      targetAdminId: superAdminId,
+      approverAdminId: approverAdminId,
+      purpose: 'initial_enrollment'
+    });
+    const authorizedInitialRes = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId1,
+      attestationObject: attObj1,
+      clientDataJSON: clientData1,
+      expectedChallenge: regChal1.challenge,
+      requireEnrollmentApproval: true,
+      enrollmentApprovalToken: validApprovalToken1
+    });
+    assert.strictEqual(authorizedInitialRes.valid, true);
+    assert.strictEqual(authorizedInitialRes.credential.registered_by_approver_id, approverAdminId.toLowerCase());
+
+    // 4. Tentative de remplacement de la clé existante sans co-autorisation (même si requireEnrollmentApproval=false)
+    const keypair2 = generateWebAuthnKeypair();
+    const pubSpki2 = keypair2.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId2 = 'cred_rogue_replace_' + randomUUID();
+    const regChal2 = await createRegistrationChallenge(superAdminId);
+    const attObj2 = buildWebAuthnAttestationObject({ publicKeySpki: pubSpki2, credentialId: credId2 });
+    const clientData2 = Buffer.from(JSON.stringify({
+      type: 'webauthn.create',
+      challenge: regChal2.challenge,
+      origin: regChal2.origin
+    })).toString('base64url');
+
+    const unauthorizedReplaceRes = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId2,
+      attestationObject: attObj2,
+      clientDataJSON: clientData2,
+      expectedChallenge: regChal2.challenge
+    });
+    assert.strictEqual(unauthorizedReplaceRes.valid, false);
+    assert.strictEqual(unauthorizedReplaceRes.code, 'ENROLLMENT_CO_AUTHORIZATION_REQUIRED');
+
+    // 5. Remplacement légitime avec nouvelle co-autorisation du second SuperAdmin : révoque l'ancienne clé et active la nouvelle
+    const validApprovalToken2 = issueEnrollmentApprovalToken({
+      targetAdminId: superAdminId,
+      approverAdminId: approverAdminId,
+      purpose: 'credential_replacement'
+    });
+    const authorizedReplaceRes = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId2,
+      attestationObject: attObj2,
+      clientDataJSON: clientData2,
+      expectedChallenge: regChal2.challenge,
+      enrollmentApprovalToken: validApprovalToken2
+    });
+    assert.strictEqual(authorizedReplaceRes.valid, true);
+
+    const oldCredDb = await adminClient.query(
+      `SELECT is_active, revoked_at FROM public.superadmin_webauthn_credentials WHERE credential_id = $1`,
+      [credId1]
+    );
+    assert.strictEqual(oldCredDb.rows[0].is_active, false);
+    assert.ok(oldCredDb.rows[0].revoked_at !== null);
+  });
+
+  it('71. Chantier D.2.2 (P5) — Persistance PostgreSQL après redémarrage simulé du service : le credential survit et le challenge consommé reste rejeté (CHALLENGE_ALREADY_CONSUMED)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_persist_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    const attObj = buildWebAuthnAttestationObject({ publicKeySpki: pubSpki, credentialId: credId });
+    const regRes = await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      attestationObject: attObj,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+    assert.strictEqual(regRes.valid, true);
+
+    const fixture = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    // Simulation d'un redémarrage complet du processus Node.js / changement d'instance serverless
+    // AVANT même la confirmation de l'action : la mémoire RAM est vidée, mais PostgreSQL conserve tout !
+    resetInMemoryState();
+
+    const assertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge,
+      counter: 1
+    });
+
+    // La première confirmation réussit grâce à la lecture depuis PostgreSQL
+    const issue1 = await issueConfirmedActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash,
+      webauthnAssertion: {
+        credentialId: credId,
+        ...assertion
+      }
+    });
+    assert.strictEqual(issue1.success, true);
+
+    // Nouveau redémarrage simulé APRÈS consommation du challenge
+    resetInMemoryState();
+
+    // Tentative de rejeu du même challenge après redémarrage : PostgreSQL bloque avec CHALLENGE_ALREADY_CONSUMED
+    const replayAfterRestart = await issueConfirmedActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash,
+      webauthnAssertion: {
+        credentialId: credId,
+        ...assertion
+      }
+    });
+    assert.strictEqual(replayAfterRestart.success, false);
+    assert.strictEqual(replayAfterRestart.code, 'CHALLENGE_ALREADY_CONSUMED');
+  });
+
+  it('72. Chantier D.2.2 (P5) — Concurrence stricte (Promise.all) sur un même challenge WebAuthn : verrouillage FOR UPDATE PostgreSQL (1 seul succès, 1 rejet CHALLENGE_ALREADY_CONSUMED)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_concurrent_' + randomUUID();
+
+    const regChal = await createRegistrationChallenge(superAdminId);
+    const attObj = buildWebAuthnAttestationObject({ publicKeySpki: pubSpki, credentialId: credId });
+    await verifyAndRegisterCredential({
+      adminId: superAdminId,
+      credentialId: credId,
+      attestationObject: attObj,
+      clientDataJSON: Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: regChal.challenge, origin: regChal.origin })).toString('base64url'),
+      expectedChallenge: regChal.challenge
+    });
+
+    const fixture = await seedFixture();
+    const actionChal = await createActionConfirmationChallenge({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash
+    });
+
+    const assertion = signWebAuthnAssertion({
+      keypair,
+      challenge: actionChal.challenge,
+      counter: 1
+    });
+
+    const callConfirm = () => issueConfirmedActionProof({
+      adminId: superAdminId,
+      actionType: 'initiate',
+      periodId: fixture.periodId,
+      providerTransactionId: fixture.providerTxId,
+      verifiedAmountMinor: fixture.amount,
+      currency: fixture.currency,
+      proofDocumentHash: validProofHash,
+      webauthnAssertion: {
+        credentialId: credId,
+        ...assertion
+      }
+    });
+
+    const [resA, resB] = await Promise.all([callConfirm(), callConfirm()]);
+    const successes = [resA, resB].filter(r => r.success === true);
+    const failures = [resA, resB].filter(r => r.success === false);
+
+    assert.strictEqual(successes.length, 1, 'Exactement un appel concurrent doit réussir');
+    assert.strictEqual(failures.length, 1, 'Exactement un appel concurrent doit être rejeté');
+    assert.strictEqual(failures[0].code, 'CHALLENGE_ALREADY_CONSUMED');
+  });
+
+  it('73. Chantier D.2.2 (P5) — Isolation SQL stricte : yziow_refund_executor ne peut ni lire ni modifier webauthn_challenges ou superadmin_webauthn_credentials (42501)', async () => {
+    const client = new Client({ connectionString: process.env.YZIOW_REFUND_DATABASE_URL });
+    await client.connect();
+    try {
+      await assert.rejects(
+        () => client.query(`SELECT * FROM yziow_refund_auth.webauthn_challenges`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+      await assert.rejects(
+        () => client.query(`SELECT * FROM public.superadmin_webauthn_credentials`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+      await assert.rejects(
+        () => client.query(
+          `SELECT yziow_refund_auth.store_webauthn_challenge($1, 'initiate', 'chal_123', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'localhost', 'http://localhost:5173', 300)`,
+          [superAdminId]
+        ),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+      await assert.rejects(
+        () => client.query(
+          `SELECT yziow_refund_auth.consume_webauthn_challenge('chal_123', $1, 'initiate', 'cred_123')`,
+          [superAdminId]
+        ),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('74. Chantier D.2.2 — Nettoyage de l\'état de test et vérification finale du maintien de SECURITY_BLOCKER (les 3 flags parent_pack_refund_security_gate = false)', async () => {
+    await clearPersistedWebAuthnStateForTests();
+    const gateRes = await adminClient.query(
+      `SELECT independent_admin_auth_ready, independent_fedapay_proof_ready, private_worm_storage_ready
+       FROM public.parent_pack_refund_security_gate WHERE id = true`
+    );
+    assert.strictEqual(gateRes.rows[0].independent_admin_auth_ready, false);
+    assert.strictEqual(gateRes.rows[0].independent_fedapay_proof_ready, false);
+    assert.strictEqual(gateRes.rows[0].private_worm_storage_ready, false);
   });
 });

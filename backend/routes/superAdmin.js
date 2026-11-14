@@ -26,7 +26,11 @@ const {
     processParentPackRefund,
     createParentPackRefundReconciliation,
     approveParentPackRefundReconciliation,
-    verifyParentPackRefund
+    verifyParentPackRefund,
+    createWebAuthnRegistrationChallenge,
+    verifyWebAuthnRegistration,
+    createRefundActionChallenge,
+    confirmRefundAction
 } = require('../controllers/superAdminController');
 
 const {
@@ -82,6 +86,12 @@ router.post('/parent-pack/refund', authenticateToken, requireSuperAdmin, process
 router.post('/parent-pack/refund/reconciliations', authenticateToken, requireSuperAdmin, createParentPackRefundReconciliation);
 router.post('/parent-pack/refund/reconciliations/:reconciliationId/approve', authenticateToken, requireSuperAdmin, approveParentPackRefundReconciliation);
 router.post('/parent-pack/refund/verify', authenticateToken, requireSuperAdmin, verifyParentPackRefund);
+
+// Routes WebAuthn SuperAdmin (Chantier D.2.1)
+router.post('/webauthn/register/challenge', authenticateToken, requireSuperAdmin, createWebAuthnRegistrationChallenge);
+router.post('/webauthn/register/verify', authenticateToken, requireSuperAdmin, verifyWebAuthnRegistration);
+router.post('/webauthn/refund/challenge', authenticateToken, requireSuperAdmin, createRefundActionChallenge);
+router.post('/webauthn/refund/confirm', authenticateToken, requireSuperAdmin, confirmRefundAction);
 
 // Routes pour la gestion des propositions de dons et mécénat (Lot 2)
 const {
