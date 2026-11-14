@@ -37,7 +37,28 @@ export const ParentPackPayment: React.FC<ParentPackPaymentProps> = ({ studentId,
       setError('');
       try {
         const data = await parentApi.getParentPackPricing(schoolSlug, studentId);
-        setPricing(data);
+        // Normalisation robuste : supporte le format direct { monthly, annual } ou { studentId, cycleName, plans: [...] }
+        let normalizedPricing: ParentPackPricing;
+        if ((data as any)?.plans && Array.isArray((data as any).plans)) {
+          const monthlyPlan = (data as any).plans.find((p: any) => p.periodicity === 'monthly');
+          const annualPlan = (data as any).plans.find((p: any) => p.periodicity === 'annual');
+          normalizedPricing = {
+            monthly: {
+              amount: monthlyPlan ? monthlyPlan.amountMinor : 100,
+              currency: monthlyPlan ? monthlyPlan.currency : 'XOF',
+              description: 'Accès mensuel officiel (1 mois)'
+            },
+            annual: {
+              amount: annualPlan ? annualPlan.amountMinor : 1000,
+              currency: annualPlan ? annualPlan.currency : 'XOF',
+              description: 'Formule annuelle (10 mois)',
+              durationMonths: annualPlan?.durationMonths || 10
+            }
+          };
+        } else {
+          normalizedPricing = data;
+        }
+        setPricing(normalizedPricing);
       } catch (err: any) {
         console.error('Error fetching pricing', err);
         setError(err.error || t(language as Language, 'parentPack.pricingError') || 'Erreur lors de la récupération des tarifs');
@@ -125,32 +146,30 @@ export const ParentPackPayment: React.FC<ParentPackPaymentProps> = ({ studentId,
                   )}
                 </div>
               </button>
-              {/* Annual */}
-              <button
-                onClick={() => handlePay('annual')}
-                disabled={initialising && selectedPlan === 'annual'}
-                className="w-full flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-300 transition-colors"
+              {/* Option Annuelle — Désactivée pendant le lancement pilote */}
+              <div
+                className="w-full flex items-center justify-between p-4 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50/60 dark:bg-slate-800/30 opacity-60 cursor-not-allowed select-none"
+                title="Le paiement annuel est temporairement indisponible pour le lancement pilote."
               >
                 <div>
-                  <h4 className="font-black text-slate-900 dark:text-white">
-                    {t(language as Language, 'parentPack.annual') || 'Annuel'}
-                  </h4>
-                  <p className="text-slate-600 dark:text-slate-300 text-sm">
-                    {pricing.annual.durationMonths ? `${pricing.annual.durationMonths} ${t(language as Language, 'common.months') || 'mois'} - ` : ''}
-                    {pricing.annual.description}
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-slate-500 dark:text-slate-400">
+                      {t(language as Language, 'parentPack.annual') || 'Annuel'}
+                    </h4>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded">
+                      Bientôt disponible
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    Indisponible pendant le lancement pilote (formule mensuelle uniquement)
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-lg text-slate-900 dark:text-white">
-                    {pricing.annual.amount.toLocaleString()} {pricing.annual.currency}
+                  <span className="font-semibold text-slate-400 text-sm">
+                    {pricing.annual ? `${pricing.annual.amount.toLocaleString()} ${pricing.annual.currency}` : '—'}
                   </span>
-                  {initialising && selectedPlan === 'annual' ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                  ) : (
-                    <Zap className="w-5 h-5 text-blue-600" />
-                  )}
                 </div>
-              </button>
+              </div>
             </div>
           )}
         </div>
