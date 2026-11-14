@@ -14,7 +14,7 @@ interface PricingPlan {
 
 interface ParentPackPricing {
   monthly: PricingPlan;
-  annual: PricingPlan;
+  annual?: PricingPlan;
 }
 
 interface ParentPackPaymentProps {
@@ -37,31 +37,67 @@ export const ParentPackPayment: React.FC<ParentPackPaymentProps> = ({ studentId,
       setError('');
       try {
         const data = await parentApi.getParentPackPricing(schoolSlug, studentId);
-        // Normalisation robuste : supporte le format direct { monthly, annual } ou { studentId, cycleName, plans: [...] }
-        let normalizedPricing: ParentPackPricing;
+        // Normalisation stricte : extraction du tarif mensuel officiel sans valeur par défaut arbitraire
+        let normalizedPricing: ParentPackPricing | null = null;
         if ((data as any)?.plans && Array.isArray((data as any).plans)) {
           const monthlyPlan = (data as any).plans.find((p: any) => p.periodicity === 'monthly');
           const annualPlan = (data as any).plans.find((p: any) => p.periodicity === 'annual');
+          if (
+            monthlyPlan &&
+            typeof monthlyPlan.amountMinor === 'number' &&
+            monthlyPlan.amountMinor > 0 &&
+            typeof monthlyPlan.currency === 'string' &&
+            monthlyPlan.currency.trim() !== ''
+          ) {
+            normalizedPricing = {
+              monthly: {
+                amount: monthlyPlan.amountMinor,
+                currency: monthlyPlan.currency,
+                description: 'Accès mensuel officiel (1 mois)'
+              },
+              annual: (annualPlan && typeof annualPlan.amountMinor === 'number' && annualPlan.amountMinor > 0) ? {
+                amount: annualPlan.amountMinor,
+                currency: annualPlan.currency || 'XOF',
+                description: 'Formule annuelle (10 mois)',
+                durationMonths: annualPlan.durationMonths || 10
+              } : undefined
+            };
+          }
+        } else if (
+          data &&
+          typeof data === 'object' &&
+          'monthly' in data &&
+          typeof (data as any).monthly?.amount === 'number' &&
+          (data as any).monthly.amount > 0
+        ) {
           normalizedPricing = {
             monthly: {
-              amount: monthlyPlan ? monthlyPlan.amountMinor : 100,
-              currency: monthlyPlan ? monthlyPlan.currency : 'XOF',
-              description: 'Accès mensuel officiel (1 mois)'
+              amount: (data as any).monthly.amount,
+              currency: (data as any).monthly.currency || 'XOF',
+              description: (data as any).monthly.description || 'Accès mensuel officiel (1 mois)'
             },
-            annual: {
-              amount: annualPlan ? annualPlan.amountMinor : 1000,
-              currency: annualPlan ? annualPlan.currency : 'XOF',
-              description: 'Formule annuelle (10 mois)',
-              durationMonths: annualPlan?.durationMonths || 10
-            }
+            annual: ((data as any).annual && typeof (data as any).annual.amount === 'number' && (data as any).annual.amount > 0) ? {
+              amount: (data as any).annual.amount,
+              currency: (data as any).annual.currency || 'XOF',
+              description: (data as any).annual.description || 'Formule annuelle (10 mois)',
+              durationMonths: (data as any).annual.durationMonths || 10
+            } : undefined
           };
-        } else {
-          normalizedPricing = data;
         }
-        setPricing(normalizedPricing);
+
+        if (!normalizedPricing) {
+          setError(
+            t(language as Language, 'parentPack.pricingUnavailable') ||
+            'Tarif officiel indisponible pour cet élève. Veuillez contacter l\'établissement scolaire.'
+          );
+          setPricing(null);
+        } else {
+          setPricing(normalizedPricing);
+        }
       } catch (err: any) {
         console.error('Error fetching pricing', err);
         setError(err.error || t(language as Language, 'parentPack.pricingError') || 'Erreur lors de la récupération des tarifs');
+        setPricing(null);
       } finally {
         setLoading(false);
       }
@@ -71,6 +107,14 @@ export const ParentPackPayment: React.FC<ParentPackPaymentProps> = ({ studentId,
   }, [studentId, schoolSlug, language]);
 
   const handlePay = async (plan: 'monthly' | 'annual') => {
+    if (!pricing || !pricing.monthly || typeof pricing.monthly.amount !== 'number' || pricing.monthly.amount <= 0) {
+      alert(t(language as Language, 'parentPack.pricingUnavailable') || 'Tarif non disponible pour cet élève.');
+      return;
+    }
+    if (plan === 'annual') {
+      alert('Le paiement annuel est temporairement indisponible pour le lancement pilote. Veuillez choisir la formule mensuelle.');
+      return;
+    }
     setSelectedPlan(plan);
     setInitialising(true);
     try {

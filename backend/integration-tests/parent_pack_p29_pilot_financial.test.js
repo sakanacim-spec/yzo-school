@@ -155,14 +155,64 @@ test('P29 : Validation Financière & Double Verrou Pilote Mensuel', async (t) =>
   });
 
   await t.test('4. Conservation des protections P28b (fail-closed, devise, unicité élève)', async () => {
-    let updateFailed = false;
-    try {
-      await client.query(`UPDATE public.payment_intents SET status = 'refunded' WHERE school_slug = $1 LIMIT 1`, [schoolSlug]);
-    } catch (e) {
-      updateFailed = true;
-    }
-    assert.strictEqual(updateFailed, true, 'UPDATE direct vers refunded strictement bloqué');
+    // 1. Récupération d'une intention de paiement existante ('completed' suite au sous-test 1)
+    const existingIntent = (await client.query(
+      `SELECT id, status, expected_amount FROM public.payment_intents WHERE school_slug = $1 ORDER BY created_at ASC LIMIT 1`,
+      [schoolSlug]
+    )).rows[0];
+    assert.ok(existingIntent, 'Une intention de paiement existante doit être trouvée');
+    const targetIntentId = existingIntent.id;
+    const initialStatus = existingIntent.status;
+    const initialAmount = existingIntent.expected_amount;
 
+    let updateStatusError = null;
+    try {
+      await client.query(
+        `UPDATE public.payment_intents SET status = 'refunded' WHERE id = $1`,
+        [targetIntentId]
+      );
+    } catch (err) {
+      updateStatusError = err;
+    }
+    assert.ok(updateStatusError, 'UPDATE direct vers refunded doit être rejeté');
+    assert.match(
+      updateStatusError.message,
+      /FAIL CLOSED: Retrogradation ou changement de statut interdit/,
+      'Le rejet provient de la protection financière attendue (protect_parent_pack_intent)'
+    );
+
+    // Vérification qu'aucune altération financière ou de statut n'a eu lieu
+    const intentAfterStatusCheck = (await client.query(
+      `SELECT status, expected_amount FROM public.payment_intents WHERE id = $1`,
+      [targetIntentId]
+    )).rows[0];
+    assert.strictEqual(intentAfterStatusCheck.status, initialStatus, 'Le statut de l intention ne doit pas être altéré');
+    assert.strictEqual(intentAfterStatusCheck.expected_amount, initialAmount, 'Le montant de l intention ne doit pas être altéré');
+
+    // 2. Tentative d'altération financière directe (montant attendu)
+    let updateAmountError = null;
+    try {
+      await client.query(
+        `UPDATE public.payment_intents SET expected_amount = 500 WHERE id = $1`,
+        [targetIntentId]
+      );
+    } catch (err) {
+      updateAmountError = err;
+    }
+    assert.ok(updateAmountError, 'UPDATE direct de expected_amount doit être rejeté');
+    assert.match(
+      updateAmountError.message,
+      /FAIL CLOSED: Modification des champs financiers ou de rattachement/,
+      'Le rejet provient du verrou d intégrité financière (protect_parent_pack_intent)'
+    );
+
+    const intentAfterAmountCheck = (await client.query(
+      `SELECT status, expected_amount FROM public.payment_intents WHERE id = $1`,
+      [targetIntentId]
+    )).rows[0];
+    assert.strictEqual(intentAfterAmountCheck.expected_amount, initialAmount, 'Le montant financier reste inchangé');
+
+    // 3. Unicité de souscription élève
     let dupSubFailed = false;
     try {
       await client.query(`
