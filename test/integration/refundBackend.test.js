@@ -36,6 +36,7 @@ const {
   verifyRefundActionProofLocally
 } = require('../../backend/services/refundActionProofAuthority.js');
 const {
+  resolveAuthoritativeRpConfig,
   buildWebAuthnAttestationObject,
   issueEnrollmentApprovalToken,
   issueOutOfBandBootstrapToken,
@@ -55,15 +56,21 @@ const {
 } = require('../../backend/services/superAdminWebAuthnAuthority.js');
 const {
   startWebAuthnAuthorityServer,
+  verifyServerlessAuthorizationHeader,
   resolveAuthorityPort,
   resolveAuthorityHost
 } = require('../../backend/authority/webauthnAuthorityServer.js');
 const {
   isExternalAuthorityRequired,
+  isCloudRunIamAuthRequired,
+  validateVercelOidcTokenClaims,
+  validateGoogleCloudRunIdTokenClaims,
+  requestGoogleCloudRunIdToken,
   requestRegistrationChallenge,
   requestEnrollmentApprovalChallenge,
   requestConfirmedEnrollmentApprovalToken,
   requestVerifyAndRegisterCredential,
+  requestRevokeCredential,
   requestActionConfirmationChallenge,
   requestConfirmedActionProof
 } = require('../../backend/services/webauthnAuthorityClient.js');
@@ -5429,5 +5436,693 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     assert.strictEqual(gateRes.rows[0].independent_admin_auth_ready, false);
     assert.strictEqual(gateRes.rows[0].independent_fedapay_proof_ready, false);
     assert.strictEqual(gateRes.rows[0].private_worm_storage_ready, false);
+  });
+
+  it('91. Chantier D.2.5b — DEP-1 : Authentification privée Cloud Run (jeton OIDC absent/expiré/mauvaise audience, séparation STS vs ID Token, refus de fallback non sécurisé et double en-tête X-Serverless-Authorization + Authorization)', async () => {
+    const buildUnsignedTestJwt = (payload, header = { alg: 'RS256', typ: 'JWT', kid: 'kid_test_1' }) => {
+      const h = Buffer.from(JSON.stringify(header)).toString('base64url');
+      const p = Buffer.from(JSON.stringify(payload)).toString('base64url');
+      const s = Buffer.from('simulated_signature_bytes_d25b').toString('base64url');
+      return `${h}.${p}.${s}`;
+    };
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const iamAuthorityServer = await startWebAuthnAuthorityServer({
+      port: 0,
+      host: '127.0.0.1',
+      authoritySecretKey: D2_3_AUTHORITY_ONLY_SECRET,
+      authorityDatabaseUrl: authorityRoleUrl,
+      backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN,
+      bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET,
+      requireServerlessAuthorization: true,
+      expectedInvokerServiceAccountEmail: 'sa-vercel-authority-invoker@yziow-sec-auth-staging.iam.gserviceaccount.com'
+    });
+    const canonicalCloudRunAud = iamAuthorityServer.url;
+
+    try {
+      // 1. Validation des claims OIDC Vercel (mode Team vs Global, sujet et environnement)
+      const validVercelTeamJwt = buildUnsignedTestJwt({
+        iss: 'https://oidc.vercel.com/sakanacim-6028s-projects',
+        sub: 'owner:sakanacim-6028s-projects:project:yzo-school:environment:preview',
+        aud: 'https://vercel.com/sakanacim-6028s-projects',
+        exp: nowSec + 3600
+      });
+      const teamCheck = validateVercelOidcTokenClaims(validVercelTeamJwt, {
+        vercelOidcIssuerMode: 'team',
+        vercelTeamSlug: 'sakanacim-6028s-projects',
+        vercelProjectSlug: 'yzo-school',
+        vercelAllowedEnvironments: ['preview']
+      });
+      assert.strictEqual(teamCheck.valid, true);
+
+      // Rejet si l'émetteur est Global alors que le mode Team est exigé
+      const globalIssuerJwt = buildUnsignedTestJwt({
+        iss: 'https://oidc.vercel.com',
+        sub: 'owner:sakanacim-6028s-projects:project:yzo-school:environment:preview',
+        exp: nowSec + 3600
+      });
+      const globalMismatchCheck = validateVercelOidcTokenClaims(globalIssuerJwt, {
+        vercelOidcIssuerMode: 'team',
+        vercelTeamSlug: 'sakanacim-6028s-projects'
+      });
+      assert.strictEqual(globalMismatchCheck.valid, false);
+      assert.strictEqual(globalMismatchCheck.code, 'VERCEL_OIDC_ISSUER_MISMATCH');
+
+      // Rejet d'une clé JSON statique de Service Account Google Cloud
+      const fakeStaticSaKey = JSON.stringify({
+        type: 'service_account',
+        project_id: 'yziow-sec-auth-staging',
+        private_key: '-----BEGIN PRIVATE KEY-----\nMIIEv...\n-----END PRIVATE KEY-----\n'
+      });
+      const staticKeyCheck = validateVercelOidcTokenClaims(fakeStaticSaKey);
+      assert.strictEqual(staticKeyCheck.valid, false);
+      assert.strictEqual(staticKeyCheck.code, 'STATIC_SERVICE_ACCOUNT_KEY_FORBIDDEN');
+
+      // 2. Séparation stricte entre jeton STS d'accès opaque et Google OIDC ID Token
+      const stsOpaqueCheck = validateGoogleCloudRunIdTokenClaims('ya29.a0AfB_byC_opaque_sts_access_token', canonicalCloudRunAud);
+      assert.strictEqual(stsOpaqueCheck.valid, false);
+      assert.strictEqual(stsOpaqueCheck.code, 'STS_ACCESS_TOKEN_NOT_ALLOWED_AS_ID_TOKEN');
+
+      const stsJwtAccessCheck = validateGoogleCloudRunIdTokenClaims(
+        buildUnsignedTestJwt({
+          iss: 'https://accounts.google.com',
+          aud: canonicalCloudRunAud,
+          token_use: 'access',
+          scope: 'https://www.googleapis.com/auth/cloud-platform',
+          exp: nowSec + 3600
+        }),
+        canonicalCloudRunAud
+      );
+      assert.strictEqual(stsJwtAccessCheck.valid, false);
+      assert.strictEqual(stsJwtAccessCheck.code, 'STS_ACCESS_TOKEN_NOT_ALLOWED_AS_ID_TOKEN');
+
+      // 3. Jeton Google absent -> échec fail-closed (AUTHORITY_UNAVAILABLE) et refus de tout fallback non sécurisé
+      await assert.rejects(
+        async () => {
+          await requestRegistrationChallenge(superAdminId, {
+            authorityUrl: iamAuthorityServer.url,
+            backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN,
+            requireCloudRunIamAuth: true,
+            cloudRunAudience: canonicalCloudRunAud,
+            gcpInvokerServiceAccountEmail: 'sa-vercel-authority-invoker@yziow-sec-auth-staging.iam.gserviceaccount.com',
+            vercelOidcTokenProvider: async () => null
+          });
+        },
+        (err) => err.code === 'AUTHORITY_UNAVAILABLE' && err.reasonCode === 'VERCEL_OIDC_TOKEN_MISSING'
+      );
+
+      // 4. Jeton Google OIDC expiré -> échec fail-closed (CLOUD_RUN_ID_TOKEN_EXPIRED)
+      const expiredGoogleIdToken = buildUnsignedTestJwt({
+        iss: 'https://accounts.google.com',
+        aud: canonicalCloudRunAud,
+        sub: '109876543210',
+        email: 'sa-vercel-authority-invoker@yziow-sec-auth-staging.iam.gserviceaccount.com',
+        exp: nowSec - 60
+      });
+      await assert.rejects(
+        async () => {
+          await requestRegistrationChallenge(superAdminId, {
+            authorityUrl: iamAuthorityServer.url,
+            backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN,
+            requireCloudRunIamAuth: true,
+            cloudRunAudience: canonicalCloudRunAud,
+            cloudRunIdToken: expiredGoogleIdToken
+          });
+        },
+        (err) => err.code === 'AUTHORITY_UNAVAILABLE' && err.reasonCode === 'CLOUD_RUN_ID_TOKEN_EXPIRED'
+      );
+
+      // 5. Jeton Google OIDC avec mauvaise audience -> échec fail-closed (CLOUD_RUN_ID_TOKEN_AUDIENCE_MISMATCH)
+      const wrongAudGoogleIdToken = buildUnsignedTestJwt({
+        iss: 'https://accounts.google.com',
+        aud: 'https://other-service-xyz-ew.a.run.app',
+        sub: '109876543210',
+        email: 'sa-vercel-authority-invoker@yziow-sec-auth-staging.iam.gserviceaccount.com',
+        exp: nowSec + 3600
+      });
+      await assert.rejects(
+        async () => {
+          await requestRegistrationChallenge(superAdminId, {
+            authorityUrl: iamAuthorityServer.url,
+            backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN,
+            requireCloudRunIamAuth: true,
+            cloudRunAudience: canonicalCloudRunAud,
+            cloudRunIdToken: wrongAudGoogleIdToken
+          });
+        },
+        (err) => err.code === 'AUTHORITY_UNAVAILABLE' && err.reasonCode === 'CLOUD_RUN_ID_TOKEN_AUDIENCE_MISMATCH'
+      );
+
+      // 6. Refus côté serveur d'autorité si un appel direct omet X-Serverless-Authorization
+      const directNoIamRes = await fetch(`${iamAuthorityServer.url}/v1/credentials/register/challenge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${D2_3_BACKEND_TO_AUTHORITY_TOKEN}`
+        },
+        body: JSON.stringify({ adminId: superAdminId })
+      });
+      assert.strictEqual(directNoIamRes.status, 401);
+      const directNoIamBody = await directNoIamRes.json();
+      assert.strictEqual(directNoIamBody.code, 'CLOUD_RUN_IAM_TOKEN_MISSING');
+
+      // 7. Flux complet WIF simulé (Vercel OIDC -> STS -> IAM generateIdToken -> Cloud Run avec double en-tête)
+      const validGoogleIdToken = buildUnsignedTestJwt({
+        iss: 'https://accounts.google.com',
+        aud: canonicalCloudRunAud,
+        sub: '109876543210',
+        email: 'sa-vercel-authority-invoker@yziow-sec-auth-staging.iam.gserviceaccount.com',
+        exp: nowSec + 3600
+      });
+
+      const stsAndIamCalls = [];
+      const mockIamFetch = async (url, init) => {
+        stsAndIamCalls.push({ url, method: init.method, headers: init.headers, body: JSON.parse(init.body) });
+        if (url === 'https://sts.googleapis.com/v1/token') {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              access_token: 'ya29.simulated_ephemeral_sts_access_token',
+              issued_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+              token_type: 'Bearer',
+              expires_in: 3600
+            })
+          };
+        }
+        if (url.includes(':generateIdToken')) {
+          assert.strictEqual(init.headers.Authorization, 'Bearer ya29.simulated_ephemeral_sts_access_token');
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              token: validGoogleIdToken
+            })
+          };
+        }
+        throw new Error(`Unexpected IAM URL: ${url}`);
+      };
+
+      const chalOk = await requestRegistrationChallenge(superAdminId, {
+        authorityUrl: iamAuthorityServer.url,
+        backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN,
+        requireCloudRunIamAuth: true,
+        cloudRunAudience: canonicalCloudRunAud,
+        gcpWorkloadIdentityAudience: '//iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/vercel-yziow-pool/providers/vercel-oidc-stg',
+        gcpInvokerServiceAccountEmail: 'sa-vercel-authority-invoker@yziow-sec-auth-staging.iam.gserviceaccount.com',
+        vercelOidcIssuerMode: 'team',
+        vercelTeamSlug: 'sakanacim-6028s-projects',
+        vercelProjectSlug: 'yzo-school',
+        vercelAllowedEnvironments: ['preview'],
+        vercelOidcToken: validVercelTeamJwt,
+        iamFetch: mockIamFetch
+      });
+
+      assert.ok(chalOk && chalOk.challenge);
+      assert.strictEqual(stsAndIamCalls.length, 2);
+      assert.strictEqual(stsAndIamCalls[0].url, 'https://sts.googleapis.com/v1/token');
+      assert.ok(stsAndIamCalls[1].url.endsWith(':generateIdToken'));
+      assert.strictEqual(stsAndIamCalls[1].body.audience, canonicalCloudRunAud);
+
+      // 8. Acceptation côté serveur d'autorité d'un jeton légitime dont la signature a été retirée par Cloud Run GFE
+      //    (comportement officiel Cloud Run : formats header.payload. et header.payload acceptés)
+      const idParts = validGoogleIdToken.split('.');
+      const strippedWithDot = `${idParts[0]}.${idParts[1]}.`;
+      const strippedWithoutDot = `${idParts[0]}.${idParts[1]}`;
+
+      const directStrippedDotRes = await fetch(`${iamAuthorityServer.url}/v1/credentials/register/challenge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${D2_3_BACKEND_TO_AUTHORITY_TOKEN}`,
+          'X-Serverless-Authorization': `Bearer ${strippedWithDot}`
+        },
+        body: JSON.stringify({ adminId: superAdminId })
+      });
+      assert.strictEqual(directStrippedDotRes.status, 200);
+      const directStrippedDotBody = await directStrippedDotRes.json();
+      assert.strictEqual(directStrippedDotBody.success, true);
+
+      const directStrippedNoDotRes = await fetch(`${iamAuthorityServer.url}/v1/credentials/register/challenge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${D2_3_BACKEND_TO_AUTHORITY_TOKEN}`,
+          'X-Serverless-Authorization': `Bearer ${strippedWithoutDot}`
+        },
+        body: JSON.stringify({ adminId: superAdminId })
+      });
+      assert.strictEqual(directStrippedNoDotRes.status, 200);
+      const directStrippedNoDotBody = await directStrippedNoDotRes.json();
+      assert.strictEqual(directStrippedNoDotBody.success, true);
+    } finally {
+      await iamAuthorityServer.close();
+    }
+  });
+
+  it('92. Chantier D.2.5b — DEP-2 : Verrouillage indépendant de WebAuthn RP ID et Origin côté autorité et rejet de toute falsification par le backend', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+
+    // 1. Hors mode test jetable, l'absence de WEBAUTHN_RP_ID ou WEBAUTHN_ORIGIN est rejetée en mode fail-closed
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevRpId = process.env.WEBAUTHN_RP_ID;
+    const prevOrigin = process.env.WEBAUTHN_ORIGIN;
+    try {
+      process.env.NODE_ENV = 'staging';
+      delete process.env.WEBAUTHN_RP_ID;
+      delete process.env.WEBAUTHN_ORIGIN;
+      setAuthorityRuntimeConfig({ authorityRpId: null, authorityOrigin: null });
+
+      const missingCheck = resolveAuthoritativeRpConfig();
+      assert.strictEqual(missingCheck.valid, false);
+      assert.strictEqual(missingCheck.code, 'WEBAUTHN_RP_CONFIG_MISSING');
+
+      await assert.rejects(
+        async () => {
+          await startWebAuthnAuthorityServer({
+            port: 0,
+            host: '127.0.0.1',
+            authoritySecretKey: D2_3_AUTHORITY_ONLY_SECRET,
+            authorityDatabaseUrl: authorityRoleUrl,
+            backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN
+          });
+        },
+        (err) => err.code === 'WEBAUTHN_RP_CONFIG_MISSING'
+      );
+    } finally {
+      process.env.NODE_ENV = prevNodeEnv;
+      if (prevRpId === undefined) delete process.env.WEBAUTHN_RP_ID;
+      else process.env.WEBAUTHN_RP_ID = prevRpId;
+      if (prevOrigin === undefined) delete process.env.WEBAUTHN_ORIGIN;
+      else process.env.WEBAUTHN_ORIGIN = prevOrigin;
+    }
+
+    // 2. Serveur d'autorité démarré avec sa propre configuration verrouillée : staging.yziow.com / https://staging.yziow.com
+    const lockedRpServer = await startWebAuthnAuthorityServer({
+      port: 0,
+      host: '127.0.0.1',
+      authoritySecretKey: D2_3_AUTHORITY_ONLY_SECRET,
+      authorityDatabaseUrl: authorityRoleUrl,
+      backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN,
+      bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET,
+      authorityRpId: 'staging.yziow.com',
+      authorityOrigin: 'https://staging.yziow.com'
+    });
+
+    try {
+      const clientOpts = {
+        authorityUrl: lockedRpServer.url,
+        backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN
+      };
+
+      // 2a. Le backend omet rpId et origin -> l'autorité impose staging.yziow.com et https://staging.yziow.com
+      const legitChal = await requestRegistrationChallenge(superAdminId, clientOpts);
+      assert.strictEqual(legitChal.rpId, 'staging.yziow.com');
+      assert.strictEqual(legitChal.origin, 'https://staging.yziow.com');
+
+      // 2b. Le backend tente d'imposer un rpId falsifié sur /v1/credentials/register/challenge -> rejet 403 INVALID_RP_ID
+      await assert.rejects(
+        async () => {
+          await requestRegistrationChallenge(superAdminId, {
+            ...clientOpts,
+            rpId: 'evil.attacker.com',
+            origin: 'https://staging.yziow.com'
+          });
+        },
+        (err) => err.code === 'INVALID_RP_ID'
+      );
+
+      // 2c. Le backend tente d'imposer une origin falsifiée sur /v1/credentials/register/challenge -> rejet 403 INVALID_ORIGIN
+      await assert.rejects(
+        async () => {
+          await requestRegistrationChallenge(superAdminId, {
+            ...clientOpts,
+            rpId: 'staging.yziow.com',
+            origin: 'https://evil.attacker.com'
+          });
+        },
+        (err) => err.code === 'INVALID_ORIGIN'
+      );
+
+      // 2d. Le backend tente d'imposer un rpId ou origin falsifiés lors de /v1/credentials/register/verify -> rejet INVALID_RP_ID / INVALID_ORIGIN
+      const kp = generateWebAuthnKeypair();
+      const spki = kp.publicKey.export({ type: 'spki', format: 'pem' });
+      const credId = 'cred_dep2_' + randomUUID();
+      const attObj = buildWebAuthnAttestationObject({
+        publicKeySpki: spki,
+        credentialId: credId,
+        rpId: 'staging.yziow.com'
+      });
+      const clientDataB64 = Buffer.from(JSON.stringify({
+        type: 'webauthn.create',
+        challenge: legitChal.challenge,
+        origin: 'https://staging.yziow.com'
+      })).toString('base64url');
+      const oobToken = issueOutOfBandBootstrapToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        credentialId: credId,
+        bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET
+      });
+
+      const spoofedVerifyRp = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: credId,
+        attestationObject: attObj,
+        clientDataJSON: clientDataB64,
+        expectedChallenge: legitChal.challenge,
+        enrollmentApprovalToken: oobToken,
+        rpId: 'evil.attacker.com',
+        origin: 'https://staging.yziow.com'
+      }, clientOpts);
+      assert.strictEqual(spoofedVerifyRp.valid, false);
+      assert.strictEqual(spoofedVerifyRp.code, 'INVALID_RP_ID');
+
+      const spoofedVerifyOrigin = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: credId,
+        attestationObject: attObj,
+        clientDataJSON: clientDataB64,
+        expectedChallenge: legitChal.challenge,
+        enrollmentApprovalToken: oobToken,
+        rpId: 'staging.yziow.com',
+        origin: 'https://evil.attacker.com'
+      }, clientOpts);
+      assert.strictEqual(spoofedVerifyOrigin.valid, false);
+      assert.strictEqual(spoofedVerifyOrigin.code, 'INVALID_ORIGIN');
+
+      // Enregistrement légitime avec le rpId et l'origin de l'autorité
+      const validVerify = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: credId,
+        attestationObject: attObj,
+        clientDataJSON: clientDataB64,
+        expectedChallenge: legitChal.challenge,
+        enrollmentApprovalToken: oobToken
+      }, clientOpts);
+      assert.strictEqual(validVerify.valid, true);
+
+      // 2e. Falsification de rpId ou origin sur /v1/credentials/enroll-approval/challenge -> rejet INVALID_RP_ID / INVALID_ORIGIN
+      await assert.rejects(
+        async () => {
+          await requestEnrollmentApprovalChallenge({
+            targetAdminId: approverAdminId,
+            approverAdminId: superAdminId,
+            purpose: 'credential_enrollment',
+            rpId: 'evil.attacker.com'
+          }, clientOpts);
+        },
+        (err) => err.code === 'INVALID_RP_ID'
+      );
+
+      // 2f. Falsification de rpId ou origin sur /v1/actions/challenge -> rejet INVALID_RP_ID / INVALID_ORIGIN
+      const docHash = createHash('sha256').update('dep2-proof-doc').digest('hex');
+      await assert.rejects(
+        async () => {
+          await requestActionConfirmationChallenge({
+            adminId: superAdminId,
+            actionType: 'initiate',
+            periodId: randomUUID(),
+            providerTransactionId: 'tx_dep2_test',
+            verifiedAmountMinor: 1000,
+            currency: 'XOF',
+            proofDocumentHash: docHash,
+            origin: 'https://evil.attacker.com'
+          }, clientOpts);
+        },
+        (err) => err.code === 'INVALID_ORIGIN'
+      );
+    } finally {
+      await lockedRpServer.close();
+      await clearPersistedWebAuthnStateForTests(adminClient);
+    }
+  });
+
+  it('93. Chantier D.2.5b — DEP-3 : Sécurisation de /v1/credentials/revoke (rejet sans autorisation indépendante, révocation autorisée avec trace d\'audit et récupération) et arrêt propre SIGTERM', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+
+    const dep3Server = await startWebAuthnAuthorityServer({
+      port: 0,
+      host: '127.0.0.1',
+      authoritySecretKey: D2_3_AUTHORITY_ONLY_SECRET,
+      authorityDatabaseUrl: authorityRoleUrl,
+      backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN,
+      bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET
+    });
+
+    const clientOpts = {
+      authorityUrl: dep3Server.url,
+      backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN
+    };
+
+    try {
+      // Enrôler les deux SuperAdmins (Admin 1 par oob_bootstrap, Admin 2 par co-autorisation matérielle d'Admin 1)
+      const kp1 = generateWebAuthnKeypair();
+      const spki1 = kp1.publicKey.export({ type: 'spki', format: 'pem' });
+      const credId1 = 'cred_dep3_admin1_' + randomUUID();
+      const chal1 = await requestRegistrationChallenge(superAdminId, clientOpts);
+      const att1 = buildWebAuthnAttestationObject({ publicKeySpki: spki1, credentialId: credId1, rpId: chal1.rpId });
+      const cd1 = Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: chal1.challenge, origin: chal1.origin })).toString('base64url');
+      const oob1 = issueOutOfBandBootstrapToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        credentialId: credId1,
+        bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET
+      });
+      const reg1 = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: credId1,
+        attestationObject: att1,
+        clientDataJSON: cd1,
+        expectedChallenge: chal1.challenge,
+        enrollmentApprovalToken: oob1
+      }, clientOpts);
+      assert.strictEqual(reg1.valid, true);
+
+      const kp2 = generateWebAuthnKeypair();
+      const spki2 = kp2.publicKey.export({ type: 'spki', format: 'pem' });
+      const credId2 = 'cred_dep3_admin2_' + randomUUID();
+      const approveChal2 = await requestEnrollmentApprovalChallenge({
+        targetAdminId: approverAdminId,
+        approverAdminId: superAdminId,
+        purpose: 'credential_enrollment'
+      }, clientOpts);
+      const approveAss2 = {
+        credentialId: credId1,
+        ...signWebAuthnAssertion({
+          keypair: kp1,
+          challenge: approveChal2.challenge,
+          rpId: approveChal2.rpId,
+          origin: approveChal2.origin,
+          counter: 1
+        })
+      };
+      const approveTok2 = await requestConfirmedEnrollmentApprovalToken({
+        targetAdminId: approverAdminId,
+        approverAdminId: superAdminId,
+        purpose: 'credential_enrollment',
+        webauthnAssertion: approveAss2
+      }, clientOpts);
+      assert.strictEqual(approveTok2.valid, true);
+
+      const chal2 = await requestRegistrationChallenge(approverAdminId, clientOpts);
+      const att2 = buildWebAuthnAttestationObject({ publicKeySpki: spki2, credentialId: credId2, rpId: chal2.rpId });
+      const cd2 = Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: chal2.challenge, origin: chal2.origin })).toString('base64url');
+      const reg2 = await requestVerifyAndRegisterCredential({
+        adminId: approverAdminId,
+        credentialId: credId2,
+        attestationObject: att2,
+        clientDataJSON: cd2,
+        expectedChallenge: chal2.challenge,
+        enrollmentApprovalToken: approveTok2.enrollmentApprovalToken
+      }, clientOpts);
+      assert.strictEqual(reg2.valid, true);
+
+      // 1. Tentative de révocation arbitraire par un backend compromis disposant seulement de YZIOW_BACKEND_TO_AUTHORITY_TOKEN
+      //    (même en envoyant requireRevocationAuthorization: false dans le corps JSON) -> REJET 403 !
+      const rawUnauthRevoke = await fetch(`${dep3Server.url}/v1/credentials/revoke`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${D2_3_BACKEND_TO_AUTHORITY_TOKEN}`
+        },
+        body: JSON.stringify({
+          credentialId: credId1,
+          adminId: superAdminId,
+          requireRevocationAuthorization: false
+        })
+      });
+      assert.strictEqual(rawUnauthRevoke.status, 403);
+      const unauthRevokeBody = await rawUnauthRevoke.json();
+      assert.strictEqual(unauthRevokeBody.success, false);
+      assert.strictEqual(unauthRevokeBody.code, 'REVOCATION_AUTHORIZATION_REQUIRED');
+
+      // Tentative de détourner un jeton d'enrôlement (purpose = 'credential_replacement') pour révoquer -> REJET 403 !
+      const wrongPurposeChal = await requestEnrollmentApprovalChallenge({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'credential_replacement'
+      }, clientOpts);
+      const wrongPurposeAss = {
+        credentialId: credId2,
+        ...signWebAuthnAssertion({
+          keypair: kp2,
+          challenge: wrongPurposeChal.challenge,
+          rpId: wrongPurposeChal.rpId,
+          origin: wrongPurposeChal.origin,
+          counter: 1
+        })
+      };
+      const wrongPurposeTok = await requestConfirmedEnrollmentApprovalToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'credential_replacement',
+        webauthnAssertion: wrongPurposeAss
+      }, clientOpts);
+      assert.strictEqual(wrongPurposeTok.valid, true);
+
+      const wrongPurposeRevoke = await requestRevokeCredential(credId1, superAdminId, {
+        ...clientOpts,
+        revocationApprovalToken: wrongPurposeTok.enrollmentApprovalToken
+      });
+      assert.strictEqual(wrongPurposeRevoke.success, false);
+      assert.strictEqual(wrongPurposeRevoke.code, 'INVALID_REVOCATION_AUTHORIZATION_PURPOSE');
+
+      // Vérifier en base que credId1 est toujours actif
+      const checkActive1 = await adminClient.query(
+        `SELECT is_active, revoked_at FROM public.superadmin_webauthn_credentials WHERE credential_id = $1`,
+        [credId1]
+      );
+      assert.strictEqual(checkActive1.rows[0].is_active, true);
+      assert.strictEqual(checkActive1.rows[0].revoked_at, null);
+
+      // 2. Révocation légitime autorisée via co-autorisation matérielle du second SuperAdmin (purpose = 'credential_revocation')
+      const revApprovalChal = await requestEnrollmentApprovalChallenge({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'credential_revocation'
+      }, clientOpts);
+      const revApprovalAss = {
+        credentialId: credId2,
+        ...signWebAuthnAssertion({
+          keypair: kp2,
+          challenge: revApprovalChal.challenge,
+          rpId: revApprovalChal.rpId,
+          origin: revApprovalChal.origin,
+          counter: 2
+        })
+      };
+      const revApprovalTok = await requestConfirmedEnrollmentApprovalToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'credential_revocation',
+        webauthnAssertion: revApprovalAss
+      }, clientOpts);
+      assert.strictEqual(revApprovalTok.valid, true);
+
+      const authRevokeRes = await requestRevokeCredential(credId1, superAdminId, {
+        ...clientOpts,
+        revocationApprovalToken: revApprovalTok.enrollmentApprovalToken
+      });
+      assert.strictEqual(authRevokeRes.success, true);
+      assert.strictEqual(authRevokeRes.credential.is_active, false);
+      assert.ok(authRevokeRes.revocationAudit);
+      assert.strictEqual(authRevokeRes.revocationAudit.authMethod, 'hardware_co_auth');
+      assert.strictEqual(authRevokeRes.revocationAudit.purpose, 'credential_revocation');
+
+      // Vérifier la trace d'audit persistée dans yziow_refund_auth.consumed_enrollment_tokens
+      const auditRow = await adminClient.query(
+        `SELECT token_nonce, token_type, target_admin_id, approver_admin_id, credential_id, purpose
+         FROM yziow_refund_auth.consumed_enrollment_tokens WHERE token_nonce = $1`,
+        [revApprovalTok.enrollmentApprovalToken.nonce]
+      );
+      assert.strictEqual(auditRow.rowCount, 1);
+      assert.strictEqual(auditRow.rows[0].token_type, 'hardware_co_auth');
+      assert.strictEqual(auditRow.rows[0].credential_id, credId1);
+      assert.strictEqual(auditRow.rows[0].purpose, 'credential_revocation');
+
+      // 3. Procédure de récupération : Admin 1 peut ré-enrôler un nouvel authentificateur co-autorisé matériellement par Admin 2
+      const kp1Recovery = generateWebAuthnKeypair();
+      const spki1Recovery = kp1Recovery.publicKey.export({ type: 'spki', format: 'pem' });
+      const credId1Recovery = 'cred_dep3_admin1_recovered_' + randomUUID();
+      const recovApproveChal = await requestEnrollmentApprovalChallenge({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'credential_replacement'
+      }, clientOpts);
+      const recovApproveAss = {
+        credentialId: credId2,
+        ...signWebAuthnAssertion({
+          keypair: kp2,
+          challenge: recovApproveChal.challenge,
+          rpId: recovApproveChal.rpId,
+          origin: recovApproveChal.origin,
+          counter: 3
+        })
+      };
+      const recovApproveTok = await requestConfirmedEnrollmentApprovalToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'credential_replacement',
+        webauthnAssertion: recovApproveAss
+      }, clientOpts);
+      assert.strictEqual(recovApproveTok.valid, true);
+
+      const recovRegChal = await requestRegistrationChallenge(superAdminId, clientOpts);
+      const recovAtt = buildWebAuthnAttestationObject({ publicKeySpki: spki1Recovery, credentialId: credId1Recovery, rpId: recovRegChal.rpId });
+      const recovCd = Buffer.from(JSON.stringify({ type: 'webauthn.create', challenge: recovRegChal.challenge, origin: recovRegChal.origin })).toString('base64url');
+      const recovRegRes = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: credId1Recovery,
+        attestationObject: recovAtt,
+        clientDataJSON: recovCd,
+        expectedChallenge: recovRegChal.challenge,
+        enrollmentApprovalToken: recovApproveTok.enrollmentApprovalToken
+      }, clientOpts);
+      assert.strictEqual(recovRegRes.valid, true);
+
+      // 4. Révocation d'urgence hors bande via oob_bootstrap (purpose = 'emergency_revocation', lié au credentialId exact)
+      const emergencyOobRevokeToken = issueOutOfBandBootstrapToken({
+        targetAdminId: approverAdminId,
+        approverAdminId: superAdminId,
+        credentialId: credId2,
+        purpose: 'emergency_revocation',
+        bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET
+      });
+      const oobRevokeRes = await requestRevokeCredential(credId2, approverAdminId, {
+        ...clientOpts,
+        revocationApprovalToken: emergencyOobRevokeToken
+      });
+      assert.strictEqual(oobRevokeRes.success, true);
+      assert.strictEqual(oobRevokeRes.revocationAudit.authMethod, 'oob_bootstrap');
+      assert.strictEqual(oobRevokeRes.revocationAudit.purpose, 'emergency_revocation');
+
+      // Rejeu du même jeton oob_bootstrap de révocation -> REJET !
+      const replayOobRevoke = await requestRevokeCredential(credId1Recovery, superAdminId, {
+        ...clientOpts,
+        revocationApprovalToken: emergencyOobRevokeToken
+      });
+      assert.strictEqual(replayOobRevoke.success, false);
+
+      // 5. Arrêt propre SIGTERM du serveur d'autorité
+      assert.strictEqual(dep3Server.isShuttingDown, false);
+      const shutdownResult = await dep3Server.shutdown('SIGTERM');
+      assert.strictEqual(shutdownResult.shutDown, true);
+      assert.strictEqual(shutdownResult.signal, 'SIGTERM');
+      assert.strictEqual(dep3Server.isShuttingDown, true);
+      assert.strictEqual(dep3Server.lastShutdownSignal, 'SIGTERM');
+      assert.ok(dep3Server.shutdownCompletedAt);
+
+      // Une fois arrêté, tout appel échoue en mode fail-closed (AUTHORITY_UNAVAILABLE)
+      await assert.rejects(
+        async () => {
+          await requestRegistrationChallenge(superAdminId, clientOpts);
+        },
+        (err) => err.code === 'AUTHORITY_UNAVAILABLE'
+      );
+    } finally {
+      await dep3Server.close();
+      await clearPersistedWebAuthnStateForTests(adminClient);
+    }
   });
 });

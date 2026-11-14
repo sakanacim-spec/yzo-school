@@ -60,11 +60,22 @@ let authorityPoolUrl = null;
 let configuredAuthorityDatabaseUrl = null;
 let configuredAuthoritySecretKey = null;
 let configuredBootstrapSecretKey = null;
+let configuredAuthorityRpId = null;
+let configuredAuthorityOrigin = null;
+
+function isDisposableTestEnvironment() {
+    return (
+        process.env.NODE_ENV === 'test' &&
+        (process.env.P28B_ALLOW_DISPOSABLE_DB === 'true' || process.env.P28C_ALLOW_DISPOSABLE_DB === 'true')
+    );
+}
 
 function setAuthorityRuntimeConfig({
     authorityDatabaseUrl = undefined,
     authoritySecretKey = undefined,
-    bootstrapSecretKey = undefined
+    bootstrapSecretKey = undefined,
+    authorityRpId = undefined,
+    authorityOrigin = undefined
 } = {}) {
     if (authorityDatabaseUrl !== undefined) {
         configuredAuthorityDatabaseUrl = authorityDatabaseUrl;
@@ -75,6 +86,69 @@ function setAuthorityRuntimeConfig({
     if (bootstrapSecretKey !== undefined) {
         configuredBootstrapSecretKey = bootstrapSecretKey;
     }
+    if (authorityRpId !== undefined) {
+        configuredAuthorityRpId = authorityRpId;
+    }
+    if (authorityOrigin !== undefined) {
+        configuredAuthorityOrigin = authorityOrigin;
+    }
+}
+
+/**
+ * Chantier D.2.5b (DEP-2) — Résolution et verrouillage indépendant du RP ID et de l'Origine WebAuthn.
+ * - Hors mode test jetable, exige explicitement WEBAUTHN_RP_ID et WEBAUTHN_ORIGIN (ou configuration runtime d'autorité).
+ * - Refuse toute valeur rpId ou origin fournie par le backend qui diverge de la configuration autoritaire.
+ */
+function resolveAuthoritativeRpConfig(requestedRpId = undefined, requestedOrigin = undefined) {
+    const rawConfiguredRpId = configuredAuthorityRpId || process.env.WEBAUTHN_RP_ID || null;
+    const rawConfiguredOrigin = configuredAuthorityOrigin || process.env.WEBAUTHN_ORIGIN || null;
+
+    const cleanConfiguredRpId = rawConfiguredRpId && typeof rawConfiguredRpId === 'string' && rawConfiguredRpId.trim() !== ''
+        ? rawConfiguredRpId.trim()
+        : null;
+    const cleanConfiguredOrigin = rawConfiguredOrigin && typeof rawConfiguredOrigin === 'string' && rawConfiguredOrigin.trim() !== ''
+        ? rawConfiguredOrigin.trim()
+        : null;
+
+    const disposableTest = isDisposableTestEnvironment();
+    if (!disposableTest && (!cleanConfiguredRpId || !cleanConfiguredOrigin)) {
+        return {
+            valid: false,
+            code: 'WEBAUTHN_RP_CONFIG_MISSING',
+            message: 'WEBAUTHN_RP_CONFIG_MISSING: Les variables WEBAUTHN_RP_ID et WEBAUTHN_ORIGIN doivent être explicitement configurées sur l\'autorité hors mode test jetable (rejet fail-closed).'
+        };
+    }
+
+    const authoritativeRpId = cleanConfiguredRpId || 'localhost';
+    const authoritativeOrigin = cleanConfiguredOrigin || 'http://localhost:5173';
+
+    if (requestedRpId !== undefined && requestedRpId !== null && String(requestedRpId).trim() !== '') {
+        const cleanReqRpId = String(requestedRpId).trim();
+        if (cleanReqRpId !== authoritativeRpId) {
+            return {
+                valid: false,
+                code: 'INVALID_RP_ID',
+                message: `INVALID_RP_ID: Le RP ID fourni par l'appelant (${cleanReqRpId}) diverge du RP ID autoritaire configuré sur l'autorité (${authoritativeRpId}).`
+            };
+        }
+    }
+
+    if (requestedOrigin !== undefined && requestedOrigin !== null && String(requestedOrigin).trim() !== '') {
+        const cleanReqOrigin = String(requestedOrigin).trim();
+        if (cleanReqOrigin !== authoritativeOrigin) {
+            return {
+                valid: false,
+                code: 'INVALID_ORIGIN',
+                message: `INVALID_ORIGIN: L'origine fournie par l'appelant (${cleanReqOrigin}) diverge de l'origine autoritaire configurée sur l'autorité (${authoritativeOrigin}).`
+            };
+        }
+    }
+
+    return {
+        valid: true,
+        rpId: authoritativeRpId,
+        origin: authoritativeOrigin
+    };
 }
 
 function getEffectiveAuthoritySecret(explicitSecret = null) {
@@ -92,10 +166,7 @@ function getAuthorityDbUrl() {
     if (process.env.YZIOW_AUTH_AUTHORITY_DATABASE_URL) {
         return process.env.YZIOW_AUTH_AUTHORITY_DATABASE_URL;
     }
-    const isDisposableTestMode =
-        process.env.NODE_ENV === 'test' &&
-        (process.env.P28B_ALLOW_DISPOSABLE_DB === 'true' || process.env.P28C_ALLOW_DISPOSABLE_DB === 'true');
-    if (isDisposableTestMode && process.env.DATABASE_URL) {
+    if (isDisposableTestEnvironment() && process.env.DATABASE_URL) {
         return process.env.DATABASE_URL;
     }
     return null;
@@ -372,8 +443,8 @@ async function createEnrollmentApprovalChallenge({
     targetAdminId,
     approverAdminId,
     purpose = 'credential_replacement',
-    rpId = DEFAULT_RP_ID,
-    origin = DEFAULT_ORIGIN,
+    rpId = undefined,
+    origin = undefined,
     validitySeconds = CHALLENGE_VALIDITY_SECONDS
 }) {
     if (!targetAdminId || !isValidUUID(targetAdminId)) {
@@ -385,6 +456,15 @@ async function createEnrollmentApprovalChallenge({
     if (String(targetAdminId).toLowerCase() === String(approverAdminId).toLowerCase()) {
         throw new Error('SELF_ENROLLMENT_APPROVAL_FORBIDDEN: Un SuperAdmin ne peut pas co-autoriser son propre enrôlement ou remplacement de clé WebAuthn.');
     }
+
+    const rpCheck = resolveAuthoritativeRpConfig(rpId, origin);
+    if (!rpCheck.valid) {
+        const err = new Error(rpCheck.message);
+        err.code = rpCheck.code;
+        throw err;
+    }
+    const effectiveRpId = rpCheck.rpId;
+    const effectiveOrigin = rpCheck.origin;
 
     const challengeBytes = crypto.randomBytes(32).toString('base64url');
     const canonicalPayload = `v1-enroll-approve|${String(targetAdminId).toLowerCase()}|${String(purpose).trim()}`;
@@ -400,7 +480,7 @@ async function createEnrollmentApprovalChallenge({
                 NULL::UUID, NULL::UUID, NULL::TEXT, NULL::BIGINT, NULL::TEXT, NULL::TEXT,
                 $4::TEXT, $5::TEXT, $6::INTEGER
             ) AS challenge_id`,
-            [String(approverAdminId).toLowerCase(), challengeBytes, canonicalPayload, rpId, origin, validitySeconds]
+            [String(approverAdminId).toLowerCase(), challengeBytes, canonicalPayload, effectiveRpId, effectiveOrigin, validitySeconds]
         );
         challengeId = dbRes.rows[0].challenge_id;
     }
@@ -411,8 +491,8 @@ async function createEnrollmentApprovalChallenge({
         action_type: 'enroll_approve',
         challenge_bytes: challengeBytes,
         canonical_payload: canonicalPayload,
-        rp_id: rpId,
-        origin,
+        rp_id: effectiveRpId,
+        origin: effectiveOrigin,
         created_at: new Date(now).toISOString(),
         expires_at: expiresAt,
         consumed_at: null
@@ -424,8 +504,8 @@ async function createEnrollmentApprovalChallenge({
         targetAdminId: String(targetAdminId).toLowerCase(),
         approverAdminId: String(approverAdminId).toLowerCase(),
         purpose: String(purpose).trim(),
-        rpId,
-        origin,
+        rpId: effectiveRpId,
+        origin: effectiveOrigin,
         timeout: validitySeconds * 1000
     };
 }
@@ -439,8 +519,8 @@ async function issueConfirmedEnrollmentApprovalToken({
     approverAdminId,
     purpose = 'credential_replacement',
     webauthnAssertion,
-    rpId = DEFAULT_RP_ID,
-    origin = DEFAULT_ORIGIN,
+    rpId = undefined,
+    origin = undefined,
     secretKey = null
 }) {
     if (!targetAdminId || !isValidUUID(targetAdminId) || !approverAdminId || !isValidUUID(approverAdminId)) {
@@ -451,6 +531,11 @@ async function issueConfirmedEnrollmentApprovalToken({
     }
     if (!webauthnAssertion || typeof webauthnAssertion !== 'object') {
         return { valid: false, code: 'HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED', message: 'Assertion matérielle WebAuthn du second SuperAdmin requise.' };
+    }
+
+    const rpCheck = resolveAuthoritativeRpConfig(rpId, origin);
+    if (!rpCheck.valid) {
+        return { valid: false, code: rpCheck.code, message: rpCheck.message };
     }
 
     let clientChallenge = null;
@@ -899,8 +984,14 @@ async function createRegistrationChallenge(adminId, options = {}) {
         throw new Error('INVALID_ADMIN_ID: UUID adminId valide requis pour l\'enregistrement WebAuthn.');
     }
 
-    const rpId = options.rpId || DEFAULT_RP_ID;
-    const origin = options.origin || DEFAULT_ORIGIN;
+    const rpCheck = resolveAuthoritativeRpConfig(options.rpId, options.origin);
+    if (!rpCheck.valid) {
+        const err = new Error(rpCheck.message);
+        err.code = rpCheck.code;
+        throw err;
+    }
+    const rpId = rpCheck.rpId;
+    const origin = rpCheck.origin;
     const validitySeconds = options.validitySeconds || CHALLENGE_VALIDITY_SECONDS;
     const challengeBytes = options.customChallenge || crypto.randomBytes(32).toString('base64url');
     const now = Date.now();
@@ -937,6 +1028,7 @@ async function createRegistrationChallenge(adminId, options = {}) {
     return {
         challengeId,
         challenge: challengeBytes,
+        rpId,
         rp: {
             name: 'YZIOW Platform SuperAdmin Authority',
             id: rpId
@@ -965,8 +1057,8 @@ async function verifyAndRegisterCredential({
     requireHardwareCoAuth = false,
     requireBootstrapOrHardwareCoAuth = false,
     bootstrapSecretKey = null,
-    rpId = DEFAULT_RP_ID,
-    origin = DEFAULT_ORIGIN,
+    rpId = undefined,
+    origin = undefined,
     aaguid = null,
     transports = ['internal', 'usb', 'nfc'],
     secretKey = null
@@ -980,6 +1072,13 @@ async function verifyAndRegisterCredential({
     if (!attestationObject && (!publicKeySpki || typeof publicKeySpki !== 'string' || publicKeySpki.trim() === '')) {
         return { valid: false, code: 'INVALID_PUBLIC_KEY', message: 'attestationObject ou clé publique SPKI requis.' };
     }
+
+    const rpCheck = resolveAuthoritativeRpConfig(rpId, origin);
+    if (!rpCheck.valid) {
+        return { valid: false, code: rpCheck.code, message: rpCheck.message };
+    }
+    const authoritativeRpId = rpCheck.rpId;
+    const authoritativeOrigin = rpCheck.origin;
 
     if (publicKeySpki && !attestationObject) {
         try {
@@ -1029,6 +1128,14 @@ async function verifyAndRegisterCredential({
         if (String(challengeRecord.admin_id).toLowerCase() !== String(adminId).toLowerCase()) {
             if (client) await client.query('ROLLBACK');
             return { valid: false, code: 'UNAUTHORIZED_ADMIN_REGISTRATION', message: 'Tentative d\'enregistrement pour un administrateur non concordant.' };
+        }
+        if (challengeRecord.rp_id && String(challengeRecord.rp_id).trim() !== authoritativeRpId) {
+            if (client) await client.query('ROLLBACK');
+            return { valid: false, code: 'INVALID_RP_ID', message: `Le RP ID persisté dans le challenge (${challengeRecord.rp_id}) diverge du RP ID autoritaire (${authoritativeRpId}).` };
+        }
+        if (challengeRecord.origin && String(challengeRecord.origin).trim() !== authoritativeOrigin) {
+            if (client) await client.query('ROLLBACK');
+            return { valid: false, code: 'INVALID_ORIGIN', message: `L'origine persistée dans le challenge (${challengeRecord.origin}) diverge de l'origine autoritaire (${authoritativeOrigin}).` };
         }
 
         // 2. Vérification de l'existence d'un authentificateur actif et procédure de confiance renforcée (P4 & D.2.3)
@@ -1090,9 +1197,9 @@ async function verifyAndRegisterCredential({
             if (client) await client.query('ROLLBACK');
             return { valid: false, code: 'CHALLENGE_MISMATCH', message: 'Le challenge de la réponse ne correspond pas au challenge émis.' };
         }
-        if (parsedClientData.origin !== origin) {
+        if (parsedClientData.origin !== authoritativeOrigin) {
             if (client) await client.query('ROLLBACK');
-            return { valid: false, code: 'INVALID_ORIGIN', message: `Origine non autorisée (${parsedClientData.origin} vs ${origin}).` };
+            return { valid: false, code: 'INVALID_ORIGIN', message: `Origine non autorisée (${parsedClientData.origin} vs ${authoritativeOrigin}).` };
         }
 
         // Vérification d'authenticatorData explicite si fourni séparément
@@ -1102,7 +1209,7 @@ async function verifyAndRegisterCredential({
                 if (client) await client.query('ROLLBACK');
                 return { valid: false, code: 'INVALID_AUTHENTICATOR_DATA', message: 'authenticatorData trop court (< 37 octets).' };
             }
-            const expectedRpIdHash = crypto.createHash('sha256').update(rpId).digest();
+            const expectedRpIdHash = crypto.createHash('sha256').update(authoritativeRpId).digest();
             const actualRpIdHash = authDataBuf.subarray(0, 32);
             if (!crypto.timingSafeEqual(expectedRpIdHash, actualRpIdHash)) {
                 if (client) await client.query('ROLLBACK');
@@ -1129,7 +1236,7 @@ async function verifyAndRegisterCredential({
             effectiveAttestationB64Url = buildWebAuthnAttestationObject({
                 publicKeySpki,
                 credentialId,
-                rpId,
+                rpId: authoritativeRpId,
                 aaguid: aaguid || '00000000-0000-0000-0000-000000000000',
                 userPresent: true,
                 userVerified: true
@@ -1180,8 +1287,8 @@ async function verifyAndRegisterCredential({
                     }
                 },
                 expectedChallenge,
-                expectedOrigin: origin,
-                expectedRPID: rpId,
+                expectedOrigin: authoritativeOrigin,
+                expectedRPID: authoritativeRpId,
                 requireUserPresence: true,
                 requireUserVerification: true,
                 supportedAlgorithmIDs: SUPPORTED_COSE_ALGORITHMS
@@ -1343,35 +1450,145 @@ async function verifyAndRegisterCredential({
 }
 
 /**
- * Révoque un authentificateur SuperAdmin dans PostgreSQL et en mémoire.
+ * Chantier D.2.5b (DEP-3) : Révoque un authentificateur SuperAdmin dans PostgreSQL et en mémoire.
+ * Empêche qu'un backend compromis disposant seulement de YZIOW_BACKEND_TO_AUTHORITY_TOKEN
+ * puisse révoquer arbitrairement les authentificateurs des deux SuperAdmins :
+ * lorsque requireRevocationAuthorization est actif (toujours imposé sur /v1/credentials/revoke
+ * et hors mode test jetable), exige une autorisation indépendante vérifiable à usage unique :
+ *   - soit une co-autorisation matérielle WebAuthn (enroll_approve) du second SuperAdmin actif
+ *     avec purpose commençant par 'credential_revocation' ;
+ *   - soit un jeton hors bande d'urgence à usage unique (oob_bootstrap) signé avec
+ *     YZIOW_WEBAUTHN_BOOTSTRAP_SECRET, lié au credentialId exact, avec purpose
+ *     'credential_revocation' ou 'emergency_revocation'.
+ * Toute révocation autorisée persiste atomiquement une trace d'audit dans
+ * yziow_refund_auth.consumed_enrollment_tokens.
  */
-async function revokeCredential(credentialId, adminId) {
+async function revokeCredential(credentialId, adminId, options = {}) {
+    if (!credentialId || typeof credentialId !== 'string' || credentialId.trim() === '') {
+        return { success: false, code: 'INVALID_CREDENTIAL_ID', message: 'credentialId requis.' };
+    }
+    if (!adminId || !isValidUUID(adminId)) {
+        return { success: false, code: 'INVALID_ADMIN_ID', message: 'UUID adminId valide requis.' };
+    }
+
+    if (options.rpId !== undefined || options.origin !== undefined || options.requireRevocationAuthorization === true) {
+        const rpCheck = resolveAuthoritativeRpConfig(options.rpId, options.origin);
+        if (!rpCheck.valid) {
+            return { success: false, code: rpCheck.code, message: rpCheck.message };
+        }
+    }
+
+    const mustAuthorizeRevocation =
+        options.requireRevocationAuthorization === true ||
+        options.revocationApprovalToken !== undefined ||
+        !isDisposableTestEnvironment();
+
+    const revToken = options.revocationApprovalToken || options.enrollmentApprovalToken || null;
+    if (mustAuthorizeRevocation) {
+        if (!revToken || typeof revToken !== 'object') {
+            return {
+                success: false,
+                code: 'REVOCATION_AUTHORIZATION_REQUIRED',
+                message: 'Une autorisation indépendante vérifiable (co-autorisation matérielle du second SuperAdmin ou jeton hors bande d\'urgence oob_bootstrap à usage unique) est obligatoire pour révoquer un authentificateur SuperAdmin.'
+            };
+        }
+        const tokenPurpose = String(revToken.purpose || '').trim();
+        const isRevocationPurpose =
+            tokenPurpose === 'credential_revocation' ||
+            tokenPurpose === `credential_revocation:${String(credentialId).trim()}` ||
+            tokenPurpose === 'emergency_revocation' ||
+            tokenPurpose === `emergency_revocation:${String(credentialId).trim()}`;
+        if (!isRevocationPurpose) {
+            return {
+                success: false,
+                code: 'INVALID_REVOCATION_AUTHORIZATION_PURPOSE',
+                message: 'Le jeton d\'autorisation fourni n\'a pas été émis pour une révocation d\'authentificateur (purpose attendu: credential_revocation ou emergency_revocation).'
+            };
+        }
+    }
+
     const pool = getAuthorityPool();
     if (pool) {
-        const res = await pool.query(
-            `SELECT * FROM public.superadmin_webauthn_credentials WHERE credential_id = $1`,
-            [credentialId]
-        );
-        if (res.rowCount === 0) {
-            return { success: false, code: 'CREDENTIAL_NOT_FOUND', message: 'Authentificateur introuvable.' };
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const res = await client.query(
+                `SELECT * FROM public.superadmin_webauthn_credentials WHERE credential_id = $1 FOR UPDATE`,
+                [credentialId]
+            );
+            if (res.rowCount === 0) {
+                await client.query('ROLLBACK');
+                return { success: false, code: 'CREDENTIAL_NOT_FOUND', message: 'Authentificateur introuvable.' };
+            }
+            const cred = res.rows[0];
+            if (String(cred.admin_id).toLowerCase() !== String(adminId).toLowerCase()) {
+                await client.query('ROLLBACK');
+                return { success: false, code: 'UNAUTHORIZED_ADMIN', message: 'Cet authentificateur n\'appartient pas à cet administrateur.' };
+            }
+
+            let revocationAudit = null;
+            if (mustAuthorizeRevocation) {
+                const approvalCheck = await verifyEnrollmentApprovalToken(
+                    revToken,
+                    adminId,
+                    client,
+                    options.secretKey || null,
+                    {
+                        requireHardwareCoAuth: revToken.auth_method !== 'oob_bootstrap',
+                        requireBootstrapOrHardwareCoAuth: true,
+                        expectedCredentialId: credentialId,
+                        bootstrapSecretKey: options.bootstrapSecretKey || null
+                    }
+                );
+                if (!approvalCheck.valid) {
+                    await client.query('ROLLBACK');
+                    return {
+                        success: false,
+                        code: approvalCheck.code === 'ENROLLMENT_CO_AUTHORIZATION_REQUIRED'
+                            ? 'REVOCATION_AUTHORIZATION_REQUIRED'
+                            : approvalCheck.code,
+                        message: approvalCheck.message
+                    };
+                }
+                revocationAudit = {
+                    tokenNonce: String(revToken.nonce).trim(),
+                    authMethod: revToken.auth_method === 'oob_bootstrap' ? 'oob_bootstrap' : 'hardware_co_auth',
+                    targetAdminId: String(adminId).toLowerCase(),
+                    approverAdminId: approvalCheck.approverAdminId,
+                    credentialId: String(credentialId).trim(),
+                    purpose: String(revToken.purpose).trim()
+                };
+            }
+
+            const upd = await client.query(
+                `UPDATE public.superadmin_webauthn_credentials
+                 SET is_active = false, revoked_at = clock_timestamp()
+                 WHERE credential_id = $1
+                 RETURNING *`,
+                [credentialId]
+            );
+            await client.query('COMMIT');
+
+            const mem = inMemoryCredentials.get(credentialId);
+            if (mem) {
+                mem.is_active = false;
+                mem.revoked_at = new Date(upd.rows[0].revoked_at).toISOString();
+            }
+            return {
+                success: true,
+                credential: upd.rows[0],
+                revocationAudit
+            };
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            return {
+                success: false,
+                code: 'REVOCATION_FAILED',
+                message: err.message
+            };
+        } finally {
+            client.release();
         }
-        const cred = res.rows[0];
-        if (String(cred.admin_id).toLowerCase() !== String(adminId).toLowerCase()) {
-            return { success: false, code: 'UNAUTHORIZED_ADMIN', message: 'Cet authentificateur n\'appartient pas à cet administrateur.' };
-        }
-        const upd = await pool.query(
-            `UPDATE public.superadmin_webauthn_credentials
-             SET is_active = false, revoked_at = clock_timestamp()
-             WHERE credential_id = $1
-             RETURNING *`,
-            [credentialId]
-        );
-        const mem = inMemoryCredentials.get(credentialId);
-        if (mem) {
-            mem.is_active = false;
-            mem.revoked_at = new Date(upd.rows[0].revoked_at).toISOString();
-        }
-        return { success: true, credential: upd.rows[0] };
     }
 
     const cred = inMemoryCredentials.get(credentialId);
@@ -1381,9 +1598,41 @@ async function revokeCredential(credentialId, adminId) {
     if (cred.admin_id !== String(adminId).toLowerCase()) {
         return { success: false, code: 'UNAUTHORIZED_ADMIN', message: 'Cet authentificateur n\'appartient pas à cet administrateur.' };
     }
+    let revocationAudit = null;
+    if (mustAuthorizeRevocation) {
+        const approvalCheck = await verifyEnrollmentApprovalToken(
+            revToken,
+            adminId,
+            null,
+            options.secretKey || null,
+            {
+                requireHardwareCoAuth: revToken.auth_method !== 'oob_bootstrap',
+                requireBootstrapOrHardwareCoAuth: true,
+                expectedCredentialId: credentialId,
+                bootstrapSecretKey: options.bootstrapSecretKey || null
+            }
+        );
+        if (!approvalCheck.valid) {
+            return {
+                success: false,
+                code: approvalCheck.code === 'ENROLLMENT_CO_AUTHORIZATION_REQUIRED'
+                    ? 'REVOCATION_AUTHORIZATION_REQUIRED'
+                    : approvalCheck.code,
+                message: approvalCheck.message
+            };
+        }
+        revocationAudit = {
+            tokenNonce: String(revToken.nonce).trim(),
+            authMethod: revToken.auth_method === 'oob_bootstrap' ? 'oob_bootstrap' : 'hardware_co_auth',
+            targetAdminId: String(adminId).toLowerCase(),
+            approverAdminId: approvalCheck.approverAdminId,
+            credentialId: String(credentialId).trim(),
+            purpose: String(revToken.purpose).trim()
+        };
+    }
     cred.is_active = false;
     cred.revoked_at = new Date().toISOString();
-    return { success: true, credential: cred };
+    return { success: true, credential: cred, revocationAudit };
 }
 
 /**
@@ -1430,8 +1679,8 @@ async function createActionConfirmationChallenge({
     verifiedAmountMinor,
     currency = 'XOF',
     proofDocumentHash,
-    rpId = DEFAULT_RP_ID,
-    origin = DEFAULT_ORIGIN,
+    rpId = undefined,
+    origin = undefined,
     validitySeconds = CHALLENGE_VALIDITY_SECONDS,
     customChallenge = null,
     enforceAuthoritativeDossierCheck = false
@@ -1461,6 +1710,15 @@ async function createActionConfirmationChallenge({
     if (!proofDocumentHash || !/^[a-fA-F0-9]{64}$/.test(proofDocumentHash.trim())) {
         throw new Error('INVALID_DOCUMENT_HASH: proofDocumentHash SHA-256 valide requis.');
     }
+
+    const rpCheck = resolveAuthoritativeRpConfig(rpId, origin);
+    if (!rpCheck.valid) {
+        const err = new Error(rpCheck.message);
+        err.code = rpCheck.code;
+        throw err;
+    }
+    const effectiveRpId = rpCheck.rpId;
+    const effectiveOrigin = rpCheck.origin;
 
     if (enforceAuthoritativeDossierCheck) {
         const dossierCheck = await inspectAuthoritativeRefundDossier({
@@ -1515,8 +1773,8 @@ async function createActionConfirmationChallenge({
                 amountMinor,
                 currency.trim().toUpperCase(),
                 String(proofDocumentHash).trim().toLowerCase(),
-                rpId,
-                origin,
+                effectiveRpId,
+                effectiveOrigin,
                 validitySeconds
             ]
         );
@@ -1535,8 +1793,8 @@ async function createActionConfirmationChallenge({
         verified_amount_minor: amountMinor,
         currency: currency.trim().toUpperCase(),
         proof_document_hash: String(proofDocumentHash).trim().toLowerCase(),
-        rp_id: rpId,
-        origin,
+        rp_id: effectiveRpId,
+        origin: effectiveOrigin,
         created_at: new Date(now).toISOString(),
         expires_at: expiresAt,
         consumed_at: null
@@ -1547,8 +1805,8 @@ async function createActionConfirmationChallenge({
     return {
         challengeId,
         challenge: challengeBytes,
-        rpId,
-        origin,
+        rpId: effectiveRpId,
+        origin: effectiveOrigin,
         timeout: validitySeconds * 1000,
         expectedDossier: {
             adminId: String(adminId).toLowerCase(),
@@ -1578,8 +1836,8 @@ async function verifyWebAuthnAssertion({
     authenticatorData,
     signature,
     expectedChallenge,
-    expectedRpId = DEFAULT_RP_ID,
-    expectedOrigin = DEFAULT_ORIGIN,
+    expectedRpId = undefined,
+    expectedOrigin = undefined,
     requireUserVerification = false,
     credentialRecord = null,
     expectedDossier = null,
@@ -1592,6 +1850,13 @@ async function verifyWebAuthnAssertion({
     if (!credentialId || typeof credentialId !== 'string') {
         return { valid: false, code: 'INVALID_CREDENTIAL_ID', message: 'credentialId requis.' };
     }
+
+    const rpCheck = resolveAuthoritativeRpConfig(expectedRpId, expectedOrigin);
+    if (!rpCheck.valid) {
+        return { valid: false, code: rpCheck.code, message: rpCheck.message };
+    }
+    const authoritativeRpId = rpCheck.rpId;
+    const authoritativeOrigin = rpCheck.origin;
 
     const pool = existingDbClient ? null : getAuthorityPool();
     const client = existingDbClient || (pool ? await pool.connect() : null);
@@ -1634,6 +1899,22 @@ async function verifyWebAuthnAssertion({
         if (String(challengeRecord.admin_id).toLowerCase() !== String(adminId).toLowerCase()) {
             if (ownsTransaction) await client.query('ROLLBACK');
             return { valid: false, code: 'CHALLENGE_ADMIN_MISMATCH', message: 'Le challenge n\'a pas été émis pour cet administrateur.' };
+        }
+        if (challengeRecord.rp_id && String(challengeRecord.rp_id).trim() !== authoritativeRpId) {
+            if (ownsTransaction) await client.query('ROLLBACK');
+            return {
+                valid: false,
+                code: 'INVALID_RP_ID',
+                message: `Le rp_id enregistré sur le challenge (${challengeRecord.rp_id}) ne correspond pas au RP ID autoritaire (${authoritativeRpId}).`
+            };
+        }
+        if (challengeRecord.origin && String(challengeRecord.origin).trim() !== authoritativeOrigin) {
+            if (ownsTransaction) await client.query('ROLLBACK');
+            return {
+                valid: false,
+                code: 'INVALID_ORIGIN',
+                message: `L'origine enregistrée sur le challenge (${challengeRecord.origin}) ne correspond pas à l'origine autoritaire (${authoritativeOrigin}).`
+            };
         }
 
         if (expectedEnrollmentApproval) {
@@ -1718,9 +1999,9 @@ async function verifyWebAuthnAssertion({
             if (ownsTransaction) await client.query('ROLLBACK');
             return { valid: false, code: 'CHALLENGE_MISMATCH', message: 'Le challenge signé ne correspond pas au challenge attendu pour cette opération.' };
         }
-        if (parsedClientData.origin !== expectedOrigin) {
+        if (parsedClientData.origin !== authoritativeOrigin) {
             if (ownsTransaction) await client.query('ROLLBACK');
-            return { valid: false, code: 'INVALID_ORIGIN', message: `Origine non autorisée (${parsedClientData.origin} vs ${expectedOrigin}).` };
+            return { valid: false, code: 'INVALID_ORIGIN', message: `Origine non autorisée (${parsedClientData.origin} vs ${authoritativeOrigin}).` };
         }
 
         let authDataBuf;
@@ -1735,7 +2016,7 @@ async function verifyWebAuthnAssertion({
             return { valid: false, code: 'INVALID_AUTHENTICATOR_DATA_LENGTH', message: 'authenticatorData trop court (< 37 octets).' };
         }
 
-        const expectedRpIdHash = crypto.createHash('sha256').update(expectedRpId).digest();
+        const expectedRpIdHash = crypto.createHash('sha256').update(authoritativeRpId).digest();
         const actualRpIdHash = authDataBuf.subarray(0, 32);
         if (!crypto.timingSafeEqual(expectedRpIdHash, actualRpIdHash)) {
             if (ownsTransaction) await client.query('ROLLBACK');
@@ -1789,8 +2070,8 @@ async function verifyWebAuthnAssertion({
                     }
                 },
                 expectedChallenge,
-                expectedOrigin,
-                expectedRPID: expectedRpId,
+                expectedOrigin: authoritativeOrigin,
+                expectedRPID: authoritativeRpId,
                 credential: {
                     id: b64CredId,
                     publicKey: coseKeyBytes,
@@ -1884,8 +2165,8 @@ async function issueConfirmedActionProof({
     proofDocumentHash,
     webauthnAssertion, // { credentialId, clientDataJSON, authenticatorData, signature }
     credentialRecord = null,
-    rpId = DEFAULT_RP_ID,
-    origin = DEFAULT_ORIGIN,
+    rpId = undefined,
+    origin = undefined,
     secretKey = null,
     authorityAvailable = true,
     enforceAuthoritativeDossierCheck = false
@@ -1903,6 +2184,15 @@ async function issueConfirmedActionProof({
             success: false,
             code: 'WEBAUTHN_CONFIRMATION_REQUIRED',
             message: 'Confirmation matérielle WebAuthn requise pour émettre une preuve d\'action.'
+        };
+    }
+
+    const rpCheck = resolveAuthoritativeRpConfig(rpId, origin);
+    if (!rpCheck.valid) {
+        return {
+            success: false,
+            code: rpCheck.code,
+            message: rpCheck.message
         };
     }
 
@@ -2049,6 +2339,8 @@ module.exports = {
     DEFAULT_ORIGIN,
     CHALLENGE_VALIDITY_SECONDS,
     SUPPORTED_COSE_ALGORITHMS,
+    isDisposableTestEnvironment,
+    resolveAuthoritativeRpConfig,
     setAuthorityRuntimeConfig,
     getEffectiveAuthoritySecret,
     getEffectiveBootstrapSecret,
