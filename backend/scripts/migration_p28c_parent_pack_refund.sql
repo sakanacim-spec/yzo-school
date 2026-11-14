@@ -157,19 +157,36 @@ ALTER TABLE yziow_refund_auth.webauthn_challenges
 CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_admin_action
     ON yziow_refund_auth.webauthn_challenges (admin_id, action_type);
 
--- Révocation stricte (D.2.3) :
+-- Table persistante d'anti-rejeu des jetons de co-autorisation et d'amorçage (D.2.4)
+CREATE TABLE IF NOT EXISTS yziow_refund_auth.consumed_enrollment_tokens (
+    token_nonce TEXT PRIMARY KEY CHECK (length(btrim(token_nonce)) >= 8),
+    token_type TEXT NOT NULL CHECK (token_type IN ('oob_bootstrap', 'hardware_co_auth', 'enrollment_approval')),
+    target_admin_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
+    approver_admin_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE RESTRICT,
+    credential_id TEXT NULL,
+    purpose TEXT NOT NULL,
+    issued_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    CONSTRAINT chk_enrollment_token_distinct_admins CHECK (target_admin_id <> approver_admin_id)
+);
+
+-- Révocation stricte (D.2.3 & D.2.4) :
 -- 1. yziow_refund_executor, service_role, authenticated, anon n'ont AUCUN accès au schéma d'autorité,
---    à la clé secrète, aux preuves, aux challenges ni aux credentials WebAuthn.
--- 2. yziow_webauthn_authority dispose uniquement des permissions minimales pour gérer les challenges
---    et les credentials WebAuthn, sans aucun accès à authority_config, consumed_action_proofs ni aux tables financières.
+--    à la clé secrète, aux preuves, aux challenges, aux jetons d'enrôlement ni aux credentials WebAuthn.
+-- 2. yziow_webauthn_authority dispose uniquement des permissions minimales pour gérer les challenges,
+--    consommer atomiquement les jetons d'enrôlement via RPC SECURITY DEFINER et gérer les credentials WebAuthn,
+--    sans aucun accès à authority_config, consumed_action_proofs ni aux tables financières.
 REVOKE ALL ON SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
 REVOKE ALL ON ALL TABLES IN SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+REVOKE ALL ON TABLE yziow_refund_auth.consumed_enrollment_tokens FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
 
 REVOKE ALL ON TABLE public.superadmin_webauthn_credentials FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
 
 GRANT USAGE ON SCHEMA yziow_refund_auth TO yziow_webauthn_authority;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.superadmin_webauthn_credentials TO yziow_webauthn_authority;
 GRANT SELECT ON TABLE yziow_refund_auth.webauthn_challenges TO yziow_webauthn_authority;
+GRANT SELECT ON TABLE yziow_refund_auth.consumed_enrollment_tokens TO yziow_webauthn_authority;
 
 DROP POLICY IF EXISTS policy_webauthn_authority_credentials_access ON public.superadmin_webauthn_credentials;
 CREATE POLICY policy_webauthn_authority_credentials_access
@@ -395,6 +412,84 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION yziow_refund_auth.check_superadmin_active(UUID) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
 GRANT EXECUTE ON FUNCTION yziow_refund_auth.check_superadmin_active(UUID) TO yziow_webauthn_authority;
+
+-- Fonction sécurisée de consommation atomique et persistante à usage unique des jetons de co-autorisation et d'amorçage (D.2.4)
+CREATE OR REPLACE FUNCTION yziow_refund_auth.consume_enrollment_approval_token(
+    p_token_nonce TEXT,
+    p_token_type TEXT,
+    p_target_admin_id UUID,
+    p_approver_admin_id UUID,
+    p_credential_id TEXT,
+    p_purpose TEXT,
+    p_issued_at TIMESTAMPTZ,
+    p_expires_at TIMESTAMPTZ
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = yziow_refund_auth, public, pg_catalog
+AS $$
+DECLARE
+    v_inserted_nonce TEXT;
+    v_target_active BOOLEAN := false;
+    v_approver_active BOOLEAN := false;
+BEGIN
+    IF p_token_nonce IS NULL OR length(btrim(p_token_nonce)) < 8 THEN
+        RAISE EXCEPTION 'INVALID_ENROLLMENT_APPROVAL_TOKEN: Nonce du jeton de co-autorisation invalide ou absent.';
+    END IF;
+
+    IF p_target_admin_id IS NULL OR p_approver_admin_id IS NULL OR p_target_admin_id = p_approver_admin_id THEN
+        RAISE EXCEPTION 'SELF_ENROLLMENT_APPROVAL_FORBIDDEN: Auto-approbation d''enrolement WebAuthn interdite.';
+    END IF;
+
+    SELECT COALESCE(is_active, false) INTO v_target_active FROM public.superadmins WHERE id = p_target_admin_id;
+    IF NOT FOUND OR v_target_active IS NOT TRUE THEN
+        RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin cible % introuvable ou inactif.', p_target_admin_id;
+    END IF;
+
+    SELECT COALESCE(is_active, false) INTO v_approver_active FROM public.superadmins WHERE id = p_approver_admin_id;
+    IF NOT FOUND OR v_approver_active IS NOT TRUE THEN
+        RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin co-autorisateur % introuvable ou inactif.', p_approver_admin_id;
+    END IF;
+
+    IF p_expires_at IS NULL OR p_expires_at <= clock_timestamp() THEN
+        RAISE EXCEPTION 'INVALID_ENROLLMENT_APPROVAL_TOKEN: Jeton de co-autorisation ou d''amorcage expire.';
+    END IF;
+
+    INSERT INTO yziow_refund_auth.consumed_enrollment_tokens (
+        token_nonce,
+        token_type,
+        target_admin_id,
+        approver_admin_id,
+        credential_id,
+        purpose,
+        issued_at,
+        expires_at,
+        consumed_at
+    ) VALUES (
+        btrim(p_token_nonce),
+        btrim(COALESCE(p_token_type, 'enrollment_approval')),
+        p_target_admin_id,
+        p_approver_admin_id,
+        NULLIF(btrim(COALESCE(p_credential_id, '')), ''),
+        btrim(COALESCE(p_purpose, 'credential_replacement')),
+        COALESCE(p_issued_at, clock_timestamp()),
+        p_expires_at,
+        clock_timestamp()
+    )
+    ON CONFLICT (token_nonce) DO NOTHING
+    RETURNING token_nonce INTO v_inserted_nonce;
+
+    IF v_inserted_nonce IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    RETURN TRUE;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION yziow_refund_auth.consume_enrollment_approval_token(TEXT, TEXT, UUID, UUID, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+GRANT EXECUTE ON FUNCTION yziow_refund_auth.consume_enrollment_approval_token(TEXT, TEXT, UUID, UUID, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ) TO yziow_webauthn_authority;
 
 -- Fonction sécurisée permettant à l'autorité WebAuthn de lire les données faisant autorité
 -- sur le dossier directement depuis PostgreSQL sans se fier aux déclarations du backend (D.2.3)

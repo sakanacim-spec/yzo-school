@@ -86,17 +86,46 @@ function sendJson(res, statusCode, payload) {
     res.end(body);
 }
 
+function resolveAuthorityPort(options = {}) {
+    if (options.port !== undefined && options.port !== null && options.port !== '') {
+        return Number(options.port);
+    }
+    if (process.env.YZIOW_WEBAUTHN_AUTHORITY_PORT !== undefined && process.env.YZIOW_WEBAUTHN_AUTHORITY_PORT !== '') {
+        return Number(process.env.YZIOW_WEBAUTHN_AUTHORITY_PORT);
+    }
+    if (process.env.PORT !== undefined && process.env.PORT !== '') {
+        return Number(process.env.PORT);
+    }
+    return 0;
+}
+
+function resolveAuthorityHost(options = {}) {
+    if (options.host && typeof options.host === 'string' && options.host.trim() !== '') {
+        return options.host.trim();
+    }
+    if (process.env.YZIOW_WEBAUTHN_AUTHORITY_HOST && process.env.YZIOW_WEBAUTHN_AUTHORITY_HOST.trim() !== '') {
+        return process.env.YZIOW_WEBAUTHN_AUTHORITY_HOST.trim();
+    }
+    const isContainerOrCloudRun = Boolean(
+        process.env.K_SERVICE ||
+        process.env.YZIOW_CONTAINER_MODE === 'true' ||
+        process.env.PORT ||
+        process.env.NODE_ENV === 'production' ||
+        process.env.NODE_ENV === 'staging'
+    );
+    return isContainerOrCloudRun ? '0.0.0.0' : '127.0.0.1';
+}
+
 /**
  * Démarre une instance du serveur HTTP de l'Autorité WebAuthn indépendante.
  */
 async function startWebAuthnAuthorityServer(options = {}) {
-    const port = options.port !== undefined ? Number(options.port) : Number(process.env.YZIOW_WEBAUTHN_AUTHORITY_PORT || 0);
-    const host = options.host || '127.0.0.1';
+    const port = resolveAuthorityPort(options);
+    const host = resolveAuthorityHost(options);
     const authoritySecretKey = options.authoritySecretKey || process.env.YZIOW_WEBAUTHN_AUTHORITY_SECRET || null;
     const authorityDatabaseUrl = options.authorityDatabaseUrl || process.env.YZIOW_AUTH_AUTHORITY_DATABASE_URL || null;
     const backendToAuthorityToken = options.backendToAuthorityToken || process.env.YZIOW_BACKEND_TO_AUTHORITY_TOKEN || null;
     const bootstrapSecretKey = options.bootstrapSecretKey || process.env.YZIOW_WEBAUTHN_BOOTSTRAP_SECRET || null;
-    const enforceAuthoritativeDossierCheck = options.enforceAuthoritativeDossierCheck !== false;
 
     if (!authoritySecretKey || typeof authoritySecretKey !== 'string' || authoritySecretKey.trim() === '') {
         throw new Error('AUTHORITY_SECRET_NOT_CONFIGURED: YZIOW_WEBAUTHN_AUTHORITY_SECRET requis pour démarrer le serveur d\'autorité.');
@@ -227,6 +256,9 @@ async function startWebAuthnAuthorityServer(options = {}) {
             }
 
             if (pathname === '/v1/actions/challenge') {
+                // Chantier D.2.4 — L'autorité impose inconditionnellement la contre-vérification indépendante
+                // du dossier dans PostgreSQL (inspect_authoritative_refund_dossier) et ignore tout paramètre
+                // body.enforceAuthoritativeDossierCheck envoyé par le backend appelant.
                 try {
                     const challengeData = await createActionConfirmationChallenge({
                         adminId: body.adminId,
@@ -240,10 +272,7 @@ async function startWebAuthnAuthorityServer(options = {}) {
                         rpId: body.rpId,
                         origin: body.origin,
                         validitySeconds: body.validitySeconds,
-                        enforceAuthoritativeDossierCheck:
-                            body.enforceAuthoritativeDossierCheck !== undefined
-                                ? Boolean(body.enforceAuthoritativeDossierCheck)
-                                : enforceAuthoritativeDossierCheck
+                        enforceAuthoritativeDossierCheck: true
                     });
                     return sendJson(res, 200, { success: true, data: challengeData });
                 } catch (err) {
@@ -253,6 +282,7 @@ async function startWebAuthnAuthorityServer(options = {}) {
             }
 
             if (pathname === '/v1/actions/confirm') {
+                // Chantier D.2.4 — L'autorité impose inconditionnellement enforceAuthoritativeDossierCheck: true.
                 const proofRes = await issueConfirmedActionProof({
                     adminId: body.adminId,
                     actionType: body.actionType,
@@ -266,10 +296,7 @@ async function startWebAuthnAuthorityServer(options = {}) {
                     rpId: body.rpId,
                     origin: body.origin,
                     secretKey: authoritySecretKey,
-                    enforceAuthoritativeDossierCheck:
-                        body.enforceAuthoritativeDossierCheck !== undefined
-                            ? Boolean(body.enforceAuthoritativeDossierCheck)
-                            : enforceAuthoritativeDossierCheck
+                    enforceAuthoritativeDossierCheck: true
                 });
                 return sendJson(res, proofRes.success ? 200 : 403, proofRes);
             }
@@ -296,12 +323,14 @@ async function startWebAuthnAuthorityServer(options = {}) {
 
     const address = server.address();
     const effectivePort = address && typeof address === 'object' ? address.port : port;
-    const url = `http://${host}:${effectivePort}`;
+    const clientHost = (host === '0.0.0.0' || host === '::') ? '127.0.0.1' : host;
+    const url = `http://${clientHost}:${effectivePort}`;
 
     return {
         server,
         url,
         port: effectivePort,
+        listenHost: host,
         close: async () => {
             await new Promise((resolve) => server.close(() => resolve()));
             setAuthorityRuntimeConfig({
@@ -315,8 +344,10 @@ async function startWebAuthnAuthorityServer(options = {}) {
 }
 
 if (require.main === module) {
-    startWebAuthnAuthorityServer().then((instance) => {
-        console.log(`[YZIOW WebAuthn Authority] Listening on ${instance.url}`);
+    const standalonePort = process.env.YZIOW_WEBAUTHN_AUTHORITY_PORT || process.env.PORT || 8080;
+    const standaloneHost = process.env.YZIOW_WEBAUTHN_AUTHORITY_HOST || '0.0.0.0';
+    startWebAuthnAuthorityServer({ port: Number(standalonePort), host: standaloneHost }).then((instance) => {
+        console.log(`[YZIOW WebAuthn Authority] Listening on http://${instance.listenHost}:${instance.port}`);
     }).catch((err) => {
         console.error('[YZIOW WebAuthn Authority] Startup failed:', err.message);
         process.exit(1);
@@ -325,5 +356,7 @@ if (require.main === module) {
 
 module.exports = {
     startWebAuthnAuthorityServer,
-    verifyBearerToken
+    verifyBearerToken,
+    resolveAuthorityPort,
+    resolveAuthorityHost
 };

@@ -54,7 +54,9 @@ const {
   closeAuthorityDbPool
 } = require('../../backend/services/superAdminWebAuthnAuthority.js');
 const {
-  startWebAuthnAuthorityServer
+  startWebAuthnAuthorityServer,
+  resolveAuthorityPort,
+  resolveAuthorityHost
 } = require('../../backend/authority/webauthnAuthorityServer.js');
 const {
   isExternalAuthorityRequired,
@@ -5071,6 +5073,351 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
       );
     } finally {
       await authDbClient.end();
+    }
+
+    // Nettoyage final et vérification des 3 flags de parent_pack_refund_security_gate = false
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    const gateRes = await adminClient.query(
+      `SELECT independent_admin_auth_ready, independent_fedapay_proof_ready, private_worm_storage_ready
+       FROM public.parent_pack_refund_security_gate WHERE id = true`
+    );
+    assert.strictEqual(gateRes.rows[0].independent_admin_auth_ready, false);
+    assert.strictEqual(gateRes.rows[0].independent_fedapay_proof_ready, false);
+    assert.strictEqual(gateRes.rows[0].private_worm_storage_ready, false);
+  });
+
+  // =========================================================================
+  // CHANTIER D.2.4 (CORRECTIONS PRÉALABLES À L'HÉBERGEMENT INDÉPENDANT)
+  // =========================================================================
+
+  it('88. Chantier D.2.4 — Problème 1 : Un backend compromis envoyant enforceAuthoritativeDossierCheck: false sur /v1/actions/challenge et /v1/actions/confirm ne peut jamais désactiver la contre-vérification PostgreSQL du dossier', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async (authorityServer) => {
+      const { keypair, credId } = await enrollSuperAdminViaAuthority(superAdminId);
+      const fixture = await seedFixture();
+
+      // 1. Tentative sur /v1/actions/challenge avec enforceAuthoritativeDossierCheck: false et montant falsifié (999999)
+      const challengeBypassRes = await fetch(`${authorityServer.url}/v1/actions/challenge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${D2_3_BACKEND_TO_AUTHORITY_TOKEN}`
+        },
+        body: JSON.stringify({
+          adminId: superAdminId,
+          actionType: 'initiate',
+          periodId: fixture.periodId,
+          providerTransactionId: fixture.providerTxId,
+          verifiedAmountMinor: 999999,
+          currency: fixture.currency,
+          proofDocumentHash: validProofHash,
+          enforceAuthoritativeDossierCheck: false
+        })
+      });
+      assert.strictEqual(challengeBypassRes.status, 403);
+      const challengeBypassBody = await challengeBypassRes.json();
+      assert.strictEqual(challengeBypassBody.success, false);
+      assert.strictEqual(challengeBypassBody.code, 'AUTHORITATIVE_DOSSIER_MISMATCH');
+
+      // 2. Tentative sur /v1/actions/confirm avec enforceAuthoritativeDossierCheck: false et transaction falsifiée
+      const validChal = await requestActionConfirmationChallenge({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+      const assertion = signWebAuthnAssertion({ keypair, challenge: validChal.challenge, counter: 1 });
+
+      const confirmBypassRes = await fetch(`${authorityServer.url}/v1/actions/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${D2_3_BACKEND_TO_AUTHORITY_TOKEN}`
+        },
+        body: JSON.stringify({
+          adminId: superAdminId,
+          actionType: 'initiate',
+          periodId: fixture.periodId,
+          providerTransactionId: 'tx_falsified_with_bypass_false',
+          verifiedAmountMinor: fixture.amount,
+          currency: fixture.currency,
+          proofDocumentHash: validProofHash,
+          webauthnAssertion: { credentialId: credId, ...assertion },
+          enforceAuthoritativeDossierCheck: false
+        })
+      });
+      assert.strictEqual(confirmBypassRes.status, 403);
+      const confirmBypassBody = await confirmBypassRes.json();
+      assert.strictEqual(confirmBypassBody.success, false);
+      assert.strictEqual(confirmBypassBody.code, 'AUTHORITATIVE_DOSSIER_MISMATCH');
+    });
+  });
+
+  it('89. Chantier D.2.4 — Problème 2 : Anti-rejeu persistant et atomique PostgreSQL des jetons d\'amorçage et de co-autorisation (concurrence, redémarrage de l\'autorité, expiration, cloisonnement des rôles)', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+
+    // 1. Vérification de l'absence totale de droits directs pour le backend applicatif (yziow_refund_executor et service_role)
+    const execClient = new Client({ connectionString: executorUrl });
+    await execClient.connect();
+    try {
+      await assert.rejects(
+        () => execClient.query(`SELECT * FROM yziow_refund_auth.consumed_enrollment_tokens`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+      await assert.rejects(
+        () => execClient.query(
+          `SELECT yziow_refund_auth.consume_enrollment_approval_token('nonce_forged_12345', 'oob_bootstrap', $1, $2, 'cred_x', 'initial_oob_bootstrap', NOW(), NOW() + interval '5 minutes')`,
+          [superAdminId, approverAdminId]
+        ),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await execClient.end();
+    }
+
+    await adminClient.query('BEGIN');
+    try {
+      await adminClient.query('SET LOCAL ROLE service_role');
+      await assert.rejects(
+        () => adminClient.query(`SELECT * FROM yziow_refund_auth.consumed_enrollment_tokens`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await adminClient.query('ROLLBACK');
+    }
+
+    await adminClient.query('BEGIN');
+    try {
+      await adminClient.query('SET LOCAL ROLE service_role');
+      await assert.rejects(
+        () => adminClient.query(
+          `SELECT yziow_refund_auth.consume_enrollment_approval_token('nonce_srv_12345', 'oob_bootstrap', $1, $2, 'cred_x', 'initial_oob_bootstrap', NOW(), NOW() + interval '5 minutes')`,
+          [superAdminId, approverAdminId]
+        ),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await adminClient.query('ROLLBACK');
+    }
+
+    // Même yziow_webauthn_authority ne peut pas supprimer (DELETE) ni insérer directement sans passer par la RPC SECURITY DEFINER
+    const authDbClient = new Client({ connectionString: authorityRoleUrl });
+    await authDbClient.connect();
+    try {
+      await assert.rejects(
+        () => authDbClient.query(`DELETE FROM yziow_refund_auth.consumed_enrollment_tokens`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await authDbClient.end();
+    }
+
+    // 2. Expiration du jeton (rejeté par l'autorité et par PostgreSQL)
+    await withIsolatedAuthorityServer(async () => {
+      const expKeypair = generateWebAuthnKeypair();
+      const expSpki = expKeypair.publicKey.export({ type: 'spki', format: 'pem' });
+      const expCredId = 'cred_exp_d24_' + randomUUID();
+      const expChal = await requestRegistrationChallenge(superAdminId);
+      const expAttObj = buildWebAuthnAttestationObject({ publicKeySpki: expSpki, credentialId: expCredId });
+      const expClientData = Buffer.from(JSON.stringify({
+        type: 'webauthn.create',
+        challenge: expChal.challenge,
+        origin: expChal.origin
+      })).toString('base64url');
+
+      const expiredOobToken = issueOutOfBandBootstrapToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        credentialId: expCredId,
+        validitySeconds: -10,
+        bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET
+      });
+
+      const expRes = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: expCredId,
+        attestationObject: expAttObj,
+        clientDataJSON: expClientData,
+        expectedChallenge: expChal.challenge,
+        enrollmentApprovalToken: expiredOobToken
+      });
+      assert.strictEqual(expRes.valid, false);
+      assert.strictEqual(expRes.code, 'INVALID_ENROLLMENT_APPROVAL_TOKEN');
+
+      // 3. Deux consommations concurrentes (Promise.all) du même jeton oob_bootstrap avec deux challenges distincts
+      const concKeypair = generateWebAuthnKeypair();
+      const concSpki = concKeypair.publicKey.export({ type: 'spki', format: 'pem' });
+      const concCredId = 'cred_conc_d24_' + randomUUID();
+      const [chalA, chalB] = await Promise.all([
+        requestRegistrationChallenge(superAdminId),
+        requestRegistrationChallenge(superAdminId)
+      ]);
+      const concAttObj = buildWebAuthnAttestationObject({ publicKeySpki: concSpki, credentialId: concCredId });
+      const clientDataA = Buffer.from(JSON.stringify({
+        type: 'webauthn.create',
+        challenge: chalA.challenge,
+        origin: chalA.origin
+      })).toString('base64url');
+      const clientDataB = Buffer.from(JSON.stringify({
+        type: 'webauthn.create',
+        challenge: chalB.challenge,
+        origin: chalB.origin
+      })).toString('base64url');
+
+      const sharedOobToken = issueOutOfBandBootstrapToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        credentialId: concCredId,
+        bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET
+      });
+
+      const [resA, resB] = await Promise.all([
+        requestVerifyAndRegisterCredential({
+          adminId: superAdminId,
+          credentialId: concCredId,
+          attestationObject: concAttObj,
+          clientDataJSON: clientDataA,
+          expectedChallenge: chalA.challenge,
+          enrollmentApprovalToken: sharedOobToken
+        }),
+        requestVerifyAndRegisterCredential({
+          adminId: superAdminId,
+          credentialId: concCredId,
+          attestationObject: concAttObj,
+          clientDataJSON: clientDataB,
+          expectedChallenge: chalB.challenge,
+          enrollmentApprovalToken: sharedOobToken
+        })
+      ]);
+
+      const successes = [resA, resB].filter((r) => r.valid === true);
+      const failures = [resA, resB].filter((r) => r.valid === false);
+      assert.strictEqual(successes.length, 1);
+      assert.strictEqual(failures.length, 1);
+      assert.strictEqual(failures[0].code, 'INVALID_ENROLLMENT_APPROVAL_TOKEN');
+
+      // Vérifier que le nonce est bien persisté dans yziow_refund_auth.consumed_enrollment_tokens
+      const dbTokenRow = await adminClient.query(
+        `SELECT token_nonce, token_type, target_admin_id, approver_admin_id, credential_id
+         FROM yziow_refund_auth.consumed_enrollment_tokens WHERE token_nonce = $1`,
+        [sharedOobToken.nonce]
+      );
+      assert.strictEqual(dbTokenRow.rowCount, 1);
+      assert.strictEqual(dbTokenRow.rows[0].token_type, 'oob_bootstrap');
+      assert.strictEqual(dbTokenRow.rows[0].credential_id, concCredId);
+
+      // 4. Redémarrage complet du processus d'autorité (fermeture HTTP + vidage RAM resetInMemoryState + nouvelle instance)
+      //    et tentative de rejeu après redémarrage : rejeté par PostgreSQL !
+      resetInMemoryState();
+      const secondAuthorityInstance = await startWebAuthnAuthorityServer({
+        port: 0,
+        host: '127.0.0.1',
+        authoritySecretKey: D2_3_AUTHORITY_ONLY_SECRET,
+        authorityDatabaseUrl: authorityRoleUrl,
+        backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN,
+        bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET
+      });
+
+      const prevUrl = process.env.YZIOW_WEBAUTHN_AUTHORITY_URL;
+      process.env.YZIOW_WEBAUTHN_AUTHORITY_URL = secondAuthorityInstance.url;
+      try {
+        // Pour tester le rejeu du jeton oob_bootstrap après redémarrage dans un état où 0 clé active n'existe pour l'approbateur,
+        // révoquons temporairement le credential créé afin de présenter exactement le même jeton sur la nouvelle instance
+        await adminClient.query(`DELETE FROM public.superadmin_webauthn_credentials WHERE credential_id = $1`, [concCredId]);
+        resetInMemoryState();
+
+        const chalAfterRestart = await requestRegistrationChallenge(superAdminId);
+        const clientDataAfterRestart = Buffer.from(JSON.stringify({
+          type: 'webauthn.create',
+          challenge: chalAfterRestart.challenge,
+          origin: chalAfterRestart.origin
+        })).toString('base64url');
+
+        const replayAfterRestart = await requestVerifyAndRegisterCredential({
+          adminId: superAdminId,
+          credentialId: concCredId,
+          attestationObject: concAttObj,
+          clientDataJSON: clientDataAfterRestart,
+          expectedChallenge: chalAfterRestart.challenge,
+          enrollmentApprovalToken: sharedOobToken
+        });
+        assert.strictEqual(replayAfterRestart.valid, false);
+        assert.strictEqual(replayAfterRestart.code, 'INVALID_ENROLLMENT_APPROVAL_TOKEN');
+        assert.match(replayAfterRestart.message, /déjà consommé/);
+      } finally {
+        process.env.YZIOW_WEBAUTHN_AUTHORITY_URL = prevUrl;
+        await secondAuthorityInstance.close();
+      }
+    });
+  });
+
+  it('90. Chantier D.2.4 — Problème 3 : Compatibilité Cloud Run du démarrage HTTP (écoute 0.0.0.0, process.env.PORT) et présence de pg + @simplewebauthn/server dans les dépendances de production', async () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+
+    // 1. Vérification des dépendances de production dans package.json, backend/package.json et package-lock.json
+    const rootPkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
+    const backendPkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'backend/package.json'), 'utf8'));
+    const lockPkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package-lock.json'), 'utf8'));
+
+    assert.ok(rootPkg.dependencies['@simplewebauthn/server'], '@simplewebauthn/server doit être dans dependencies de package.json');
+    assert.ok(rootPkg.dependencies['pg'], 'pg doit être dans dependencies de package.json');
+    assert.strictEqual(rootPkg.devDependencies['pg'], undefined, 'pg ne doit plus être uniquement dans devDependencies');
+
+    assert.ok(backendPkg.dependencies['@simplewebauthn/server'], '@simplewebauthn/server doit être dans dependencies de backend/package.json');
+    assert.ok(backendPkg.dependencies['pg'], 'pg doit être dans dependencies de backend/package.json');
+
+    assert.ok(lockPkg.packages[''].dependencies['pg'], 'package-lock.json doit référencer pg dans dependencies');
+    assert.strictEqual(lockPkg.packages['node_modules/pg'].dev, undefined, 'node_modules/pg ne doit pas avoir dev: true dans package-lock.json');
+
+    // 2. Vérification de la résolution d'hôte (0.0.0.0) et de port (process.env.PORT) pour Cloud Run
+    const prevPort = process.env.PORT;
+    const prevKService = process.env.K_SERVICE;
+    try {
+      process.env.PORT = '0';
+      process.env.K_SERVICE = 'yziow-webauthn-authority';
+      assert.strictEqual(resolveAuthorityHost({}), '0.0.0.0');
+      assert.strictEqual(resolveAuthorityPort({}), 0);
+
+      const cloudRunInstance = await startWebAuthnAuthorityServer({
+        authoritySecretKey: D2_3_AUTHORITY_ONLY_SECRET,
+        authorityDatabaseUrl: authorityRoleUrl,
+        backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN
+      });
+      try {
+        assert.strictEqual(cloudRunInstance.listenHost, '0.0.0.0');
+        assert.ok(cloudRunInstance.port > 0);
+        const healthRes = await fetch(`${cloudRunInstance.url}/v1/health`);
+        assert.strictEqual(healthRes.status, 200);
+        const healthBody = await healthRes.json();
+        assert.strictEqual(healthBody.status, 'ok');
+      } finally {
+        await cloudRunInstance.close();
+      }
+    } finally {
+      if (prevPort === undefined) delete process.env.PORT;
+      else process.env.PORT = prevPort;
+
+      if (prevKService === undefined) delete process.env.K_SERVICE;
+      else process.env.K_SERVICE = prevKService;
     }
 
     // Nettoyage final et vérification des 3 flags de parent_pack_refund_security_gate = false

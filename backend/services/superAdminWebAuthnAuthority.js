@@ -589,7 +589,10 @@ async function verifyEnrollmentApprovalToken(token, expectedTargetAdminId, dbCli
     if (Number.isNaN(expiresAtMs) || expiresAtMs < Date.now()) {
         return { valid: false, code: 'INVALID_ENROLLMENT_APPROVAL_TOKEN', message: 'Jeton de co-autorisation d\'enrôlement expiré.' };
     }
-    if (!token.nonce || consumedEnrollmentTokens.has(token.nonce)) {
+    if (!token.nonce || typeof token.nonce !== 'string' || token.nonce.trim() === '') {
+        return { valid: false, code: 'INVALID_ENROLLMENT_APPROVAL_TOKEN', message: 'Jeton de co-autorisation déjà consommé ou sans nonce.' };
+    }
+    if (!dbClient && consumedEnrollmentTokens.has(token.nonce)) {
         return { valid: false, code: 'INVALID_ENROLLMENT_APPROVAL_TOKEN', message: 'Jeton de co-autorisation déjà consommé ou sans nonce.' };
     }
 
@@ -641,8 +644,28 @@ async function verifyEnrollmentApprovalToken(token, expectedTargetAdminId, dbCli
             if (approverRes.rowCount === 0 || approverRes.rows[0].is_active !== true) {
                 return { valid: false, code: 'UNAUTHORIZED_ADMIN', message: 'Le second SuperAdmin co-autorisateur est introuvable ou inactif.' };
             }
+            const consumeRes = await dbClient.query(
+                `SELECT yziow_refund_auth.consume_enrollment_approval_token($1::TEXT, 'oob_bootstrap'::TEXT, $2::UUID, $3::UUID, $4::TEXT, $5::TEXT, $6::TIMESTAMPTZ, $7::TIMESTAMPTZ) AS consumed`,
+                [
+                    String(token.nonce).trim(),
+                    targetId,
+                    approverId,
+                    String(token.credential_id || options.expectedCredentialId || '').trim(),
+                    String(token.purpose || 'initial_oob_bootstrap').trim(),
+                    new Date(token.issued_at || Date.now()).toISOString(),
+                    new Date(token.expires_at).toISOString()
+                ]
+            );
+            if (consumeRes.rowCount === 0 || consumeRes.rows[0].consumed !== true) {
+                return {
+                    valid: false,
+                    code: 'INVALID_ENROLLMENT_APPROVAL_TOKEN',
+                    message: 'Jeton de co-autorisation déjà consommé ou sans nonce.'
+                };
+            }
+        } else {
+            consumedEnrollmentTokens.add(token.nonce);
         }
-        consumedEnrollmentTokens.add(token.nonce);
         return { valid: true, approverAdminId: approverId };
     }
 
@@ -742,9 +765,34 @@ async function verifyEnrollmentApprovalToken(token, expectedTargetAdminId, dbCli
                 };
             }
         }
+
+        const tokenType = (token.webauthn_challenge_id && token.approver_credential_id)
+            ? 'hardware_co_auth'
+            : 'enrollment_approval';
+        const consumeRes = await dbClient.query(
+            `SELECT yziow_refund_auth.consume_enrollment_approval_token($1::TEXT, $2::TEXT, $3::UUID, $4::UUID, $5::TEXT, $6::TEXT, $7::TIMESTAMPTZ, $8::TIMESTAMPTZ) AS consumed`,
+            [
+                String(token.nonce).trim(),
+                tokenType,
+                targetId,
+                approverId,
+                options.expectedCredentialId ? String(options.expectedCredentialId).trim() : null,
+                String(token.purpose || 'credential_replacement').trim(),
+                new Date(token.issued_at || Date.now()).toISOString(),
+                new Date(token.expires_at).toISOString()
+            ]
+        );
+        if (consumeRes.rowCount === 0 || consumeRes.rows[0].consumed !== true) {
+            return {
+                valid: false,
+                code: 'INVALID_ENROLLMENT_APPROVAL_TOKEN',
+                message: 'Jeton de co-autorisation déjà consommé ou sans nonce.'
+            };
+        }
+    } else {
+        consumedEnrollmentTokens.add(token.nonce);
     }
 
-    consumedEnrollmentTokens.add(token.nonce);
     return { valid: true, approverAdminId: approverId };
 }
 
@@ -1977,6 +2025,7 @@ async function clearPersistedWebAuthnStateForTests(customAdminClient = null) {
     resetInMemoryState();
     if (customAdminClient) {
         await customAdminClient.query(`DELETE FROM yziow_refund_auth.consumed_action_proofs WHERE webauthn_challenge_id IS NOT NULL`).catch(() => {});
+        await customAdminClient.query(`DELETE FROM yziow_refund_auth.consumed_enrollment_tokens`).catch(() => {});
         await customAdminClient.query(`DELETE FROM yziow_refund_auth.webauthn_challenges`).catch(() => {});
         await customAdminClient.query(`DELETE FROM public.superadmin_webauthn_credentials`).catch(() => {});
         return;
@@ -1986,6 +2035,7 @@ async function clearPersistedWebAuthnStateForTests(customAdminClient = null) {
         const cleanupPool = new Pool({ connectionString: adminDbUrl, max: 1, idleTimeoutMillis: 1000 });
         try {
             await cleanupPool.query(`DELETE FROM yziow_refund_auth.consumed_action_proofs WHERE webauthn_challenge_id IS NOT NULL`).catch(() => {});
+            await cleanupPool.query(`DELETE FROM yziow_refund_auth.consumed_enrollment_tokens`).catch(() => {});
             await cleanupPool.query(`DELETE FROM yziow_refund_auth.webauthn_challenges`).catch(() => {});
             await cleanupPool.query(`DELETE FROM public.superadmin_webauthn_credentials`).catch(() => {});
         } finally {
