@@ -672,8 +672,11 @@ function mapReconciliationRpcError(rpcErr) {
         'UNSUPPORTED_COSE_ALGORITHM',
         'INVALID_COSE_PUBLIC_KEY',
         'ENROLLMENT_CO_AUTHORIZATION_REQUIRED',
+        'HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED',
         'SELF_ENROLLMENT_APPROVAL_FORBIDDEN',
-        'INVALID_ENROLLMENT_APPROVAL_TOKEN'
+        'INVALID_ENROLLMENT_APPROVAL_TOKEN',
+        'AUTHORITATIVE_DOSSIER_MISMATCH',
+        'UNAUTHORIZED_BACKEND_CALLER'
     ];
     for (const code of knownCodes) {
         if (msg.includes(code)) {
@@ -849,8 +852,8 @@ async function createParentPackRefundReconciliationRequest({
     let finalInitiatorProof = initiatorActionProof;
 
     if (!finalInitiatorProof && initiatorWebAuthnConfirmation) {
-        const { issueConfirmedActionProof } = require('./superAdminWebAuthnAuthority');
-        const issueRes = await issueConfirmedActionProof({
+        const { requestConfirmedActionProof } = require('./webauthnAuthorityClient');
+        const issueRes = await requestConfirmedActionProof({
             adminId: initiatorAdminId,
             actionType: 'initiate',
             periodId,
@@ -1055,8 +1058,8 @@ async function approveAndExecuteParentPackRefundReconciliation({
     let finalApproverProof = approverActionProof;
 
     if (!finalApproverProof && approverWebAuthnConfirmation) {
-        const { issueConfirmedActionProof } = require('./superAdminWebAuthnAuthority');
-        const issueRes = await issueConfirmedActionProof({
+        const { requestConfirmedActionProof } = require('./webauthnAuthorityClient');
+        const issueRes = await requestConfirmedActionProof({
             adminId: approverAdminId,
             actionType: 'approve',
             periodId: dossier.period_id,

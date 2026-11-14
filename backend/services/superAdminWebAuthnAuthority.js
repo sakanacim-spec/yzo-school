@@ -57,9 +57,48 @@ const consumedEnrollmentTokens = new Set();
 
 let authorityPool = null;
 let authorityPoolUrl = null;
+let configuredAuthorityDatabaseUrl = null;
+let configuredAuthoritySecretKey = null;
+let configuredBootstrapSecretKey = null;
+
+function setAuthorityRuntimeConfig({
+    authorityDatabaseUrl = undefined,
+    authoritySecretKey = undefined,
+    bootstrapSecretKey = undefined
+} = {}) {
+    if (authorityDatabaseUrl !== undefined) {
+        configuredAuthorityDatabaseUrl = authorityDatabaseUrl;
+    }
+    if (authoritySecretKey !== undefined) {
+        configuredAuthoritySecretKey = authoritySecretKey;
+    }
+    if (bootstrapSecretKey !== undefined) {
+        configuredBootstrapSecretKey = bootstrapSecretKey;
+    }
+}
+
+function getEffectiveAuthoritySecret(explicitSecret = null) {
+    return explicitSecret || configuredAuthoritySecretKey || null;
+}
+
+function getEffectiveBootstrapSecret(explicitBootstrapSecret = null) {
+    return explicitBootstrapSecret || configuredBootstrapSecretKey || process.env.YZIOW_WEBAUTHN_BOOTSTRAP_SECRET || null;
+}
 
 function getAuthorityDbUrl() {
-    return process.env.YZIOW_AUTH_AUTHORITY_DATABASE_URL || process.env.DATABASE_URL || null;
+    if (configuredAuthorityDatabaseUrl) {
+        return configuredAuthorityDatabaseUrl;
+    }
+    if (process.env.YZIOW_AUTH_AUTHORITY_DATABASE_URL) {
+        return process.env.YZIOW_AUTH_AUTHORITY_DATABASE_URL;
+    }
+    const isDisposableTestMode =
+        process.env.NODE_ENV === 'test' &&
+        (process.env.P28B_ALLOW_DISPOSABLE_DB === 'true' || process.env.P28C_ALLOW_DISPOSABLE_DB === 'true');
+    if (isDisposableTestMode && process.env.DATABASE_URL) {
+        return process.env.DATABASE_URL;
+    }
+    return null;
 }
 
 function getAuthorityPool() {
@@ -272,7 +311,9 @@ function issueEnrollmentApprovalToken({
     approverAdminId,
     purpose = 'credential_enrollment',
     validitySeconds = 300,
-    secretKey = null
+    secretKey = null,
+    webauthnChallengeId = null,
+    approverCredentialId = null
 }) {
     if (!targetAdminId || !isValidUUID(targetAdminId)) {
         throw new Error('INVALID_ADMIN_ID: targetAdminId UUID valide requis.');
@@ -287,7 +328,7 @@ function issueEnrollmentApprovalToken({
     const nonce = crypto.randomUUID();
     const issuedAt = new Date().toISOString();
     const expiresAt = new Date(Date.now() + validitySeconds * 1000).toISOString();
-    const canonical = [
+    const canonicalParts = [
         'v1-webauthn-enrollment-approval',
         String(targetAdminId).toLowerCase(),
         String(approverAdminId).toLowerCase(),
@@ -295,12 +336,16 @@ function issueEnrollmentApprovalToken({
         issuedAt,
         expiresAt,
         nonce
-    ].join('|');
+    ];
+    if (webauthnChallengeId && approverCredentialId) {
+        canonicalParts.push(String(webauthnChallengeId).toLowerCase(), String(approverCredentialId));
+    }
+    const canonical = canonicalParts.join('|');
 
-    const activeSecret = getActiveAuthoritySecretKey(secretKey);
+    const activeSecret = getActiveAuthoritySecretKey(getEffectiveAuthoritySecret(secretKey));
     const signature = crypto.createHmac('sha256', activeSecret).update(canonical, 'utf8').digest('hex').toLowerCase();
 
-    return {
+    const tokenObj = {
         version: '1.0',
         target_admin_id: String(targetAdminId).toLowerCase(),
         approver_admin_id: String(approverAdminId).toLowerCase(),
@@ -310,9 +355,216 @@ function issueEnrollmentApprovalToken({
         nonce,
         signature
     };
+    if (webauthnChallengeId && approverCredentialId) {
+        tokenObj.auth_method = 'webauthn';
+        tokenObj.webauthn_challenge_id = String(webauthnChallengeId).toLowerCase();
+        tokenObj.approver_credential_id = String(approverCredentialId);
+    }
+    return tokenObj;
 }
 
-async function verifyEnrollmentApprovalToken(token, expectedTargetAdminId, dbClient = null, secretKey = null) {
+/**
+ * Chantier D.2.3 : Crée un challenge WebAuthn matériel (action_type = 'enroll_approve')
+ * pour qu'un second SuperAdmin distinct confirme physiquement l'enrôlement ou le remplacement
+ * de l'authentificateur d'un SuperAdmin cible.
+ */
+async function createEnrollmentApprovalChallenge({
+    targetAdminId,
+    approverAdminId,
+    purpose = 'credential_replacement',
+    rpId = DEFAULT_RP_ID,
+    origin = DEFAULT_ORIGIN,
+    validitySeconds = CHALLENGE_VALIDITY_SECONDS
+}) {
+    if (!targetAdminId || !isValidUUID(targetAdminId)) {
+        throw new Error('INVALID_ADMIN_ID: targetAdminId UUID valide requis.');
+    }
+    if (!approverAdminId || !isValidUUID(approverAdminId)) {
+        throw new Error('INVALID_APPROVER_ADMIN_ID: approverAdminId UUID valide requis.');
+    }
+    if (String(targetAdminId).toLowerCase() === String(approverAdminId).toLowerCase()) {
+        throw new Error('SELF_ENROLLMENT_APPROVAL_FORBIDDEN: Un SuperAdmin ne peut pas co-autoriser son propre enrôlement ou remplacement de clé WebAuthn.');
+    }
+
+    const challengeBytes = crypto.randomBytes(32).toString('base64url');
+    const canonicalPayload = `v1-enroll-approve|${String(targetAdminId).toLowerCase()}|${String(purpose).trim()}`;
+    const now = Date.now();
+    const expiresAt = new Date(now + validitySeconds * 1000).toISOString();
+    let challengeId = crypto.randomUUID();
+
+    const pool = getAuthorityPool();
+    if (pool) {
+        const dbRes = await pool.query(
+            `SELECT yziow_refund_auth.store_webauthn_challenge(
+                $1::UUID, 'enroll_approve'::TEXT, $2::TEXT, $3::TEXT,
+                NULL::UUID, NULL::UUID, NULL::TEXT, NULL::BIGINT, NULL::TEXT, NULL::TEXT,
+                $4::TEXT, $5::TEXT, $6::INTEGER
+            ) AS challenge_id`,
+            [String(approverAdminId).toLowerCase(), challengeBytes, canonicalPayload, rpId, origin, validitySeconds]
+        );
+        challengeId = dbRes.rows[0].challenge_id;
+    }
+
+    inMemoryChallenges.set(challengeBytes, {
+        challenge_id: challengeId,
+        admin_id: String(approverAdminId).toLowerCase(),
+        action_type: 'enroll_approve',
+        challenge_bytes: challengeBytes,
+        canonical_payload: canonicalPayload,
+        rp_id: rpId,
+        origin,
+        created_at: new Date(now).toISOString(),
+        expires_at: expiresAt,
+        consumed_at: null
+    });
+
+    return {
+        challengeId,
+        challenge: challengeBytes,
+        targetAdminId: String(targetAdminId).toLowerCase(),
+        approverAdminId: String(approverAdminId).toLowerCase(),
+        purpose: String(purpose).trim(),
+        rpId,
+        origin,
+        timeout: validitySeconds * 1000
+    };
+}
+
+/**
+ * Chantier D.2.3 : Vérifie l'assertion matérielle WebAuthn (UP=1, UV=1) du second SuperAdmin
+ * et émet un jeton de co-autorisation d'enrôlement/remplacement adossé au challenge consommé.
+ */
+async function issueConfirmedEnrollmentApprovalToken({
+    targetAdminId,
+    approverAdminId,
+    purpose = 'credential_replacement',
+    webauthnAssertion,
+    rpId = DEFAULT_RP_ID,
+    origin = DEFAULT_ORIGIN,
+    secretKey = null
+}) {
+    if (!targetAdminId || !isValidUUID(targetAdminId) || !approverAdminId || !isValidUUID(approverAdminId)) {
+        return { valid: false, code: 'INVALID_ADMIN_ID', message: 'Identifiants targetAdminId et approverAdminId valides requis.' };
+    }
+    if (String(targetAdminId).toLowerCase() === String(approverAdminId).toLowerCase()) {
+        return { valid: false, code: 'SELF_ENROLLMENT_APPROVAL_FORBIDDEN', message: 'Auto-approbation interdite.' };
+    }
+    if (!webauthnAssertion || typeof webauthnAssertion !== 'object') {
+        return { valid: false, code: 'HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED', message: 'Assertion matérielle WebAuthn du second SuperAdmin requise.' };
+    }
+
+    let clientChallenge = null;
+    try {
+        const clientDataBuf = toBuffer(webauthnAssertion.clientDataJSON);
+        const parsed = JSON.parse(clientDataBuf.toString('utf8'));
+        clientChallenge = parsed.challenge;
+    } catch (_e) {
+        return { valid: false, code: 'INVALID_CLIENT_DATA_JSON', message: 'clientDataJSON malformé.' };
+    }
+
+    const assertionResult = await verifyWebAuthnAssertion({
+        adminId: approverAdminId,
+        credentialId: webauthnAssertion.credentialId,
+        clientDataJSON: webauthnAssertion.clientDataJSON,
+        authenticatorData: webauthnAssertion.authenticatorData,
+        signature: webauthnAssertion.signature,
+        expectedChallenge: clientChallenge,
+        expectedRpId: rpId,
+        expectedOrigin: origin,
+        requireUserVerification: true,
+        expectedEnrollmentApproval: {
+            targetAdminId: String(targetAdminId).toLowerCase(),
+            purpose: String(purpose).trim()
+        }
+    });
+
+    if (!assertionResult.valid) {
+        return { valid: false, code: assertionResult.code, message: assertionResult.message };
+    }
+
+    const token = issueEnrollmentApprovalToken({
+        targetAdminId,
+        approverAdminId,
+        purpose,
+        secretKey,
+        webauthnChallengeId: assertionResult.challengeId,
+        approverCredentialId: assertionResult.credentialId
+    });
+
+    return {
+        valid: true,
+        enrollmentApprovalToken: token
+    };
+}
+
+/**
+ * Chantier D.2.3 (Sécurité du premier enrôlement / Bootstrap TOFU hors bande) :
+ * Génère un jeton d'amorçage hors bande (oob_bootstrap) à usage unique, lié à un credentialId précis
+ * et signé avec YZIOW_WEBAUTHN_BOOTSTRAP_SECRET (secret détenu exclusivement par l'opérateur
+ * de sécurité / CLI d'autorité hors bande, jamais présent dans le backend applicatif).
+ */
+function issueOutOfBandBootstrapToken({
+    targetAdminId,
+    approverAdminId,
+    credentialId,
+    purpose = 'initial_oob_bootstrap',
+    validitySeconds = 300,
+    bootstrapSecretKey = null
+}) {
+    if (!targetAdminId || !isValidUUID(targetAdminId)) {
+        throw new Error('INVALID_ADMIN_ID: targetAdminId UUID valide requis.');
+    }
+    if (!approverAdminId || !isValidUUID(approverAdminId)) {
+        throw new Error('INVALID_APPROVER_ADMIN_ID: approverAdminId UUID valide requis.');
+    }
+    if (String(targetAdminId).toLowerCase() === String(approverAdminId).toLowerCase()) {
+        throw new Error('SELF_ENROLLMENT_APPROVAL_FORBIDDEN: Auto-approbation d\'amorçage hors bande interdite.');
+    }
+    if (!credentialId || typeof credentialId !== 'string' || credentialId.trim() === '') {
+        throw new Error('INVALID_CREDENTIAL_ID: credentialId requis pour lier le jeton d\'amorçage hors bande.');
+    }
+
+    const activeBootstrapSecret = getEffectiveBootstrapSecret(bootstrapSecretKey);
+    if (!activeBootstrapSecret || typeof activeBootstrapSecret !== 'string' || activeBootstrapSecret.trim() === '') {
+        throw new Error('BOOTSTRAP_SECRET_NOT_CONFIGURED: Secret hors bande YZIOW_WEBAUTHN_BOOTSTRAP_SECRET requis pour émettre un jeton d\'amorçage.');
+    }
+
+    const nonce = crypto.randomUUID();
+    const issuedAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + validitySeconds * 1000).toISOString();
+    const cleanCredId = String(credentialId).trim();
+    const canonical = [
+        'v1-webauthn-oob-bootstrap',
+        String(targetAdminId).toLowerCase(),
+        String(approverAdminId).toLowerCase(),
+        cleanCredId,
+        String(purpose).trim(),
+        issuedAt,
+        expiresAt,
+        nonce
+    ].join('|');
+
+    const signature = crypto
+        .createHmac('sha256', activeBootstrapSecret.trim())
+        .update(canonical, 'utf8')
+        .digest('hex')
+        .toLowerCase();
+
+    return {
+        version: '1.0',
+        auth_method: 'oob_bootstrap',
+        target_admin_id: String(targetAdminId).toLowerCase(),
+        approver_admin_id: String(approverAdminId).toLowerCase(),
+        credential_id: cleanCredId,
+        purpose: String(purpose).trim(),
+        issued_at: issuedAt,
+        expires_at: expiresAt,
+        nonce,
+        signature
+    };
+}
+
+async function verifyEnrollmentApprovalToken(token, expectedTargetAdminId, dbClient = null, secretKey = null, options = {}) {
     if (!token || typeof token !== 'object') {
         return {
             valid: false,
@@ -341,7 +593,60 @@ async function verifyEnrollmentApprovalToken(token, expectedTargetAdminId, dbCli
         return { valid: false, code: 'INVALID_ENROLLMENT_APPROVAL_TOKEN', message: 'Jeton de co-autorisation déjà consommé ou sans nonce.' };
     }
 
-    const canonical = [
+    // Cas 1 : Jeton d'amorçage initial hors bande (oob_bootstrap) signé avec YZIOW_WEBAUTHN_BOOTSTRAP_SECRET
+    if (token.auth_method === 'oob_bootstrap') {
+        const activeBootstrapSecret = getEffectiveBootstrapSecret(options.bootstrapSecretKey);
+        if (!activeBootstrapSecret || typeof activeBootstrapSecret !== 'string' || activeBootstrapSecret.trim() === '') {
+            return {
+                valid: false,
+                code: 'BOOTSTRAP_OUT_OF_BAND_AUTHORIZATION_REQUIRED',
+                message: 'Secret d\'amorçage hors bande non configuré sur l\'autorité.'
+            };
+        }
+        if (options.expectedCredentialId && String(token.credential_id || '').trim() !== String(options.expectedCredentialId).trim()) {
+            return {
+                valid: false,
+                code: 'INVALID_ENROLLMENT_APPROVAL_TOKEN',
+                message: 'Le jeton d\'amorçage hors bande est lié à un autre credentialId.'
+            };
+        }
+        const oobCanonical = [
+            'v1-webauthn-oob-bootstrap',
+            targetId,
+            approverId,
+            String(token.credential_id || '').trim(),
+            String(token.purpose || '').trim(),
+            String(token.issued_at || '').trim(),
+            String(token.expires_at || '').trim(),
+            String(token.nonce || '').trim()
+        ].join('|');
+        const expectedOobSig = crypto
+            .createHmac('sha256', activeBootstrapSecret.trim())
+            .update(oobCanonical, 'utf8')
+            .digest('hex')
+            .toLowerCase();
+        const actualOobSig = String(token.signature || '').trim().toLowerCase();
+        if (!/^[a-f0-9]{64}$/.test(actualOobSig) || !crypto.timingSafeEqual(Buffer.from(actualOobSig, 'hex'), Buffer.from(expectedOobSig, 'hex'))) {
+            return {
+                valid: false,
+                code: 'BOOTSTRAP_OUT_OF_BAND_AUTHORIZATION_REQUIRED',
+                message: 'Signature du jeton d\'amorçage hors bande invalide.'
+            };
+        }
+        if (dbClient) {
+            const approverRes = await dbClient.query(
+                `SELECT yziow_refund_auth.check_superadmin_active($1::UUID) AS is_active`,
+                [approverId]
+            );
+            if (approverRes.rowCount === 0 || approverRes.rows[0].is_active !== true) {
+                return { valid: false, code: 'UNAUTHORIZED_ADMIN', message: 'Le second SuperAdmin co-autorisateur est introuvable ou inactif.' };
+            }
+        }
+        consumedEnrollmentTokens.add(token.nonce);
+        return { valid: true, approverAdminId: approverId };
+    }
+
+    const canonicalParts = [
         'v1-webauthn-enrollment-approval',
         targetId,
         approverId,
@@ -349,11 +654,15 @@ async function verifyEnrollmentApprovalToken(token, expectedTargetAdminId, dbCli
         String(token.issued_at || '').trim(),
         String(token.expires_at || '').trim(),
         String(token.nonce || '').trim()
-    ].join('|');
+    ];
+    if (token.webauthn_challenge_id && token.approver_credential_id) {
+        canonicalParts.push(String(token.webauthn_challenge_id).toLowerCase(), String(token.approver_credential_id));
+    }
+    const canonical = canonicalParts.join('|');
 
     let activeSecret;
     try {
-        activeSecret = getActiveAuthoritySecretKey(secretKey);
+        activeSecret = getActiveAuthoritySecretKey(getEffectiveAuthoritySecret(secretKey));
     } catch (err) {
         return { valid: false, code: 'AUTHORITY_SECRET_NOT_CONFIGURED', message: err.message };
     }
@@ -366,16 +675,166 @@ async function verifyEnrollmentApprovalToken(token, expectedTargetAdminId, dbCli
 
     if (dbClient) {
         const approverRes = await dbClient.query(
-            `SELECT is_active FROM public.superadmins WHERE id = $1`,
+            `SELECT yziow_refund_auth.check_superadmin_active($1::UUID) AS is_active`,
             [approverId]
         );
         if (approverRes.rowCount === 0 || approverRes.rows[0].is_active !== true) {
             return { valid: false, code: 'UNAUTHORIZED_ADMIN', message: 'Le second SuperAdmin co-autorisateur est introuvable ou inactif.' };
         }
+
+        // Chantier D.2.3 : Si le second SuperAdmin possède un authentificateur WebAuthn actif
+        // (ou si requireHardwareCoAuth / requireBootstrapOrHardwareCoAuth est activé), la co-autorisation
+        // doit obligatoirement être adossée soit à un challenge matériel 'enroll_approve' consommé dans PostgreSQL,
+        // soit (pour le tout premier enrôlement) à un jeton d'amorçage hors bande oob_bootstrap.
+        const approverCredRes = await dbClient.query(
+            `SELECT credential_id FROM public.superadmin_webauthn_credentials
+             WHERE admin_id = $1 AND is_active = true AND revoked_at IS NULL`,
+            [approverId]
+        );
+        const approverHasActiveWebAuthn = approverCredRes.rowCount > 0;
+
+        if (options.requireBootstrapOrHardwareCoAuth === true && !approverHasActiveWebAuthn) {
+            return {
+                valid: false,
+                code: 'BOOTSTRAP_OUT_OF_BAND_AUTHORIZATION_REQUIRED',
+                message: 'Aucun authentificateur matériel actif de référence n\'existe pour co-autoriser cet enrôlement : un jeton d\'amorçage hors bande (oob_bootstrap) indépendant du backend est obligatoire.'
+            };
+        }
+
+        const requireHardware =
+            options.requireHardwareCoAuth === true ||
+            options.requireBootstrapOrHardwareCoAuth === true ||
+            approverHasActiveWebAuthn;
+
+        if (requireHardware) {
+            if (!token.webauthn_challenge_id || !isValidUUID(token.webauthn_challenge_id) || !token.approver_credential_id) {
+                return {
+                    valid: false,
+                    code: 'HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED',
+                    message: 'Le remplacement ou l\'enrôlement d\'un authentificateur exige une confirmation matérielle WebAuthn (UP=1, UV=1) du second SuperAdmin.'
+                };
+            }
+            const chalCheck = await dbClient.query(
+                `SELECT * FROM yziow_refund_auth.webauthn_challenges
+                 WHERE challenge_id = $1::UUID`,
+                [token.webauthn_challenge_id]
+            );
+            if (chalCheck.rowCount === 0) {
+                return {
+                    valid: false,
+                    code: 'HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED',
+                    message: 'Challenge matériel de co-autorisation d\'enrôlement introuvable dans PostgreSQL.'
+                };
+            }
+            const cRow = chalCheck.rows[0];
+            const expectedCanon = `v1-enroll-approve|${targetId}|${String(token.purpose || '').trim()}`;
+            if (
+                !cRow.consumed_at ||
+                cRow.action_type !== 'enroll_approve' ||
+                String(cRow.admin_id).toLowerCase() !== approverId ||
+                cRow.consumed_by_credential_id !== String(token.approver_credential_id) ||
+                cRow.canonical_payload !== expectedCanon
+            ) {
+                return {
+                    valid: false,
+                    code: 'HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED',
+                    message: 'Le challenge matériel de co-autorisation d\'enrôlement n\'est pas consommé ou ne correspond pas au SuperAdmin cible.'
+                };
+            }
+        }
     }
 
     consumedEnrollmentTokens.add(token.nonce);
     return { valid: true, approverAdminId: approverId };
+}
+
+/**
+ * Chantier D.2.3 : Contre-vérification indépendante du dossier de remboursement dans PostgreSQL
+ * par l'autorité WebAuthn (via yziow_refund_auth.inspect_authoritative_refund_dossier).
+ * Empêche un backend compromis de présenter de fausses métadonnées (montant, transaction, hash,
+ * ou même administrateur initiateur/approbateur) à l'autorité WebAuthn.
+ */
+async function inspectAuthoritativeRefundDossier({
+    adminId,
+    actionType,
+    periodId,
+    reconciliationId = null,
+    providerTransactionId,
+    verifiedAmountMinor,
+    currency = 'XOF',
+    proofDocumentHash
+}) {
+    const pool = getAuthorityPool();
+    if (!pool) {
+        return { valid: false, code: 'AUTHORITY_DB_NOT_CONFIGURED', message: 'Connexion PostgreSQL de l\'autorité indépendante non configurée.' };
+    }
+
+    let d;
+    try {
+        const res = await pool.query(
+            `SELECT yziow_refund_auth.inspect_authoritative_refund_dossier($1::UUID, $2::TEXT, $3::UUID, $4::UUID) AS dossier`,
+            [
+                String(adminId).toLowerCase(),
+                String(actionType).trim(),
+                String(periodId).toLowerCase(),
+                reconciliationId ? String(reconciliationId).toLowerCase() : null
+            ]
+        );
+        d = res.rows[0] && res.rows[0].dossier;
+    } catch (err) {
+        const msg = err.message || String(err);
+        if (msg.includes('DUAL_CUSTODY_VIOLATION')) {
+            return { valid: false, code: 'DUAL_CUSTODY_VIOLATION', message: msg };
+        }
+        if (msg.includes('UNAUTHORIZED_ADMIN') || msg.includes('REVOKED_ADMIN')) {
+            return { valid: false, code: 'UNAUTHORIZED_ADMIN', message: msg };
+        }
+        return { valid: false, code: 'AUTHORITATIVE_DOSSIER_MISMATCH', message: msg };
+    }
+
+    if (!d) {
+        return { valid: false, code: 'AUTHORITATIVE_DOSSIER_MISMATCH', message: 'Impossible d\'inspecter le dossier de référence dans PostgreSQL.' };
+    }
+    if (
+        String(d.provider_transaction_id || '').trim() !== String(providerTransactionId || '').trim() ||
+        Number(d.verified_amount_minor) !== Number(verifiedAmountMinor) ||
+        String(d.currency || '').trim().toUpperCase() !== String(currency || '').trim().toUpperCase()
+    ) {
+        return {
+            valid: false,
+            code: 'AUTHORITATIVE_DOSSIER_MISMATCH',
+            message: 'Les paramètres déclarés par le backend (transaction, montant ou devise) divergent de l\'état de référence PostgreSQL.'
+        };
+    }
+
+    if (actionType === 'approve') {
+        if (d.reconciliation_status !== 'pending_approval') {
+            return {
+                valid: false,
+                code: 'AUTHORITATIVE_DOSSIER_MISMATCH',
+                message: 'Dossier de rapprochement non en attente d\'approbation dans PostgreSQL.'
+            };
+        }
+        if (String(d.initiator_admin_id || '').toLowerCase() === String(adminId).toLowerCase()) {
+            return {
+                valid: false,
+                code: 'DUAL_CUSTODY_VIOLATION',
+                message: 'Violation de la séparation des pouvoirs détectée par l\'autorité : l\'approbateur est identique à l\'initiateur.'
+            };
+        }
+        if (
+            String(d.period_id || '').toLowerCase() !== String(periodId).toLowerCase() ||
+            String(d.proof_document_hash || '').trim().toLowerCase() !== String(proofDocumentHash || '').trim().toLowerCase()
+        ) {
+            return {
+                valid: false,
+                code: 'AUTHORITATIVE_DOSSIER_MISMATCH',
+                message: 'Les paramètres d\'approbation déclarés par le backend divergent du dossier enregistré dans PostgreSQL.'
+            };
+        }
+    }
+
+    return { valid: true, dossier: d };
 }
 
 /**
@@ -455,6 +914,9 @@ async function verifyAndRegisterCredential({
     expectedChallenge,
     enrollmentApprovalToken = null,
     requireEnrollmentApproval = false,
+    requireHardwareCoAuth = false,
+    requireBootstrapOrHardwareCoAuth = false,
+    bootstrapSecretKey = null,
     rpId = DEFAULT_RP_ID,
     origin = DEFAULT_ORIGIN,
     aaguid = null,
@@ -487,14 +949,11 @@ async function verifyAndRegisterCredential({
             await client.query('BEGIN');
         }
 
-        // 1. Lecture verrouillée (FOR UPDATE) du challenge d'enregistrement dans PostgreSQL
+        // 1. Lecture verrouillée (FOR UPDATE via SECURITY DEFINER) du challenge d'enregistrement dans PostgreSQL
         let challengeRecord = null;
         if (client) {
             const chalRes = await client.query(
-                `SELECT *, (expires_at < clock_timestamp()) AS is_expired
-                 FROM yziow_refund_auth.webauthn_challenges
-                 WHERE challenge_bytes = $1
-                 FOR UPDATE`,
+                `SELECT * FROM yziow_refund_auth.get_webauthn_challenge_for_update($1::TEXT)`,
                 [expectedChallenge]
             );
             if (chalRes.rowCount > 0) {
@@ -524,7 +983,7 @@ async function verifyAndRegisterCredential({
             return { valid: false, code: 'UNAUTHORIZED_ADMIN_REGISTRATION', message: 'Tentative d\'enregistrement pour un administrateur non concordant.' };
         }
 
-        // 2. Vérification de l'existence d'un authentificateur actif et procédure de confiance renforcée (P4)
+        // 2. Vérification de l'existence d'un authentificateur actif et procédure de confiance renforcée (P4 & D.2.3)
         let hasExistingActiveCredential = false;
         if (client) {
             const existingRes = await client.query(
@@ -543,12 +1002,18 @@ async function verifyAndRegisterCredential({
         }
 
         let approverAdminId = null;
-        if (requireEnrollmentApproval || hasExistingActiveCredential || enrollmentApprovalToken !== null) {
+        if (requireEnrollmentApproval || requireBootstrapOrHardwareCoAuth || hasExistingActiveCredential || enrollmentApprovalToken !== null) {
             const approvalCheck = await verifyEnrollmentApprovalToken(
                 enrollmentApprovalToken,
                 adminId,
                 client,
-                secretKey
+                secretKey,
+                {
+                    requireHardwareCoAuth,
+                    requireBootstrapOrHardwareCoAuth,
+                    expectedCredentialId: credentialId,
+                    bootstrapSecretKey
+                }
             );
             if (!approvalCheck.valid) {
                 if (client) await client.query('ROLLBACK');
@@ -920,7 +1385,8 @@ async function createActionConfirmationChallenge({
     rpId = DEFAULT_RP_ID,
     origin = DEFAULT_ORIGIN,
     validitySeconds = CHALLENGE_VALIDITY_SECONDS,
-    customChallenge = null
+    customChallenge = null,
+    enforceAuthoritativeDossierCheck = false
 }) {
     if (!adminId || !isValidUUID(adminId)) {
         throw new Error('INVALID_ADMIN_ID: UUID adminId valide requis.');
@@ -946,6 +1412,24 @@ async function createActionConfirmationChallenge({
     }
     if (!proofDocumentHash || !/^[a-fA-F0-9]{64}$/.test(proofDocumentHash.trim())) {
         throw new Error('INVALID_DOCUMENT_HASH: proofDocumentHash SHA-256 valide requis.');
+    }
+
+    if (enforceAuthoritativeDossierCheck) {
+        const dossierCheck = await inspectAuthoritativeRefundDossier({
+            adminId,
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor: amountMinor,
+            currency,
+            proofDocumentHash
+        });
+        if (!dossierCheck.valid) {
+            const err = new Error(`${dossierCheck.code}: ${dossierCheck.message}`);
+            err.code = dossierCheck.code;
+            throw err;
+        }
     }
 
     const challengeBytes = customChallenge || crypto.randomBytes(32).toString('base64url');
@@ -1051,6 +1535,7 @@ async function verifyWebAuthnAssertion({
     requireUserVerification = false,
     credentialRecord = null,
     expectedDossier = null,
+    expectedEnrollmentApproval = null,
     existingDbClient = null
 }) {
     if (!adminId || !isValidUUID(adminId)) {
@@ -1069,14 +1554,11 @@ async function verifyWebAuthnAssertion({
             await client.query('BEGIN');
         }
 
-        // 1. Verrouillage pessimiste FOR UPDATE du challenge dans PostgreSQL (protection anti-course Promise.all)
+        // 1. Verrouillage pessimiste FOR UPDATE (via SECURITY DEFINER) du challenge dans PostgreSQL
         let challengeRecord = null;
         if (client) {
             const chalRes = await client.query(
-                `SELECT *, (expires_at < clock_timestamp()) AS is_expired
-                 FROM yziow_refund_auth.webauthn_challenges
-                 WHERE challenge_bytes = $1
-                 FOR UPDATE`,
+                `SELECT * FROM yziow_refund_auth.get_webauthn_challenge_for_update($1::TEXT)`,
                 [expectedChallenge]
             );
             if (chalRes.rowCount > 0) {
@@ -1104,6 +1586,21 @@ async function verifyWebAuthnAssertion({
         if (String(challengeRecord.admin_id).toLowerCase() !== String(adminId).toLowerCase()) {
             if (ownsTransaction) await client.query('ROLLBACK');
             return { valid: false, code: 'CHALLENGE_ADMIN_MISMATCH', message: 'Le challenge n\'a pas été émis pour cet administrateur.' };
+        }
+
+        if (expectedEnrollmentApproval) {
+            const expectedCanon = `v1-enroll-approve|${String(expectedEnrollmentApproval.targetAdminId).toLowerCase()}|${String(expectedEnrollmentApproval.purpose).trim()}`;
+            if (
+                challengeRecord.action_type !== 'enroll_approve' ||
+                challengeRecord.canonical_payload !== expectedCanon
+            ) {
+                if (ownsTransaction) await client.query('ROLLBACK');
+                return {
+                    valid: false,
+                    code: 'CHALLENGE_MISMATCH',
+                    message: 'Le challenge ne correspond pas à la demande de co-autorisation d\'enrôlement.'
+                };
+            }
         }
 
         if (expectedDossier) {
@@ -1342,7 +1839,8 @@ async function issueConfirmedActionProof({
     rpId = DEFAULT_RP_ID,
     origin = DEFAULT_ORIGIN,
     secretKey = null,
-    authorityAvailable = true
+    authorityAvailable = true,
+    enforceAuthoritativeDossierCheck = false
 }) {
     if (!authorityAvailable || process.env.YZIOW_WEBAUTHN_AUTHORITY_UNAVAILABLE === 'true') {
         return {
@@ -1358,6 +1856,26 @@ async function issueConfirmedActionProof({
             code: 'WEBAUTHN_CONFIRMATION_REQUIRED',
             message: 'Confirmation matérielle WebAuthn requise pour émettre une preuve d\'action.'
         };
+    }
+
+    if (enforceAuthoritativeDossierCheck) {
+        const dossierCheck = await inspectAuthoritativeRefundDossier({
+            adminId,
+            actionType,
+            periodId,
+            reconciliationId,
+            providerTransactionId,
+            verifiedAmountMinor,
+            currency,
+            proofDocumentHash
+        });
+        if (!dossierCheck.valid) {
+            return {
+                success: false,
+                code: dossierCheck.code,
+                message: dossierCheck.message
+            };
+        }
     }
 
     let clientChallenge = null;
@@ -1413,7 +1931,7 @@ async function issueConfirmedActionProof({
             verifiedAmountMinor,
             currency,
             proofDocumentHash,
-            secretKey,
+            secretKey: getEffectiveAuthoritySecret(secretKey),
             webauthnChallengeId: assertionResult.challengeId,
             credentialId: assertionResult.credentialId
         });
@@ -1455,13 +1973,24 @@ function resetInMemoryState() {
 /**
  * Nettoie l'état WebAuthn en mémoire et dans PostgreSQL entre deux tests isolés.
  */
-async function clearPersistedWebAuthnStateForTests() {
+async function clearPersistedWebAuthnStateForTests(customAdminClient = null) {
     resetInMemoryState();
-    const pool = getAuthorityPool();
-    if (pool) {
-        await pool.query(`DELETE FROM yziow_refund_auth.consumed_action_proofs WHERE webauthn_challenge_id IS NOT NULL`).catch(() => {});
-        await pool.query(`DELETE FROM yziow_refund_auth.webauthn_challenges`).catch(() => {});
-        await pool.query(`DELETE FROM public.superadmin_webauthn_credentials`).catch(() => {});
+    if (customAdminClient) {
+        await customAdminClient.query(`DELETE FROM yziow_refund_auth.consumed_action_proofs WHERE webauthn_challenge_id IS NOT NULL`).catch(() => {});
+        await customAdminClient.query(`DELETE FROM yziow_refund_auth.webauthn_challenges`).catch(() => {});
+        await customAdminClient.query(`DELETE FROM public.superadmin_webauthn_credentials`).catch(() => {});
+        return;
+    }
+    const adminDbUrl = process.env.DATABASE_URL || getAuthorityDbUrl();
+    if (adminDbUrl) {
+        const cleanupPool = new Pool({ connectionString: adminDbUrl, max: 1, idleTimeoutMillis: 1000 });
+        try {
+            await cleanupPool.query(`DELETE FROM yziow_refund_auth.consumed_action_proofs WHERE webauthn_challenge_id IS NOT NULL`).catch(() => {});
+            await cleanupPool.query(`DELETE FROM yziow_refund_auth.webauthn_challenges`).catch(() => {});
+            await cleanupPool.query(`DELETE FROM public.superadmin_webauthn_credentials`).catch(() => {});
+        } finally {
+            await cleanupPool.end().catch(() => {});
+        }
     }
 }
 
@@ -1470,11 +1999,18 @@ module.exports = {
     DEFAULT_ORIGIN,
     CHALLENGE_VALIDITY_SECONDS,
     SUPPORTED_COSE_ALGORITHMS,
+    setAuthorityRuntimeConfig,
+    getEffectiveAuthoritySecret,
+    getEffectiveBootstrapSecret,
     spkiPemToCosePublicKeyBytes,
     cosePublicKeyBytesToSpkiPem,
     buildWebAuthnAttestationObject,
     issueEnrollmentApprovalToken,
+    issueOutOfBandBootstrapToken,
+    createEnrollmentApprovalChallenge,
+    issueConfirmedEnrollmentApprovalToken,
     verifyEnrollmentApprovalToken,
+    inspectAuthoritativeRefundDossier,
     createRegistrationChallenge,
     verifyAndRegisterCredential,
     revokeCredential,

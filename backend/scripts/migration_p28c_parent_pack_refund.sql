@@ -31,16 +31,20 @@
 
 BEGIN;
 
--- 0. Rôle dédié pour l'exécution du remboursement
+-- 0. Rôles dédiés à moindre privilège (séparation stricte D.2.3 : exécuteur vs autorité WebAuthn)
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yziow_refund_executor') THEN
         CREATE ROLE yziow_refund_executor LOGIN;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yziow_webauthn_authority') THEN
+        CREATE ROLE yziow_webauthn_authority LOGIN;
+    END IF;
 END
 $$;
 
 GRANT USAGE ON SCHEMA public TO yziow_refund_executor;
+GRANT USAGE ON SCHEMA public TO yziow_webauthn_authority;
 
 -- ------------------------------------------------------------------------------
 -- 0a. Chantier D.2 : Extension cryptographique et schéma isolé d'authentification
@@ -127,7 +131,7 @@ CREATE INDEX IF NOT EXISTS idx_superadmin_webauthn_credentials_admin_id
 CREATE TABLE IF NOT EXISTS yziow_refund_auth.webauthn_challenges (
     challenge_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     admin_id UUID NOT NULL REFERENCES public.superadmins(id) ON DELETE CASCADE,
-    action_type TEXT NOT NULL CHECK (action_type IN ('register', 'initiate', 'approve')),
+    action_type TEXT NOT NULL CHECK (action_type IN ('register', 'enroll_approve', 'initiate', 'approve')),
     challenge_bytes TEXT NOT NULL UNIQUE,
     canonical_payload TEXT NULL,
     period_id UUID NULL,
@@ -144,16 +148,36 @@ CREATE TABLE IF NOT EXISTS yziow_refund_auth.webauthn_challenges (
     consumed_by_credential_id TEXT NULL
 );
 
+ALTER TABLE yziow_refund_auth.webauthn_challenges
+    DROP CONSTRAINT IF EXISTS webauthn_challenges_action_type_check;
+ALTER TABLE yziow_refund_auth.webauthn_challenges
+    ADD CONSTRAINT webauthn_challenges_action_type_check
+    CHECK (action_type IN ('register', 'enroll_approve', 'initiate', 'approve'));
+
 CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_admin_action
     ON yziow_refund_auth.webauthn_challenges (admin_id, action_type);
 
--- Révocation stricte : yziow_refund_executor (YZIOW_REFUND_DATABASE_URL) et les rôles applicatifs
--- n'ont AUCUN accès au schéma d'autorité, à la clé secrète, aux preuves ou aux challenges
-REVOKE ALL ON SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
-REVOKE ALL ON ALL TABLES IN SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+-- Révocation stricte (D.2.3) :
+-- 1. yziow_refund_executor, service_role, authenticated, anon n'ont AUCUN accès au schéma d'autorité,
+--    à la clé secrète, aux preuves, aux challenges ni aux credentials WebAuthn.
+-- 2. yziow_webauthn_authority dispose uniquement des permissions minimales pour gérer les challenges
+--    et les credentials WebAuthn, sans aucun accès à authority_config, consumed_action_proofs ni aux tables financières.
+REVOKE ALL ON SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+REVOKE ALL ON ALL TABLES IN SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
 
-REVOKE ALL ON TABLE public.superadmin_webauthn_credentials FROM PUBLIC, anon, authenticated, yziow_refund_executor;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.superadmin_webauthn_credentials TO service_role;
+REVOKE ALL ON TABLE public.superadmin_webauthn_credentials FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+
+GRANT USAGE ON SCHEMA yziow_refund_auth TO yziow_webauthn_authority;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.superadmin_webauthn_credentials TO yziow_webauthn_authority;
+GRANT SELECT ON TABLE yziow_refund_auth.webauthn_challenges TO yziow_webauthn_authority;
+
+DROP POLICY IF EXISTS policy_webauthn_authority_credentials_access ON public.superadmin_webauthn_credentials;
+CREATE POLICY policy_webauthn_authority_credentials_access
+    ON public.superadmin_webauthn_credentials
+    FOR ALL
+    TO yziow_webauthn_authority
+    USING (true)
+    WITH CHECK (true);
 
 -- Fonction sécurisée pour enregistrer un challenge WebAuthn
 CREATE OR REPLACE FUNCTION yziow_refund_auth.store_webauthn_challenge(
@@ -178,7 +202,19 @@ SET search_path = yziow_refund_auth, public, pg_catalog
 AS $$
 DECLARE
     v_challenge_id UUID;
+    v_is_active BOOLEAN := false;
+    v_bounded_validity INTEGER;
 BEGIN
+    SELECT COALESCE(is_active, false) INTO v_is_active
+    FROM public.superadmins
+    WHERE id = p_admin_id;
+
+    IF NOT FOUND OR v_is_active IS NOT TRUE THEN
+        RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin % introuvable ou inactif.', p_admin_id;
+    END IF;
+
+    v_bounded_validity := LEAST(GREATEST(COALESCE(p_validity_seconds, 300), 1), 300);
+
     INSERT INTO yziow_refund_auth.webauthn_challenges (
         admin_id,
         action_type,
@@ -208,7 +244,7 @@ BEGIN
         p_rp_id,
         p_origin,
         clock_timestamp(),
-        clock_timestamp() + (p_validity_seconds || ' seconds')::interval
+        clock_timestamp() + (v_bounded_validity || ' seconds')::interval
     )
     RETURNING challenge_id INTO v_challenge_id;
 
@@ -217,6 +253,65 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION yziow_refund_auth.store_webauthn_challenge(UUID, TEXT, TEXT, TEXT, UUID, UUID, TEXT, BIGINT, TEXT, TEXT, TEXT, TEXT, INTEGER) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+GRANT EXECUTE ON FUNCTION yziow_refund_auth.store_webauthn_challenge(UUID, TEXT, TEXT, TEXT, UUID, UUID, TEXT, BIGINT, TEXT, TEXT, TEXT, TEXT, INTEGER) TO yziow_webauthn_authority;
+
+-- Fonction sécurisée pour verrouiller (FOR UPDATE) et lire un challenge WebAuthn en cours de transaction
+CREATE OR REPLACE FUNCTION yziow_refund_auth.get_webauthn_challenge_for_update(
+    p_challenge_bytes TEXT
+)
+RETURNS TABLE (
+    challenge_id UUID,
+    admin_id UUID,
+    action_type TEXT,
+    challenge_bytes TEXT,
+    canonical_payload TEXT,
+    period_id UUID,
+    reconciliation_id UUID,
+    provider_transaction_id TEXT,
+    verified_amount_minor BIGINT,
+    currency TEXT,
+    proof_document_hash TEXT,
+    rp_id TEXT,
+    origin TEXT,
+    created_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    consumed_at TIMESTAMPTZ,
+    consumed_by_credential_id TEXT,
+    is_expired BOOLEAN
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = yziow_refund_auth, public, pg_catalog
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.challenge_id,
+        c.admin_id,
+        c.action_type,
+        c.challenge_bytes,
+        c.canonical_payload,
+        c.period_id,
+        c.reconciliation_id,
+        c.provider_transaction_id,
+        c.verified_amount_minor,
+        c.currency,
+        c.proof_document_hash,
+        c.rp_id,
+        c.origin,
+        c.created_at,
+        c.expires_at,
+        c.consumed_at,
+        c.consumed_by_credential_id,
+        (c.expires_at < clock_timestamp()) AS is_expired
+    FROM yziow_refund_auth.webauthn_challenges c
+    WHERE c.challenge_bytes = p_challenge_bytes
+    FOR UPDATE;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION yziow_refund_auth.get_webauthn_challenge_for_update(TEXT) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+GRANT EXECUTE ON FUNCTION yziow_refund_auth.get_webauthn_challenge_for_update(TEXT) TO yziow_webauthn_authority;
 
 -- Fonction sécurisée pour consommer atomiquement un challenge WebAuthn (FOR UPDATE)
 CREATE OR REPLACE FUNCTION yziow_refund_auth.consume_webauthn_challenge(
@@ -268,6 +363,145 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION yziow_refund_auth.consume_webauthn_challenge(TEXT, UUID, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+GRANT EXECUTE ON FUNCTION yziow_refund_auth.consume_webauthn_challenge(TEXT, UUID, TEXT, TEXT) TO yziow_webauthn_authority;
+
+-- Fonction sécurisée permettant à l'autorité WebAuthn de vérifier l'état actif d'un SuperAdmin
+CREATE OR REPLACE FUNCTION yziow_refund_auth.check_superadmin_active(
+    p_admin_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = yziow_refund_auth, public, pg_catalog
+AS $$
+DECLARE
+    v_is_active BOOLEAN := false;
+BEGIN
+    IF p_admin_id IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    SELECT COALESCE(is_active, false) INTO v_is_active
+    FROM public.superadmins
+    WHERE id = p_admin_id;
+
+    IF NOT FOUND THEN
+        RETURN FALSE;
+    END IF;
+
+    RETURN v_is_active;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION yziow_refund_auth.check_superadmin_active(UUID) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+GRANT EXECUTE ON FUNCTION yziow_refund_auth.check_superadmin_active(UUID) TO yziow_webauthn_authority;
+
+-- Fonction sécurisée permettant à l'autorité WebAuthn de lire les données faisant autorité
+-- sur le dossier directement depuis PostgreSQL sans se fier aux déclarations du backend (D.2.3)
+CREATE OR REPLACE FUNCTION yziow_refund_auth.inspect_authoritative_refund_dossier(
+    p_admin_id UUID,
+    p_action_type TEXT,
+    p_period_id UUID,
+    p_reconciliation_id UUID DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = yziow_refund_auth, public, pg_catalog
+AS $$
+DECLARE
+    v_is_active BOOLEAN := false;
+    v_period RECORD;
+    v_intent RECORD;
+    v_rec RECORD;
+BEGIN
+    IF p_admin_id IS NULL THEN
+        RAISE EXCEPTION 'INVALID_ADMIN_ID: admin_id obligatoire.';
+    END IF;
+
+    SELECT is_active INTO v_is_active
+    FROM public.superadmins
+    WHERE id = p_admin_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'UNAUTHORIZED_ADMIN: SuperAdmin % introuvable.', p_admin_id;
+    END IF;
+
+    IF v_is_active IS NOT TRUE THEN
+        RAISE EXCEPTION 'REVOKED_ADMIN: SuperAdmin % inactif ou revoque.', p_admin_id;
+    END IF;
+
+    IF p_action_type NOT IN ('initiate', 'approve') THEN
+        RAISE EXCEPTION 'INVALID_ACTION_TYPE: action_type doit etre initiate ou approve.';
+    END IF;
+
+    SELECT id, subscription_id, payment_intent_id, status
+    INTO v_period
+    FROM public.parent_subscription_periods
+    WHERE id = p_period_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'PERIOD_NOT_FOUND: Periode % introuvable dans la source faisant autorite.', p_period_id;
+    END IF;
+
+    SELECT id, status, provider_transaction_id, expected_amount, expected_currency
+    INTO v_intent
+    FROM public.payment_intents
+    WHERE id = v_period.payment_intent_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'PAYMENT_INTENT_NOT_FOUND: Intention de paiement introuvable pour la periode %.', p_period_id;
+    END IF;
+
+    IF p_action_type = 'approve' THEN
+        IF p_reconciliation_id IS NULL THEN
+            RAISE EXCEPTION 'INVALID_RECONCILIATION_ID: reconciliation_id obligatoire pour approve.';
+        END IF;
+
+        SELECT id, period_id, initiator_admin_id, provider_transaction_id, verified_amount_minor, verified_currency, proof_document_hash, status
+        INTO v_rec
+        FROM public.parent_pack_refund_reconciliations
+        WHERE id = p_reconciliation_id;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'RECONCILIATION_NOT_FOUND: Dossier de rapprochement % introuvable.', p_reconciliation_id;
+        END IF;
+
+        IF v_rec.period_id IS DISTINCT FROM p_period_id THEN
+            RAISE EXCEPTION 'RECONCILIATION_PERIOD_MISMATCH: Le dossier % ne correspond pas a la periode %.', p_reconciliation_id, p_period_id;
+        END IF;
+
+        IF v_rec.initiator_admin_id = p_admin_id THEN
+            RAISE EXCEPTION 'DUAL_CUSTODY_VIOLATION: Le second SuperAdmin approbateur (%) doit etre strictement distinct du SuperAdmin initiateur (%).',
+                p_admin_id, v_rec.initiator_admin_id;
+        END IF;
+
+        RETURN jsonb_build_object(
+            'period_id', v_period.id,
+            'reconciliation_id', v_rec.id,
+            'provider_transaction_id', trim(v_intent.provider_transaction_id),
+            'verified_amount_minor', v_intent.expected_amount::BIGINT,
+            'currency', upper(trim(v_intent.expected_currency)),
+            'proof_document_hash', lower(trim(v_rec.proof_document_hash)),
+            'initiator_admin_id', v_rec.initiator_admin_id,
+            'reconciliation_status', v_rec.status
+        );
+    END IF;
+
+    RETURN jsonb_build_object(
+        'period_id', v_period.id,
+        'reconciliation_id', NULL,
+        'provider_transaction_id', trim(v_intent.provider_transaction_id),
+        'verified_amount_minor', v_intent.expected_amount::BIGINT,
+        'currency', upper(trim(v_intent.expected_currency)),
+        'intent_status', v_intent.status,
+        'period_status', v_period.status
+    );
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION yziow_refund_auth.inspect_authoritative_refund_dossier(UUID, TEXT, UUID, UUID) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+GRANT EXECUTE ON FUNCTION yziow_refund_auth.inspect_authoritative_refund_dossier(UUID, TEXT, UUID, UUID) TO yziow_webauthn_authority;
 
 -- Activation de l'état actif/révoqué sur superadmins
 ALTER TABLE public.superadmins ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
@@ -318,6 +552,8 @@ DECLARE
     v_webauthn_challenge_id_text TEXT;
     v_webauthn_challenge_id UUID := NULL;
     v_credential_id TEXT := NULL;
+    v_webauthn_sig TEXT := NULL;
+    v_expected_webauthn_sig TEXT := NULL;
     v_challenge_rec RECORD;
     v_cred_rec RECORD;
     v_canonical TEXT;
@@ -514,6 +750,7 @@ BEGIN
 
     v_webauthn_challenge_id_text := NULLIF(trim(COALESCE(p_proof->>'webauthn_challenge_id', '')), '');
     v_credential_id := NULLIF(trim(COALESCE(p_proof->>'credential_id', '')), '');
+    v_webauthn_sig := lower(NULLIF(trim(COALESCE(p_proof->>'webauthn_signature', '')), ''));
 
     IF v_require_webauthn OR v_admin_has_active_webauthn OR v_webauthn_challenge_id_text IS NOT NULL THEN
         IF v_webauthn_challenge_id_text IS NULL
@@ -523,6 +760,16 @@ BEGIN
         END IF;
 
         v_webauthn_challenge_id := v_webauthn_challenge_id_text::UUID;
+
+        -- Chantier D.2.3 : liaison cryptographique obligatoire de webauthn_challenge_id et credential_id dans la signature d'autorité
+        v_expected_webauthn_sig := lower(encode(hmac(
+            convert_to(v_canonical || '|' || lower(v_webauthn_challenge_id::text) || '|' || v_credential_id, 'utf8'),
+            convert_to(v_secret, 'utf8'),
+            'sha256'
+        ), 'hex'));
+        IF v_webauthn_sig IS DISTINCT FROM v_expected_webauthn_sig THEN
+            RAISE EXCEPTION 'INVALID_ACTION_PROOF_SIGNATURE: Signature cryptographique WebAuthn de la preuve invalide ou absente.';
+        END IF;
 
         SELECT * INTO v_challenge_rec
         FROM yziow_refund_auth.webauthn_challenges
@@ -604,7 +851,7 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION yziow_refund_auth.verify_and_consume_action_proof(JSONB, TEXT, UUID, UUID, UUID, TEXT, BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+REVOKE EXECUTE ON FUNCTION yziow_refund_auth.verify_and_consume_action_proof(JSONB, TEXT, UUID, UUID, UUID, TEXT, BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
 
 -- ------------------------------------------------------------------------------
 -- 0b. Verrou de sécurité fail-closed des trois garanties préalables à toute
@@ -646,7 +893,7 @@ BEGIN
     WHERE rolname = session_user;
 
     IF NOT v_is_superuser
-       OR session_user IN ('yziow_refund_executor', 'service_role', 'authenticated', 'anon') THEN
+       OR session_user IN ('yziow_refund_executor', 'yziow_webauthn_authority', 'service_role', 'authenticated', 'anon') THEN
         RAISE EXCEPTION 'SECURITY_BLOCKER: Modification du verrou de securite parent_pack_refund_security_gate strictement interdite pour le role applicatif (%).',
             session_user;
     END IF;
@@ -676,7 +923,7 @@ SET independent_admin_auth_ready = false,
 ALTER TABLE public.parent_pack_refund_security_gate ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.parent_pack_refund_security_gate
-    FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+    FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
 
 -- ------------------------------------------------------------------------------
 -- 1. Table de rapprochement administratif à double validation
@@ -766,7 +1013,7 @@ ALTER TABLE public.parent_pack_refund_reconciliations
 
 ALTER TABLE public.parent_pack_refund_reconciliations ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.parent_pack_refund_reconciliations FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+REVOKE ALL ON public.parent_pack_refund_reconciliations FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
 
 -- Garde d'intégrité et d'immuabilité sur parent_pack_refund_reconciliations
 CREATE OR REPLACE FUNCTION public.fn_guard_refund_reconciliation()
@@ -894,7 +1141,7 @@ ALTER TABLE public.parent_pack_refund_audits
 
 ALTER TABLE public.parent_pack_refund_audits ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.parent_pack_refund_audits FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
+REVOKE ALL ON public.parent_pack_refund_audits FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
 
 -- Immuabilité stricte de la piste d'audit (append-only + insertion contrôlée)
 CREATE OR REPLACE FUNCTION public.fn_prevent_refund_audit_mutation()
@@ -2137,19 +2384,19 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 8. Permissions et sécurité
 -- ------------------------------------------------------------------------------
-REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role, yziow_webauthn_authority;
 GRANT EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) TO yziow_refund_executor;
 
-REVOKE EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role, yziow_webauthn_authority;
 GRANT EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) TO yziow_refund_executor;
 
-REVOKE EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role, yziow_webauthn_authority;
 GRANT EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) TO yziow_refund_executor;
 
-REVOKE EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) FROM PUBLIC, anon, authenticated, service_role, yziow_webauthn_authority;
 GRANT EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) TO yziow_refund_executor;
 
-REVOKE ALL ON public.parent_pack_refund_security_gate FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
-REVOKE ALL ON public.superadmins FROM yziow_refund_executor;
+REVOKE ALL ON public.parent_pack_refund_security_gate FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+REVOKE ALL ON public.superadmins FROM yziow_refund_executor, yziow_webauthn_authority;
 
 COMMIT;

@@ -192,13 +192,17 @@ function generateRefundActionProof({
     if (credentialId) {
         proofObj.credential_id = String(credentialId);
     }
+    if (webauthnChallengeId && credentialId) {
+        const webauthnCanonical = `${canonical}|${String(webauthnChallengeId).toLowerCase()}|${String(credentialId)}`;
+        proofObj.webauthn_signature = crypto.createHmac('sha256', activeSecret).update(webauthnCanonical, 'utf8').digest('hex').toLowerCase();
+    }
 
     return proofObj;
 }
 
 /**
  * Vérifie localement côté backend applicatif la structure formelle et la concordance
- * des champs d'une preuve d'action SANS détenir la clé secrète de l'autorité (Chantier D.2.2 - P1).
+ * des champs d'une preuve d'action SANS détenir la clé secrète de l'autorité (Chantier D.2.2 - P1 / D.2.3).
  * La vérification cryptographique de la signature et du challenge WebAuthn est exécutée par PostgreSQL.
  */
 function verifyRefundActionProofClaimsLocally(proof, expectedFields = {}) {
@@ -256,6 +260,34 @@ function verifyRefundActionProofClaimsLocally(proof, expectedFields = {}) {
         return { valid: false, code: 'INVALID_ACTION_PROOF_SIGNATURE', message: 'Format de signature de preuve invalide.' };
     }
 
+    const requireWebAuthn =
+        expectedFields.requireWebAuthnAttestation === true ||
+        process.env.YZIOW_REQUIRE_WEBAUTHN_CONFIRMATION === 'true';
+
+    if (requireWebAuthn) {
+        if (
+            proof.auth_method !== 'webauthn' ||
+            !proof.webauthn_challenge_id ||
+            !isValidUUID(proof.webauthn_challenge_id) ||
+            !proof.credential_id ||
+            typeof proof.credential_id !== 'string' ||
+            !proof.webauthn_signature
+        ) {
+            return {
+                valid: false,
+                code: 'WEBAUTHN_CONFIRMATION_REQUIRED',
+                message: 'Une attestation WebAuthn matérielle complète (webauthn_challenge_id, credential_id, webauthn_signature) est requise.'
+            };
+        }
+    }
+
+    if (proof.webauthn_signature !== undefined && proof.webauthn_signature !== null) {
+        const actualWebAuthnSig = String(proof.webauthn_signature || '').trim().toLowerCase();
+        if (!/^[a-fA-F0-9]{64}$/.test(actualWebAuthnSig)) {
+            return { valid: false, code: 'INVALID_ACTION_PROOF_SIGNATURE', message: 'Format de signature WebAuthn de preuve invalide.' };
+        }
+    }
+
     return { valid: true };
 }
 
@@ -290,6 +322,17 @@ function verifyRefundActionProofLocally(proof, expectedFields = {}, secretKey = 
     const bufExpected = Buffer.from(expectedSig, 'hex');
     if (bufActual.length !== bufExpected.length || !crypto.timingSafeEqual(bufActual, bufExpected)) {
         return { valid: false, code: 'INVALID_ACTION_PROOF_SIGNATURE', message: 'Signature cryptographique invalide.' };
+    }
+
+    if (proof.webauthn_challenge_id && proof.credential_id && proof.webauthn_signature) {
+        const webauthnCanonical = `${canonical}|${String(proof.webauthn_challenge_id).toLowerCase()}|${String(proof.credential_id)}`;
+        const expectedWebAuthnSig = crypto.createHmac('sha256', activeSecret).update(webauthnCanonical, 'utf8').digest('hex').toLowerCase();
+        const actualWebAuthnSig = String(proof.webauthn_signature).trim().toLowerCase();
+        const bufWActual = Buffer.from(actualWebAuthnSig, 'hex');
+        const bufWExpected = Buffer.from(expectedWebAuthnSig, 'hex');
+        if (bufWActual.length !== bufWExpected.length || !crypto.timingSafeEqual(bufWActual, bufWExpected)) {
+            return { valid: false, code: 'INVALID_ACTION_PROOF_SIGNATURE', message: 'Signature cryptographique WebAuthn invalide.' };
+        }
     }
 
     return { valid: true };

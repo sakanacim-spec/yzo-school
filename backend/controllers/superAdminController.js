@@ -930,19 +930,20 @@ async function verifyParentPackRefund(req, res) {
     }
 }
 
-// ── Chantier D.2.1 & D.2.2 : Authentification forte personnelle WebAuthn ──
+// ── Chantier D.2.1, D.2.2 & D.2.3 : Authentification forte personnelle WebAuthn via l'Autorité Indépendante ──
 
 // POST /api/superadmin/webauthn/register/challenge
 async function createWebAuthnRegistrationChallenge(req, res) {
     try {
         const adminId = req.user?.id;
         const { rpId, origin } = req.body || {};
-        const { createRegistrationChallenge } = require('../services/superAdminWebAuthnAuthority');
-        const challengeData = await createRegistrationChallenge(adminId, { rpId, origin });
+        const { requestRegistrationChallenge } = require('../services/webauthnAuthorityClient');
+        const challengeData = await requestRegistrationChallenge(adminId, { rpId, origin });
         return res.json({ success: true, ...challengeData });
     } catch (err) {
         console.error('SuperAdmin createWebAuthnRegistrationChallenge Error:', err);
-        return res.status(400).json({ success: false, error: err.message });
+        const status = err.code === 'AUTHORITY_UNAVAILABLE' ? 503 : 400;
+        return res.status(status).json({ success: false, code: err.code || 'CHALLENGE_ERROR', error: err.message });
     }
 }
 
@@ -964,8 +965,8 @@ async function verifyWebAuthnRegistration(req, res) {
             transports
         } = req.body || {};
 
-        const { verifyAndRegisterCredential } = require('../services/superAdminWebAuthnAuthority');
-        const result = await verifyAndRegisterCredential({
+        const { requestVerifyAndRegisterCredential } = require('../services/webauthnAuthorityClient');
+        const result = await requestVerifyAndRegisterCredential({
             adminId,
             credentialId,
             publicKeySpki,
@@ -986,8 +987,9 @@ async function verifyWebAuthnRegistration(req, res) {
                 result.code === 'UNAUTHORIZED_ADMIN_REGISTRATION' ||
                 result.code === 'INVALID_ORIGIN' ||
                 result.code === 'ENROLLMENT_CO_AUTHORIZATION_REQUIRED' ||
+                result.code === 'HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED' ||
                 result.code === 'SELF_ENROLLMENT_APPROVAL_FORBIDDEN'
-            ) ? 403 : 400;
+            ) ? 403 : (result.code === 'AUTHORITY_UNAVAILABLE' ? 503 : 400);
             return res.status(status).json(result);
         }
 
@@ -1014,8 +1016,8 @@ async function createRefundActionChallenge(req, res) {
             origin
         } = req.body || {};
 
-        const { createActionConfirmationChallenge } = require('../services/superAdminWebAuthnAuthority');
-        const challengeData = await createActionConfirmationChallenge({
+        const { requestActionConfirmationChallenge } = require('../services/webauthnAuthorityClient');
+        const challengeData = await requestActionConfirmationChallenge({
             adminId,
             actionType,
             periodId,
@@ -1031,7 +1033,8 @@ async function createRefundActionChallenge(req, res) {
         return res.json({ success: true, ...challengeData });
     } catch (err) {
         console.error('SuperAdmin createRefundActionChallenge Error:', err);
-        return res.status(400).json({ success: false, error: err.message });
+        const status = err.code === 'AUTHORITY_UNAVAILABLE' ? 503 : (err.code === 'AUTHORITATIVE_DOSSIER_MISMATCH' || err.code === 'DUAL_CUSTODY_VIOLATION' ? 403 : 400);
+        return res.status(status).json({ success: false, code: err.code || 'CHALLENGE_ERROR', error: err.message });
     }
 }
 
@@ -1050,8 +1053,8 @@ async function confirmRefundAction(req, res) {
             webauthnAssertion
         } = req.body || {};
 
-        const { issueConfirmedActionProof } = require('../services/superAdminWebAuthnAuthority');
-        const result = await issueConfirmedActionProof({
+        const { requestConfirmedActionProof } = require('../services/webauthnAuthorityClient');
+        const result = await requestConfirmedActionProof({
             adminId,
             actionType,
             periodId,
@@ -1064,7 +1067,12 @@ async function confirmRefundAction(req, res) {
         });
 
         if (!result.success) {
-            const status = (result.code === 'INVALID_WEBAUTHN_SIGNATURE' || result.code === 'CREDENTIAL_REVOKED')
+            const status = (
+                result.code === 'INVALID_WEBAUTHN_SIGNATURE' ||
+                result.code === 'CREDENTIAL_REVOKED' ||
+                result.code === 'AUTHORITATIVE_DOSSIER_MISMATCH' ||
+                result.code === 'DUAL_CUSTODY_VIOLATION'
+            )
                 ? 403
                 : (result.code === 'AUTHORITY_UNAVAILABLE')
                     ? 503

@@ -38,6 +38,11 @@ const {
 const {
   buildWebAuthnAttestationObject,
   issueEnrollmentApprovalToken,
+  issueOutOfBandBootstrapToken,
+  createEnrollmentApprovalChallenge,
+  issueConfirmedEnrollmentApprovalToken,
+  inspectAuthoritativeRefundDossier,
+  setAuthorityRuntimeConfig,
   createRegistrationChallenge,
   verifyAndRegisterCredential,
   revokeCredential,
@@ -48,6 +53,18 @@ const {
   clearPersistedWebAuthnStateForTests,
   closeAuthorityDbPool
 } = require('../../backend/services/superAdminWebAuthnAuthority.js');
+const {
+  startWebAuthnAuthorityServer
+} = require('../../backend/authority/webauthnAuthorityServer.js');
+const {
+  isExternalAuthorityRequired,
+  requestRegistrationChallenge,
+  requestEnrollmentApprovalChallenge,
+  requestConfirmedEnrollmentApprovalToken,
+  requestVerifyAndRegisterCredential,
+  requestActionConfirmationChallenge,
+  requestConfirmedActionProof
+} = require('../../backend/services/webauthnAuthorityClient.js');
 
 const { Client } = pg;
 
@@ -117,6 +134,7 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
   let approverAdminId;
   let globalPricingId;
   let executorUrl;
+  let authorityRoleUrl;
   const validRawProofContent = Buffer.from(
     '%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n% Justificatif officiel FedaPay P28c - Remboursement integral\n%%EOF\n',
     'utf8'
@@ -162,9 +180,12 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
     }
     globalPricingId = pricingRes.rows[0].id;
 
-    // 3. Generate dedicated executor credentials in memory (never logged) and configure role
+    // 3. Generate dedicated executor and WebAuthn authority credentials in memory (never logged) and configure roles
     const executorPwd = 'p28c_test_' + randomUUID().replace(/-/g, '');
     executorUrl = `postgresql://yziow_refund_executor:${encodeURIComponent(executorPwd)}@${dbConfig.host}:${dbConfig.port}/${dbConfig.dbName}`;
+
+    const authorityPwd = 'p28c_auth_' + randomUUID().replace(/-/g, '');
+    authorityRoleUrl = `postgresql://yziow_webauthn_authority:${encodeURIComponent(authorityPwd)}@${dbConfig.host}:${dbConfig.port}/${dbConfig.dbName}`;
 
     await adminClient.query(`
       DO $$
@@ -172,35 +193,51 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yziow_refund_executor') THEN
           CREATE ROLE yziow_refund_executor LOGIN;
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yziow_webauthn_authority') THEN
+          CREATE ROLE yziow_webauthn_authority LOGIN;
+        END IF;
       END
       $$;
       ALTER ROLE yziow_refund_executor WITH PASSWORD '${executorPwd}';
-      GRANT USAGE ON SCHEMA public TO yziow_refund_executor;
+      ALTER ROLE yziow_webauthn_authority WITH PASSWORD '${authorityPwd}';
+      GRANT USAGE ON SCHEMA public TO yziow_refund_executor, yziow_webauthn_authority;
 
       GRANT EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) TO yziow_refund_executor;
-      REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role;
+      REVOKE EXECUTE ON FUNCTION public.admin_process_parent_pack_refund(UUID, TEXT, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role, yziow_webauthn_authority;
 
       GRANT EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) TO yziow_refund_executor;
-      REVOKE EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role;
+      REVOKE EXECUTE ON FUNCTION public.admin_create_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role, yziow_webauthn_authority;
 
       GRANT EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) TO yziow_refund_executor;
-      REVOKE EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role;
+      REVOKE EXECUTE ON FUNCTION public.admin_approve_parent_pack_refund_reconciliation(UUID, UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role, yziow_webauthn_authority;
 
       GRANT EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) TO yziow_refund_executor;
-      REVOKE EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) FROM PUBLIC, anon, authenticated, service_role;
+      REVOKE EXECUTE ON FUNCTION public.admin_get_parent_pack_refund_reconciliation(UUID) FROM PUBLIC, anon, authenticated, service_role, yziow_webauthn_authority;
 
-      REVOKE ALL ON SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
-      REVOKE ALL ON ALL TABLES IN SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
-      REVOKE ALL ON public.parent_pack_refund_audits FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
-      REVOKE ALL ON public.parent_pack_refund_reconciliations FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
-      REVOKE ALL ON public.parent_pack_refund_security_gate FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor;
-      REVOKE ALL ON public.superadmins FROM yziow_refund_executor;
-      REVOKE ALL ON public.school_commission_ledger FROM yziow_refund_executor;
-      REVOKE ALL ON public.affiliate_ledger FROM yziow_refund_executor;
-      REVOKE ALL ON public.affiliate_balances FROM yziow_refund_executor;
-      REVOKE ALL ON public.payment_intents FROM yziow_refund_executor;
-      REVOKE ALL ON public.parent_subscription_periods FROM yziow_refund_executor;
-      REVOKE ALL ON public.parent_subscriptions FROM yziow_refund_executor;
+      REVOKE ALL ON SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON ALL TABLES IN SCHEMA yziow_refund_auth FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+      GRANT USAGE ON SCHEMA yziow_refund_auth TO yziow_webauthn_authority;
+      GRANT SELECT ON TABLE yziow_refund_auth.webauthn_challenges TO yziow_webauthn_authority;
+
+      REVOKE ALL ON TABLE public.superadmin_webauthn_credentials FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+      GRANT SELECT, INSERT, UPDATE ON TABLE public.superadmin_webauthn_credentials TO yziow_webauthn_authority;
+
+      GRANT EXECUTE ON FUNCTION yziow_refund_auth.store_webauthn_challenge(UUID, TEXT, TEXT, TEXT, UUID, UUID, TEXT, BIGINT, TEXT, TEXT, TEXT, TEXT, INTEGER) TO yziow_webauthn_authority;
+      GRANT EXECUTE ON FUNCTION yziow_refund_auth.get_webauthn_challenge_for_update(TEXT) TO yziow_webauthn_authority;
+      GRANT EXECUTE ON FUNCTION yziow_refund_auth.consume_webauthn_challenge(TEXT, UUID, TEXT, TEXT) TO yziow_webauthn_authority;
+      GRANT EXECUTE ON FUNCTION yziow_refund_auth.check_superadmin_active(UUID) TO yziow_webauthn_authority;
+      GRANT EXECUTE ON FUNCTION yziow_refund_auth.inspect_authoritative_refund_dossier(UUID, TEXT, UUID, UUID) TO yziow_webauthn_authority;
+
+      REVOKE ALL ON public.parent_pack_refund_audits FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON public.parent_pack_refund_reconciliations FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON public.parent_pack_refund_security_gate FROM PUBLIC, anon, authenticated, service_role, yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON public.superadmins FROM yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON public.school_commission_ledger FROM yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON public.affiliate_ledger FROM yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON public.affiliate_balances FROM yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON public.payment_intents FROM yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON public.parent_subscription_periods FROM yziow_refund_executor, yziow_webauthn_authority;
+      REVOKE ALL ON public.parent_subscriptions FROM yziow_refund_executor, yziow_webauthn_authority;
     `);
 
     process.env.YZIOW_REFUND_DATABASE_URL = executorUrl;
@@ -4001,6 +4038,1043 @@ describe('P28c Backend Refund Integration & PostgreSQL Dedicated Role (Dual-Cust
 
   it('74. Chantier D.2.2 — Nettoyage de l\'état de test et vérification finale du maintien de SECURITY_BLOCKER (les 3 flags parent_pack_refund_security_gate = false)', async () => {
     await clearPersistedWebAuthnStateForTests();
+    const gateRes = await adminClient.query(
+      `SELECT independent_admin_auth_ready, independent_fedapay_proof_ready, private_worm_storage_ready
+       FROM public.parent_pack_refund_security_gate WHERE id = true`
+    );
+    assert.strictEqual(gateRes.rows[0].independent_admin_auth_ready, false);
+    assert.strictEqual(gateRes.rows[0].private_worm_storage_ready, false);
+    assert.strictEqual(gateRes.rows[0].independent_fedapay_proof_ready, false);
+  });
+
+  // =========================================================================
+  // CHANTIER D.2.3 (ISOLATION RÉELLE DE L'AUTORITÉ WEBAUTHN DES DEUX SUPERADMINS)
+  // =========================================================================
+
+  const D2_3_AUTHORITY_ONLY_SECRET = 'd2_3_isolated_webauthn_authority_secret_key_never_in_backend_2026';
+  const D2_3_BACKEND_TO_AUTHORITY_TOKEN = 'd2_3_backend_to_authority_interservice_bearer_token_2026';
+  const D2_3_OOB_BOOTSTRAP_SECRET = 'd2_3_oob_bootstrap_ceremony_secret_never_in_backend_2026';
+
+  async function withIsolatedAuthorityServer(fn) {
+    // Configurer la clé secrète isolée dans PostgreSQL (yziow_refund_auth.authority_config)
+    await adminClient.query(
+      `UPDATE yziow_refund_auth.authority_config SET secret_key = $1, require_webauthn_confirmation = true, updated_at = clock_timestamp() WHERE id = true`,
+      [D2_3_AUTHORITY_ONLY_SECRET]
+    );
+
+    const authorityServer = await startWebAuthnAuthorityServer({
+      port: 0,
+      host: '127.0.0.1',
+      authoritySecretKey: D2_3_AUTHORITY_ONLY_SECRET,
+      authorityDatabaseUrl: authorityRoleUrl,
+      backendToAuthorityToken: D2_3_BACKEND_TO_AUTHORITY_TOKEN,
+      bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET,
+      enforceAuthoritativeDossierCheck: true
+    });
+
+    const prevAuthorityUrl = process.env.YZIOW_WEBAUTHN_AUTHORITY_URL;
+    const prevBackendToken = process.env.YZIOW_BACKEND_TO_AUTHORITY_TOKEN;
+    const prevSimulateNoKey = process.env.YZIOW_SIMULATE_COMPROMISED_BACKEND_NO_KEY;
+    const prevRequireWebAuthn = process.env.YZIOW_REQUIRE_WEBAUTHN_CONFIRMATION;
+
+    // Le backend applicatif reçoit UNIQUEMENT l'URL et le jeton inter-service,
+    // mais NE DÉTIENT AUCUNE clé secrète de signature d'autorité.
+    process.env.YZIOW_WEBAUTHN_AUTHORITY_URL = authorityServer.url;
+    process.env.YZIOW_BACKEND_TO_AUTHORITY_TOKEN = D2_3_BACKEND_TO_AUTHORITY_TOKEN;
+    process.env.YZIOW_SIMULATE_COMPROMISED_BACKEND_NO_KEY = 'true';
+    process.env.YZIOW_REQUIRE_WEBAUTHN_CONFIRMATION = 'true';
+
+    try {
+      return await fn(authorityServer);
+    } finally {
+      if (prevAuthorityUrl === undefined) delete process.env.YZIOW_WEBAUTHN_AUTHORITY_URL;
+      else process.env.YZIOW_WEBAUTHN_AUTHORITY_URL = prevAuthorityUrl;
+
+      if (prevBackendToken === undefined) delete process.env.YZIOW_BACKEND_TO_AUTHORITY_TOKEN;
+      else process.env.YZIOW_BACKEND_TO_AUTHORITY_TOKEN = prevBackendToken;
+
+      if (prevSimulateNoKey === undefined) delete process.env.YZIOW_SIMULATE_COMPROMISED_BACKEND_NO_KEY;
+      else process.env.YZIOW_SIMULATE_COMPROMISED_BACKEND_NO_KEY = prevSimulateNoKey;
+
+      if (prevRequireWebAuthn === undefined) delete process.env.YZIOW_REQUIRE_WEBAUTHN_CONFIRMATION;
+      else process.env.YZIOW_REQUIRE_WEBAUTHN_CONFIRMATION = prevRequireWebAuthn;
+
+      await authorityServer.close();
+      await adminClient.query(
+        `UPDATE yziow_refund_auth.authority_config SET secret_key = $1, require_webauthn_confirmation = false, updated_at = clock_timestamp() WHERE id = true`,
+        [DEFAULT_REFUND_ACTION_AUTH_KEY]
+      );
+    }
+  }
+
+  async function enrollSuperAdminViaAuthority(adminId, approvalToken = null) {
+    const keypair = generateWebAuthnKeypair();
+    const pubSpki = keypair.publicKey.export({ type: 'spki', format: 'pem' });
+    const credId = 'cred_d23_' + randomUUID();
+    const regChal = await requestRegistrationChallenge(adminId);
+    const attObj = buildWebAuthnAttestationObject({ publicKeySpki: pubSpki, credentialId: credId });
+    const clientDataJSON = Buffer.from(JSON.stringify({
+      type: 'webauthn.create',
+      challenge: regChal.challenge,
+      origin: regChal.origin
+    })).toString('base64url');
+
+    const otherAdminId = String(adminId).toLowerCase() === String(superAdminId).toLowerCase()
+      ? approverAdminId
+      : superAdminId;
+
+    const effectiveApprovalToken = approvalToken || issueOutOfBandBootstrapToken({
+      targetAdminId: adminId,
+      approverAdminId: otherAdminId,
+      credentialId: credId,
+      purpose: 'initial_oob_bootstrap',
+      bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET
+    });
+
+    const regRes = await requestVerifyAndRegisterCredential({
+      adminId,
+      credentialId: credId,
+      attestationObject: attObj,
+      clientDataJSON,
+      expectedChallenge: regChal.challenge,
+      enrollmentApprovalToken: effectiveApprovalToken,
+      requireEnrollmentApproval: true
+    });
+    assert.strictEqual(regRes.valid, true, `Enrôlement échoué: ${regRes.code} - ${regRes.message}`);
+    return { keypair, credId };
+  }
+
+  it('75. Chantier D.2.3 — Scénario 1 : Backend compromis avec tous ses secrets (YZIOW_REFUND_DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, YZIOW_BACKEND_TO_AUTHORITY_TOKEN) mais sans authentificateur WebAuthn : échec total', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async () => {
+      await enrollSuperAdminViaAuthority(superAdminId);
+      const fixture = await seedFixture();
+
+      // 1. Le backend compromis ne possède pas la clé de signature de l'autorité
+      assert.throws(
+        () => generateRefundActionProof({
+          adminId: superAdminId,
+          actionType: 'initiate',
+          periodId: fixture.periodId,
+          providerTransactionId: fixture.providerTxId,
+          verifiedAmountMinor: fixture.amount,
+          currency: fixture.currency,
+          proofDocumentHash: validProofHash
+        }),
+        /AUTHORITY_SECRET_NOT_CONFIGURED/
+      );
+
+      // 2. Le backend compromis appelle l'autorité HTTP avec son jeton inter-service mais sans assertion matérielle valide
+      const chal = await requestActionConfirmationChallenge({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+
+      const rogueKeypair = generateWebAuthnKeypair();
+      const forgedAssertion = signWebAuthnAssertion({
+        keypair: rogueKeypair,
+        challenge: chal.challenge
+      });
+
+      const confirmRes = await requestConfirmedActionProof({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash,
+        webauthnAssertion: {
+          credentialId: 'cred_non_existent',
+          ...forgedAssertion
+        }
+      });
+      assert.strictEqual(confirmRes.success, false);
+      assert.strictEqual(confirmRes.code, 'CREDENTIAL_NOT_FOUND');
+
+      // 3. Le backend compromis forge une fausse structure de preuve avec une clé devinée et appelle directement PostgreSQL (yziow_refund_executor)
+      const guessedProof = generateRefundActionProof({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash,
+        secretKey: 'wrong_guessed_key_by_compromised_backend',
+        webauthnChallengeId: chal.challengeId,
+        credentialId: 'cred_forged'
+      });
+
+      const execClient = new Client({ connectionString: executorUrl });
+      await execClient.connect();
+      try {
+        await assert.rejects(
+          () => execClient.query(
+            `SELECT public.admin_create_parent_pack_refund_reconciliation(
+              $1, $2, 'Compromised backend direct RPC call', $3, 'refunded', $4, $5,
+              'private://refund-proofs/test.pdf', $6, $4, $5, $7, NOW(), NULL, NULL, $8::jsonb
+            )`,
+            [fixture.periodId, superAdminId, fixture.providerTxId, fixture.amount, fixture.currency, validProofHash, fixture.parentRef, JSON.stringify(guessedProof)]
+          ),
+          (err) => {
+            assert.match(err.message, /INVALID_ACTION_PROOF_SIGNATURE/);
+            return true;
+          }
+        );
+      } finally {
+        await execClient.end();
+      }
+    });
+  });
+
+  it('76. Chantier D.2.3 — Scénario 2 : Backend compromis tentant d\'appeler l\'autorité WebAuthn sans jeton ou avec un faux jeton : rejet 401 UNAUTHORIZED_BACKEND_CALLER', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async (authorityServer) => {
+      // 1. Appel sans jeton
+      const noTokenRes = await fetch(`${authorityServer.url}/v1/credentials/register/challenge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: superAdminId })
+      });
+      assert.strictEqual(noTokenRes.status, 401);
+      const noTokenBody = await noTokenRes.json();
+      assert.strictEqual(noTokenBody.code, 'UNAUTHORIZED_BACKEND_CALLER');
+
+      // 2. Appel avec un faux jeton
+      const badTokenRes = await fetch(`${authorityServer.url}/v1/actions/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer forged_token_123456789'
+        },
+        body: JSON.stringify({ adminId: superAdminId })
+      });
+      assert.strictEqual(badTokenRes.status, 401);
+      const badTokenBody = await badTokenRes.json();
+      assert.strictEqual(badTokenBody.code, 'UNAUTHORIZED_BACKEND_CALLER');
+    });
+  });
+
+  it('77. Chantier D.2.3 — Scénario 3 : Backend compromis tentant d\'écrire directement dans yziow_refund_auth.webauthn_challenges (via yziow_refund_executor et service_role) : rejet 42501', async () => {
+    const execClient = new Client({ connectionString: executorUrl });
+    await execClient.connect();
+    try {
+      await assert.rejects(
+        () => execClient.query(`INSERT INTO yziow_refund_auth.webauthn_challenges (admin_id, action_type, challenge_bytes, rp_id, origin, expires_at) VALUES ($1, 'initiate', 'forged_chal', 'localhost', 'http://localhost:5173', NOW() + interval '5 minutes')`, [superAdminId]),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+      await assert.rejects(
+        () => execClient.query(`SELECT * FROM yziow_refund_auth.get_webauthn_challenge_for_update('forged_chal')`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await execClient.end();
+    }
+
+    // Test sous le rôle service_role (SUPABASE_SERVICE_ROLE_KEY)
+    await adminClient.query('BEGIN');
+    try {
+      await adminClient.query('SET LOCAL ROLE service_role');
+      await assert.rejects(
+        () => adminClient.query(`SELECT * FROM yziow_refund_auth.webauthn_challenges`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await adminClient.query('ROLLBACK');
+    }
+
+    await adminClient.query('BEGIN');
+    try {
+      await adminClient.query('SET LOCAL ROLE service_role');
+      await assert.rejects(
+        () => adminClient.query(`SELECT yziow_refund_auth.store_webauthn_challenge($1, 'initiate', 'chal_srv', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'localhost', 'http://localhost:5173', 300)`, [superAdminId]),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await adminClient.query('ROLLBACK');
+    }
+  });
+
+  it('78. Chantier D.2.3 — Scénario 4 : Backend compromis tentant de modifier public.superadmin_webauthn_credentials (via yziow_refund_executor et service_role) : rejet 42501 et cloisonnement inverse de yziow_webauthn_authority', async () => {
+    const execClient = new Client({ connectionString: executorUrl });
+    await execClient.connect();
+    try {
+      await assert.rejects(
+        () => execClient.query(`INSERT INTO public.superadmin_webauthn_credentials (admin_id, credential_id, public_key_spki) VALUES ($1, 'rogue_cred', 'pem')`, [superAdminId]),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await execClient.end();
+    }
+
+    // Même service_role (SUPABASE_SERVICE_ROLE_KEY) a désormais REVOKE ALL sur public.superadmin_webauthn_credentials
+    await adminClient.query('BEGIN');
+    try {
+      await adminClient.query('SET LOCAL ROLE service_role');
+      await assert.rejects(
+        () => adminClient.query(`SELECT * FROM public.superadmin_webauthn_credentials`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await adminClient.query('ROLLBACK');
+    }
+
+    await adminClient.query('BEGIN');
+    try {
+      await adminClient.query('SET LOCAL ROLE service_role');
+      await assert.rejects(
+        () => adminClient.query(`INSERT INTO public.superadmin_webauthn_credentials (admin_id, credential_id, public_key_spki) VALUES ($1, 'rogue_srv_cred', 'pem')`, [superAdminId]),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await adminClient.query('ROLLBACK');
+    }
+
+    // Et inversement, yziow_webauthn_authority ne peut ni DELETE un credential, ni appeler les RPC de remboursement, ni lire/modifier la gate
+    const authDbClient = new Client({ connectionString: authorityRoleUrl });
+    await authDbClient.connect();
+    try {
+      await assert.rejects(
+        () => authDbClient.query(`DELETE FROM public.superadmin_webauthn_credentials`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+      await assert.rejects(
+        () => authDbClient.query(`SELECT * FROM public.parent_pack_refund_security_gate`),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+      await assert.rejects(
+        () => authDbClient.query(`SELECT public.admin_get_parent_pack_refund_reconciliation($1)`, [randomUUID()]),
+        (err) => {
+          assert.strictEqual(err.code, '42501');
+          return true;
+        }
+      );
+    } finally {
+      await authDbClient.end();
+    }
+  });
+
+  it('79. Chantier D.2.3 — Scénario 5 : Assertion WebAuthn valide pour le dossier A réutilisée pour le dossier B : rejet par l\'autorité HTTP et par PostgreSQL', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async () => {
+      const { keypair, credId } = await enrollSuperAdminViaAuthority(superAdminId);
+      const fixtureA = await seedFixture();
+      const fixtureB = await seedFixture();
+
+      const chalA = await requestActionConfirmationChallenge({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixtureA.periodId,
+        providerTransactionId: fixtureA.providerTxId,
+        verifiedAmountMinor: fixtureA.amount,
+        currency: fixtureA.currency,
+        proofDocumentHash: validProofHash
+      });
+
+      const assertionA = signWebAuthnAssertion({
+        keypair,
+        challenge: chalA.challenge
+      });
+
+      // Tentative d'utiliser l'assertion du dossier A pour obtenir une preuve sur le dossier B auprès de l'autorité indépendante
+      const crossConfirm = await requestConfirmedActionProof({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixtureB.periodId,
+        providerTransactionId: fixtureB.providerTxId,
+        verifiedAmountMinor: fixtureB.amount,
+        currency: fixtureB.currency,
+        proofDocumentHash: validProofHash,
+        webauthnAssertion: {
+          credentialId: credId,
+          ...assertionA
+        }
+      });
+      assert.strictEqual(crossConfirm.success, false);
+      assert.strictEqual(crossConfirm.code, 'CHALLENGE_DOSSIER_MISMATCH');
+    });
+  });
+
+  it('80. Chantier D.2.3 — Scénario 6 : Modification du montant, de la transaction ou du hash par le backend compromis : rejet AUTHORITATIVE_DOSSIER_MISMATCH par l\'autorité indépendante et par PostgreSQL', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async () => {
+      const { keypair, credId } = await enrollSuperAdminViaAuthority(superAdminId);
+      const fixture = await seedFixture();
+
+      // 1. Le backend compromis tente de demander un challenge à l'autorité avec un montant falsifié (99999 au lieu de fixture.amount)
+      await assert.rejects(
+        () => requestActionConfirmationChallenge({
+          adminId: superAdminId,
+          actionType: 'initiate',
+          periodId: fixture.periodId,
+          providerTransactionId: fixture.providerTxId,
+          verifiedAmountMinor: 99999,
+          currency: fixture.currency,
+          proofDocumentHash: validProofHash
+        }),
+        (err) => {
+          assert.strictEqual(err.code, 'AUTHORITATIVE_DOSSIER_MISMATCH');
+          return true;
+        }
+      );
+
+      // 2. Le backend compromis tente de demander un challenge avec un providerTransactionId falsifié
+      await assert.rejects(
+        () => requestActionConfirmationChallenge({
+          adminId: superAdminId,
+          actionType: 'initiate',
+          periodId: fixture.periodId,
+          providerTransactionId: 'tx_falsified_by_compromised_backend',
+          verifiedAmountMinor: fixture.amount,
+          currency: fixture.currency,
+          proofDocumentHash: validProofHash
+        }),
+        (err) => {
+          assert.strictEqual(err.code, 'AUTHORITATIVE_DOSSIER_MISMATCH');
+          return true;
+        }
+      );
+
+      // 3. Même après émission d'une preuve légitime, toute altération d'un champ (hash ou montant ou webauthn_challenge_id) est rejetée par PostgreSQL
+      const validChal = await requestActionConfirmationChallenge({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+      const assertion = signWebAuthnAssertion({ keypair, challenge: validChal.challenge });
+      const issued = await requestConfirmedActionProof({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash,
+        webauthnAssertion: { credentialId: credId, ...assertion }
+      });
+      assert.strictEqual(issued.success, true);
+
+      const tamperedProof = { ...issued.actionProof, credential_id: 'cred_tampered_after_signature' };
+      const execClient = new Client({ connectionString: executorUrl });
+      await execClient.connect();
+      try {
+        await assert.rejects(
+          () => execClient.query(
+            `SELECT public.admin_create_parent_pack_refund_reconciliation(
+              $1, $2, 'Tampered credential_id in proof', $3, 'refunded', $4, $5,
+              'private://refund-proofs/test.pdf', $6, $4, $5, $7, NOW(), NULL, NULL, $8::jsonb
+            )`,
+            [fixture.periodId, superAdminId, fixture.providerTxId, fixture.amount, fixture.currency, validProofHash, fixture.parentRef, JSON.stringify(tamperedProof)]
+          ),
+          (err) => {
+            assert.match(err.message, /INVALID_ACTION_PROOF_SIGNATURE/);
+            return true;
+          }
+        );
+      } finally {
+        await execClient.end();
+      }
+    });
+  });
+
+  it('81. Chantier D.2.3 — Scénario 7 : Rejeu de challenge ou d\'attestation (Promise.all sur l\'autorité HTTP et rejeu SQL) : 1 seul succès, rejet CHALLENGE_ALREADY_CONSUMED / ACTION_PROOF_ALREADY_CONSUMED', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async () => {
+      const { keypair, credId } = await enrollSuperAdminViaAuthority(superAdminId);
+      const fixture = await seedFixture();
+
+      const chal = await requestActionConfirmationChallenge({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+
+      const assertion = signWebAuthnAssertion({ keypair, challenge: chal.challenge, counter: 1 });
+
+      const sendConfirm = () => requestConfirmedActionProof({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash,
+        webauthnAssertion: { credentialId: credId, ...assertion }
+      });
+
+      const [r1, r2] = await Promise.all([sendConfirm(), sendConfirm()]);
+      const okList = [r1, r2].filter((r) => r.success === true);
+      const failList = [r1, r2].filter((r) => r.success === false);
+      assert.strictEqual(okList.length, 1);
+      assert.strictEqual(failList.length, 1);
+      assert.strictEqual(failList[0].code, 'CHALLENGE_ALREADY_CONSUMED');
+    });
+  });
+
+  it('82. Chantier D.2.3 — Scénario 8 : Confirmation avec UP = 0 ou UV = 0 auprès de l\'autorité HTTP : rejet USER_PRESENCE_REQUIRED et USER_VERIFICATION_REQUIRED', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async () => {
+      const { keypair, credId } = await enrollSuperAdminViaAuthority(superAdminId);
+      const fixture = await seedFixture();
+
+      const chal1 = await requestActionConfirmationChallenge({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+
+      const noUpAssertion = signWebAuthnAssertion({
+        keypair,
+        challenge: chal1.challenge,
+        userPresent: false,
+        userVerified: true
+      });
+      const resNoUp = await requestConfirmedActionProof({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash,
+        webauthnAssertion: { credentialId: credId, ...noUpAssertion }
+      });
+      assert.strictEqual(resNoUp.success, false);
+      assert.strictEqual(resNoUp.code, 'USER_PRESENCE_REQUIRED');
+
+      const noUvAssertion = signWebAuthnAssertion({
+        keypair,
+        challenge: chal1.challenge,
+        userPresent: true,
+        userVerified: false
+      });
+      const resNoUv = await requestConfirmedActionProof({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash,
+        webauthnAssertion: { credentialId: credId, ...noUvAssertion }
+      });
+      assert.strictEqual(resNoUv.success, false);
+      assert.strictEqual(resNoUv.code, 'USER_VERIFICATION_REQUIRED');
+    });
+  });
+
+  it('83. Chantier D.2.3 — Scénario 9 : Tentative de remplacement d\'authentificateur sans co-autorisation matérielle WebAuthn d\'un second SuperAdmin : rejet HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED puis succès avec assertion matérielle du second SuperAdmin', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async () => {
+      // Enrôlement initial des deux SuperAdmins
+      const sa1 = await enrollSuperAdminViaAuthority(superAdminId);
+      const sa2 = await enrollSuperAdminViaAuthority(approverAdminId);
+
+      // Le backend compromis tente de remplacer l'authentificateur de SuperAdmin #1
+      const newKeypair = generateWebAuthnKeypair();
+      const newPubSpki = newKeypair.publicKey.export({ type: 'spki', format: 'pem' });
+      const newCredId = 'cred_replace_d23_' + randomUUID();
+      const regChal = await requestRegistrationChallenge(superAdminId);
+      const attObj = buildWebAuthnAttestationObject({ publicKeySpki: newPubSpki, credentialId: newCredId });
+      const clientDataJSON = Buffer.from(JSON.stringify({
+        type: 'webauthn.create',
+        challenge: regChal.challenge,
+        origin: regChal.origin
+      })).toString('base64url');
+
+      // 1. Sans jeton de co-autorisation -> rejet ENROLLMENT_CO_AUTHORIZATION_REQUIRED
+      const noTokenAttempt = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: newCredId,
+        attestationObject: attObj,
+        clientDataJSON,
+        expectedChallenge: regChal.challenge
+      });
+      assert.strictEqual(noTokenAttempt.valid, false);
+      assert.strictEqual(noTokenAttempt.code, 'ENROLLMENT_CO_AUTHORIZATION_REQUIRED');
+
+      // 2. Avec un jeton déclaratif/HMAC sans assertion matérielle WebAuthn de SuperAdmin #2 -> rejet HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED
+      const nonHardwareToken = issueEnrollmentApprovalToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'credential_replacement',
+        secretKey: D2_3_AUTHORITY_ONLY_SECRET
+      });
+      const softwareTokenAttempt = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: newCredId,
+        attestationObject: attObj,
+        clientDataJSON,
+        expectedChallenge: regChal.challenge,
+        enrollmentApprovalToken: nonHardwareToken
+      });
+      assert.strictEqual(softwareTokenAttempt.valid, false);
+      assert.strictEqual(softwareTokenAttempt.code, 'HARDWARE_ENROLLMENT_CO_AUTH_REQUIRED');
+
+      // 3. Co-autorisation matérielle WebAuthn (UP=1, UV=1) signée par la clé physique de SuperAdmin #2
+      const enrollChal = await requestEnrollmentApprovalChallenge({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'credential_replacement'
+      });
+      const sa2Assertion = signWebAuthnAssertion({
+        keypair: sa2.keypair,
+        challenge: enrollChal.challenge,
+        userPresent: true,
+        userVerified: true,
+        counter: 1
+      });
+      const confirmedApproval = await requestConfirmedEnrollmentApprovalToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'credential_replacement',
+        webauthnAssertion: {
+          credentialId: sa2.credId,
+          ...sa2Assertion
+        }
+      });
+      assert.strictEqual(confirmedApproval.valid, true);
+
+      const validReplaceRes = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: newCredId,
+        attestationObject: attObj,
+        clientDataJSON,
+        expectedChallenge: regChal.challenge,
+        enrollmentApprovalToken: confirmedApproval.enrollmentApprovalToken
+      });
+      assert.strictEqual(validReplaceRes.valid, true);
+      assert.strictEqual(validReplaceRes.credential.credential_id, newCredId);
+
+      // L'ancien credential de SuperAdmin #1 est désormais révoqué dans PostgreSQL
+      const oldCredCheck = await adminClient.query(
+        `SELECT is_active, revoked_at FROM public.superadmin_webauthn_credentials WHERE credential_id = $1`,
+        [sa1.credId]
+      );
+      assert.strictEqual(oldCredCheck.rows[0].is_active, false);
+      assert.ok(oldCredCheck.rows[0].revoked_at !== null);
+    });
+  });
+
+  it('84. Chantier D.2.3 — Scénario 10 : Même SuperAdmin tentant d\'initier puis d\'approuver : rejet DUAL_CUSTODY_VIOLATION dès l\'autorité indépendante et par PostgreSQL', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async () => {
+      const sa1 = await enrollSuperAdminViaAuthority(superAdminId);
+      const fixture = await seedFixture();
+      const mockFedapay = {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      };
+
+      const initChal = await requestActionConfirmationChallenge({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+      const initAssertion = signWebAuthnAssertion({ keypair: sa1.keypair, challenge: initChal.challenge, counter: 1 });
+
+      const initRes = await createParentPackRefundReconciliationRequest({
+        periodId: fixture.periodId,
+        initiatorAdminId: superAdminId,
+        reason: 'D.2.3 self-approval block test',
+        proof: buildValidProof(fixture),
+        initiatorWebAuthnConfirmation: { credentialId: sa1.credId, ...initAssertion },
+        fedapayClient: mockFedapay
+      });
+      assert.strictEqual(initRes.success, true);
+      const recId = initRes.data.reconciliation_id;
+
+      // L'autorité indépendante inspecte le dossier dans PostgreSQL et refuse d'émettre un challenge d'approbation pour l'initiateur
+      await assert.rejects(
+        () => requestActionConfirmationChallenge({
+          adminId: superAdminId,
+          actionType: 'approve',
+          periodId: fixture.periodId,
+          reconciliationId: recId,
+          providerTransactionId: fixture.providerTxId,
+          verifiedAmountMinor: fixture.amount,
+          currency: fixture.currency,
+          proofDocumentHash: validProofHash
+        }),
+        (err) => {
+          assert.strictEqual(err.code, 'DUAL_CUSTODY_VIOLATION');
+          return true;
+        }
+      );
+    });
+  });
+
+  it('85. Chantier D.2.3 — Scénario 11 : Autorité WebAuthn indisponible : rejet fail-closed AUTHORITY_UNAVAILABLE sans fallback local', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    const fixture = await seedFixture();
+    const prevUrl = process.env.YZIOW_WEBAUTHN_AUTHORITY_URL;
+    const prevEnforce = process.env.YZIOW_ENFORCE_EXTERNAL_AUTHORITY;
+
+    try {
+      // Pointage vers un port fermé avec exigence d'autorité externe
+      process.env.YZIOW_WEBAUTHN_AUTHORITY_URL = 'http://127.0.0.1:1';
+      process.env.YZIOW_ENFORCE_EXTERNAL_AUTHORITY = 'true';
+
+      const res = await createParentPackRefundReconciliationRequest({
+        periodId: fixture.periodId,
+        initiatorAdminId: superAdminId,
+        reason: 'Authority unreachable test',
+        proof: buildValidProof(fixture),
+        initiatorWebAuthnConfirmation: {
+          credentialId: 'cred_any',
+          clientDataJSON: 'dGVzdA',
+          authenticatorData: 'dGVzdA',
+          signature: 'dGVzdA'
+        },
+        fedapayClient: {
+          retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+        }
+      });
+
+      assert.strictEqual(res.success, false);
+      assert.strictEqual(res.code, 'AUTHORITY_UNAVAILABLE');
+    } finally {
+      if (prevUrl === undefined) delete process.env.YZIOW_WEBAUTHN_AUTHORITY_URL;
+      else process.env.YZIOW_WEBAUTHN_AUTHORITY_URL = prevUrl;
+
+      if (prevEnforce === undefined) delete process.env.YZIOW_ENFORCE_EXTERNAL_AUTHORITY;
+      else process.env.YZIOW_ENFORCE_EXTERNAL_AUTHORITY = prevEnforce;
+    }
+  });
+
+  it('86. Chantier D.2.3 — Scénario 12 : Deux SuperAdmins distincts avec authentificateurs valides via l\'Autorité HTTP isolée, mais compensation financière toujours bloquée par parent_pack_refund_security_gate (SECURITY_BLOCKER)', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    await withIsolatedAuthorityServer(async () => {
+      const sa1 = await enrollSuperAdminViaAuthority(superAdminId);
+      const sa2 = await enrollSuperAdminViaAuthority(approverAdminId);
+
+      const fixture = await seedFixture();
+      const mockFedapay = {
+        retrieveTransaction: async () => ({ id: fixture.providerTxId, status: 'refunded', amount: fixture.amount, currency: fixture.currency })
+      };
+
+      // Étape 1 : Initiation par SuperAdmin #1 via l'Autorité HTTP isolée
+      const initChal = await requestActionConfirmationChallenge({
+        adminId: superAdminId,
+        actionType: 'initiate',
+        periodId: fixture.periodId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+      const initAssertion = signWebAuthnAssertion({ keypair: sa1.keypair, challenge: initChal.challenge, counter: 1 });
+
+      const initRes = await createParentPackRefundReconciliationRequest({
+        periodId: fixture.periodId,
+        initiatorAdminId: superAdminId,
+        reason: 'D.2.3 full dual-admin isolated authority test',
+        proof: buildValidProof(fixture),
+        initiatorWebAuthnConfirmation: { credentialId: sa1.credId, ...initAssertion },
+        fedapayClient: mockFedapay
+      });
+      assert.strictEqual(initRes.success, true);
+      assert.strictEqual(initRes.code, 'RECONCILIATION_PENDING_APPROVAL');
+      const recId = initRes.data.reconciliation_id;
+
+      // Étape 2 : Approbation par SuperAdmin #2 via l'Autorité HTTP isolée
+      const approveChal = await requestActionConfirmationChallenge({
+        adminId: approverAdminId,
+        actionType: 'approve',
+        periodId: fixture.periodId,
+        reconciliationId: recId,
+        providerTransactionId: fixture.providerTxId,
+        verifiedAmountMinor: fixture.amount,
+        currency: fixture.currency,
+        proofDocumentHash: validProofHash
+      });
+      const approveAssertion = signWebAuthnAssertion({ keypair: sa2.keypair, challenge: approveChal.challenge, counter: 1 });
+
+      const approveRes = await approveAndExecuteParentPackRefundReconciliation({
+        reconciliationId: recId,
+        approverAdminId,
+        approvalNotes: 'D.2.3 second admin approval with hardware key',
+        approverWebAuthnConfirmation: { credentialId: sa2.credId, ...approveAssertion },
+        fedapayClient: mockFedapay
+      });
+
+      assert.strictEqual(approveRes.success, false);
+      assert.strictEqual(approveRes.code, 'SECURITY_BLOCKER');
+    });
+
+    // Nettoyage final et vérification des 3 flags de parent_pack_refund_security_gate = false
+    await clearPersistedWebAuthnStateForTests(adminClient);
+    const gateRes = await adminClient.query(
+      `SELECT independent_admin_auth_ready, independent_fedapay_proof_ready, private_worm_storage_ready
+       FROM public.parent_pack_refund_security_gate WHERE id = true`
+    );
+    assert.strictEqual(gateRes.rows[0].independent_admin_auth_ready, false);
+    assert.strictEqual(gateRes.rows[0].independent_fedapay_proof_ready, false);
+    assert.strictEqual(gateRes.rows[0].private_worm_storage_ready, false);
+  });
+
+  it('87. Chantier D.2.3 — Scénario 13 : Sécurité du premier enrôlement WebAuthn (0 authentificateur actif) face à un backend totalement compromis et absence de fallback hors mode test', async () => {
+    await clearPersistedWebAuthnStateForTests(adminClient);
+
+    // Vérifier qu'aucun SuperAdmin ne possède d'authentificateur actif (état initial 0 credential)
+    const zeroCreds = await adminClient.query(
+      `SELECT COUNT(*)::int AS cnt FROM public.superadmin_webauthn_credentials WHERE is_active = true`
+    );
+    assert.strictEqual(zeroCreds.rows[0].cnt, 0);
+
+    await withIsolatedAuthorityServer(async () => {
+      const attackerKeypair1 = generateWebAuthnKeypair();
+      const attackerSpki1 = attackerKeypair1.publicKey.export({ type: 'spki', format: 'pem' });
+      const attackerCredId1 = 'cred_attacker_bootstrap_' + randomUUID();
+      const regChal1 = await requestRegistrationChallenge(superAdminId);
+      const attObj1 = buildWebAuthnAttestationObject({ publicKeySpki: attackerSpki1, credentialId: attackerCredId1 });
+      const clientDataJSON1 = Buffer.from(JSON.stringify({
+        type: 'webauthn.create',
+        challenge: regChal1.challenge,
+        origin: regChal1.origin
+      })).toString('base64url');
+
+      // 1. Le backend totalement compromis tente d'enregistrer un premier authentificateur en forçant requireEnrollmentApproval: false
+      const bypassAttempt = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: attackerCredId1,
+        attestationObject: attObj1,
+        clientDataJSON: clientDataJSON1,
+        expectedChallenge: regChal1.challenge,
+        enrollmentApprovalToken: null,
+        requireEnrollmentApproval: false
+      });
+      assert.strictEqual(bypassAttempt.valid, false);
+      assert.strictEqual(bypassAttempt.code, 'ENROLLMENT_CO_AUTHORIZATION_REQUIRED');
+
+      // 2. Le backend compromis tente d'utiliser un jeton logiciel sans oob_bootstrap alors qu'aucun authentificateur matériel de référence n'existe
+      const softwareTokenZeroCreds = issueEnrollmentApprovalToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        purpose: 'initial_enrollment',
+        secretKey: D2_3_AUTHORITY_ONLY_SECRET
+      });
+      const softwareAttempt = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: attackerCredId1,
+        attestationObject: attObj1,
+        clientDataJSON: clientDataJSON1,
+        expectedChallenge: regChal1.challenge,
+        enrollmentApprovalToken: softwareTokenZeroCreds
+      });
+      assert.strictEqual(softwareAttempt.valid, false);
+      assert.strictEqual(softwareAttempt.code, 'BOOTSTRAP_OUT_OF_BAND_AUTHORIZATION_REQUIRED');
+
+      // 3. Le backend compromis tente de forger un jeton oob_bootstrap sans posséder YZIOW_WEBAUTHN_BOOTSTRAP_SECRET
+      const forgedBootstrapToken = issueOutOfBandBootstrapToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        credentialId: attackerCredId1,
+        bootstrapSecretKey: 'wrong_backend_guessed_bootstrap_secret_key'
+      });
+      const forgedBootstrapAttempt = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: attackerCredId1,
+        attestationObject: attObj1,
+        clientDataJSON: clientDataJSON1,
+        expectedChallenge: regChal1.challenge,
+        enrollmentApprovalToken: forgedBootstrapToken
+      });
+      assert.strictEqual(forgedBootstrapAttempt.valid, false);
+      assert.strictEqual(forgedBootstrapAttempt.code, 'BOOTSTRAP_OUT_OF_BAND_AUTHORIZATION_REQUIRED');
+
+      // 4. Cérémonie légitime hors bande : émission d'un jeton oob_bootstrap lié au credentialId exact de SuperAdmin #1
+      const sa1Keypair = generateWebAuthnKeypair();
+      const sa1Spki = sa1Keypair.publicKey.export({ type: 'spki', format: 'pem' });
+      const sa1CredId = 'cred_legit_sa1_' + randomUUID();
+      const validOobToken = issueOutOfBandBootstrapToken({
+        targetAdminId: superAdminId,
+        approverAdminId: approverAdminId,
+        credentialId: sa1CredId,
+        bootstrapSecretKey: D2_3_OOB_BOOTSTRAP_SECRET
+      });
+
+      // Tentative par le backend compromis de détourner ce jeton oob_bootstrap pour enregistrer sa propre clé (attackerCredId1 != sa1CredId)
+      const hijackBootstrapAttempt = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: attackerCredId1,
+        attestationObject: attObj1,
+        clientDataJSON: clientDataJSON1,
+        expectedChallenge: regChal1.challenge,
+        enrollmentApprovalToken: validOobToken
+      });
+      assert.strictEqual(hijackBootstrapAttempt.valid, false);
+      assert.strictEqual(hijackBootstrapAttempt.code, 'INVALID_ENROLLMENT_APPROVAL_TOKEN');
+
+      // Enregistrement légitime de SuperAdmin #1 avec sa1CredId et son jeton oob_bootstrap
+      const regChalLegit1 = await requestRegistrationChallenge(superAdminId);
+      const attObjLegit1 = buildWebAuthnAttestationObject({ publicKeySpki: sa1Spki, credentialId: sa1CredId });
+      const clientDataLegit1 = Buffer.from(JSON.stringify({
+        type: 'webauthn.create',
+        challenge: regChalLegit1.challenge,
+        origin: regChalLegit1.origin
+      })).toString('base64url');
+
+      const legitSa1Res = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: sa1CredId,
+        attestationObject: attObjLegit1,
+        clientDataJSON: clientDataLegit1,
+        expectedChallenge: regChalLegit1.challenge,
+        enrollmentApprovalToken: validOobToken
+      });
+      assert.strictEqual(legitSa1Res.valid, true);
+
+      // Tentative de rejouer le même jeton oob_bootstrap -> rejet INVALID_ENROLLMENT_APPROVAL_TOKEN (déjà consommé)
+      const regChalReplay = await requestRegistrationChallenge(superAdminId);
+      const clientDataReplay = Buffer.from(JSON.stringify({
+        type: 'webauthn.create',
+        challenge: regChalReplay.challenge,
+        origin: regChalReplay.origin
+      })).toString('base64url');
+      const replayOobRes = await requestVerifyAndRegisterCredential({
+        adminId: superAdminId,
+        credentialId: sa1CredId,
+        attestationObject: attObjLegit1,
+        clientDataJSON: clientDataReplay,
+        expectedChallenge: regChalReplay.challenge,
+        enrollmentApprovalToken: validOobToken
+      });
+      assert.strictEqual(replayOobRes.valid, false);
+      assert.strictEqual(replayOobRes.code, 'INVALID_ENROLLMENT_APPROVAL_TOKEN');
+      assert.match(replayOobRes.message, /déjà consommé/);
+
+      // 5. Enrôlement de SuperAdmin #2 co-autorisé matériellement (UP=1, UV=1) par la clé physique de SuperAdmin #1
+      const sa2Keypair = generateWebAuthnKeypair();
+      const sa2Spki = sa2Keypair.publicKey.export({ type: 'spki', format: 'pem' });
+      const sa2CredId = 'cred_legit_sa2_' + randomUUID();
+      const regChalSa2 = await requestRegistrationChallenge(approverAdminId);
+      const attObjSa2 = buildWebAuthnAttestationObject({ publicKeySpki: sa2Spki, credentialId: sa2CredId });
+      const clientDataSa2 = Buffer.from(JSON.stringify({
+        type: 'webauthn.create',
+        challenge: regChalSa2.challenge,
+        origin: regChalSa2.origin
+      })).toString('base64url');
+
+      const approveChalSa1 = await requestEnrollmentApprovalChallenge({
+        targetAdminId: approverAdminId,
+        approverAdminId: superAdminId,
+        purpose: 'initial_enrollment'
+      });
+      const sa1CoAuthAssertion = signWebAuthnAssertion({
+        keypair: sa1Keypair,
+        challenge: approveChalSa1.challenge,
+        userPresent: true,
+        userVerified: true,
+        counter: 1
+      });
+      const confirmedCoAuthToken = await requestConfirmedEnrollmentApprovalToken({
+        targetAdminId: approverAdminId,
+        approverAdminId: superAdminId,
+        purpose: 'initial_enrollment',
+        webauthnAssertion: {
+          credentialId: sa1CredId,
+          ...sa1CoAuthAssertion
+        }
+      });
+      assert.strictEqual(confirmedCoAuthToken.valid, true);
+
+      const legitSa2Res = await requestVerifyAndRegisterCredential({
+        adminId: approverAdminId,
+        credentialId: sa2CredId,
+        attestationObject: attObjSa2,
+        clientDataJSON: clientDataSa2,
+        expectedChallenge: regChalSa2.challenge,
+        enrollmentApprovalToken: confirmedCoAuthToken.enrollmentApprovalToken
+      });
+      assert.strictEqual(legitSa2Res.valid, true);
+    });
+
+    // 6. Vérification de l'absence de fallback hors mode test jetable (staging / development / production)
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevAuthUrl = process.env.YZIOW_WEBAUTHN_AUTHORITY_URL;
+    const prevEnforce = process.env.YZIOW_ENFORCE_EXTERNAL_AUTHORITY;
+    try {
+      delete process.env.YZIOW_WEBAUTHN_AUTHORITY_URL;
+      delete process.env.YZIOW_ENFORCE_EXTERNAL_AUTHORITY;
+      process.env.NODE_ENV = 'staging';
+      assert.strictEqual(isExternalAuthorityRequired(), true);
+      process.env.NODE_ENV = 'development';
+      assert.strictEqual(isExternalAuthorityRequired(), true);
+    } finally {
+      process.env.NODE_ENV = prevNodeEnv;
+      if (prevAuthUrl !== undefined) process.env.YZIOW_WEBAUTHN_AUTHORITY_URL = prevAuthUrl;
+      if (prevEnforce !== undefined) process.env.YZIOW_ENFORCE_EXTERNAL_AUTHORITY = prevEnforce;
+    }
+
+    // 7. Vérification du durcissement SECURITY DEFINER de store_webauthn_challenge (rejet d'un UUID non-SuperAdmin)
+    const authDbClient = new Client({ connectionString: authorityRoleUrl });
+    await authDbClient.connect();
+    try {
+      await assert.rejects(
+        () => authDbClient.query(
+          `SELECT yziow_refund_auth.store_webauthn_challenge($1, 'initiate', 'chal_non_admin', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'localhost', 'http://localhost:5173', 300)`,
+          [randomUUID()]
+        ),
+        (err) => {
+          assert.match(err.message, /UNAUTHORIZED_ADMIN/);
+          return true;
+        }
+      );
+    } finally {
+      await authDbClient.end();
+    }
+
+    // Nettoyage final et vérification des 3 flags de parent_pack_refund_security_gate = false
+    await clearPersistedWebAuthnStateForTests(adminClient);
     const gateRes = await adminClient.query(
       `SELECT independent_admin_auth_ready, independent_fedapay_proof_ready, private_worm_storage_ready
        FROM public.parent_pack_refund_security_gate WHERE id = true`
