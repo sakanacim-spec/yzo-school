@@ -842,9 +842,8 @@ describe('P28 & P28b residual risk and hardening tests', () => {
     assert.strictEqual(whRes.status, 'completed');
 
     const expectedSchoolShare = Math.floor((globalMonthlyPriceMinor * 20) / 100);
-    const expectedRemainder = globalMonthlyPriceMinor - feeMinor - expectedSchoolShare;
-    const expectedAmbassadorShare = Math.floor((expectedRemainder * 10) / 100);
-    const expectedYziowShare = expectedRemainder - expectedAmbassadorShare;
+    const expectedAmbassadorShare = Math.floor((globalMonthlyPriceMinor * 10) / 100);
+    const expectedYziowShare = globalMonthlyPriceMinor - feeMinor - expectedSchoolShare - expectedAmbassadorShare;
     assert.strictEqual(Number(whRes.school_share_minor), expectedSchoolShare);
     assert.strictEqual(Number(whRes.ambassador_share_minor), expectedAmbassadorShare);
     assert.strictEqual(Number(whRes.yziow_share_minor), expectedYziowShare);

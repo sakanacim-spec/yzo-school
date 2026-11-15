@@ -14,7 +14,7 @@ interface PricingPlan {
 
 interface ParentPackPricing {
   monthly: PricingPlan;
-  annual: PricingPlan;
+  annual?: PricingPlan;
 }
 
 interface ParentPackPaymentProps {
@@ -37,10 +37,67 @@ export const ParentPackPayment: React.FC<ParentPackPaymentProps> = ({ studentId,
       setError('');
       try {
         const data = await parentApi.getParentPackPricing(schoolSlug, studentId);
-        setPricing(data);
+        // Normalisation stricte : extraction du tarif mensuel officiel sans valeur par défaut arbitraire
+        let normalizedPricing: ParentPackPricing | null = null;
+        if ((data as any)?.plans && Array.isArray((data as any).plans)) {
+          const monthlyPlan = (data as any).plans.find((p: any) => p.periodicity === 'monthly');
+          const annualPlan = (data as any).plans.find((p: any) => p.periodicity === 'annual');
+          if (
+            monthlyPlan &&
+            typeof monthlyPlan.amountMinor === 'number' &&
+            monthlyPlan.amountMinor > 0 &&
+            typeof monthlyPlan.currency === 'string' &&
+            monthlyPlan.currency.trim() !== ''
+          ) {
+            normalizedPricing = {
+              monthly: {
+                amount: monthlyPlan.amountMinor,
+                currency: monthlyPlan.currency,
+                description: 'Accès mensuel officiel (1 mois)'
+              },
+              annual: (annualPlan && typeof annualPlan.amountMinor === 'number' && annualPlan.amountMinor > 0) ? {
+                amount: annualPlan.amountMinor,
+                currency: annualPlan.currency || 'XOF',
+                description: 'Formule annuelle (10 mois)',
+                durationMonths: annualPlan.durationMonths || 10
+              } : undefined
+            };
+          }
+        } else if (
+          data &&
+          typeof data === 'object' &&
+          'monthly' in data &&
+          typeof (data as any).monthly?.amount === 'number' &&
+          (data as any).monthly.amount > 0
+        ) {
+          normalizedPricing = {
+            monthly: {
+              amount: (data as any).monthly.amount,
+              currency: (data as any).monthly.currency || 'XOF',
+              description: (data as any).monthly.description || 'Accès mensuel officiel (1 mois)'
+            },
+            annual: ((data as any).annual && typeof (data as any).annual.amount === 'number' && (data as any).annual.amount > 0) ? {
+              amount: (data as any).annual.amount,
+              currency: (data as any).annual.currency || 'XOF',
+              description: (data as any).annual.description || 'Formule annuelle (10 mois)',
+              durationMonths: (data as any).annual.durationMonths || 10
+            } : undefined
+          };
+        }
+
+        if (!normalizedPricing) {
+          setError(
+            t(language as Language, 'parentPack.pricingUnavailable') ||
+            'Tarif officiel indisponible pour cet élève. Veuillez contacter l\'établissement scolaire.'
+          );
+          setPricing(null);
+        } else {
+          setPricing(normalizedPricing);
+        }
       } catch (err: any) {
         console.error('Error fetching pricing', err);
         setError(err.error || t(language as Language, 'parentPack.pricingError') || 'Erreur lors de la récupération des tarifs');
+        setPricing(null);
       } finally {
         setLoading(false);
       }
@@ -50,6 +107,14 @@ export const ParentPackPayment: React.FC<ParentPackPaymentProps> = ({ studentId,
   }, [studentId, schoolSlug, language]);
 
   const handlePay = async (plan: 'monthly' | 'annual') => {
+    if (!pricing || !pricing.monthly || typeof pricing.monthly.amount !== 'number' || pricing.monthly.amount <= 0) {
+      alert(t(language as Language, 'parentPack.pricingUnavailable') || 'Tarif non disponible pour cet élève.');
+      return;
+    }
+    if (plan === 'annual') {
+      alert('Le paiement annuel est temporairement indisponible pour le lancement pilote. Veuillez choisir la formule mensuelle.');
+      return;
+    }
     setSelectedPlan(plan);
     setInitialising(true);
     try {
@@ -125,32 +190,30 @@ export const ParentPackPayment: React.FC<ParentPackPaymentProps> = ({ studentId,
                   )}
                 </div>
               </button>
-              {/* Annual */}
-              <button
-                onClick={() => handlePay('annual')}
-                disabled={initialising && selectedPlan === 'annual'}
-                className="w-full flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-300 transition-colors"
+              {/* Option Annuelle — Désactivée pendant le lancement pilote */}
+              <div
+                className="w-full flex items-center justify-between p-4 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50/60 dark:bg-slate-800/30 opacity-60 cursor-not-allowed select-none"
+                title="Le paiement annuel est temporairement indisponible pour le lancement pilote."
               >
                 <div>
-                  <h4 className="font-black text-slate-900 dark:text-white">
-                    {t(language as Language, 'parentPack.annual') || 'Annuel'}
-                  </h4>
-                  <p className="text-slate-600 dark:text-slate-300 text-sm">
-                    {pricing.annual.durationMonths ? `${pricing.annual.durationMonths} ${t(language as Language, 'common.months') || 'mois'} - ` : ''}
-                    {pricing.annual.description}
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-slate-500 dark:text-slate-400">
+                      {t(language as Language, 'parentPack.annual') || 'Annuel'}
+                    </h4>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded">
+                      Bientôt disponible
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    Indisponible pendant le lancement pilote (formule mensuelle uniquement)
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-lg text-slate-900 dark:text-white">
-                    {pricing.annual.amount.toLocaleString()} {pricing.annual.currency}
+                  <span className="font-semibold text-slate-400 text-sm">
+                    {pricing.annual ? `${pricing.annual.amount.toLocaleString()} ${pricing.annual.currency}` : '—'}
                   </span>
-                  {initialising && selectedPlan === 'annual' ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                  ) : (
-                    <Zap className="w-5 h-5 text-blue-600" />
-                  )}
                 </div>
-              </button>
+              </div>
             </div>
           )}
         </div>

@@ -2201,6 +2201,15 @@ async function createParentPackTransaction(req, res) {
         return res.status(400).json({ error: 'Plan type invalide (monthly ou annual attendu).' });
     }
 
+    // Restriction réversible du lancement pilote : paiements mensuels uniquement si le mode est activé
+    const isPilotMonthlyRestricted = process.env.PARENT_PACK_RESTRICT_ANNUAL_PILOT === 'true';
+    if (isPilotMonthlyRestricted && planType === 'annual') {
+        return res.status(403).json({
+            error: 'Le paiement annuel est temporairement indisponible pour le lancement pilote. Veuillez choisir la formule mensuelle.',
+            code: 'PILOT_MONTHLY_ONLY'
+        });
+    }
+
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -2296,6 +2305,12 @@ async function createParentPackTransaction(req, res) {
                 return res.status(409).json({
                     error: 'Une session de paiement est déjà active pour cet élève.',
                     code: 'ACTIVE_INTENT_EXISTS'
+                });
+            }
+            if (errorMsg.includes('PILOT_MONTHLY_ONLY')) {
+                return res.status(403).json({
+                    error: 'Le paiement annuel est temporairement indisponible pour le lancement pilote. Veuillez choisir la formule mensuelle.',
+                    code: 'PILOT_MONTHLY_ONLY'
                 });
             }
             if (errorMsg.includes('FAIL CLOSED')) {

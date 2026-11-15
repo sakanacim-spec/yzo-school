@@ -173,14 +173,14 @@ describe('P28 - Concurrence réelle multi-connexions et unicité globale', () =>
       [parentFather, parentMother, studentId]
     );
 
-    // Le père initie et paie 10 mois (durée annuelle)
+    // Le père initie et paie 1 mois (formule mensuelle pilote)
     const fRes = await callCheckout(client1, {
       parentRef: parentFather,
       studentGlobalId: studentId,
       studentLocalId: 'loc_' + studentId.substring(0, 6),
       schoolSlug: 'school',
       pricingId: globalPricingId,
-      durationMonths: 10
+      durationMonths: 1
     });
 
     // Activation de la souscription et création de la période active (couverture jusqu'à +10 mois)
@@ -246,14 +246,14 @@ describe('P28 - Concurrence réelle multi-connexions et unicité globale', () =>
       [subId, oldIntentRes.rows[0].id]
     );
 
-    // La mère effectue le renouvellement à J-10
+    // La mère effectue le renouvellement à J-10 (formule mensuelle pilote)
     const mRes = await callCheckout(client2, {
       parentRef: parentMother,
       studentGlobalId: studentId,
       studentLocalId: 'loc_test',
       schoolSlug: 'school',
       pricingId: globalPricingId,
-      durationMonths: 10
+      durationMonths: 1
     });
 
     assert.strictEqual(mRes.subscription_id, subId, 'Le renouvellement doit réutiliser la souscription unique existante');
