@@ -11,16 +11,16 @@
 -- 5. Invariant comptable préservé : fedapay_fee + school_share + ambassador_share + yziow_share = gross_amount.
 -- 6. Aucune commission négative.
 -- 7. Additif et non rétroactif : ne modifie aucune écriture existante des grands livres.
--- 8. Restriction réversible pilote : possibilité de bloquer les paiements annuels via global_settings
+-- 8. Restriction réversible pilote : activation obligatoire du verrou annuel pilote via global_settings
 --    ('parent_pack_restrict_annual_pilot' = true) ou session parameter ('yziow.restrict_annual_pilot').
---    Par défaut, désactivé ('false') pour ne pas bloquer la production sans validation du propriétaire.
+--    Activé obligatoirement à 'true' après la migration (y compris si la clé préexistait).
 -- 9. Maintient l'intégralité des protections P28b (verrouillage intent, atomicité, RLS, permissions).
 -- ==============================================================================
 
 BEGIN;
 
 -- ------------------------------------------------------------------------------
--- 1. Table globale des paramètres (si non existante) et configuration pilote par défaut
+-- 1. Table globale des paramètres et activation obligatoire du verrou pilote annuel
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.global_settings (
     key VARCHAR(100) PRIMARY KEY,
@@ -29,13 +29,19 @@ CREATE TABLE IF NOT EXISTS public.global_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Activation obligatoire du verrou annuel pour le lancement pilote (y compris si la clé préexiste)
 INSERT INTO public.global_settings (key, value, description)
-VALUES ('parent_pack_restrict_annual_pilot', 'false'::jsonb, 'Restriction réversible du pilote Parent Pack aux paiements mensuels')
-ON CONFLICT (key) DO NOTHING;
+VALUES (
+    'parent_pack_restrict_annual_pilot',
+    'true'::jsonb,
+    'Restriction réversible du pilote Parent Pack aux paiements mensuels'
+)
+ON CONFLICT (key) DO UPDATE
+SET value = 'true'::jsonb,
+    description = EXCLUDED.description,
+    updated_at = CURRENT_TIMESTAMP;
 
 ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.global_settings FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON public.global_settings TO authenticated;
 GRANT ALL ON public.global_settings TO service_role;
 
 -- ------------------------------------------------------------------------------

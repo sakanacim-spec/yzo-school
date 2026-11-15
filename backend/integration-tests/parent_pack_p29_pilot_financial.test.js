@@ -255,8 +255,22 @@ test('P29 : Validation Financière & Double Verrou Pilote Mensuel', async (t) =>
   });
 
   await t.test('6. Verrou SQL annuel réversible & sécurité des permissions sur global_settings', async () => {
-    // 6a. Activation du verrou SQL
-    await client.query(`UPDATE public.global_settings SET value = 'true'::jsonb WHERE key = 'parent_pack_restrict_annual_pilot'`);
+    // 6a. Vérification que le verrou annuel est obligatoirement actif par défaut suite à la migration
+    const initialSetting = (await client.query(`SELECT value FROM public.global_settings WHERE key = 'parent_pack_restrict_annual_pilot'`)).rows[0];
+    assert.strictEqual(initialSetting.value, true, 'Le verrou pilote annuel doit être obligatoirement actif (true) après migration');
+
+    // 6b. Vérification de l'écrasement obligatoire même si la clé préexistait à false (ON CONFLICT DO UPDATE)
+    await client.query(`UPDATE public.global_settings SET value = 'false'::jsonb WHERE key = 'parent_pack_restrict_annual_pilot'`);
+    await client.query(`
+      INSERT INTO public.global_settings (key, value, description)
+      VALUES ('parent_pack_restrict_annual_pilot', 'true'::jsonb, 'Restriction réversible du pilote Parent Pack aux paiements mensuels')
+      ON CONFLICT (key) DO UPDATE
+      SET value = 'true'::jsonb,
+          description = EXCLUDED.description,
+          updated_at = CURRENT_TIMESTAMP
+    `);
+    const reforcedSetting = (await client.query(`SELECT value FROM public.global_settings WHERE key = 'parent_pack_restrict_annual_pilot'`)).rows[0];
+    assert.strictEqual(reforcedSetting.value, true, 'L upsert P29 doit obligatoirement forcer le verrou à true même si la clé préexistait');
 
     const stuAnn = crypto.randomUUID();
     const parAnn = `+22995${Math.floor(100000 + Math.random() * 900000)}`;
@@ -272,11 +286,11 @@ test('P29 : Validation Financière & Double Verrou Pilote Mensuel', async (t) =>
     }
     assert.strictEqual(annualBlocked, true, 'Le paiement annuel est bloqué quand global_settings = true');
 
-    // 6b. Le paiement mensuel reste fonctionnel
+    // 6c. Le paiement mensuel reste fonctionnel
     const resM = (await client.query(`SELECT public.prepare_parent_pack_checkout($1, $2, $3, 'LOC', $4, 'maternelle_primaire', 1) AS res`, [parAnn, stuAnn, schoolSlug, pricingMat])).rows[0].res;
     assert.ok(resM.payment_intent_id);
 
-    // 6c. Réversibilité : remise à false débloque immédiatement l annuel
+    // 6d. Réversibilité : remise à false débloque immédiatement l annuel
     await client.query(`UPDATE public.global_settings SET value = 'false'::jsonb WHERE key = 'parent_pack_restrict_annual_pilot'`);
     const stuAnn2 = crypto.randomUUID();
     const parAnn2 = `+22995${Math.floor(100000 + Math.random() * 900000)}`;
@@ -285,7 +299,10 @@ test('P29 : Validation Financière & Double Verrou Pilote Mensuel', async (t) =>
     const resAnnUnblocked = (await client.query(`SELECT public.prepare_parent_pack_checkout($1, $2, $3, 'LOC', $4, 'maternelle_primaire', 10) AS res`, [parAnn2, stuAnn2, schoolSlug, pricingMat])).rows[0].res;
     assert.ok(resAnnUnblocked.payment_intent_id, 'Annuel réactivé proprement');
 
-    // 6d. Vérification RLS sur global_settings
+    // 6e. Rétablissement du verrou annuel pour laisser la base conforme au pilote
+    await client.query(`UPDATE public.global_settings SET value = 'true'::jsonb WHERE key = 'parent_pack_restrict_annual_pilot'`);
+
+    // 6f. Vérification RLS sur global_settings
     const rls = (await client.query(`SELECT relrowsecurity FROM pg_class WHERE relname = 'global_settings'`)).rows[0];
     assert.strictEqual(rls.relrowsecurity, true, 'RLS doit être actif sur global_settings');
   });
