@@ -9,7 +9,7 @@ import { normalizePhoneNumber, extractCountryAndLocalPhone, buildE164PhoneNumber
 import {
   Search, Plus, Trash2, Edit2, FileText,
   MessageCircle, ChevronUp, ChevronDown, ChevronRight, X, Check,
-  Download, Filter, Camera, User, Users, GraduationCap, Building2, Smartphone, Phone, School, Wallet, AlertCircle
+  Download, Filter, Camera, User, Users, GraduationCap, Building2, Smartphone, Phone, School, Wallet, AlertCircle, UserCheck
 } from 'lucide-react';
 import { StudentDetail } from '../components/StudentDetail';
 import { CountrySelect } from '../components/CountrySelect';
@@ -123,7 +123,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
       setModalStep(2);
       return;
     }
-    
+
     // Étape 2 : validation et synchronisation finale
     if (!form.classe) {
       setSubmitError("Veuillez sélectionner une classe active.");
@@ -154,7 +154,7 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
       recu: student ? student.recu : form.recuAssociatif,
       cycle: deducedCycle
     };
-    
+
     setIsSubmitting(true);
     let studentId: string | undefined = undefined;
 
@@ -205,253 +205,253 @@ const StudentModal: React.FC<ModalProps> = ({ student, onClose, onSuccess }) => 
   };
 
   return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
-            
-            <div className="px-8 py-6 border-b border-slate-100 bg-white relative z-10 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-colors duration-500 ${modalStep === 1 ? 'bg-amber-500 shadow-amber-500/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
-                  {modalStep === 1 ? <User className="w-6 h-6 text-white" /> : <GraduationCap className="w-6 h-6 text-white" />}
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
+
+        <div className="px-8 py-6 border-b border-slate-100 bg-white relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-colors duration-500 ${modalStep === 1 ? 'bg-amber-500 shadow-amber-500/30' : 'bg-blue-600 shadow-blue-600/30'}`}>
+              {modalStep === 1 ? <User className="w-6 h-6 text-white" /> : <GraduationCap className="w-6 h-6 text-white" />}
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight">
+                {student ? (t(language as Language, 'students.editStudent') || 'Modifier l\'élève') : (t(language as Language, 'students.newRegistration') || 'Nouvelle Inscription')}
+              </h3>
+              <p className="text-sm font-bold text-slate-400 mt-1">
+                {t(language as Language, 'common.step') || 'Étape'} {modalStep} {t(language as Language, 'common.of') || 'sur'} 2 : {modalStep === 1 ? (t(language as Language, 'students.identity') || 'Identité') : (t(language as Language, 'students.schoolingAndFinance') || 'Scolarité & Finance')}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => onClose()} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="w-full bg-slate-100 h-1">
+          <div className={`h-full transition-all duration-500 ease-out ${modalStep === 1 ? 'w-1/2 bg-amber-500' : 'w-full bg-blue-600'}`}></div>
+        </div>
+
+        <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
+          {submitError && (
+            <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl flex items-start gap-3 animate-shake">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div className="text-xs font-bold">{submitError}</div>
+            </div>
+          )}
+
+          <form id="student-form" onSubmit={handleSubmit} className="space-y-6">
+
+            <div className={`space-y-6 transition-all duration-500 ${modalStep === 1 ? 'opacity-100 translate-x-0 block' : 'opacity-0 -translate-x-10 hidden'}`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <User className="w-3 h-3" /> {t(language as Language, 'students.studentLastName') || "Nom de l'élève"} *
+                  </label>
+                  <input required type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: DOSSOU" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
                 </div>
-                <div>
-                  <h3 className="text-2xl font-black text-slate-800 tracking-tight">
-                    {student ? (t(language as Language, 'students.editStudent') || 'Modifier l\'élève') : (t(language as Language, 'students.newRegistration') || 'Nouvelle Inscription')}
-                  </h3>
-                  <p className="text-sm font-bold text-slate-400 mt-1">
-                    {t(language as Language, 'common.step') || 'Étape'} {modalStep} {t(language as Language, 'common.of') || 'sur'} 2 : {modalStep === 1 ? (t(language as Language, 'students.identity') || 'Identité') : (t(language as Language, 'students.schoolingAndFinance') || 'Scolarité & Finance')}
-                  </p>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <User className="w-3 h-3" /> {t(language as Language, 'students.studentFirstName') || "Prénoms"} *
+                  </label>
+                  <input required type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: Jean Paul" value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
                 </div>
               </div>
-              <button onClick={() => onClose()} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <User className="w-3 h-3" /> {t(language as Language, 'students.gender') || "Sexe"}
+                  </label>
+                  <div className="relative">
+                    <select className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all appearance-none cursor-pointer" value={form.sexe} onChange={(e) => setForm({ ...form, sexe: e.target.value as 'M' | 'F' })}>
+                      <option value="M">{t(language as Language, 'students.genderMale') || "Masculin"}</option>
+                      <option value="F">{t(language as Language, 'students.genderFemale') || "Féminin"}</option>
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="parent-phone-input" className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <Phone className="w-3 h-3 text-amber-500" /> {t(language as Language, 'students.parentPhone') || "Téléphone Parent"} *
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full items-stretch sm:items-center">
+                    <div className="w-full sm:w-[108px] sm:shrink-0">
+                      <CountrySelect
+                        value={parentCountryCode}
+                        onChange={(newCode) => {
+                          setParentCountryCode(newCode);
+                          if (phoneTouched && form.telephone.trim()) {
+                            validatePhone(form.telephone, newCode);
+                          }
+                        }}
+                        short={true}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-2.5 py-3.5 text-xs font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all cursor-pointer"
+                        aria-label="Indicatif pays"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 w-full relative">
+                      <input
+                        id="parent-phone-input"
+                        type="tel"
+                        inputMode="tel"
+                        required
+                        aria-label="Numéro de téléphone du parent"
+                        className={`w-full min-w-0 bg-slate-50 border rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium ${phoneError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-200'}`}
+                        placeholder={getPhonePlaceholder(parentCountryCode)}
+                        value={form.telephone}
+                        onChange={(e) => {
+                          setForm({ ...form, telephone: e.target.value });
+                          if (phoneError) setPhoneError('');
+                        }}
+                        onBlur={() => {
+                          setPhoneTouched(true);
+                          if (form.telephone.trim()) {
+                            validatePhone(form.telephone, parentCountryCode);
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {phoneError && (
+                    <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1.5 animate-shake">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{phoneError}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="w-full bg-slate-100 h-1">
-              <div className={`h-full transition-all duration-500 ease-out ${modalStep === 1 ? 'w-1/2 bg-amber-500' : 'w-full bg-blue-600'}`}></div>
-            </div>
-
-            <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
-              {submitError && (
-                <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl flex items-start gap-3 animate-shake">
-                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                  <div className="text-xs font-bold">{submitError}</div>
+            <div className={`space-y-6 transition-all duration-500 ${modalStep === 2 ? 'opacity-100 translate-x-0 block' : 'opacity-0 translate-x-10 hidden'}`}>
+              {activeClasses.length === 0 && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-800 dark:text-amber-200 text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div>
+                      <p className="font-black text-sm">Aucune classe n'est configurée.</p>
+                      <p className="mt-0.5 font-medium">Configurez d'abord les cycles et classes dans Paramètres.</p>
+                    </div>
+                  </div>
+                  {['directeur', 'admin', 'directeur_general', 'superadmin'].includes(user?.role || '') && (
+                    <button
+                      type="button"
+                      onClick={() => { onClose(); setCurrentPage('parametres'); }}
+                      className="shrink-0 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl text-[11px] uppercase tracking-wider transition-all"
+                    >
+                      Aller aux Paramètres
+                    </button>
+                  )}
                 </div>
               )}
 
-              <form id="student-form" onSubmit={handleSubmit} className="space-y-6">
-                
-                <div className={`space-y-6 transition-all duration-500 ${modalStep === 1 ? 'opacity-100 translate-x-0 block' : 'opacity-0 -translate-x-10 hidden'}`}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <User className="w-3 h-3" /> {t(language as Language, 'students.studentLastName') || "Nom de l'élève"} *
-                      </label>
-                      <input required type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: DOSSOU" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <User className="w-3 h-3" /> {t(language as Language, 'students.studentFirstName') || "Prénoms"} *
-                      </label>
-                      <input required type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: Jean Paul" value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <User className="w-3 h-3" /> {t(language as Language, 'students.gender') || "Sexe"}
-                      </label>
-                      <div className="relative">
-                        <select className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all appearance-none cursor-pointer" value={form.sexe} onChange={(e) => setForm({ ...form, sexe: e.target.value as 'M' | 'F' })}>
-                          <option value="M">{t(language as Language, 'students.genderMale') || "Masculin"}</option>
-                          <option value="F">{t(language as Language, 'students.genderFemale') || "Féminin"}</option>
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="parent-phone-input" className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Phone className="w-3 h-3 text-amber-500" /> {t(language as Language, 'students.parentPhone') || "Téléphone Parent"} *
-                      </label>
-                      <div className="flex flex-col sm:flex-row gap-2 w-full items-stretch sm:items-center">
-                        <div className="w-full sm:w-[108px] sm:shrink-0">
-                          <CountrySelect
-                            value={parentCountryCode}
-                            onChange={(newCode) => {
-                              setParentCountryCode(newCode);
-                              if (phoneTouched && form.telephone.trim()) {
-                                validatePhone(form.telephone, newCode);
-                              }
-                            }}
-                            short={true}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-2.5 py-3.5 text-xs font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all cursor-pointer"
-                            aria-label="Indicatif pays"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0 w-full relative">
-                          <input
-                            id="parent-phone-input"
-                            type="tel"
-                            inputMode="tel"
-                            required
-                            aria-label="Numéro de téléphone du parent"
-                            className={`w-full min-w-0 bg-slate-50 border rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium ${phoneError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-200'}`}
-                            placeholder={getPhonePlaceholder(parentCountryCode)}
-                            value={form.telephone}
-                            onChange={(e) => {
-                              setForm({ ...form, telephone: e.target.value });
-                              if (phoneError) setPhoneError('');
-                            }}
-                            onBlur={() => {
-                              setPhoneTouched(true);
-                              if (form.telephone.trim()) {
-                                validatePhone(form.telephone, parentCountryCode);
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {phoneError && (
-                        <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1.5 animate-shake">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                          <span>{phoneError}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className={`space-y-6 transition-all duration-500 ${modalStep === 2 ? 'opacity-100 translate-x-0 block' : 'opacity-0 translate-x-10 hidden'}`}>
-                  {activeClasses.length === 0 && (
-                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-800 dark:text-amber-200 text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-start gap-2.5">
-                        <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                        <div>
-                          <p className="font-black text-sm">Aucune classe n'est configurée.</p>
-                          <p className="mt-0.5 font-medium">Configurez d'abord les cycles et classes dans Paramètres.</p>
-                        </div>
-                      </div>
-                      {['directeur', 'admin', 'directeur_general', 'superadmin'].includes(user?.role || '') && (
-                        <button
-                          type="button"
-                          onClick={() => { onClose(); setCurrentPage('parametres'); }}
-                          className="shrink-0 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl text-[11px] uppercase tracking-wider transition-all"
-                        >
-                          Aller aux Paramètres
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                        {t(language as Language, 'common.class') || "Classe"} *
-                      </label>
-                      <div className="relative">
-                        <select
-                          required
-                          value={form.classe}
-                          onChange={(e) => {
-                            const newClasse = e.target.value;
-                            const classDef = activeClasses.find(c => c.name === newClasse);
-                            setForm({
-                              ...form,
-                              classe: newClasse,
-                              ecolage: classDef ? classDef.ecolage : form.ecolage
-                            });
-                          }}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer appearance-none"
-                        >
-                          <option value="">{t(language as Language, 'students.selectClass') || 'Sélectionner une classe...'}</option>
-                          {activeClasses.map((c) => (
-                            <option key={c.id || c.name} value={c.name}>
-                              {c.name} ({c.cycle})
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    <div>
-                        {t(language as Language, 'students.tuitionFeesToPay') || 'Frais de scolarité à payer'} *
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="0"
-                          required
-                          value={form.ecolage}
-                          onChange={(e) => setForm({ ...form, ecolage: Number(e.target.value) })}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-5 pr-12 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                        />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
-                          {currency}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <School className="w-3 h-3" /> {t(language as Language, 'students.previousSchool') || 'École de provenance'}
-                      </label>
-                      <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: EPL Les Génies" value={form.ecoleProvenance} onChange={(e) => setForm({ ...form, ecoleProvenance: e.target.value })} />
-                    </div>
-                  </div>
-
-                  {!student && (
-                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 p-6 rounded-2xl relative overflow-hidden">
-                      <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl pointer-events-none"></div>
-                      <h4 className="text-[12px] font-black text-emerald-800 uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10">
-                        <Wallet className="w-4 h-4" /> {t(language as Language, 'students.financialInfoFirstInstallment') || 'Informations Financières (1er Versement)'}
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black text-emerald-700/70 uppercase tracking-widest">{t(language as Language, 'students.amountPaid') || 'Montant payé'} ({currency})</label>
-                          <input type="number" min="0" className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-3 text-[15px] font-bold text-emerald-900 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all" value={form.montantPaye} onChange={(e) => setForm({ ...form, montantPaye: Number(e.target.value) })} />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black text-emerald-700/70 uppercase tracking-widest">{t(language as Language, 'students.associatedReceiptNo') || 'N° Reçu associé'}</label>
-                          <input type="text" className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-3 text-[15px] font-bold text-emerald-900 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-emerald-300" placeholder="EX: R-001" value={form.recuAssociatif} onChange={(e) => setForm({ ...form, recuAssociatif: e.target.value })} />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <label className="flex items-center gap-4 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors group">
-                    <div className="relative flex items-center justify-center">
-                      <input type="checkbox" className="sr-only" checked={form.estRedoublant} onChange={(e) => setForm({ ...form, estRedoublant: e.target.checked })} />
-                      <div className={`w-6 h-6 rounded-lg border-2 transition-all flex items-center justify-center ${form.estRedoublant ? 'bg-amber-500 border-amber-500' : 'bg-white border-slate-300 group-hover:border-amber-400'}`}>
-                        {form.estRedoublant && <Check className="w-4 h-4 text-white" />}
-                      </div>
-                    </div>
-                    <span className="text-[13px] font-bold text-slate-700 uppercase tracking-wide">{t(language as Language, 'students.repeatingStudent') || 'Élève redoublant'}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                    {t(language as Language, 'common.class') || "Classe"} *
                   </label>
+                  <div className="relative">
+                    <select
+                      required
+                      value={form.classe}
+                      onChange={(e) => {
+                        const newClasse = e.target.value;
+                        const classDef = activeClasses.find(c => c.name === newClasse);
+                        setForm({
+                          ...form,
+                          classe: newClasse,
+                          ecolage: classDef ? classDef.ecolage : form.ecolage
+                        });
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer appearance-none"
+                    >
+                      <option value="">{t(language as Language, 'students.selectClass') || 'Sélectionner une classe...'}</option>
+                      {activeClasses.map((c) => (
+                        <option key={c.id || c.name} value={c.name}>
+                          {c.name} ({c.cycle})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
-              </form>
-            </div>
 
-            <div className="px-8 py-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-              {modalStep === 2 ? (
-                <button type="button" onClick={() => setModalStep(1)} className="px-6 py-3 text-[13px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-colors">
-                  {t(language as Language, 'common.back') || 'Retour'}
-                </button>
-              ) : <div></div>}
-              
-              <button type="submit" form="student-form" disabled={isSubmitting} className={`px-8 py-3.5 rounded-2xl text-[13px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-2 disabled:opacity-50 ${modalStep === 1 ? 'bg-slate-800 shadow-slate-800/20 hover:bg-slate-900' : 'bg-blue-600 shadow-blue-600/30 hover:bg-blue-700'}`}>
-                {modalStep === 1 ? (
-                  <>{t(language as Language, 'common.continue') || 'Continuer'} <ChevronRight className="w-4 h-4" /></>
-                ) : (
-                  <>{isSubmitting ? (t(language as Language, 'common.saving') || 'Enregistrement...') : (student ? (t(language as Language, 'common.update') || 'Mettre à jour') : (t(language as Language, 'students.registerStudent') || 'Inscrire l\'élève'))} <Check className="w-4 h-4" /></>
-                )}
-              </button>
-            </div>
+                <div>
+                  {t(language as Language, 'students.tuitionFeesToPay') || 'Frais de scolarité à payer'} *
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={form.ecolage}
+                      onChange={(e) => setForm({ ...form, ecolage: Number(e.target.value) })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-5 pr-12 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
+                      {currency}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <School className="w-3 h-3" /> {t(language as Language, 'students.previousSchool') || 'École de provenance'}
+                  </label>
+                  <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-[15px] font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium" placeholder="Ex: EPL Les Génies" value={form.ecoleProvenance} onChange={(e) => setForm({ ...form, ecoleProvenance: e.target.value })} />
+                </div>
+              </div>
+
+              {!student && (
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 p-6 rounded-2xl relative overflow-hidden">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl pointer-events-none"></div>
+                  <h4 className="text-[12px] font-black text-emerald-800 uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10">
+                    <Wallet className="w-4 h-4" /> {t(language as Language, 'students.financialInfoFirstInstallment') || 'Informations Financières (1er Versement)'}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-emerald-700/70 uppercase tracking-widest">{t(language as Language, 'students.amountPaid') || 'Montant payé'} ({currency})</label>
+                      <input type="number" min="0" className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-3 text-[15px] font-bold text-emerald-900 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all" value={form.montantPaye} onChange={(e) => setForm({ ...form, montantPaye: Number(e.target.value) })} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black text-emerald-700/70 uppercase tracking-widest">{t(language as Language, 'students.associatedReceiptNo') || 'N° Reçu associé'}</label>
+                      <input type="text" className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-3 text-[15px] font-bold text-emerald-900 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-emerald-300" placeholder="EX: R-001" value={form.recuAssociatif} onChange={(e) => setForm({ ...form, recuAssociatif: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <label className="flex items-center gap-4 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors group">
+                <div className="relative flex items-center justify-center">
+                  <input type="checkbox" className="sr-only" checked={form.estRedoublant} onChange={(e) => setForm({ ...form, estRedoublant: e.target.checked })} />
+                  <div className={`w-6 h-6 rounded-lg border-2 transition-all flex items-center justify-center ${form.estRedoublant ? 'bg-amber-500 border-amber-500' : 'bg-white border-slate-300 group-hover:border-amber-400'}`}>
+                    {form.estRedoublant && <Check className="w-4 h-4 text-white" />}
+                  </div>
+                </div>
+                <span className="text-[13px] font-bold text-slate-700 uppercase tracking-wide">{t(language as Language, 'students.repeatingStudent') || 'Élève redoublant'}</span>
+              </label>
+            </div>
+          </form>
         </div>
+
+        <div className="px-8 py-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+          {modalStep === 2 ? (
+            <button type="button" onClick={() => setModalStep(1)} className="px-6 py-3 text-[13px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-colors">
+              {t(language as Language, 'common.back') || 'Retour'}
+            </button>
+          ) : <div></div>}
+
+          <button type="submit" form="student-form" disabled={isSubmitting} className={`px-8 py-3.5 rounded-2xl text-[13px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-2 disabled:opacity-50 ${modalStep === 1 ? 'bg-slate-800 shadow-slate-800/20 hover:bg-slate-900' : 'bg-blue-600 shadow-blue-600/30 hover:bg-blue-700'}`}>
+            {modalStep === 1 ? (
+              <>{t(language as Language, 'common.continue') || 'Continuer'} <ChevronRight className="w-4 h-4" /></>
+            ) : (
+              <>{isSubmitting ? (t(language as Language, 'common.saving') || 'Enregistrement...') : (student ? (t(language as Language, 'common.update') || 'Mettre à jour') : (t(language as Language, 'students.registerStudent') || 'Inscrire l\'élève'))} <Check className="w-4 h-4" /></>
+            )}
+          </button>
+        </div>
+
+      </div>
+    </div>
   );
 };
 
@@ -519,8 +519,8 @@ const PhotoModal: React.FC<{ student: Student; onClose: () => void; onSave: (b64
 
   const handleDelete = async () => {
     if (confirm(t(language as Language, 'students.confirmDeletePhoto') || 'Voulez-vous vraiment supprimer cette photo ?')) {
-        setDeleting(true);
-        try { await onDelete(); } finally { setDeleting(false); onClose(); }
+      setDeleting(true);
+      try { await onDelete(); } finally { setDeleting(false); onClose(); }
     }
   };
 
@@ -534,7 +534,7 @@ const PhotoModal: React.FC<{ student: Student; onClose: () => void; onSave: (b64
           </button>
         </div>
         <div className="p-8 flex flex-col items-center">
-          <div 
+          <div
             onClick={() => inputRef.current?.click()}
             className="w-40 h-40 border-4 border-dashed border-slate-200 dark:border-slate-700 rounded-[2rem] overflow-hidden mb-6 cursor-pointer hover:border-amber-400 hover:bg-amber-50/50 dark:hover:border-amber-500/50 dark:hover:bg-amber-900/20 transition-all flex items-center justify-center relative group"
           >
@@ -552,11 +552,11 @@ const PhotoModal: React.FC<{ student: Student; onClose: () => void; onSave: (b64
             </div>
           </div>
           <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
-          
+
           {(student.photoUrl || preview) && (
-             <button onClick={handleDelete} disabled={deleting} className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 mb-4 transition-colors">
-                 <Trash2 className="w-3.5 h-3.5" /> {deleting ? (t(language as Language, 'common.deleting') || 'Suppression...') : (t(language as Language, 'common.delete') || 'Supprimer')}
-             </button>
+            <button onClick={handleDelete} disabled={deleting} className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 mb-4 transition-colors">
+              <Trash2 className="w-3.5 h-3.5" /> {deleting ? (t(language as Language, 'common.deleting') || 'Suppression...') : (t(language as Language, 'common.delete') || 'Supprimer')}
+            </button>
           )}
 
           <div className="flex gap-3 w-full mt-2">
@@ -576,6 +576,7 @@ type SortKey = 'nom' | 'classe' | 'dejaPaye' | 'restant' | 'status';
 
 export const Eleves: React.FC = () => {
   const language = useStore((s) => s.language);
+  const setCurrentPage = useStore((s) => s.setCurrentPage);
   const students = useStore((s) => s.students);
   const deleteStudent = useStore((s) => s.deleteStudent);
   const searchQuery = useStore((s) => s.searchQuery);
@@ -634,7 +635,7 @@ export const Eleves: React.FC = () => {
       const vb = String(b[sortKey] ?? '').toLowerCase();
       if (va < vb) return sortDir === 'asc' ? -1 : 1;
       if (va > vb) return sortDir === 'asc' ? 1 : -1;
-      
+
       if (sortKey === 'nom') {
         const prenomA = String(a.prenom ?? '').toLowerCase();
         const prenomB = String(b.prenom ?? '').toLowerCase();
@@ -680,13 +681,13 @@ export const Eleves: React.FC = () => {
       {/* HEADER */}
       <div className="relative pro-card p-8 overflow-hidden group bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl">
         <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] group-hover:scale-110 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
-            <Users className="w-64 h-64 text-amber-500" />
+          <Users className="w-64 h-64 text-amber-500" />
         </div>
-        
+
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500 text-[10px] font-black text-white uppercase tracking-[0.2em] mb-4 shadow-[0_0_15px_rgba(245,158,11,0.4)]">
-                <GraduationCap className="w-3.5 h-3.5" /> {t(language as Language, 'students.headcount') || 'Effectif'}
+              <GraduationCap className="w-3.5 h-3.5" /> {t(language as Language, 'students.headcount') || 'Effectif'}
             </div>
             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter mb-2">
               {t(language as Language, 'students.registerOf') || 'Registre des'} <span className="text-transparent bg-clip-text bg-gradient-to-br from-amber-400 to-amber-600">{t(language as Language, 'students.students') || 'Élèves'}</span>
@@ -695,15 +696,25 @@ export const Eleves: React.FC = () => {
               {t(language as Language, 'students.registerDesc') || 'Gérez les inscriptions, consultez les fiches individuelles et suivez les statuts financiers.'}
             </p>
           </div>
-          
+
           {(user?.role === 'admin' || user?.role === 'directeur' || user?.role === 'directeur_general' || user?.role === 'comptable') && (
-            <button 
-              onClick={() => setModal({ open: true })} 
-              className="group relative inline-flex items-center gap-2 px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl text-[13px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(0,0,0,0.2)] dark:shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-            >
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 opacity-0 group-hover:opacity-10 transition-opacity"></div>
-              <Plus className="w-4 h-4 text-amber-500" /> {t(language as Language, 'students.newRegistration') || 'Nouvelle Inscription'}
-            </button>
+            <div className="flex items-center gap-3">
+              {(user?.role === 'admin' || user?.role === 'directeur' || user?.role === 'directeur_general') && (
+                <button
+                  onClick={() => setCurrentPage('demandes_rattachement')}
+                  className="inline-flex items-center gap-2 px-5 py-4 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl text-[13px] font-black uppercase tracking-widest transition-all border border-amber-500/20"
+                >
+                  <UserCheck className="w-4 h-4 text-amber-500" /> Demandes de rattachement
+                </button>
+              )}
+              <button
+                onClick={() => setModal({ open: true })}
+                className="group relative inline-flex items-center gap-2 px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl text-[13px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(0,0,0,0.2)] dark:shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+              >
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                <Plus className="w-4 h-4 text-amber-500" /> {t(language as Language, 'students.newRegistration') || 'Nouvelle Inscription'}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -725,13 +736,12 @@ export const Eleves: React.FC = () => {
               </button>
             )}
           </div>
-          <button 
-            onClick={() => setShowFilters((f) => !f)} 
-            className={`flex items-center justify-center gap-2 px-6 py-4 border rounded-2xl text-[12px] font-black uppercase tracking-widest transition-all ${
-              showFilters 
-                ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/30' 
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-amber-500/50'
-            }`}
+          <button
+            onClick={() => setShowFilters((f) => !f)}
+            className={`flex items-center justify-center gap-2 px-6 py-4 border rounded-2xl text-[12px] font-black uppercase tracking-widest transition-all ${showFilters
+              ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/30'
+              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-amber-500/50'
+              }`}
           >
             <Filter className="w-4 h-4" /> {t(language as Language, 'students.advancedFilters') || 'Filtres Avancés'}
           </button>
@@ -803,8 +813,8 @@ export const Eleves: React.FC = () => {
                 <tr>
                   <td colSpan={7} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center">
-                       <User className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3" />
-                       <p className="text-sm font-black text-slate-500 tracking-tight">{t(language as Language, 'students.noMatchingRecords') || 'Aucun dossier correspondant'}</p>
+                      <User className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3" />
+                      <p className="text-sm font-black text-slate-500 tracking-tight">{t(language as Language, 'students.noMatchingRecords') || 'Aucun dossier correspondant'}</p>
                     </div>
                   </td>
                 </tr>
@@ -820,7 +830,7 @@ export const Eleves: React.FC = () => {
                         >
                           {s.photoUrl ? (
                             <div className="w-12 h-12 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm transition-transform group-hover:scale-105">
-                               <img src={s.photoUrl} alt="Photo" className="w-full h-full object-cover" />
+                              <img src={s.photoUrl} alt="Photo" className="w-full h-full object-cover" />
                             </div>
                           ) : (
                             <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all group-hover:border-amber-400 group-hover:bg-amber-50 dark:group-hover:bg-amber-900/30 text-slate-400">
@@ -851,7 +861,7 @@ export const Eleves: React.FC = () => {
                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1.5">{s.cycle}</p>
                     </td>
                     <td className="px-6 py-4">
-                        <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">{s.telephone}</span>
+                      <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">{s.telephone}</span>
                     </td>
                     <td className="px-6 py-4 font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{formatMontant(s.dejaPaye, currency)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -934,9 +944,9 @@ export const Eleves: React.FC = () => {
         />
       )}
       {photoModal.open && photoModal.student && (
-        <PhotoModal 
-          student={photoModal.student} 
-          onClose={() => setPhotoModal({ open: false, student: null })} 
+        <PhotoModal
+          student={photoModal.student}
+          onClose={() => setPhotoModal({ open: false, student: null })}
           onSave={async (b64) => {
             const uploadedUrl = await uploadStudentPhoto(photoModal.student!.id, b64);
             updateStudent(photoModal.student!.id, { photoUrl: uploadedUrl || b64 });

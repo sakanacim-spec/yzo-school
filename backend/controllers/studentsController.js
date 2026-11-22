@@ -1,6 +1,25 @@
 const { supabase } = require('../utils/supabase');
 const { validateSlug, normalizeIdentityText, normalizeIdentityDate, normalizePhone, isValidUUID } = require('../utils/helpers');
 
+// Fonction de normalisation E.164 stricte sans déduction arbitraire de pays ni contournement regex
+const toStrictE164 = (phone, normalizedField) => {
+    const norm = String(normalizedField || '').trim();
+    if (norm) {
+        try {
+            return normalizePhone(norm);
+        } catch {
+            return null;
+        }
+    }
+    const raw = String(phone || '').trim();
+    if (!raw) return null;
+    try {
+        return normalizePhone(raw);
+    } catch {
+        return null;
+    }
+};
+
 /**
  * GET /api/students
  * Recherche d'élèves par nom, prénom ou classe.
@@ -151,6 +170,177 @@ async function countStudents(req, res) {
 }
 
 /**
+ * GET /api/students/search-linkable
+ * Recherche dédiée et sécurisée pour le rattachement initial Parent–Enfant.
+ * Restreint STRICTEMENT aux élèves dont le numéro de téléphone parent correspond
+ * exactement au numéro normalisé E.164 du compte parent demandeur.
+ * Évite toute divulgation des données d'enfants appartenant à d'autres familles.
+ */
+async function searchLinkableStudents(req, res) {
+    const parentId = req.user ? req.user.id : null;
+    const role = req.user ? req.user.role : null;
+    const tokenPhone = req.user ? req.user.telephone : null;
+    const schoolSlug = req.user ? req.user.schoolSlug : null;
+
+    if (!schoolSlug) {
+        return res.status(403).json({ error: 'Accès non autorisé : établissement manquant.' });
+    }
+
+    let cleanSchoolSlug;
+    try {
+        cleanSchoolSlug = validateSlug(schoolSlug);
+    } catch {
+        return res.status(403).json({ error: 'Établissement invalide.' });
+    }
+
+    const isSchoolAdmin = ['admin', 'directeur', 'directeur_general', 'superadmin'].includes(role);
+    if (!isSchoolAdmin && role !== 'parent') {
+        return res.status(403).json({ error: 'Permission refusée.' });
+    }
+
+    const { nom, prenom, classe, search } = req.query;
+
+    try {
+        // 1. Récupération du profil parent pour validation stricte du numéro E.164
+        const { data: parentProfile, error: pErr } = await supabase
+            .from(`profiles_${cleanSchoolSlug}`)
+            .select('id, nom, telephone, phone_normalized, role')
+            .eq('id', parentId)
+            .maybeSingle();
+
+        if (pErr) {
+            console.error('[searchLinkableStudents] Error fetching parent profile:', pErr.message);
+            return res.status(500).json({ error: 'Erreur lors de la vérification du profil.' });
+        }
+
+        if (!parentProfile && !isSchoolAdmin) {
+            return res.status(404).json({ error: 'Profil parent introuvable dans cet établissement.' });
+        }
+
+        const parentE164 = toStrictE164(
+            parentProfile ? (parentProfile.telephone || tokenPhone) : tokenPhone,
+            parentProfile ? parentProfile.phone_normalized : null
+        );
+
+        if (!parentE164 && !isSchoolAdmin) {
+            return res.status(403).json({
+                error: "Recherche non autorisée : Le numéro de téléphone de votre compte est incomplet ou invalide."
+            });
+        }
+
+        // 2. Requête en base sur students_${cleanSchoolSlug}
+        // Pour les parents : filtre strict sur le numéro de téléphone pour étanchéité inter-familles
+        let query = supabase.from(`students_${cleanSchoolSlug}`).select('*');
+
+        if (!isSchoolAdmin) {
+            const rawParentPhone = String(parentProfile ? (parentProfile.telephone || tokenPhone) : tokenPhone || '').trim();
+            let orClause = `telephone_parent_normalized.eq.${parentE164},telephone_parent.eq.${parentE164}`;
+            if (rawParentPhone && rawParentPhone !== parentE164) {
+                orClause += `,telephone_parent.eq.${rawParentPhone}`;
+            }
+            query = query.or(orClause);
+        }
+
+        const { data: students, error: sErr } = await query
+            .order('nom', { ascending: true })
+            .limit(100);
+
+        if (sErr) {
+            console.error('[searchLinkableStudents] Error fetching students:', sErr.message);
+            return res.status(500).json({ error: 'Erreur lors de la recherche des élèves.' });
+        }
+
+        // 3. Filtrage en mémoire par concordance stricte E.164 (défense en profondeur)
+        let eligibleStudents = students || [];
+        if (!isSchoolAdmin) {
+            eligibleStudents = eligibleStudents.filter(student => {
+                const sE164 = toStrictE164(student.telephone_parent, student.telephone_parent_normalized);
+                return !!(sE164 && sE164 === parentE164);
+            });
+        }
+
+        // 4. Filtrage additionnel par terme de recherche (nom / prénom / classe)
+        const qRaw = (search || nom || '').trim().toLowerCase();
+        if (qRaw) {
+            const tokens = qRaw.split(/\s+/).filter(Boolean);
+            eligibleStudents = eligibleStudents.filter(s => {
+                const fullName = `${s.prenom || ''} ${s.nom || ''} ${s.classe || ''}`.toLowerCase();
+                const reverseFullName = `${s.nom || ''} ${s.prenom || ''}`.toLowerCase();
+                return tokens.every(tok => fullName.includes(tok) || reverseFullName.includes(tok));
+            });
+        }
+
+        if (prenom && !search && prenom !== nom) {
+            const p = prenom.trim().toLowerCase();
+            eligibleStudents = eligibleStudents.filter(s => (s.prenom || '').toLowerCase().includes(p));
+        }
+
+        if (classe) {
+            const c = classe.trim().toLowerCase();
+            eligibleStudents = eligibleStudents.filter(s => (s.classe || '').toLowerCase().includes(c));
+        }
+
+        // 5. Identifier les liens locaux existants et les demandes pending
+        let linkedIds = [];
+        if (parentId) {
+            const { data: links } = await supabase
+                .from(`parent_student_${cleanSchoolSlug}`)
+                .select('student_id')
+                .eq('parent_id', parentId);
+            if (links) linkedIds = links.map(l => String(l.student_id));
+        }
+
+        let pendingStudentIds = [];
+        if (parentId) {
+            const { data: pendingReqs } = await supabase
+                .from('parent_student_link_requests')
+                .select('student_id, status')
+                .eq('school_slug', cleanSchoolSlug)
+                .eq('parent_id', parentId)
+                .in('status', ['pending', 'pending_verification']);
+            if (pendingReqs) pendingStudentIds = pendingReqs.map(r => String(r.student_id));
+        }
+
+        // 6. Signature des photos et sanitisation des champs exposés (zéro fuite PII)
+        const results = await Promise.all(eligibleStudents.map(async (s) => {
+            let photoUrl = s.photo_url;
+            if (photoUrl && !photoUrl.startsWith('http')) {
+                try {
+                    const { data: sData } = await supabase.storage
+                        .from('student-photos')
+                        .createSignedUrl(photoUrl, 900);
+                    if (sData?.signedUrl) photoUrl = sData.signedUrl;
+                } catch (e) {
+                    console.error('Erreur signature photo:', e.message);
+                }
+            }
+
+            const isLinked = linkedIds.includes(String(s.id));
+            const isPending = pendingStudentIds.includes(String(s.id));
+
+            return {
+                id: s.id,
+                nom: s.nom,
+                prenom: s.prenom,
+                classe: s.classe,
+                matricule: s.matricule || null,
+                date_naissance: s.date_naissance || null,
+                photo_url: photoUrl,
+                photo_storage_path: s.photo_url,
+                is_linked: isLinked,
+                is_pending: isPending,
+                link_status: isLinked ? 'already_linked' : (isPending ? 'pending' : 'eligible')
+            };
+        }));
+
+        return res.json({ students: results, total: results.length });
+    } catch (err) {
+        console.error('[searchLinkableStudents] Error:', err.message);
+        return res.status(500).json({ error: 'Erreur lors de la recherche des élèves éligibles.' });
+    }
+}
+
+/**
  * POST /api/students/link
  * Lie un ou plusieurs élèves à un parent.
  * Contrôle strict d'autorisation : le parent ne peut lier que les élèves dont le numéro
@@ -213,25 +403,6 @@ async function linkStudentToParent(req, res) {
             // No matching students found – reject the request.
             return res.status(404).json({ error: 'Élève(s) introuvable(s) dans cet établissement.' });
         }
-
-        // Fonction locale de normalisation E.164 stricte sans déduction arbitraire de pays ni contournement regex
-        const toStrictE164 = (phone, normalizedField) => {
-            const norm = String(normalizedField || '').trim();
-            if (norm) {
-                try {
-                    return normalizePhone(norm);
-                } catch {
-                    return null;
-                }
-            }
-            const raw = String(phone || '').trim();
-            if (!raw) return null;
-            try {
-                return normalizePhone(raw);
-            } catch {
-                return null;
-            }
-        };
 
         const parentE164 = toStrictE164(parentProfile.telephone || tokenPhone, parentProfile.phone_normalized);
 
@@ -721,4 +892,4 @@ async function _evaluateSameChild(destStudent, candidateGlobalIds) {
     return { status: 'MULTIPLE_IDENTITY_MATCHES' };
 }
 
-module.exports = { listStudents, linkStudentToParent, unlinkStudentFromParent, countStudents, transferIdentity };
+module.exports = { listStudents, searchLinkableStudents, linkStudentToParent, unlinkStudentFromParent, countStudents, transferIdentity };

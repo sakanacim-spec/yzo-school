@@ -377,6 +377,7 @@ export type AppPage =
   | 'parent_notes'
   | 'parent_devoirs_presence'
   | 'parents_list'
+  | 'demandes_rattachement'
   | 'import_export'
   | 'chat'
   | 'gestion_personnel'

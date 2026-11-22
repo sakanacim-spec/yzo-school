@@ -269,17 +269,27 @@ export const LinkStudentModal: React.FC<LinkStudentModalProps> = ({ isOpen, onCl
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={() => handleLink(student.id)}
-                                    disabled={linking !== null}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm shadow-blue-200 transition-all disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {linking === student.id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <>{t(language as Language, 'parent.linkBtn') || 'Lier'}</>
-                                    )}
-                                </button>
+                                {student.is_linked ? (
+                                    <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200">
+                                        Déjà lié
+                                    </span>
+                                ) : student.is_pending ? (
+                                    <span className="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-bold rounded-xl border border-amber-200">
+                                        Demande en attente
+                                    </span>
+                                ) : (
+                                    <button
+                                        onClick={() => handleLink(student.id)}
+                                        disabled={linking !== null}
+                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm shadow-blue-200 transition-all disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {linking === student.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <>{t(language as Language, 'parent.linkBtn') || 'Lier'}</>
+                                        )}
+                                    </button>
+                                )}
                             </div>
                         ))}
 

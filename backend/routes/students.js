@@ -5,11 +5,12 @@
 'use strict';
 const router = require('express').Router();
 const { authenticateToken } = require('../middleware/auth');
-const { listStudents, linkStudentToParent, unlinkStudentFromParent, countStudents, transferIdentity } = require('../controllers/studentsController');
+const { listStudents, searchLinkableStudents, linkStudentToParent, unlinkStudentFromParent, countStudents, transferIdentity } = require('../controllers/studentsController');
 const { uploadStudentPhoto } = require('../controllers/photoController');
 
 // Routes existantes
 router.get('/', authenticateToken, listStudents);
+router.get('/search-linkable', authenticateToken, searchLinkableStudents);
 router.get('/count', authenticateToken, countStudents);
 router.post('/link', authenticateToken, linkStudentToParent);
 router.delete('/unlink/:studentId', authenticateToken, unlinkStudentFromParent);
