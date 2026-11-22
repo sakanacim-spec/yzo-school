@@ -48,7 +48,7 @@ export function installFetchMock(opts: { link: Handler; transfer?: Handler }) {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         if (url.endsWith('/api/students/count')) return jsonResponse(200, { count: 1 });
-        if (url.includes('/api/students?')) return jsonResponse(200, { students: [STUDENT] });
+        if (url.includes('/api/students?') || url.includes('/api/students/search-linkable?')) return jsonResponse(200, { students: [STUDENT] });
         if (url.endsWith('/api/students/link')) return link(init);
         if (url.endsWith('/api/students/transfer-identity')) return transfer(init);
         throw new Error(`Unexpected fetch: ${url}`);

@@ -181,7 +181,17 @@ export const parentApi = {
     // ── Recherche d'élèves ───────────────────────────────────────
     searchStudents: async (params: { nom?: string, prenom?: string, classe?: string }) => {
         const query = new URLSearchParams(params as any).toString();
-        const res = await fetch(`${API_URL}/students?${query}`, {
+        const res = await fetch(`${API_URL}/students/search-linkable?${query}`, {
+            headers: getHeaders()
+        });
+        const data = await parseResponse(res);
+        if (!res.ok) throw data;
+        return data;
+    },
+
+    searchLinkableStudents: async (params: { nom?: string, prenom?: string, classe?: string }) => {
+        const query = new URLSearchParams(params as any).toString();
+        const res = await fetch(`${API_URL}/students/search-linkable?${query}`, {
             headers: getHeaders()
         });
         const data = await parseResponse(res);

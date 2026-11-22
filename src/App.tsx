@@ -60,6 +60,7 @@ const ParentNotes = lazy(() => import('./pages/parent/ParentNotes').then(m => ({
 const ParentDevoirsPresence = lazy(() => import('./pages/parent/ParentDevoirsPresence').then(m => ({ default: m.ParentDevoirsPresence })));
 const ParentEmploiDuTemps = lazy(() => import('./pages/parent/ParentEmploiDuTemps').then(m => ({ default: m.ParentEmploiDuTemps })));
 const ParentsList = lazy(() => import('./pages/ParentsList').then(m => ({ default: m.ParentsList })));
+const DemandesRattachement = lazy(() => import('./pages/DemandesRattachement').then(m => ({ default: m.DemandesRattachement })));
 const ImportExport = lazy(() => import('./components/ImportExport').then(m => ({ default: m.ImportExport })));
 const ChatWindow = lazy(() => import('./components/ChatWindow').then(m => ({ default: m.ChatWindow })));
 const Annonces = lazy(() => import('./pages/Annonces').then(m => ({ default: m.Annonces })));
@@ -150,6 +151,7 @@ const PageContent: React.FC = () => {
     case 'parent_devoirs_presence': return <ParentDevoirsPresence />;
     case 'parent_emploi_du_temps': return <ParentEmploiDuTemps />;
     case 'parents_list': return <ParentsList />;
+    case 'demandes_rattachement': return <DemandesRattachement />;
     case 'import_export': return <ImportExport />;
     case 'chat': return <ChatWindow />;
     case 'annonces': return <Annonces />;

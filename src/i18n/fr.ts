@@ -6,6 +6,7 @@ export const fr = {
     "dashboard": "Tableau de bord",
     "eleves": "Élèves",
     "parents_list": "Parents",
+    "demandes_rattachement": "Demandes de rattachement",
     "paiements": "Paiements",
     "recouvrement": "Recouvrement",
     "dons": "Levée de Fonds & Dons",

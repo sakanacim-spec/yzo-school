@@ -69,15 +69,26 @@ export const ParentsList: React.FC = () => {
                     <p className="text-sm text-slate-500">{(t(language as Language, 'parents.listCount') || 'Liste des {{count}} parents inscrits sur la plateforme.').replace('{{count}}', String(parents.length))}</p>
                 </div>
 
-                <div className="relative w-full md:w-72">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder={t(language as Language, 'parents.searchPlaceholder') || "Rechercher un parent..."}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    />
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                    {(user?.role === 'admin' || user?.role === 'directeur' || user?.role === 'directeur_general') && (
+                        <button
+                            onClick={() => setCurrentPage('demandes_rattachement')}
+                            className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 font-bold rounded-xl text-sm transition-colors whitespace-nowrap"
+                        >
+                            <UserCheck className="w-4 h-4" />
+                            Demandes de rattachement
+                        </button>
+                    )}
+                    <div className="relative w-full sm:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder={t(language as Language, 'parents.searchPlaceholder') || "Rechercher un parent..."}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                        />
+                    </div>
                 </div>
             </div>
 
