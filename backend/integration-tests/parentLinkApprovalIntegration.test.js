@@ -100,6 +100,13 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                 full_name TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS public.students_ecole_a (
+                id TEXT PRIMARY KEY,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                classe TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS public.parent_student_ecole_a (
                 parent_id UUID NOT NULL,
                 student_id TEXT NOT NULL,
@@ -112,6 +119,13 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                 id UUID PRIMARY KEY,
                 role TEXT NOT NULL,
                 full_name TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS public.students_ecole_b (
+                id TEXT PRIMARY KEY,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                classe TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS public.parent_student_ecole_b (
@@ -180,7 +194,13 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
         await client.query(`
             INSERT INTO public.profiles_ecole_a (id, role, full_name) VALUES
             ('${directorAId}', 'directeur', 'Directeur École A'),
-            ('${teacherAId}', 'enseignant', 'Enseignant École A');
+            ('${teacherAId}', 'enseignant', 'Enseignant École A'),
+            ('${parent1Id}', 'parent', 'Parent Un'),
+            ('${parent2Id}', 'parent', 'Parent Deux');
+
+            INSERT INTO public.students_ecole_a (id, nom, prenom, classe) VALUES
+            ('${studentA1}', 'DOSSOU', 'Jean Paul', 'CM2'),
+            ('${studentA2}', 'KOUASSI', 'Marie', 'CM1');
 
             INSERT INTO public.profiles_ecole_b (id, role, full_name) VALUES
             ('${directorBId}', 'directeur', 'Directeur École B');
@@ -307,6 +327,108 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
             assert.equal(rpcRes.rows[0].result.error, 'UNAUTHORIZED_APPROVER');
         });
 
+        await t.test('B.6. Rejet d approbation si l élève n existe pas dans students_<school_slug> (STUDENT_NOT_FOUND)', async () => {
+            const insertRes = await client.query(`
+                INSERT INTO public.parent_student_link_requests (
+                    school_slug, parent_id, student_id, parent_phone_normalized, parent_name, student_name, status
+                ) VALUES (
+                    'ecole_a', '${parent1Id}', 'STU-INEXISTANT-999', '+22997000001', 'Parent Un', 'Élève Fantôme', 'pending'
+                ) RETURNING id;
+            `);
+            const reqNonexistentStudentId = insertRes.rows[0].id;
+
+            const rpcRes = await client.query(`
+                SELECT public.approve_parent_student_link(
+                    $1::UUID, 'ecole_a', '${directorAId}'::UUID, 'Directeur École A'
+                ) AS result;
+            `, [reqNonexistentStudentId]);
+
+            const result = rpcRes.rows[0].result;
+            assert.equal(result.success, false, 'L approbation d un élève inexistant doit échouer');
+            assert.equal(result.error, 'STUDENT_NOT_FOUND');
+
+            // Vérifier qu'aucune insertion locale ni globale n'a eu lieu
+            const localCheck = await client.query(
+                'SELECT * FROM public.parent_student_ecole_a WHERE student_id = $1',
+                ['STU-INEXISTANT-999']
+            );
+            assert.equal(localCheck.rows.length, 0, 'Aucune ligne locale ne doit être créée');
+
+            const reqCheck = await client.query('SELECT status FROM public.parent_student_link_requests WHERE id = $1', [reqNonexistentStudentId]);
+            assert.equal(reqCheck.rows[0].status, 'pending', 'Le statut doit rester pending');
+        });
+
+        await t.test('B.7. Rejet d approbation si le parent n existe pas dans profiles_<school_slug> (PARENT_NOT_FOUND)', async () => {
+            const unknownParentId = '99999999-9999-9999-9999-999999999999';
+            const insertRes = await client.query(`
+                INSERT INTO public.parent_student_link_requests (
+                    school_slug, parent_id, student_id, parent_phone_normalized, parent_name, student_name, status
+                ) VALUES (
+                    'ecole_a', '${unknownParentId}', '${studentA2}', '+22997999999', 'Parent Fantôme', 'Élève A2', 'pending'
+                ) RETURNING id;
+            `);
+            const reqUnknownParentId = insertRes.rows[0].id;
+
+            const rpcRes = await client.query(`
+                SELECT public.approve_parent_student_link(
+                    $1::UUID, 'ecole_a', '${directorAId}'::UUID, 'Directeur École A'
+                ) AS result;
+            `, [reqUnknownParentId]);
+
+            const result = rpcRes.rows[0].result;
+            assert.equal(result.success, false);
+            assert.equal(result.error, 'PARENT_NOT_FOUND');
+        });
+
+        await t.test('B.8. Rejet d approbation si le demandeur n a pas le rôle parent (PARENT_ROLE_INVALID)', async () => {
+            // teacherAId a le rôle 'enseignant' dans profiles_ecole_a
+            const insertRes = await client.query(`
+                INSERT INTO public.parent_student_link_requests (
+                    school_slug, parent_id, student_id, parent_phone_normalized, parent_name, student_name, status
+                ) VALUES (
+                    'ecole_a', '${teacherAId}', '${studentA2}', '+22997000002', 'Enseignant Demandeur', 'Élève A2', 'pending'
+                ) RETURNING id;
+            `);
+            const reqInvalidRoleId = insertRes.rows[0].id;
+
+            const rpcRes = await client.query(`
+                SELECT public.approve_parent_student_link(
+                    $1::UUID, 'ecole_a', '${directorAId}'::UUID, 'Directeur École A'
+                ) AS result;
+            `, [reqInvalidRoleId]);
+
+            const result = rpcRes.rows[0].result;
+            assert.equal(result.success, false);
+            assert.equal(result.error, 'PARENT_ROLE_INVALID');
+        });
+
+        await t.test('B.9. Erreur explicite si la table locale students est absente (SCHOOL_STUDENT_TABLE_NOT_FOUND)', async () => {
+            // Créer une école C avec profiles mais sans students_ecole_c
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS public.profiles_ecole_c (id UUID PRIMARY KEY, role TEXT NOT NULL);
+                INSERT INTO public.profiles_ecole_c (id, role) VALUES ('${directorAId}', 'directeur'), ('${parent1Id}', 'parent');
+            `);
+
+            const insertRes = await client.query(`
+                INSERT INTO public.parent_student_link_requests (
+                    school_slug, parent_id, student_id, parent_phone_normalized, parent_name, status
+                ) VALUES (
+                    'ecole_c', '${parent1Id}', 'STU-C1', '+22997000001', 'Parent Un', 'pending'
+                ) RETURNING id;
+            `);
+            const reqSchoolCId = insertRes.rows[0].id;
+
+            const rpcRes = await client.query(`
+                SELECT public.approve_parent_student_link(
+                    $1::UUID, 'ecole_c', '${directorAId}'::UUID
+                ) AS result;
+            `, [reqSchoolCId]);
+
+            const result = rpcRes.rows[0].result;
+            assert.equal(result.success, false);
+            assert.equal(result.error, 'SCHOOL_STUDENT_TABLE_NOT_FOUND');
+        });
+
         // C. REJET ET RÉVOCATION
         let rejectReqId;
         await t.test('C.1. Rejet nominal avec motif obligatoire', async () => {
@@ -377,6 +499,50 @@ test('P26-B Intégration - Suite complète sur instance PostgreSQL réelle', asy
                 [parent2Id, studentA1]
             );
             assert.equal(otherParentCheck.rows.length, 1, 'Le lien du second parent ne doit pas être altéré');
+        });
+
+        await t.test('C.3. Rejet strict de la révocation d une demande non approuvée', async () => {
+            // Créer une demande pending
+            const pendingReqRes = await client.query(`
+                INSERT INTO public.parent_student_link_requests (
+                    school_slug, parent_id, student_id, parent_phone_normalized, parent_name, status
+                ) VALUES (
+                    'ecole_a', '${parent1Id}', 'STU-PENDING-REVOKE', '+22997000001', 'Parent Un', 'pending'
+                ) RETURNING id;
+            `);
+            const pendingReqId = pendingReqRes.rows[0].id;
+
+            // Tenter de révoquer la demande pending -> doit échouer sans toucher aux tables
+            const rpcPending = await client.query(`
+                SELECT public.revoke_parent_student_link(
+                    $1::UUID, 'ecole_a', '${directorAId}'::UUID, 'Motif'
+                ) AS result;
+            `, [pendingReqId]);
+
+            assert.equal(rpcPending.rows[0].result.success, false);
+            assert.equal(rpcPending.rows[0].result.error, 'INVALID_STATUS_TRANSITION');
+            assert.equal(rpcPending.rows[0].result.current_status, 'pending');
+
+            // Tenter de révoquer la demande rejected (rejectReqId) -> doit échouer
+            const rpcRejected = await client.query(`
+                SELECT public.revoke_parent_student_link(
+                    $1::UUID, 'ecole_a', '${directorAId}'::UUID, 'Motif'
+                ) AS result;
+            `, [rejectReqId]);
+
+            assert.equal(rpcRejected.rows[0].result.success, false);
+            assert.equal(rpcRejected.rows[0].result.error, 'INVALID_STATUS_TRANSITION');
+            assert.equal(rpcRejected.rows[0].result.current_status, 'rejected');
+
+            // Révocation répétée (idempotence) sur req1Id déjà révoqué
+            const rpcRepeat = await client.query(`
+                SELECT public.revoke_parent_student_link(
+                    $1::UUID, 'ecole_a', '${directorAId}'::UUID, 'Répétition'
+                ) AS result;
+            `, [req1Id]);
+
+            assert.equal(rpcRepeat.rows[0].result.success, true);
+            assert.equal(rpcRepeat.rows[0].result.status, 'already_revoked');
         });
 
         // D. SÉCURITÉ, FORMATS ET INJECTIONS
