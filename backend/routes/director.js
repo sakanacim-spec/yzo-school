@@ -15,8 +15,10 @@ router.use(authenticateToken);
 router.use(requireSchool);
 
 router.get('/requests', directorController.listRequests);
+router.get('/requests/approved', directorController.listApprovedRequests);
 router.get('/requests/:id', directorController.getRequest);
 router.post('/requests/:id/approve', directorController.approveRequest);
 router.post('/requests/:id/reject', directorController.rejectRequest);
+router.post('/requests/:id/revoke', directorController.revokeRequest);
 
 module.exports = router;

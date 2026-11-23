@@ -1,5 +1,6 @@
 const { supabase } = require('../utils/supabase');
 const { validateSlug, normalizeIdentityText, normalizeIdentityDate, normalizePhone, isValidUUID } = require('../utils/helpers');
+const { checkPilotAccess } = require('../utils/pilotScope');
 
 // Fonction de normalisation E.164 stricte sans déduction arbitraire de pays ni contournement regex
 const toStrictE164 = (phone, normalizedField) => {
@@ -353,6 +354,15 @@ async function linkStudentToParent(req, res) {
 
     const schoolSlug = req.user ? req.user.schoolSlug : null;
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
+
+    // Contrôle du périmètre pilote et de suspension pour la création de demande
+    const pilotCheck = checkPilotAccess(schoolSlug, 'create');
+    if (!pilotCheck.allowed) {
+        return res.status(pilotCheck.httpStatus).json({
+            error: pilotCheck.errorCode,
+            message: pilotCheck.message,
+        });
+    }
 
     const isSchoolAdmin = ['admin', 'directeur', 'directeur_general', 'superadmin'].includes(role);
 

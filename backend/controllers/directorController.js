@@ -7,6 +7,7 @@
 //   POST   /requests/:id/reject    → reject a request via RPC (requires reason)
 
 const { supabase } = require('../utils/supabase');
+const { checkPilotAccess } = require('../utils/pilotScope');
 
 // Allowed roles for director actions (must match specification)
 const ALLOWED_ROLES = ['admin', 'directeur', 'directeur_general'];
@@ -26,19 +27,28 @@ const MAX_LIMIT = 100;
 const RPC_ERROR_HTTP_STATUS = {
   INVALID_REQUEST_ID: 400,
   REJECTION_REASON_REQUIRED: 400,
+  REVOCATION_REASON_REQUIRED: 400,
   INVALID_SCHOOL_SLUG: 400,
   INVALID_DECIDED_BY: 400,
+  INVALID_REVOKED_BY: 400,
   UNAUTHORIZED_APPROVER: 403,
   REQUEST_NOT_FOUND: 404,
   INVALID_STATUS_TRANSITION: 409,
 };
 
-/** Helper to enforce authentication & role */
-function ensureAuthorized(req, res) {
+/** Helper to enforce authentication, role & pilot scope */
+function ensureAuthorized(req, res, action = 'read') {
   const { role, schoolSlug } = req.user || {};
   if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé : établissement manquant.' });
   if (!role || !ALLOWED_ROLES.includes(role)) {
     return res.status(403).json({ error: 'Permission refusée. Rôle insuffisant.' });
+  }
+  const pilotCheck = checkPilotAccess(schoolSlug, action);
+  if (!pilotCheck.allowed) {
+    return res.status(pilotCheck.httpStatus).json({
+      error: pilotCheck.errorCode,
+      message: pilotCheck.message,
+    });
   }
   return null; // means authorized
 }
@@ -93,9 +103,9 @@ function respondWithRpcResult(res, rpcResult, handlerName, genericMessage) {
   return res.status(500).json({ error: genericMessage });
 }
 
-/** GET /api/director/requests */
-async function listRequests(req, res) {
-  const authError = ensureAuthorized(req, res);
+/** Helper to list requests by statuses with strict pagination and scoping */
+async function listRequestsWithStatus(req, res, targetStatuses) {
+  const authError = ensureAuthorized(req, res, 'read');
   if (authError) return;
 
   const { schoolSlug } = req.user;
@@ -120,14 +130,14 @@ async function listRequests(req, res) {
       .from('parent_student_link_requests')
       .select('id', { count: 'exact', head: true })
       .eq('school_slug', schoolSlug)
-      .in('status', ['pending', 'pending_verification']);
+      .in('status', targetStatuses);
     if (countErr) throw countErr;
 
     const { data, error } = await supabase
       .from('parent_student_link_requests')
       .select(SELECT_COLS)
       .eq('school_slug', schoolSlug)
-      .in('status', ['pending', 'pending_verification'])
+      .in('status', targetStatuses)
       .order('requested_at', { ascending: false })
       .range(from, to);
     if (error) throw error;
@@ -136,6 +146,16 @@ async function listRequests(req, res) {
     console.error('[listRequests] Supabase error:', err.message);
     return res.status(500).json({ error: 'Erreur serveur lors de la récupération des demandes.' });
   }
+}
+
+/** GET /api/director/requests */
+async function listRequests(req, res) {
+  return listRequestsWithStatus(req, res, ['pending', 'pending_verification']);
+}
+
+/** GET /api/director/requests/approved */
+async function listApprovedRequests(req, res) {
+  return listRequestsWithStatus(req, res, ['approved']);
 }
 
 /** GET /api/director/requests/:id */
@@ -169,7 +189,7 @@ async function getRequest(req, res) {
 
 /** POST /api/director/requests/:id/approve */
 async function approveRequest(req, res) {
-  const authError = ensureAuthorized(req, res);
+  const authError = ensureAuthorized(req, res, 'decide');
   if (authError) return;
 
   const { id } = req.params;
@@ -218,7 +238,7 @@ async function approveRequest(req, res) {
 
 /** POST /api/director/requests/:id/reject */
 async function rejectRequest(req, res) {
-  const authError = ensureAuthorized(req, res);
+  const authError = ensureAuthorized(req, res, 'decide');
   if (authError) return;
 
   const { id } = req.params;
@@ -281,9 +301,63 @@ async function rejectRequest(req, res) {
   }
 }
 
+/** POST /api/director/requests/:id/revoke */
+async function revokeRequest(req, res) {
+  const authError = ensureAuthorized(req, res, 'revoke');
+  if (authError) return;
+
+  const { id } = req.params;
+  if (!UUID_REGEX.test(id)) return res.status(400).json({ error: 'Identifiant de demande invalide (UUID attendu).' });
+
+  const body = getSafeBody(req);
+  const { revocation_reason } = body;
+  if (!revocation_reason || typeof revocation_reason !== 'string' || revocation_reason.trim() === '') {
+    return res.status(400).json({ error: 'Le champ revocation_reason est requis et ne doit pas être vide.' });
+  }
+
+  const { id: userId, schoolSlug } = req.user;
+
+  try {
+    // Verify same school (DB filter + explicit check for defense-in-depth)
+    const { data: reqMeta, error: metaErr } = await supabase
+      .from('parent_student_link_requests')
+      .select('school_slug,status')
+      .eq('id', id)
+      .eq('school_slug', schoolSlug)
+      .single();
+    if (metaErr) {
+      if (metaErr.code === 'PGRST116') return res.status(404).json({ error: 'Demande introuvable.' });
+      throw metaErr;
+    }
+    if (!reqMeta || reqMeta.school_slug !== schoolSlug) {
+      // Hide existence of requests from other schools
+      return res.status(404).json({ error: 'Demande introuvable.' });
+    }
+
+    const { data: rpcResult, error: rpcErr } = await supabase.rpc('revoke_parent_student_link', {
+      p_request_id: id,
+      p_school_slug: schoolSlug,
+      p_revoked_by: userId,
+      p_revocation_reason: revocation_reason.trim(),
+    });
+
+    if (rpcErr) {
+      console.error('[revokeRequest] RPC error:', rpcErr.message);
+      return res.status(500).json({ error: 'Erreur interne lors de la révocation.' });
+    }
+
+    return respondWithRpcResult(res, rpcResult, 'revokeRequest', 'Erreur interne lors de la révocation.');
+  } catch (err) {
+    console.error('[revokeRequest] Unexpected error:', err.message);
+    return res.status(500).json({ error: 'Erreur serveur lors de la révocation.' });
+  }
+}
+
 module.exports = {
   listRequests,
+  listApprovedRequests,
   getRequest,
   approveRequest,
   rejectRequest,
+  revokeRequest,
 };

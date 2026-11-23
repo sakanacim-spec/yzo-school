@@ -4,7 +4,7 @@ import { parseResponse, getAuthHeaders } from './apiHelpers.ts';
 export interface DirectorLinkRequest {
   id: string;
   school_slug: string;
-  status: 'pending' | 'pending_verification' | 'approved' | 'rejected' | string;
+  status: 'pending' | 'pending_verification' | 'approved' | 'rejected' | 'revoked' | string;
   requested_at: string;
   student_name: string;
   parent_name: string;
@@ -25,6 +25,15 @@ export interface DirectorRequestDetail extends DirectorLinkRequest {
 export const directorApi = {
   listRequests: async (page = 1, limit = 20): Promise<DirectorRequestsResponse> => {
     const res = await fetch(`${API_BASE_URL}/director/requests?page=${page}&limit=${limit}`, {
+      headers: getAuthHeaders(),
+    });
+    const data = await parseResponse(res);
+    if (!res.ok) throw data;
+    return data;
+  },
+
+  listApprovedRequests: async (page = 1, limit = 20): Promise<DirectorRequestsResponse> => {
+    const res = await fetch(`${API_BASE_URL}/director/requests/approved?page=${page}&limit=${limit}`, {
       headers: getAuthHeaders(),
     });
     const data = await parseResponse(res);
@@ -62,6 +71,22 @@ export const directorApi = {
       body: JSON.stringify({
         rejection_reason: rejectionReason,
         rejection_reason_code: rejectionReasonCode,
+      }),
+    });
+    const data = await parseResponse(res);
+    if (!res.ok) throw data;
+    return data;
+  },
+
+  revokeRequest: async (
+    id: string,
+    revocationReason: string
+  ): Promise<{ success: boolean; status: string; request_id: string }> => {
+    const res = await fetch(`${API_BASE_URL}/director/requests/${id}/revoke`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        revocation_reason: revocationReason,
       }),
     });
     const data = await parseResponse(res);

@@ -25,6 +25,7 @@ const authControllerPath = path.resolve(__dirname, '../controllers/authControlle
 const studentsControllerPath = path.resolve(__dirname, '../controllers/studentsController.js');
 
 describe('YZIOW P26-B Lot 2 — Découplage des Rattachements Parent-Élève', () => {
+    process.env.PARENT_LINK_PILOT_SCHOOLS = 'ecole_test';
 
     // =========================================================================
     // 1. TESTS STATIQUES : Neutralisation des insertions automatiques
