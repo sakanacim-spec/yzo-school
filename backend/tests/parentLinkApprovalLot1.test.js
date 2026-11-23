@@ -127,6 +127,7 @@ describe('YZIOW P26-B Lot 1 — Fondations SQL & Inventaire de Rattachement', ()
 
         it('2.6. RPC revoke_parent_student_link — Nettoyage local et désactivation globale', () => {
             assert.ok(sql.includes('CREATE OR REPLACE FUNCTION public.revoke_parent_student_link'), 'Déclaration de la RPC revoke');
+            assert.ok(sql.includes("IF v_req.status <> 'approved' THEN"), 'Seules les demandes approuvées peuvent être révoquées');
             assert.ok(sql.includes("DELETE FROM public.%I"), 'Supprime la ligne de la table locale pour couper l\'accès instantanément');
             assert.ok(sql.includes('current_link_active = false'), 'Désactive le lien dans parent_child_links si aucun autre établissement n\'est lié');
             assert.ok(sql.includes("status = 'revoked'"), 'Trace la révocation dans la table centrale');
@@ -139,6 +140,26 @@ describe('YZIOW P26-B Lot 1 — Fondations SQL & Inventaire de Rattachement', ()
             assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.reject_parent_student_link(UUID, TEXT, UUID, TEXT, TEXT, TEXT) TO service_role;'), 'reject accordé à service_role');
             assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.revoke_parent_student_link'), 'revoke révoqué de PUBLIC');
             assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.revoke_parent_student_link(UUID, TEXT, UUID, TEXT) TO service_role;'), 'revoke accordé à service_role');
+        });
+
+        it('2.8. RPC approve — Vérification d\'existence du parent et du rôle parent dans profiles_<school_slug>', () => {
+            assert.ok(sql.includes("'PARENT_NOT_FOUND'"), 'Retour explicite PARENT_NOT_FOUND si le parent est absent');
+            assert.ok(sql.includes("'PARENT_ROLE_INVALID'"), 'Retour explicite PARENT_ROLE_INVALID si le rôle n\'est pas parent');
+            assert.ok(sql.includes("WHERE id = %L"), 'Requête paramétrée sécurisée sur le parent');
+        });
+
+        it('2.9. RPC approve — Vérification d\'existence effective de l\'élève dans students_<school_slug>', () => {
+            assert.ok(sql.includes("'STUDENT_NOT_FOUND'"), 'Retour explicite STUDENT_NOT_FOUND si l\'élève est absent');
+            assert.ok(sql.includes("'SCHOOL_STUDENT_TABLE_NOT_FOUND'"), 'Retour SCHOOL_STUDENT_TABLE_NOT_FOUND si table absente');
+            assert.ok(sql.includes("'students_' || p_school_slug"), 'Cible la table partitionnée students_<school_slug>');
+            assert.ok(sql.includes("WHERE id::text = %L"), 'Comparaison sécurisée du student_id');
+        });
+
+        it('2.10. RPC approve — Verrou consultatif transactionnel sur l\'élève anti-concurrence', () => {
+            assert.ok(
+                sql.includes("pg_advisory_xact_lock(2, hashtext(p_school_slug || ':' || v_req.student_id))"),
+                'Verrou consultatif transactionnel obligatoire sur l\'élève pour éviter la création concurrente d\'identités globales'
+            );
         });
     });
 
@@ -207,6 +228,41 @@ describe('YZIOW P26-B Lot 1 — Fondations SQL & Inventaire de Rattachement', ()
             assert.strictEqual(authorizedRoles.includes('professeur'), false);
             assert.strictEqual(authorizedRoles.includes('parent'), false);
             assert.strictEqual(authorizedRoles.includes('comptable'), false);
+        });
+
+        it('4.4. Simulation d\'approbation : rejet obligatoire si l\'élève n\'existe pas dans l\'école', () => {
+            const registeredStudents = new Set(['STU-001', 'STU-002']);
+            const targetStudentId = 'STU-NONEXISTENT';
+
+            const studentExists = registeredStudents.has(targetStudentId);
+            assert.strictEqual(studentExists, false, 'Un élève inexistant ne peut pas être validé');
+            const result = studentExists ? { success: true } : { success: false, error: 'STUDENT_NOT_FOUND' };
+            assert.deepStrictEqual(result, { success: false, error: 'STUDENT_NOT_FOUND' });
+        });
+
+        it('4.5. Simulation d\'approbation : rejet obligatoire si le parent est inexistant ou non parent', () => {
+            const schoolProfiles = new Map([
+                ['parent-uuid-1', 'parent'],
+                ['teacher-uuid-1', 'enseignant'],
+            ]);
+
+            // Parent inexistant
+            const role1 = schoolProfiles.get('unknown-parent-uuid');
+            assert.strictEqual(role1, undefined);
+            const err1 = !role1 ? 'PARENT_NOT_FOUND' : (role1 !== 'parent' ? 'PARENT_ROLE_INVALID' : null);
+            assert.strictEqual(err1, 'PARENT_NOT_FOUND');
+
+            // Profil existant mais rôle enseignant
+            const role2 = schoolProfiles.get('teacher-uuid-1');
+            assert.strictEqual(role2, 'enseignant');
+            const err2 = !role2 ? 'PARENT_NOT_FOUND' : (role2 !== 'parent' ? 'PARENT_ROLE_INVALID' : null);
+            assert.strictEqual(err2, 'PARENT_ROLE_INVALID');
+
+            // Profil parent valide
+            const role3 = schoolProfiles.get('parent-uuid-1');
+            assert.strictEqual(role3, 'parent');
+            const err3 = !role3 ? 'PARENT_NOT_FOUND' : (role3 !== 'parent' ? 'PARENT_ROLE_INVALID' : null);
+            assert.strictEqual(err3, null);
         });
     });
 });

@@ -86,6 +86,8 @@ AS $$
 DECLARE
     v_req RECORD;
     v_admin_role TEXT;
+    v_parent_role TEXT;
+    v_student_exists BOOLEAN;
     v_global_id UUID;
 BEGIN
     -- A. Validation des paramètres
@@ -137,7 +139,46 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'INVALID_STATUS_TRANSITION', 'current_status', v_req.status);
     END IF;
 
-    -- E. Insertion dans la table locale parent_student_<school_slug>
+    -- E. Vérification de l'existence et du rôle du parent dans profiles_<school_slug>
+    BEGIN
+        EXECUTE format('
+            SELECT role FROM public.%I
+            WHERE id = %L
+        ', 'profiles_' || p_school_slug, v_req.parent_id)
+        INTO v_parent_role;
+    EXCEPTION WHEN undefined_table THEN
+        RETURN jsonb_build_object('success', false, 'error', 'SCHOOL_PROFILE_NOT_FOUND');
+    END;
+
+    IF v_parent_role IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'PARENT_NOT_FOUND');
+    END IF;
+
+    IF v_parent_role <> 'parent' THEN
+        RETURN jsonb_build_object('success', false, 'error', 'PARENT_ROLE_INVALID');
+    END IF;
+
+    -- F. Vérification de l'existence effective de l'élève dans students_<school_slug>
+    BEGIN
+        EXECUTE format('
+            SELECT EXISTS (
+                SELECT 1 FROM public.%I
+                WHERE id::text = %L
+            )
+        ', 'students_' || p_school_slug, v_req.student_id)
+        INTO v_student_exists;
+    EXCEPTION WHEN undefined_table THEN
+        RETURN jsonb_build_object('success', false, 'error', 'SCHOOL_STUDENT_TABLE_NOT_FOUND');
+    END;
+
+    IF NOT v_student_exists THEN
+        RETURN jsonb_build_object('success', false, 'error', 'STUDENT_NOT_FOUND');
+    END IF;
+
+    -- G. Advisory Lock transactionnel sur l'élève pour sérialiser la réconciliation globale
+    PERFORM pg_advisory_xact_lock(2, hashtext(p_school_slug || ':' || v_req.student_id));
+
+    -- H. Insertion dans la table locale parent_student_<school_slug>
     BEGIN
         EXECUTE format('
             INSERT INTO public.%I (parent_id, student_id)
@@ -148,7 +189,7 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'LOCAL_TABLE_NOT_FOUND');
     END;
 
-    -- F. Réconciliation avec l'écosystème global (student_global_mappings & parent_child_links)
+    -- I. Réconciliation avec l'écosystème global (student_global_mappings & parent_child_links)
     SELECT student_global_id INTO v_global_id
     FROM public.student_global_mappings
     WHERE school_slug = p_school_slug AND student_local_id = v_req.student_id;
@@ -174,7 +215,7 @@ BEGIN
     ON CONFLICT (parent_ref, student_global_id)
     DO UPDATE SET current_link_active = true, updated_at = now();
 
-    -- G. Mise à jour du statut de la demande dans la table centrale
+    -- J. Mise à jour du statut de la demande dans la table centrale
     UPDATE public.parent_student_link_requests
     SET status = 'approved',
         decided_at = now(),
@@ -362,6 +403,11 @@ BEGIN
 
     IF v_req.status = 'revoked' THEN
         RETURN jsonb_build_object('success', true, 'status', 'already_revoked', 'request_id', p_request_id);
+    END IF;
+
+    -- Seules les demandes préalablement approuvées peuvent être révoquées
+    IF v_req.status <> 'approved' THEN
+        RETURN jsonb_build_object('success', false, 'error', 'INVALID_STATUS_TRANSITION', 'current_status', v_req.status);
     END IF;
 
     -- E. Suppression physique dans la table locale parent_student_<school_slug>
