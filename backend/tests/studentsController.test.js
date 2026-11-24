@@ -7,6 +7,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'test_service_role_key';
 process.env.JWT_SECRET = 'test_secret_for_multitenant_lot5b_security_min_32_chars';
 process.env.PASSWORD_RESET_OTP_SECRET = 'test_otp_secret_for_lot5b_hmac_min_32_chars';
 process.env.AI_QUOTA_HASH_SECRET = 'test_ai_quota_hash_secret_min_32_chars_ok';
+process.env.PARENT_LINK_PILOT_SCHOOLS = 'demo';
 
 const { linkStudentToParent, unlinkStudentFromParent } = require('../controllers/studentsController');
 const { supabase } = require('../utils/supabase');

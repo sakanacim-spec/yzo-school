@@ -12,6 +12,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'test_service_role_key_1234567890123456'
 process.env.JWT_SECRET = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; // 32 chars
 process.env.AI_QUOTA_HASH_SECRET = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 process.env.PASSWORD_RESET_OTP_SECRET = 'cccccccccccccccccccccccccccccccc';
+process.env.PARENT_LINK_PILOT_SCHOOLS = 'testschool';
 
 // Load the Express app after env vars are defined
 const app = require('../../backend/server.js'); // Express app instance

@@ -1,5 +1,6 @@
 const { supabase } = require('../utils/supabase');
 const { validateSlug, normalizeIdentityText, normalizeIdentityDate, normalizePhone, isValidUUID } = require('../utils/helpers');
+const { checkPilotAccess } = require('../utils/pilotScope');
 
 // Fonction de normalisation E.164 stricte sans déduction arbitraire de pays ni contournement regex
 const toStrictE164 = (phone, normalizedField) => {
@@ -354,6 +355,11 @@ async function linkStudentToParent(req, res) {
     const schoolSlug = req.user ? req.user.schoolSlug : null;
     if (!schoolSlug) return res.status(403).json({ error: 'Accès non autorisé.' });
 
+    const idsToLink = Array.isArray(studentIds) ? studentIds : (studentId ? [studentId] : []);
+    if (idsToLink.length === 0) {
+        return res.status(400).json({ error: 'Au moins un studentId est requis.' });
+    }
+
     const isSchoolAdmin = ['admin', 'directeur', 'directeur_general', 'superadmin'].includes(role);
 
     // Contrôle strict de l'identité :
@@ -367,12 +373,16 @@ async function linkStudentToParent(req, res) {
         }
     }
 
-    const targetParentId = (isSchoolAdmin && bodyParentId) ? bodyParentId : tokenUserId;
-
-    const idsToLink = Array.isArray(studentIds) ? studentIds : (studentId ? [studentId] : []);
-    if (idsToLink.length === 0) {
-        return res.status(400).json({ error: 'Au moins un studentId est requis.' });
+    // Contrôle du périmètre pilote et de suspension pour la création de demande
+    const pilotCheck = checkPilotAccess(schoolSlug, 'create');
+    if (!pilotCheck.allowed) {
+        return res.status(pilotCheck.httpStatus).json({
+            error: pilotCheck.errorCode,
+            message: pilotCheck.message,
+        });
     }
+
+    const targetParentId = (isSchoolAdmin && bodyParentId) ? bodyParentId : tokenUserId;
 
     try {
         // 1. Charger le profil parent pour obtenir le numéro de téléphone officiel et le nom

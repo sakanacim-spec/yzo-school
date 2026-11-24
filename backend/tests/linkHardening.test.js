@@ -1,6 +1,7 @@
 process.env.SUPABASE_URL = 'http://localhost';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test';
 process.env.JWT_SECRET = 'test';
+process.env.PARENT_LINK_PILOT_SCHOOLS = 'ecole_test,school_a,school_b';
 const { describe, it, beforeEach } = require('node:test');
 const assert = require('node:assert');
 const { linkStudentToParent } = require('../controllers/studentsController');
