@@ -180,7 +180,7 @@ export default function Students() {
         restant,
         recu: formData.recu || '',
         cycle: getCycleFromClasse(formData.classe || ''),
-        status: restant === 0 ? 'Soldé' : restant <= ecolage * 0.3 ? 'Non soldé' : 'Partiel',
+        status: (restant === 0 || ecolage === 0) ? 'Soldé' : ((formData.dejaPaye || 0) > 0 ? 'Partiel' : 'Non payé'),
         historiquesPaiements: [],
         paiements: [],
         dateInscription: new Date().toISOString().split('T')[0],

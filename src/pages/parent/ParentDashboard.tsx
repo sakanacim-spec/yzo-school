@@ -119,21 +119,29 @@ const ChildCard: React.FC<ChildCardProps> = ({
     };
     const tauxPresence = presenceStats.total > 0 ? Math.round((presenceStats.present / presenceStats.total) * 100) : 100;
 
-    const restant = Number(child.restant !== undefined ? child.restant : (Number(child.ecolage || 0) - Number(child.dejaPaye || 0)));
-    const dejaPaye = Number(child.dejaPaye || 0);
-    const pctPaye = child.ecolage > 0 ? Math.min(Math.round((dejaPaye / child.ecolage) * 100), 100) : 0;
+    const rawDejaPaye = Number(child.dejaPaye !== undefined ? child.dejaPaye : (child.deja_paye !== undefined ? child.deja_paye : 0));
+    const dejaPaye = isNaN(rawDejaPaye) ? 0 : Math.max(0, rawDejaPaye);
+    const ecolage = Number(child.ecolage !== undefined ? child.ecolage : 0);
+    const restant = Number(child.restant !== undefined ? child.restant : Math.max(0, ecolage - dejaPaye));
+    const pctPaye = ecolage > 0 ? Math.min(Math.round((dejaPaye / ecolage) * 100), 100) : 0;
+    const tropPercu = dejaPaye > ecolage && ecolage > 0 ? dejaPaye - ecolage : 0;
+    const financialStatus = child.status || (
+        ecolage === 0 ? 'Soldé' :
+        dejaPaye >= ecolage ? 'Soldé' :
+        dejaPaye > 0 ? 'Partiel' : 'Non payé'
+    );
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-all hover:shadow-lg">
-            {/* â”€â”€ En-tÃªte enfant â”€â”€ */}
+            {/* ── En-tête enfant ── */}
             <div className="p-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Avatar name={`${child.prenom} ${child.nom}`} size="md" />
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="font-black text-slate-900 dark:text-white text-lg">{child.prenom} {child.nom}</h3>
-                            <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black ${child.status === 'SoldÃ©' ? 'bg-emerald-100 text-emerald-700' : child.status === 'Partiel' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                                {child.status}
+                            <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black ${financialStatus === 'Soldé' ? 'bg-emerald-100 text-emerald-700' : financialStatus === 'Partiel' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                {financialStatus}
                             </span>
                             {devoirsUrgents > 0 && (
                                 <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black bg-rose-100 text-rose-700 animate-pulse">
@@ -344,8 +352,11 @@ export const ParentDashboard: React.FC = () => {
     const presences = useStore(s => s.presences) || [];
 
     const [loading, setLoading] = useState(false);
+    const [hasFetched, setHasFetched] = useState(false);
     const [loadingPayment, setLoadingPayment] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState('');
+    const [errorStatus, setErrorStatus] = useState<number | null>(null);
+    const reqSeqRef = useRef(0);
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -360,17 +371,40 @@ export const ParentDashboard: React.FC = () => {
     // Parent Pack payment modal state
     const [showParentPackModal, setShowParentPackModal] = useState(false);
     const [parentPackStudentId, setParentPackStudentId] = useState<string>('');
+    const prevUserIdRef = useRef<string | undefined>(user?.id);
 
-    const fetchData = useCallback(async () => {
-        if (children.length > 0) return;
-        setLoading(true); setErrorMsg('');
+    const fetchData = useCallback(async (force = false) => {
+        if (!force && hasFetched) return;
+        const seq = ++reqSeqRef.current;
+        setLoading(true);
+        setErrorMsg('');
+        setErrorStatus(null);
         try {
             const data = await parentApi.getDashboard();
+            if (seq !== reqSeqRef.current) return;
             useStore.setState({ students: data.students || [] });
+            setHasFetched(true);
         } catch (err: any) {
-            setErrorMsg(err.message || "Erreur de chargement");
-        } finally { setLoading(false); }
-    }, [children.length]);
+            if (seq !== reqSeqRef.current) return;
+            const status = err?.status || (err?.code === 'UNAUTHORIZED' ? 401 : err?.code === 'FORBIDDEN' ? 403 : undefined);
+            let msg = err?.message || err?.error || "Erreur de chargement de votre espace parent.";
+            if (typeof navigator !== 'undefined' && !navigator.onLine) {
+                msg = "Connexion internet indisponible. Veuillez vérifier votre réseau.";
+            }
+            setErrorStatus(status || null);
+            setErrorMsg(msg);
+        } finally {
+            if (seq === reqSeqRef.current) setLoading(false);
+        }
+    }, [hasFetched]);
+
+    useEffect(() => {
+        if (prevUserIdRef.current !== user?.id) {
+            prevUserIdRef.current = user?.id;
+            setHasFetched(false);
+            fetchData(true);
+        }
+    }, [user?.id, fetchData]);
 
     // Handle payment success redirect
     useEffect(() => {
@@ -494,9 +528,12 @@ export const ParentDashboard: React.FC = () => {
         if (!window.confirm(`Retirer ${name} de votre compte ?`)) return;
         try {
             await parentApi.unlinkStudent(studentId);
-            fetchData();
+            // Invalidation immédiate du store local pour éviter tout affichage persistant
+            const currentStudents = useStore.getState().students;
+            useStore.setState({ students: currentStudents.filter(s => s.id !== studentId) });
+            await fetchData(true);
         } catch (err: any) {
-            alert(err.error || "Erreur lors du retrait.");
+            alert(err?.message || err?.error || "Erreur lors du retrait.");
         }
     };
 
@@ -514,13 +551,21 @@ export const ParentDashboard: React.FC = () => {
         return !read || !read.readAt;
     }).length;
 
-    // â”€â”€ Totaux globaux â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Totaux globaux ──────────────────────────────────────────
     const totalEcolage = children.reduce((acc, s) => acc + Number(s.ecolage || 0), 0);
-    const totalDejaPaye = children.reduce((acc, s) => acc + Number(s.dejaPaye || 0), 0);
-    const totalRestant = children.reduce((acc, s) => acc + Number(s.restant !== undefined ? s.restant : (Number(s.ecolage || 0) - Number(s.dejaPaye || 0))), 0);
-    const totalPctPaye = totalEcolage > 0 ? Math.round((totalDejaPaye / totalEcolage) * 100) : 0;
+    const totalDejaPaye = children.reduce((acc, s) => {
+        const sPaye = Number(s.dejaPaye !== undefined ? s.dejaPaye : (s.deja_paye !== undefined ? s.deja_paye : 0));
+        return acc + (isNaN(sPaye) ? 0 : Math.max(0, sPaye));
+    }, 0);
+    const totalRestant = children.reduce((acc, s) => {
+        const sEcolage = Number(s.ecolage || 0);
+        const sPaye = Number(s.dejaPaye !== undefined ? s.dejaPaye : (s.deja_paye !== undefined ? s.deja_paye : 0));
+        const sRestant = s.restant !== undefined ? Number(s.restant) : Math.max(0, sEcolage - sPaye);
+        return acc + sRestant;
+    }, 0);
+    const totalPctPaye = totalEcolage > 0 ? Math.min(100, Math.round((totalDejaPaye / totalEcolage) * 100)) : 0;
 
-    // â”€â”€ Devoirs urgents tous enfants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Devoirs urgents tous enfants ─────────────────────────────
     const allUrgentHomework = useMemo(() => {
         return children.flatMap(child => {
             return devoirs
@@ -533,7 +578,7 @@ export const ParentDashboard: React.FC = () => {
         });
     }, [children, devoirs]);
 
-    // â”€â”€ Absences non justifiÃ©es tous enfants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Absences non justifiées tous enfants ─────────────────────
     const allUnjustifiedAbsences = useMemo(() => {
         return children.flatMap(child => {
             return presences
@@ -542,7 +587,7 @@ export const ParentDashboard: React.FC = () => {
         });
     }, [children, presences]);
 
-    if (loading && children.length === 0) return (
+    if (loading && children.length === 0 && !hasFetched) return (
         <div className="flex flex-col items-center justify-center py-20 text-slate-500">
             <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
             <p>{t(language as Language, 'parentDashboard.loading') || 'Chargement de votre espace parent...'}</p>
@@ -550,11 +595,31 @@ export const ParentDashboard: React.FC = () => {
     );
 
     if (errorMsg && children.length === 0) return (
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-8 text-center">
+        <div className="bg-red-50 border border-red-100 rounded-2xl p-8 text-center max-w-lg mx-auto my-12 shadow-sm">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-red-900 mb-2">{t(language as Language, 'parentDashboard.connectionError') || 'Erreur de connexion'}</h3>
-            <p className="text-red-700">{errorMsg}</p>
-            <button onClick={fetchData} className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition">{t(language as Language, 'common.retry') || 'RÃ©essayer'}</button>
+            <h3 className="text-lg font-bold text-red-900 mb-2">
+                {errorStatus === 401
+                    ? 'Session expirée'
+                    : errorStatus === 403
+                    ? 'Accès refusé'
+                    : (t(language as Language, 'parentDashboard.connectionError') || 'Erreur de connexion')}
+            </h3>
+            <p className="text-red-700 text-sm mb-6">{errorMsg}</p>
+            {errorStatus === 401 ? (
+                <button
+                    onClick={() => { useStore.getState().logout(); }}
+                    className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow"
+                >
+                    Se reconnecter
+                </button>
+            ) : (
+                <button
+                    onClick={() => fetchData(true)}
+                    className="px-6 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition shadow"
+                >
+                    {t(language as Language, 'common.retry') || 'Réessayer'}
+                </button>
+            )}
         </div>
     );
 
@@ -600,6 +665,19 @@ export const ParentDashboard: React.FC = () => {
                 </div>
             </div>
 
+
+            {/* ── ALERTE ERREUR NON BLOQUANTE SI ENFANTS DÉJÀ PRÉSENTS ── */}
+            {errorMsg && children.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
+                        <span>{errorMsg}</span>
+                    </div>
+                    <button onClick={() => fetchData(true)} className="text-xs font-bold underline hover:text-red-900">
+                        {t(language as Language, 'common.retry') || 'Réessayer'}
+                    </button>
+                </div>
+            )}
 
             {/* ðŸ’› CAMPAGNES DE DONS ACTIVES ðŸ’› */}
             {activeCampaigns.length > 0 && (
@@ -708,8 +786,8 @@ export const ParentDashboard: React.FC = () => {
             {children.length === 0 ? (
                 <div className="bg-white dark:bg-slate-900 rounded-[32px] p-14 text-center border border-dashed border-slate-200 dark:border-slate-700">
                     <GraduationCap className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                    <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">{t(language as Language, 'parentDashboard.noLinkedChild') || 'Aucun enfant liÃ©'}</h3>
-                    <p className="text-slate-400 text-sm max-w-xs mx-auto mb-6">{t(language as Language, 'parentDashboard.noLinkedChildDesc') || "Liez vos enfants pour voir leur suivi scolaire, financier et d'assiduitÃ©."}</p>
+                    <h3 className="text-xl font-black text-slate-700 dark:text-slate-300 mb-2">{t(language as Language, 'parentDashboard.noLinkedChild') || 'Aucun enfant rattaché'}</h3>
+                    <p className="text-slate-400 text-sm max-w-md mx-auto mb-6">{t(language as Language, 'parentDashboard.noLinkedChildDesc') || "Aucun enfant n'est actuellement rattaché à votre compte. Vous pouvez effectuer une demande de rattachement depuis votre espace parent."}</p>
                     <button onClick={() => setIsLinkModalOpen(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-lg transition-all">
                         <UserPlus className="w-4 h-4 inline mr-2" /> {t(language as Language, 'parentDashboard.linkChildBtn') || 'Lier un enfant'}
                     </button>
@@ -741,7 +819,13 @@ export const ParentDashboard: React.FC = () => {
 
         </div>
 
-        <LinkStudentModal isOpen={isLinkModalOpen} onClose={() => setIsLinkModalOpen(false)} onSuccess={fetchData} />
+        <LinkStudentModal
+            isOpen={isLinkModalOpen}
+            onClose={() => setIsLinkModalOpen(false)}
+            onSuccess={async () => {
+                await fetchData(true);
+            }}
+        />
         <SupportModal isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} onSelect={async (role) => { try { await chatApi.initiateConversation(undefined, role); useStore.getState().setCurrentPage('chat'); } catch {} finally { setShowSupportModal(false); } }} />
         </>
     );

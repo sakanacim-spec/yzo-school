@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../config.ts';
-import { parseResponse, getAuthHeaders } from './apiHelpers.ts';
+import { parseResponse, getAuthHeaders, handleApiResponse, ApiError } from './apiHelpers.ts';
 
 const API_URL = API_BASE_URL;
 
@@ -124,12 +124,7 @@ export const parentApi = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        const result = await parseResponse(res);
-        if (!res.ok) {
-            const err: any = new Error(result.error || result.message || 'API Error');
-            Object.assign(err, result);
-            throw err;
-        }
+        const result = await handleApiResponse(res);
         if (result.token) localStorage.setItem('parent_token', result.token);
         return result;
     },
@@ -140,13 +135,8 @@ export const parentApi = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        const result = await parseResponse(res);
-        if (!res.ok) {
-            const err: any = new Error(result.error || result.message || 'API Error');
-            Object.assign(err, result);
-            throw err;
-        }
-        if (result.token) localStorage.setItem('parent_token', result.token); // using the same token storage for all roles
+        const result = await handleApiResponse(res);
+        if (result.token) localStorage.setItem('parent_token', result.token);
         return result;
     },
 
@@ -156,12 +146,7 @@ export const parentApi = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        const result = await parseResponse(res);
-        if (!res.ok) {
-            const err: any = new Error(result.error || result.message || 'API Error');
-            Object.assign(err, result);
-            throw err;
-        }
+        const result = await handleApiResponse(res);
         if (result.token) localStorage.setItem('parent_token', result.token);
         return result;
     },
@@ -173,9 +158,7 @@ export const parentApi = {
             headers: getHeaders(),
             body: JSON.stringify(data)
         });
-        const result = await parseResponse(res);
-        if (!res.ok) throw result;
-        return result;
+        return await handleApiResponse(res);
     },
 
     // ── Recherche d'élèves ───────────────────────────────────────
@@ -184,9 +167,7 @@ export const parentApi = {
         const res = await fetch(`${API_URL}/students/search-linkable?${query}`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     searchLinkableStudents: async (params: { nom?: string, prenom?: string, classe?: string }) => {
@@ -194,18 +175,14 @@ export const parentApi = {
         const res = await fetch(`${API_URL}/students/search-linkable?${query}`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     countStudents: async () => {
         const res = await fetch(`${API_URL}/students/count`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     // ── Dashboard ──────────────────────────────────────────────
@@ -213,19 +190,16 @@ export const parentApi = {
         const res = await fetch(`${API_URL}/parent/dashboard`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
+
     linkStudent: async (studentId: string) => {
         const res = await fetch(`${API_URL}/students/link`, {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ studentId })
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     linkStudents: async (studentIds: string[]) => {
@@ -234,9 +208,7 @@ export const parentApi = {
             headers: getHeaders(),
             body: JSON.stringify({ studentIds })
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     unlinkStudent: async (studentId: string) => {
@@ -244,9 +216,7 @@ export const parentApi = {
             method: 'DELETE',
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     transferIdentity: async (studentId: string, target_student_global_id: string) => {
@@ -255,9 +225,7 @@ export const parentApi = {
             headers: getHeaders(),
             body: JSON.stringify({ studentId, target_student_global_id })
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     // ── Historique des paiements ───────────────────────────────
@@ -265,18 +233,14 @@ export const parentApi = {
         const res = await fetch(`${API_URL}/parent/payments/${studentId}`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     getPresences: async (studentId: string) => {
         const res = await fetch(`${API_URL}/parent/presences/${studentId}`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     // ── Badges ──────────────────────────────────────────────────
@@ -284,9 +248,7 @@ export const parentApi = {
         const res = await fetch(`${API_URL}/parent/badges`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     // ── Messages ────────────────────────────────────────────────
@@ -294,27 +256,21 @@ export const parentApi = {
         const res = await fetch(`${API_URL}/parent/messages`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     getActiveCount: async () => {
         const res = await fetch(`${API_URL}/parent/active-count`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     getParentList: async () => {
         const res = await fetch(`${API_URL}/parent/list`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     deleteAccount: async () => {
@@ -322,9 +278,7 @@ export const parentApi = {
             method: 'DELETE',
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     adminDeleteParent: async (parentId: string) => {
@@ -332,8 +286,7 @@ export const parentApi = {
             method: 'DELETE',
             headers: getHeaders()
         });
-        if (!res.ok) throw await res.json();
-        return await res.json();
+        return await handleApiResponse(res);
     },
 
     // ── Annonces (temps réel) ────────────────────────────────
@@ -341,9 +294,7 @@ export const parentApi = {
         const res = await fetch(`${API_URL}/announcements`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data; // { announcements: [...] }
+        return await handleApiResponse(res);
     },
 
     toggleDevoirComplete: async (devoirId: string, studentId: string, completed: boolean) => {
@@ -352,32 +303,28 @@ export const parentApi = {
             headers: getHeaders(),
             body: JSON.stringify({ studentId, completed })
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
-        return data;
+        return await handleApiResponse(res);
     },
 
     logout: () => {
         localStorage.removeItem('parent_token');
     },
+
     // ── Parent Pack Pricing & Payment ────────────────────────
     getParentPackPricing: async (schoolSlug: string, studentId: string) => {
         const res = await fetch(`${API_URL}/payment/parent-pack/pricing/${schoolSlug}/${studentId}`, {
             headers: getHeaders()
         });
-        const result = await parseResponse(res);
-        if (!res.ok) throw result;
-        return result; // { monthly: {...}, annual: {...} }
+        return await handleApiResponse(res);
     },
+
     initParentPackPayment: async (schoolSlug: string, studentId: string, planType: 'monthly' | 'annual') => {
         const res = await fetch(`${API_URL}/payment/parent-pack/init/${schoolSlug}/${studentId}`, {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ planType })
         });
-        const result = await parseResponse(res);
-        if (!res.ok) throw result;
-        return result; // { url: string }
+        return await handleApiResponse(res);
     },
 
     // ── Recherche publique d'établissements (P26-A.2) ────────
@@ -389,12 +336,7 @@ export const parentApi = {
             headers: { 'Content-Type': 'application/json' },
             signal
         });
-        const data = await parseResponse(res);
-        if (!res.ok) {
-            const err: any = new Error(data.error || 'Erreur lors de la recherche des établissements.');
-            Object.assign(err, data);
-            throw err;
-        }
+        const data = await handleApiResponse(res);
         return Array.isArray(data.results) ? data.results : [];
     },
 
@@ -403,8 +345,7 @@ export const parentApi = {
         const res = await fetch(`${API_URL}/parent/global-children`, {
             headers: getHeaders()
         });
-        const data = await parseResponse(res);
-        if (!res.ok) throw data;
+        const data = await handleApiResponse(res);
         return validateGlobalPortfolioResponse(data);
     }
 };

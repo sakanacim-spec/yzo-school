@@ -21,12 +21,12 @@ const StatusBadge: React.FC<{ status: Student['status'] }> = ({ status }) => {
   const map: Record<string, string> = {
     'Soldé': 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30',
     'Partiel': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30',
+    'Non payé': 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30',
     'Non soldé': 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30',
   };
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border ${map[status] ?? ''}`}>
       {status === 'Soldé' && <Check className="w-3 h-3 mr-1" />}
-      {status === 'Partiel' && <span className="mr-1">≥70%</span>}
       {status}
     </span>
   );
@@ -628,7 +628,13 @@ export const Eleves: React.FC = () => {
     }
     if (filterClasse) list = list.filter((s) => s.classe === filterClasse);
     if (filterCycle) list = list.filter((s) => s.cycle === filterCycle);
-    if (filterStatus) list = list.filter((s) => s.status === filterStatus);
+    if (filterStatus) {
+      if (filterStatus === 'Non payé' || filterStatus === 'Non soldé') {
+        list = list.filter((s) => s.status === 'Non payé' || s.status === 'Non soldé');
+      } else {
+        list = list.filter((s) => s.status === filterStatus);
+      }
+    }
 
     list.sort((a, b) => {
       const va = String(a[sortKey] ?? '').toLowerCase();
@@ -760,7 +766,7 @@ export const Eleves: React.FC = () => {
             </select>
             <select className="flex-1 min-w-[200px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-[13px] font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all cursor-pointer" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
               <option value="">{t(language as Language, 'students.allFinancialStatuses') || 'Tous les statuts financiers'}</option>
-              <option value="Soldé">{t(language as Language, 'students.statusSettled') || 'Soldé'}</option><option value="Partiel">{t(language as Language, 'students.statusPartial') || 'Partiel'}</option><option value="Non soldé">{t(language as Language, 'students.statusUnsettled') || 'Non soldé'}</option>
+              <option value="Soldé">{t(language as Language, 'students.statusSettled') || 'Soldé'}</option><option value="Partiel">{t(language as Language, 'students.statusPartial') || 'Partiel'}</option><option value="Non payé">{t(language as Language, 'students.statusUnpaid') || 'Non payé'}</option>
             </select>
             {(filterClasse || filterCycle || filterStatus) && (
               <button onClick={() => { setFilterClasse(''); setFilterCycle(''); setFilterStatus(''); }} className="flex items-center gap-2 px-6 py-4 text-[12px] font-black uppercase tracking-widest text-rose-500 hover:text-white hover:bg-rose-500 rounded-2xl transition-all border border-rose-200 dark:border-rose-500/30">

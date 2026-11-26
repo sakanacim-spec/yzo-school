@@ -6,7 +6,8 @@
 
 export type Cycle = string;
 
-export type PaymentStatus = 'Soldé' | 'Partiel' | 'Non soldé';
+export type CanonicalPaymentStatus = 'Non payé' | 'Partiel' | 'Soldé';
+export type PaymentStatus = 'Non payé' | 'Partiel' | 'Soldé' | 'Non soldé';
 
 export interface Student {
   id: string;
@@ -20,6 +21,7 @@ export interface Student {
   ecoleProvenance: string;
   ecolage: number;
   dejaPaye: number;
+  deja_paye?: number;
   restant: number;
   recu: string;
   adsn?: string;

@@ -45,8 +45,37 @@ async function getDashboard(req, res) {
             throw sErr;
         }
 
-        console.log('✅ [Dashboard] Élèves récupérés:', students?.length || 0);
-        return res.json({ students: students || [] });
+        const normalizedStudents = (students || []).map(s => {
+            const rawEcolage = s.ecolage !== null && s.ecolage !== undefined && !isNaN(Number(s.ecolage)) ? Number(s.ecolage) : 0;
+            const rawDejaPaye = s.deja_paye !== null && s.deja_paye !== undefined && !isNaN(Number(s.deja_paye)) ? Number(s.deja_paye) : 0;
+            const rawRestant = Math.max(0, rawEcolage - rawDejaPaye);
+            let computedStatus = 'Non payé';
+            if (rawEcolage > 0) {
+                if (rawDejaPaye >= rawEcolage) computedStatus = 'Soldé';
+                else if (rawDejaPaye > 0) computedStatus = 'Partiel';
+                else computedStatus = 'Non payé';
+            } else if (rawEcolage === 0) {
+                computedStatus = 'Soldé';
+            }
+            return {
+                ...s,
+                ecolage: rawEcolage,
+                deja_paye: rawDejaPaye,
+                dejaPaye: rawDejaPaye,
+                restant: rawRestant,
+                status: computedStatus,
+                statut: computedStatus,
+                telephone: s.telephone_parent || s.telephone || '',
+                sexe: s.sexe || s.genre || 'M',
+                redoublant: s.redoublant || false,
+                ecoleProvenance: s.ecole_provenance || '',
+                dateNaissance: s.date_naissance || null,
+                photoUrl: s.photo_url || null
+            };
+        });
+
+        console.log('✅ [Dashboard] Élèves récupérés et normalisés:', normalizedStudents.length);
+        return res.json({ students: normalizedStudents });
     } catch (err) {
         console.error('💥 [Dashboard] Erreur générale:', err);
         return res.status(500).json({ error: err.message });
@@ -92,9 +121,36 @@ async function getPayments(req, res) {
             .eq('student_id', studentId)
             .order('date', { ascending: false });
 
-        if (pErr) throw pErr;
+        if (pErr) {
+            console.error('[getPayments] Error fetching payments:', pErr);
+            if (pErr.code === '42P01') {
+                return res.status(500).json({ error: 'Erreur de configuration : la table des paiements de cet établissement est indisponible.' });
+            }
+            throw pErr;
+        }
 
-        return res.json({ student, payments });
+        const rawEcolage = student.ecolage !== null && student.ecolage !== undefined && !isNaN(Number(student.ecolage)) ? Number(student.ecolage) : 0;
+        const rawDejaPaye = student.deja_paye !== null && student.deja_paye !== undefined && !isNaN(Number(student.deja_paye)) ? Number(student.deja_paye) : 0;
+        const rawRestant = Math.max(0, rawEcolage - rawDejaPaye);
+        let computedStatus = 'Non payé';
+        if (rawEcolage > 0) {
+            if (rawDejaPaye >= rawEcolage) computedStatus = 'Soldé';
+            else if (rawDejaPaye > 0) computedStatus = 'Partiel';
+            else computedStatus = 'Non payé';
+        } else if (rawEcolage === 0) {
+            computedStatus = 'Soldé';
+        }
+        const normalizedStudent = {
+            ...student,
+            ecolage: rawEcolage,
+            deja_paye: rawDejaPaye,
+            dejaPaye: rawDejaPaye,
+            restant: rawRestant,
+            status: computedStatus,
+            statut: computedStatus
+        };
+
+        return res.json({ student: normalizedStudent, payments: payments || [] });
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
@@ -327,9 +383,13 @@ async function getPresences(req, res) {
             .order('date', { ascending: false })
             .order('heure', { ascending: false });
 
-        if (pErr) throw pErr;
-
-        return res.json({ presences: presences || [] });
+        if (pErr) {
+            console.error('[getPresences] Error fetching presences:', pErr);
+            if (pErr.code === '42P01') {
+                return res.status(500).json({ error: 'Erreur de configuration : la table des présences de cet établissement est indisponible.' });
+            }
+            throw pErr;
+        }
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
