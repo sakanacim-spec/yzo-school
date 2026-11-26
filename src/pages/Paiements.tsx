@@ -9,14 +9,11 @@ import { getCycle } from '../data/classConfig';
 import { formatMontant } from '../utils/helpers';
 import { generatePaymentReceipt } from '../utils/pdfUtils';
 import { notificationService } from '../services/notificationService';
+import { computeStatusFromRestant } from '../utils/paymentStatus';
 import { t, Language } from '../i18n';
 
-const computeStatus = (restant: number, ecolage: number): 'Soldé' | 'Partiel' | 'Non soldé' => {
-  if (restant <= 0) return 'Soldé';
-  const paye = ecolage - restant;
-  const taux = ecolage > 0 ? paye / ecolage : 0;
-  if (taux >= 0.7) return 'Partiel';
-  return 'Non soldé';
+const computeStatus = (restant: number, ecolage: number) => {
+  return computeStatusFromRestant(restant, ecolage);
 };
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -189,7 +186,7 @@ const StudentPaymentRow: React.FC<{ student: Student; onPay: (s: Student) => voi
             <span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-widest ${
               student.status === 'Soldé' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
               student.status === 'Partiel' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400'
-            }`}>{student.status === 'Soldé' ? (t(language as Language, 'payments.statusSettled') || 'Soldé') : student.status === 'Partiel' ? (t(language as Language, 'payments.statusPartial') || 'Partiel') : (t(language as Language, 'payments.statusUnsettled') || 'Non soldé')}</span>
+            }`}>{student.status === 'Soldé' ? (t(language as Language, 'payments.statusSettled') || 'Soldé') : student.status === 'Partiel' ? (t(language as Language, 'payments.statusPartial') || 'Partiel') : (t(language as Language, 'payments.statusUnpaid') || 'Non payé')}</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden max-w-[200px]">
@@ -302,7 +299,13 @@ export const Paiements: React.FC = () => {
       list = list.filter((s) => `${s.nom} ${s.prenom} ${s.classe}`.toLowerCase().includes(q));
     }
     if (filterClasse) list = list.filter((s) => s.classe === filterClasse);
-    if (filterStatus) list = list.filter((s) => s.status === filterStatus);
+    if (filterStatus) {
+      if (filterStatus === 'Non payé' || filterStatus === 'Non soldé') {
+        list = list.filter((s) => s.status === 'Non payé' || s.status === 'Non soldé');
+      } else {
+        list = list.filter((s) => s.status === filterStatus);
+      }
+    }
     return list.sort((a, b) => a.nom.localeCompare(b.nom));
   }, [students, search, filterClasse, filterStatus]);
 
@@ -417,7 +420,7 @@ export const Paiements: React.FC = () => {
           onChange={(e) => setFilterStatus(e.target.value)}
         >
           <option value="">{t(language as Language, 'payments.allStatuses') || 'Tous les statuts'}</option>
-          <option value="Soldé">{t(language as Language, 'payments.statusSettled') || 'Soldé'}</option><option value="Partiel">{t(language as Language, 'payments.statusPartial') || 'Partiel'}</option><option value="Non soldé">{t(language as Language, 'payments.statusUnsettled') || 'Non soldé'}</option>
+          <option value="Soldé">{t(language as Language, 'payments.statusSettled') || 'Soldé'}</option><option value="Partiel">{t(language as Language, 'payments.statusPartial') || 'Partiel'}</option><option value="Non payé">{t(language as Language, 'payments.statusUnpaid') || 'Non payé'}</option>
         </select>
         {(search || filterClasse || filterStatus) && (
           <button 

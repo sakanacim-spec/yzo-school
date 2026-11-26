@@ -1325,7 +1325,7 @@ export const fr = {
     "alreadyPaid": "Déjà Payé",
     "ofTotal": "du total",
     "seeGrades": "Voir les notes",
-    "noLinkedChild": "Aucun enfant lié",
+    "noLinkedChild": "Aucun enfant rattaché",
     "noLinkedChildDesc": "Liez vos enfants pour voir leur suivi scolaire, financier et d'assiduité.",
     "childTracking": "Suivi par enfant"
   },

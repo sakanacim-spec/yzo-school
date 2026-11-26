@@ -9,6 +9,7 @@ import { getEcolage, getCycle, getDefaultClasses, CLASS_CONFIG_FR } from '../dat
 import { v4 as uuid } from '../utils/uuid';
 import { createActivityLog } from '../utils/activityLogger';
 import { Language, getStoredLanguage } from '../i18n';
+import { computeStatusFromRestant } from '../utils/paymentStatus';
 
 export interface AppState {
   // Identité de l'app
@@ -239,12 +240,10 @@ export interface AppState {
 
 // Authentification gérée par Supabase
 
+// Règle financière officielle YZIOW :
+// 0 payé => 'Non payé', 0 < payé < écolage => 'Partiel', payé >= écolage => 'Soldé', écolage == 0 => 'Soldé'
 const computeStatus = (restant: number, ecolage: number) => {
-  if (restant <= 0) return 'Soldé' as const;
-  const paye = ecolage - restant;
-  const taux = paye / ecolage;
-  if (taux >= 0.7) return 'Partiel' as const;
-  return 'Non soldé' as const;
+  return computeStatusFromRestant(restant, ecolage);
 };
 
 // Déduplication des élèves (Autorité sur l'ID, puis sur le couple Nom+Prénom+Classe)
@@ -308,17 +307,35 @@ const deduplicateStudents = (list: Student[]): { list: Student[]; countRemoved: 
 };
 
 // Réparation des données (cycle, écolage, restant, status)
+// RÈGLE MÉTIER LOT B : Préserver l'écolage réel enregistré en base s'il est valide (numérique >= 0).
+// Ne jamais écraser un tarif personnalisé (ex: 80 000 FCFA pour CM2) avec la grille statique (55 000 FCFA).
+// Une valeur 0 est légitime (exonération complète) et doit être préservée.
 const repairStudent = (s: Student): Student => {
-  const correctCycle = getCycle(s.classe);
-  const correctEcolage = getEcolage(s.classe);
-  const correctRestant = Math.max(0, correctEcolage - s.dejaPaye);
+  const correctCycle = s.cycle || getCycle(s.classe);
+
+  const isValidEcolage = typeof s.ecolage === 'number' && !isNaN(s.ecolage) && s.ecolage >= 0;
+  const correctEcolage = isValidEcolage ? s.ecolage : getEcolage(s.classe);
+
+  const rawDejaPaye = typeof s.dejaPaye === 'number' && !isNaN(s.dejaPaye)
+    ? s.dejaPaye
+    : (typeof (s as any).deja_paye === 'number' && !isNaN((s as any).deja_paye) ? (s as any).deja_paye : 0);
+  const correctDejaPaye = Math.max(0, rawDejaPaye);
+
+  const correctRestant = Math.max(0, correctEcolage - correctDejaPaye);
   const correctStatus = computeStatus(correctRestant, correctEcolage);
 
-  if (s.cycle !== correctCycle || s.ecolage !== correctEcolage || s.restant !== correctRestant || s.status !== correctStatus) {
+  if (
+    s.cycle !== correctCycle ||
+    s.ecolage !== correctEcolage ||
+    s.dejaPaye !== correctDejaPaye ||
+    s.restant !== correctRestant ||
+    s.status !== correctStatus
+  ) {
     return {
       ...s,
       cycle: correctCycle,
       ecolage: correctEcolage,
+      dejaPaye: correctDejaPaye,
       restant: correctRestant,
       status: correctStatus,
       updatedAt: new Date().toISOString()
